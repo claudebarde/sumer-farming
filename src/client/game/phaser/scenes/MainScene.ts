@@ -6,6 +6,7 @@ import { TILE_SIZE } from "../config";
 import { calculateGameplayTilePosition, translateTilePosition } from "../grid";
 import type { GridSize, Tile, TilePosition } from "../types";
 import { handlePointerUp } from "../game";
+import { gridStore, type GridEntry } from "../stores/gridStore";
 
 const FARM_SPRITES_TEXTURE_KEY = "farm-sprites";
 const INITIAL_FARM_SIZE = 8;
@@ -31,6 +32,12 @@ const FARM_DECORATION_SPRITES = [
 ] as const;
 
 type LocalTilePosition = Pick<TilePosition, "column" | "row">;
+
+const createTile = (position: TilePosition, type: Tile["type"]): Tile => ({
+  id: `${position.column}:${position.row}`,
+  position,
+  type
+});
 
 const isInsideFarm = (
   position: LocalTilePosition,
@@ -76,9 +83,7 @@ const addRandomGroundDecorations = (
     0,
     decorationCount
   );
-  const firstSprites = Phaser.Utils.Array.Shuffle([
-    ...FARM_DECORATION_SPRITES
-  ]);
+  const firstSprites = Phaser.Utils.Array.Shuffle([...FARM_DECORATION_SPRITES]);
 
   selectedTiles.forEach(({ column, row }, index) => {
     const sprite =
@@ -130,12 +135,14 @@ export class MainScene extends Phaser.Scene {
     }
 
     const groundTiles = this.add.group();
+    let groundTileData: readonly Tile[] = [];
 
     const renderGround = (): void => {
       groundTiles.clear(true, true);
 
       const columns = Math.ceil(this.scale.width / TILE_SIZE);
       const rows = Math.ceil(this.scale.height / TILE_SIZE);
+      const nextGroundTileData: Tile[] = [];
 
       for (let row = 0; row < rows; row++) {
         for (let column = 0; column < columns; column++) {
@@ -151,33 +158,40 @@ export class MainScene extends Phaser.Scene {
             .setDepth(GROUND_DEPTH)
             .setInteractive();
           // sets interaction with ground tiles
-          const tile: Tile = {
-            id: `${column}:${row}`,
-            position: {
+          const tile = createTile(
+            {
               column: column,
               row: row,
               posX: column * TILE_SIZE,
               posY: row * TILE_SIZE
             },
-            type: "ground"
-          };
+            "ground"
+          );
           ground.on(Phaser.Input.Events.POINTER_UP, () => {
             handlePointerUp(tile, selectionHighlight);
           });
 
+          nextGroundTileData.push(tile);
           groundTiles.add(ground);
         }
       }
+
+      groundTileData = nextGroundTileData;
     };
 
     renderGround();
 
     // LAYS THE INITIAL 8X8 GROUND VARIANT TILES
     const farmTiles = this.add.container(0, 0).setDepth(FARM_DEPTH);
-    let farmPosition: TilePosition = { column: 0, row: 0, posX: 0, posY: 0 };
+    let farmPosition = calculateGameplayTilePosition(
+      Math.ceil(this.scale.width / TILE_SIZE),
+      INITIAL_FARM_SIZE
+    );
+    const farmTilePositions: LocalTilePosition[] = [];
 
     for (let row = 0; row < INITIAL_FARM_SIZE; row++) {
       for (let column = 0; column < INITIAL_FARM_SIZE; column++) {
+        const localPosition = { column, row } as const;
         const farmTile = this.add
           .image(
             column * TILE_SIZE,
@@ -188,20 +202,15 @@ export class MainScene extends Phaser.Scene {
           .setOrigin(0)
           .setDisplaySize(TILE_SIZE, TILE_SIZE)
           .setInteractive();
+
         // set interaction with farm tiles
         farmTile.on(Phaser.Input.Events.POINTER_UP, () => {
-          const position = translateTilePosition(farmPosition, {
-            column,
-            row
-          });
-          const farmTileData: Tile = {
-            id: `${position.column}:${position.row}`,
-            position,
-            type: "groundVariant"
-          };
+          const position = translateTilePosition(farmPosition, localPosition);
+          const farmTileData = createTile(position, "groundVariant");
           handlePointerUp(farmTileData, selectionHighlight);
         });
 
+        farmTilePositions.push(localPosition);
         farmTiles.add(farmTile);
       }
     }
@@ -232,18 +241,16 @@ export class MainScene extends Phaser.Scene {
       )
       .setInteractive();
 
-    farmBuilding.on(Phaser.Input.Events.POINTER_UP, () => {
-      const position = translateTilePosition(
-        farmPosition,
-        farmBuildingPosition
+    const getFarmBuildingTile = (): Tile =>
+      createTile(
+        translateTilePosition(farmPosition, farmBuildingPosition),
+        "farm"
       );
-      const farmBuildingTile: Tile = {
-        id: `${position.column}:${position.row}`,
-        position,
-        type: "farm"
-      };
-      handlePointerUp(farmBuildingTile, selectionHighlight);
+
+    farmBuilding.on(Phaser.Input.Events.POINTER_UP, () => {
+      handlePointerUp(getFarmBuildingTile(), selectionHighlight);
     });
+
     farmTiles.add(farmBuilding);
 
     const positionFarm = (): void => {
@@ -276,28 +283,26 @@ export class MainScene extends Phaser.Scene {
         row
       })
     );
+    const getHarvestedBarleyTile = (
+      localPosition: LocalTilePosition
+    ): Tile =>
+      createTile(
+        translateTilePosition(farmPosition, localPosition),
+        "harvestedBarley"
+      );
     const harvestedBarleyTiles = harvestedBarleyPositions.map(localPosition => {
       const harvestedBarley = this.add
-        .image(
-          0,
-          0,
-          FARM_SPRITES_TEXTURE_KEY,
-          spriteName("harvestedBarley")
-        )
+        .image(0, 0, FARM_SPRITES_TEXTURE_KEY, spriteName("harvestedBarley"))
         .setOrigin(0)
         .setDisplaySize(TILE_SIZE, TILE_SIZE)
         .setDepth(CROP_DEPTH)
         .setInteractive();
 
       harvestedBarley.on(Phaser.Input.Events.POINTER_UP, () => {
-        const position = translateTilePosition(farmPosition, localPosition);
-        const harvestedBarleyTile: Tile = {
-          id: `${position.column}:${position.row}`,
-          position,
-          type: "harvestedBarley"
-        };
-
-        handlePointerUp(harvestedBarleyTile, selectionHighlight);
+        handlePointerUp(
+          getHarvestedBarleyTile(localPosition),
+          selectionHighlight
+        );
       });
 
       return harvestedBarley;
@@ -308,10 +313,9 @@ export class MainScene extends Phaser.Scene {
         const position = harvestedBarleyPositions[index];
 
         if (position !== undefined) {
-          tile.setPosition(
-            farmTiles.x + position.column * TILE_SIZE,
-            farmTiles.y + position.row * TILE_SIZE
-          );
+          const posX = farmTiles.x + position.column * TILE_SIZE;
+          const posY = farmTiles.y + position.row * TILE_SIZE;
+          tile.setPosition(posX, posY);
         }
       });
     };
@@ -319,16 +323,18 @@ export class MainScene extends Phaser.Scene {
     positionHarvestedBarley();
 
     // DRAWS A RIVER ON THE 11TH ROW
-    const riverRow = 10; // 11th row (0-indexed)
+    const riverRow: number = 10; // 11th row (0-indexed)
     const riverTiles = this.add.group();
+    let waterTileData: readonly Tile[] = [];
 
     const renderRiver = (): void => {
       riverTiles.clear(true, true);
 
       const columns = Math.ceil(this.scale.width / TILE_SIZE);
+      const nextWaterTileData: Tile[] = [];
 
       for (let column = 0; column < columns; column++) {
-        const riverTile = this.add
+        const waterImage = this.add
           .image(
             column * TILE_SIZE,
             riverRow * TILE_SIZE,
@@ -339,25 +345,26 @@ export class MainScene extends Phaser.Scene {
           .setDisplaySize(TILE_SIZE, TILE_SIZE)
           .setDepth(RIVER_DEPTH)
           .setInteractive();
+
+        const waterTile = createTile(
+          {
+            column: column,
+            row: riverRow,
+            posX: column * TILE_SIZE,
+            posY: riverRow * TILE_SIZE
+          },
+          "water"
+        );
         // sets interaction for the river tile
-        riverTile.on(Phaser.Input.Events.POINTER_UP, () => {
-          handlePointerUp(
-            {
-              id: `${column}:${riverRow}`,
-              position: {
-                column: column,
-                row: riverRow,
-                posX: column * TILE_SIZE,
-                posY: riverRow * TILE_SIZE
-              },
-              type: "water"
-            },
-            selectionHighlight
-          );
+        waterImage.on(Phaser.Input.Events.POINTER_UP, () => {
+          handlePointerUp(waterTile, selectionHighlight);
         });
 
-        riverTiles.add(riverTile);
+        nextWaterTileData.push(waterTile);
+        riverTiles.add(waterImage);
       }
+
+      waterTileData = nextWaterTileData;
     };
 
     renderRiver();
@@ -389,17 +396,14 @@ export class MainScene extends Phaser.Scene {
       .setOrigin(0)
       .setDisplaySize(TILE_SIZE, TILE_SIZE)
       .setInteractive();
-    farmer.on(Phaser.Input.Events.POINTER_UP, () => {
-      const position = translateTilePosition(
-        farmPosition,
-        initialFarmerPosition
+    const getFarmerTile = (): Tile =>
+      createTile(
+        translateTilePosition(farmPosition, initialFarmerPosition),
+        "farmerIdle0"
       );
-      const farmerTile: Tile = {
-        id: `${position.column}:${position.row}`,
-        position,
-        type: "farmerIdle0"
-      };
-      handlePointerUp(farmerTile, selectionHighlight);
+
+    farmer.on(Phaser.Input.Events.POINTER_UP, () => {
+      handlePointerUp(getFarmerTile(), selectionHighlight);
     });
 
     actorLayer.add(farmer);
@@ -413,6 +417,60 @@ export class MainScene extends Phaser.Scene {
 
     positionFarmer();
 
+    const rebuildGrid = (): void => {
+      const entries: GridEntry[] = groundTileData.map(tile => ({
+        tile,
+        coordinate: tile.position
+      }));
+
+      for (const localPosition of farmTilePositions) {
+        const farmTile = createTile(
+          translateTilePosition(farmPosition, localPosition),
+          "groundVariant"
+        );
+        entries.push({ tile: farmTile, coordinate: farmTile.position });
+      }
+
+      const farmBuildingTile = getFarmBuildingTile();
+      for (let rowOffset = 0; rowOffset < FARM_BUILDING_SIZE.rows; rowOffset++) {
+        for (
+          let columnOffset = 0;
+          columnOffset < FARM_BUILDING_SIZE.columns;
+          columnOffset++
+        ) {
+          entries.push({
+            tile: farmBuildingTile,
+            coordinate: {
+              row: farmBuildingTile.position.row + rowOffset,
+              column: farmBuildingTile.position.column + columnOffset
+            }
+          });
+        }
+      }
+
+      for (const localPosition of harvestedBarleyPositions) {
+        const harvestedBarleyTile = getHarvestedBarleyTile(localPosition);
+        entries.push({
+          tile: harvestedBarleyTile,
+          coordinate: harvestedBarleyTile.position
+        });
+      }
+
+      entries.push(
+        ...waterTileData.map(tile => ({
+          tile,
+          coordinate: tile.position
+        }))
+      );
+
+      const farmerTile = getFarmerTile();
+      entries.push({ tile: farmerTile, coordinate: farmerTile.position });
+
+      gridStore.getState().replaceGrid(entries);
+    };
+
+    rebuildGrid();
+
     const handleResize = (): void => {
       renderGround();
       positionFarm();
@@ -420,11 +478,13 @@ export class MainScene extends Phaser.Scene {
       renderRiver();
       renderGroundDecorations();
       positionFarmer();
+      rebuildGrid();
     };
 
     this.scale.on(Phaser.Scale.Events.RESIZE, handleResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
+      gridStore.getState().replaceGrid([]);
     });
   }
 }

@@ -1,4 +1,12 @@
+@use "./variables" as *;
 @import url("https://fonts.googleapis.com/css2?family=Bree+Serif&display=swap");
+
+@font-face {
+  font-family: "CuneiformComposite";
+  src: url("../../assets//CuneiformComposite.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+}
 
 html,
 body {
@@ -8,6 +16,7 @@ body {
   margin: 0px;
   font-family: "Bree Serif", Georgia, serif;
   font-size: 18px;
+  color: $color-ink;
 }
 
 #root {
@@ -21,4 +30,36 @@ body {
 h1 {
   margin: 0;
   font-size: 1.2rem;
+}
+
+.cuneiforms {
+  font-family: "CuneiformComposite", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  margin: 0px 2px;
+  letter-spacing: 0.1rem;
+
+  &.small {
+    font-size: 1rem;
+  }
+
+  &.x-small {
+    font-size: 0.6rem;
+  }
+}
+
+button {
+  background-color: $color-sand;
+  border: $container-border;
+  border-radius: $container-border-radius;
+  padding: $container-padding;
+  cursor: pointer;
+  font-family: "Bree Serif", Georgia, serif;
+  font-size: 0.9rem;
+  color: $color-ink;
+  transition: background-color 0.3s;
+
+  &:hover {
+    background-color: lighten($color-sand, 10%);
+  }
 }

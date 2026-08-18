@@ -19,6 +19,6 @@ export const translateTilePosition = (
 ): TilePosition => ({
   column: origin.column + localPosition.column,
   row: origin.row + localPosition.row,
-  posX: origin.posX + (localPosition.column ?? 0),
-  posY: origin.posY + (localPosition.row ?? 0)
+  posX: origin.posX + localPosition.column * TILE_SIZE,
+  posY: origin.posY + localPosition.row * TILE_SIZE
 });

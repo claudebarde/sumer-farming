@@ -3,6 +3,7 @@ import { match } from "ts-pattern";
 import { createGameConfig, GAME_CONTAINER_ID, TILE_SIZE } from "./config";
 import type { Tile } from "./types";
 import { interactionStore } from "./stores/interactionStore";
+import { gridStore } from "./stores/gridStore";
 
 export const createGame = (
   scene: Phaser.Types.Scenes.SceneType,
@@ -27,6 +28,14 @@ export const handlePointerUp = (
         )
         .setSize(TILE_SIZE, TILE_SIZE)
         .setVisible(visibility);
+
+      // checks if there is a water tile adjacent to the clicked ground tile
+      const adjacentPositions = gridStore
+        .getState()
+        .findAdjacentTiles(tile.position);
+      console.log(
+        `Adjacent positions to the clicked ground tile: ${JSON.stringify(adjacentPositions)}`
+      );
     })
     .with("groundVariant", () => {
       console.log(`Farm tile clicked: ${JSON.stringify(tile)}`);

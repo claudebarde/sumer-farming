@@ -28,3 +28,23 @@
     fill: $color-parchment-light;
   }
 }
+
+.tile-popover-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.tile-popover-content-header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.tile-popover-content-body {
+  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}

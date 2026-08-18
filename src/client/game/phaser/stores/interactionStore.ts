@@ -1,4 +1,3 @@
-// game/bridge/tileSelectionStore.ts
 import { createStore } from "zustand/vanilla";
 import type { Tile } from "../types";
 

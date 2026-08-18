@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Popover } from "radix-ui";
+import { match } from "ts-pattern";
 import styles from "../styles/GameCanvas.module.scss";
 import { GAME_CONTAINER_ID, TILE_SIZE } from "../game/phaser/config";
 import { createGame } from "../game/phaser/game";
@@ -47,6 +48,81 @@ export default function GameCanvas() {
       : selectedTile.position.row * TILE_SIZE +
         (showPopoverBelow ? selectedTileSize : 0);
 
+  const displayPopoverContent = (tile: typeof selectedTile) => {
+    if (!tile) return <span>No tile selected</span>;
+
+    return match(tile.type)
+      .with("ground", () => (
+        <div className={styles["tile-popover-content"]}>
+          <div className={styles["tile-popover-content-header"]}>
+            <span className="cuneiforms">𒅖</span>
+            <span>Ground</span>
+          </div>
+          <div className={styles["tile-popover-content-body"]}>
+            Dry, sterile soil
+          </div>
+        </div>
+      ))
+      .with("groundVariant", () => (
+        <div className={styles["tile-popover-content"]}>
+          <div className={styles["tile-popover-content-header"]}>
+            <span className="cuneiforms">𒄒</span>
+            <span>Arable ground</span>
+          </div>
+          <div className={styles["tile-popover-content-body"]}>
+            Fertile soil suitable for farming
+          </div>
+        </div>
+      ))
+      .with("harvestedBarley", () => (
+        <div className={styles["tile-popover-content"]}>
+          <div className={styles["tile-popover-content-header"]}>
+            <span className="cuneiforms">𒊺</span>
+            <span>Barley</span>
+          </div>
+          <div className={styles["tile-popover-content-body"]}>
+            What would you like to do?
+            <button>Replant</button>
+            <button>Sell</button>
+          </div>
+        </div>
+      ))
+      .with("farm", () => (
+        <div className={styles["tile-popover-content"]}>
+          <div className={styles["tile-popover-content-header"]}>
+            <span className="cuneiforms">𒂍</span>
+            <span>Farm</span>
+          </div>
+          <div className={styles["tile-popover-content-body"]}>
+            A building used for agricultural activities
+          </div>
+        </div>
+      ))
+      .with("water", () => (
+        <div className={styles["tile-popover-content"]}>
+          <div className={styles["tile-popover-content-header"]}>
+            <span className="cuneiforms">𒀀</span>
+            <span>Water</span>
+          </div>
+          <div className={styles["tile-popover-content-body"]}>
+            A body of water
+          </div>
+        </div>
+      ))
+      .with("farmerIdle0", () => (
+        <div className={styles["tile-popover-content"]}>
+          <div className={styles["tile-popover-content-header"]}>
+            <span className="cuneiforms">𒀳</span>
+            <span>Farmer</span>
+          </div>
+          <div className={styles["tile-popover-content-body"]}>
+            A farmer tending to the fields
+          </div>
+        </div>
+      ))
+      .otherwise(() => <span>Unknown tile</span>);
+  };
+
   useEffect(() => {
     const game = createGame(MainScene);
 
@@ -93,7 +169,7 @@ export default function GameCanvas() {
               event.preventDefault();
             }}
           >
-            <span>{selectedTile?.type ?? "No tile selected"}</span>
+            {displayPopoverContent(selectedTile)}
 
             <Popover.Arrow className={styles["tile-popover-arrow"]} />
           </Popover.Content>
