@@ -1,0 +1,24 @@
+@import url("https://fonts.googleapis.com/css2?family=Bree+Serif&display=swap");
+
+html,
+body {
+  width: 100dvw;
+  height: 100dvh;
+  padding: 0px;
+  margin: 0px;
+  font-family: "Bree Serif", Georgia, serif;
+  font-size: 18px;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: 7% 93%;
+  font-family: "Bree Serif", Georgia, serif;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.2rem;
+}
