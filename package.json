@@ -13,6 +13,7 @@
   "dependencies": {
     "effect": "^3.22.1",
     "hono": "^4.13.2",
+    "nes.css": "^2.2.1",
     "phaser": "^4.2.1",
     "radix-ui": "^1.6.7",
     "react": "^19.2.8",

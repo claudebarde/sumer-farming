@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { match } from "ts-pattern";
 import { colors } from "../../../styles/colorPalette";
 import { FARM_SPRITES, spriteName } from "../../../../assets/farmSprites";
 import farmSpritesUrl from "../../../../assets/sprites.png";
@@ -6,7 +7,15 @@ import { TILE_SIZE } from "../config";
 import { calculateGameplayTilePosition, translateTilePosition } from "../grid";
 import type { GridSize, Tile, TilePosition } from "../types";
 import { handlePointerUp } from "../game";
-import { gridStore, type GridEntry } from "../stores/gridStore";
+import {
+  gridStore,
+  type GridCoordinate,
+  type GridEntry
+} from "../stores/gridStore";
+import {
+  farmerCommandStore,
+  type FarmerCommand
+} from "../stores/farmerCommandStore";
 
 const FARM_SPRITES_TEXTURE_KEY = "farm-sprites";
 const INITIAL_FARM_SIZE = 8;
@@ -20,6 +29,8 @@ const FARM_DEPTH = 2;
 const DECORATION_DEPTH = 2;
 const CROP_DEPTH = 3;
 const ACTOR_DEPTH = 4;
+const FARMER_MOVE_DURATION_PER_TILE = 180;
+const BOTTOM_DIALOG_DURATION = 2_000;
 const gameplayWidth = INITIAL_FARM_SIZE * TILE_SIZE;
 const gameplayHeight = INITIAL_FARM_SIZE * TILE_SIZE;
 const FARM_DECORATION_COUNT = {
@@ -32,12 +43,185 @@ const FARM_DECORATION_SPRITES = [
 ] as const;
 
 type LocalTilePosition = Pick<TilePosition, "column" | "row">;
+type PixelPosition = {
+  readonly x: number;
+  readonly y: number;
+};
+type CardinalDirection = "up" | "down" | "left" | "right";
+type InspectCommand = Extract<FarmerCommand, { readonly type: "inspect" }>;
+type MovementCommand = Extract<
+  FarmerCommand,
+  { readonly type: "inspect" | "build" | "pickup" }
+>;
+type FarmerMovementOutcome =
+  | { readonly type: "arrived" }
+  | { readonly type: "blocked"; readonly reason: string };
+const CARDINAL_STEPS: readonly GridCoordinate[] = [
+  { column: 1, row: 0 },
+  { column: -1, row: 0 },
+  { column: 0, row: 1 },
+  { column: 0, row: -1 }
+];
 
 const createTile = (position: TilePosition, type: Tile["type"]): Tile => ({
   id: `${position.column}:${position.row}`,
   position,
   type
 });
+
+const toCoordinateKey = ({ column, row }: GridCoordinate): string =>
+  `${column}:${row}`;
+
+const toTilePosition = ({ column, row }: GridCoordinate): TilePosition => ({
+  column,
+  row,
+  posX: column * TILE_SIZE,
+  posY: row * TILE_SIZE
+});
+
+const constrainTargetToRiverBank = (
+  start: TilePosition,
+  target: TilePosition,
+  riverRow: number
+):
+  | { readonly type: "reachable"; readonly position: TilePosition }
+  | { readonly type: "blocked"; readonly position: TilePosition } => {
+  const crossesRiverDownward = start.row < riverRow && target.row > riverRow;
+  const crossesRiverUpward = start.row > riverRow && target.row < riverRow;
+
+  if (!crossesRiverDownward && !crossesRiverUpward) {
+    return { type: "reachable", position: target };
+  }
+
+  const bankRow = crossesRiverDownward ? riverRow - 1 : riverRow + 1;
+
+  return {
+    type: "blocked",
+    position: toTilePosition({ column: target.column, row: bankRow })
+  };
+};
+
+const getCardinalDirection = (
+  currentPosition: GridCoordinate,
+  targetPosition: GridCoordinate
+): CardinalDirection | null => {
+  const rowDifference = targetPosition.row - currentPosition.row;
+
+  if (rowDifference !== 0) {
+    return rowDifference > 0 ? "down" : "up";
+  }
+
+  const columnDifference = targetPosition.column - currentPosition.column;
+
+  if (columnDifference !== 0) {
+    return columnDifference > 0 ? "right" : "left";
+  }
+
+  return null;
+};
+
+const findCardinalPath = (
+  start: GridCoordinate,
+  target: GridCoordinate,
+  gridSize: GridSize,
+  blockedCoordinates: ReadonlySet<string>
+): readonly GridCoordinate[] | null => {
+  const startKey = toCoordinateKey(start);
+  const targetKey = toCoordinateKey(target);
+
+  if (blockedCoordinates.has(targetKey)) {
+    return null;
+  }
+
+  const queue: GridCoordinate[] = [start];
+  const previousByCoordinate = new Map<string, GridCoordinate | null>([
+    [startKey, null]
+  ]);
+
+  for (let queueIndex = 0; queueIndex < queue.length; queueIndex++) {
+    const current = queue[queueIndex];
+
+    if (current === undefined) {
+      continue;
+    }
+
+    if (toCoordinateKey(current) === targetKey) {
+      const reversedPath: GridCoordinate[] = [];
+      let cursor: GridCoordinate | null = current;
+
+      while (cursor !== null) {
+        reversedPath.push(cursor);
+        cursor = previousByCoordinate.get(toCoordinateKey(cursor)) ?? null;
+      }
+
+      return reversedPath.reverse();
+    }
+
+    for (const step of CARDINAL_STEPS) {
+      const neighbor = {
+        column: current.column + step.column,
+        row: current.row + step.row
+      };
+      const neighborKey = toCoordinateKey(neighbor);
+      const isInsideGrid =
+        neighbor.column >= 0 &&
+        neighbor.column < gridSize.columns &&
+        neighbor.row >= 0 &&
+        neighbor.row < gridSize.rows;
+
+      if (
+        isInsideGrid &&
+        !blockedCoordinates.has(neighborKey) &&
+        !previousByCoordinate.has(neighborKey)
+      ) {
+        previousByCoordinate.set(neighborKey, current);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return null;
+};
+
+const getFarmerDestination = (
+  targetPosition: TilePosition,
+  direction: CardinalDirection
+): PixelPosition => {
+  const tileX = targetPosition.column * TILE_SIZE;
+  const tileY = targetPosition.row * TILE_SIZE;
+  const halfTile = TILE_SIZE / 2;
+
+  return match(direction)
+    .with("up", () => ({ x: tileX, y: tileY + halfTile }))
+    .with("down", () => ({ x: tileX, y: tileY - halfTile }))
+    .with("left", () => ({ x: tileX + halfTile, y: tileY }))
+    .with("right", () => ({ x: tileX - halfTile, y: tileY }))
+    .exhaustive();
+};
+
+type FarmerWaypoint = PixelPosition & {
+  readonly gridPosition?: GridCoordinate;
+};
+
+const createMovementWaypoints = (
+  start: PixelPosition,
+  path: readonly GridCoordinate[],
+  destination: PixelPosition
+): readonly FarmerWaypoint[] => {
+  const candidates: readonly FarmerWaypoint[] = [
+    ...path.slice(0, -1).map(position => ({
+      x: position.column * TILE_SIZE,
+      y: position.row * TILE_SIZE,
+      gridPosition: position
+    })),
+    destination
+  ];
+
+  return candidates.filter((waypoint, index) => {
+    const previous = candidates[index - 1] ?? start;
+    return waypoint.x !== previous.x || waypoint.y !== previous.y;
+  });
+};
 
 const isInsideFarm = (
   position: LocalTilePosition,
@@ -283,9 +467,7 @@ export class MainScene extends Phaser.Scene {
         row
       })
     );
-    const getHarvestedBarleyTile = (
-      localPosition: LocalTilePosition
-    ): Tile =>
+    const getHarvestedBarleyTile = (localPosition: LocalTilePosition): Tile =>
       createTile(
         translateTilePosition(farmPosition, localPosition),
         "harvestedBarley"
@@ -396,9 +578,23 @@ export class MainScene extends Phaser.Scene {
       .setOrigin(0)
       .setDisplaySize(TILE_SIZE, TILE_SIZE)
       .setInteractive();
+    let farmerPosition = translateTilePosition(
+      farmPosition,
+      initialFarmerPosition
+    );
+    let farmerVisualOffset: PixelPosition = { x: 0, y: 0 };
+    let farmerHasMoved = false;
+    let activeFarmerMovement: Phaser.Tweens.TweenChain | null = null;
+    let activeMovementCommand: MovementCommand | null = null;
+    let activeBottomDialog: Phaser.GameObjects.DOMElement | null = null;
+    let activeBottomDialogTimer: Phaser.Time.TimerEvent | null = null;
     const getFarmerTile = (): Tile =>
       createTile(
-        translateTilePosition(farmPosition, initialFarmerPosition),
+        {
+          ...farmerPosition,
+          posX: farmer.x,
+          posY: farmer.y
+        },
         "farmerIdle0"
       );
 
@@ -410,8 +606,8 @@ export class MainScene extends Phaser.Scene {
 
     const positionFarmer = (): void => {
       farmer.setPosition(
-        farmTiles.x + initialFarmerPosition.column * TILE_SIZE,
-        farmTiles.y + initialFarmerPosition.row * TILE_SIZE
+        farmerPosition.column * TILE_SIZE + farmerVisualOffset.x,
+        farmerPosition.row * TILE_SIZE + farmerVisualOffset.y
       );
     };
 
@@ -432,7 +628,11 @@ export class MainScene extends Phaser.Scene {
       }
 
       const farmBuildingTile = getFarmBuildingTile();
-      for (let rowOffset = 0; rowOffset < FARM_BUILDING_SIZE.rows; rowOffset++) {
+      for (
+        let rowOffset = 0;
+        rowOffset < FARM_BUILDING_SIZE.rows;
+        rowOffset++
+      ) {
         for (
           let columnOffset = 0;
           columnOffset < FARM_BUILDING_SIZE.columns;
@@ -471,19 +671,359 @@ export class MainScene extends Phaser.Scene {
 
     rebuildGrid();
 
+    const moveFarmerTo = (
+      targetPosition: TilePosition,
+      onComplete: (outcome: FarmerMovementOutcome) => void,
+      onFailure: (reason: string) => void
+    ): void => {
+      const movementTarget = constrainTargetToRiverBank(
+        farmerPosition,
+        targetPosition,
+        riverRow
+      );
+      const destinationPosition = movementTarget.position;
+
+      if (
+        farmerPosition.column === destinationPosition.column &&
+        farmerPosition.row === destinationPosition.row
+      ) {
+        onComplete(
+          movementTarget.type === "blocked"
+            ? { type: "blocked", reason: "The river blocks the way." }
+            : { type: "arrived" }
+        );
+        return;
+      }
+
+      activeFarmerMovement?.stop();
+      activeFarmerMovement = null;
+
+      const farmBuildingTile = getFarmBuildingTile();
+      const blockedCoordinates = new Set<string>();
+      const gridColumns = Math.ceil(this.scale.width / TILE_SIZE);
+
+      for (let column = 0; column < gridColumns; column++) {
+        blockedCoordinates.add(toCoordinateKey({ column, row: riverRow }));
+      }
+
+      for (
+        let rowOffset = 0;
+        rowOffset < FARM_BUILDING_SIZE.rows;
+        rowOffset++
+      ) {
+        for (
+          let columnOffset = 0;
+          columnOffset < FARM_BUILDING_SIZE.columns;
+          columnOffset++
+        ) {
+          blockedCoordinates.add(
+            toCoordinateKey({
+              column: farmBuildingTile.position.column + columnOffset,
+              row: farmBuildingTile.position.row + rowOffset
+            })
+          );
+        }
+      }
+
+      const path = findCardinalPath(
+        farmerPosition,
+        destinationPosition,
+        {
+          columns: gridColumns,
+          rows: Math.ceil(this.scale.height / TILE_SIZE)
+        },
+        blockedCoordinates
+      );
+
+      if (path === null) {
+        onFailure("The selected tile cannot be reached.");
+        return;
+      }
+
+      if (path.length < 2) {
+        onComplete(
+          movementTarget.type === "blocked"
+            ? { type: "blocked", reason: "The river blocks the way." }
+            : { type: "arrived" }
+        );
+        return;
+      }
+
+      const penultimatePosition = path.at(-2);
+      const finalPosition = path.at(-1);
+
+      if (penultimatePosition === undefined || finalPosition === undefined) {
+        return;
+      }
+
+      const finalDirection = getCardinalDirection(
+        penultimatePosition,
+        finalPosition
+      );
+
+      if (finalDirection === null) {
+        return;
+      }
+
+      const destination =
+        movementTarget.type === "blocked"
+          ? {
+              x: destinationPosition.column * TILE_SIZE,
+              y: destinationPosition.row * TILE_SIZE
+            }
+          : getFarmerDestination(destinationPosition, finalDirection);
+      const route = createMovementWaypoints(
+        { x: farmer.x, y: farmer.y },
+        path,
+        destination
+      );
+      const completeMovement = (): void => {
+        farmerPosition = destinationPosition;
+        farmerVisualOffset = {
+          x: destination.x - destinationPosition.column * TILE_SIZE,
+          y: destination.y - destinationPosition.row * TILE_SIZE
+        };
+        farmerHasMoved = true;
+        activeFarmerMovement = null;
+        rebuildGrid();
+        onComplete(
+          movementTarget.type === "blocked"
+            ? { type: "blocked", reason: "The river blocks the way." }
+            : { type: "arrived" }
+        );
+      };
+      let previousWaypoint: PixelPosition = { x: farmer.x, y: farmer.y };
+      const tweens: Phaser.Types.Tweens.TweenBuilderConfig[] = route.map(
+        waypoint => {
+          const distance =
+            Math.abs(waypoint.x - previousWaypoint.x) +
+            Math.abs(waypoint.y - previousWaypoint.y);
+          previousWaypoint = waypoint;
+
+          return {
+            targets: farmer,
+            x: waypoint.x,
+            y: waypoint.y,
+            duration: (distance / TILE_SIZE) * FARMER_MOVE_DURATION_PER_TILE,
+            ease: "Linear",
+            onComplete: () => {
+              if (waypoint.gridPosition !== undefined) {
+                farmerPosition = toTilePosition(waypoint.gridPosition);
+                farmerVisualOffset = { x: 0, y: 0 };
+              }
+            }
+          };
+        }
+      );
+
+      if (tweens.length === 0) {
+        completeMovement();
+        return;
+      }
+
+      activeFarmerMovement = this.tweens.chain({
+        tweens,
+        onComplete: completeMovement
+      });
+    };
+
+    const completeMovementCommand = (commandId: string): void => {
+      const commandState = farmerCommandStore.getState();
+      commandState.removeCommand(commandId);
+      commandState.setStatus({ type: "idle" });
+      activeMovementCommand = null;
+      processNextMovementCommand();
+    };
+
+    const failMovementCommand = (commandId: string, reason: string): void => {
+      const commandState = farmerCommandStore.getState();
+      commandState.removeCommand(commandId);
+      commandState.setStatus({ type: "failed", commandId, reason });
+      activeMovementCommand = null;
+    };
+
+    const showBottomDialog = (message: string): void => {
+      activeBottomDialogTimer?.remove(false);
+      activeBottomDialog?.destroy();
+
+      const element = document.createElement("div");
+      element.className =
+        "dialog-bottom-container nes-container is-centered is-rounded";
+      element.textContent = message;
+      element.setAttribute("role", "status");
+
+      const bottomDialog = this.add
+        .dom(this.scale.width / 2, this.scale.height * 0.96, element)
+        .setOrigin(0.5, 1)
+        .setScrollFactor(0);
+
+      bottomDialog.updateSize();
+
+      void document.fonts.ready.then(() => {
+        if (activeBottomDialog === bottomDialog) {
+          bottomDialog.updateSize();
+        }
+      });
+
+      activeBottomDialog = bottomDialog;
+      activeBottomDialogTimer = this.time.delayedCall(
+        BOTTOM_DIALOG_DURATION,
+        () => {
+          bottomDialog.destroy();
+          activeBottomDialog = null;
+          activeBottomDialogTimer = null;
+        }
+      );
+    };
+
+    const handleFarmerArrival = (command: InspectCommand): void => {
+      match(command.target.type)
+        .with("ground", () => {
+          // checks if there is a water tile adjacent to the ground tile
+          const adjacentTiles = gridStore
+            .getState()
+            .findAdjacentTiles(command.target.position);
+          const waterTile: Tile | undefined = Object.entries(
+            adjacentTiles
+          ).find(([, tile]) => tile.type === "water")?.[1];
+
+          if (waterTile) {
+            showBottomDialog("Build an irrigation canal here.");
+          } else {
+            showBottomDialog("There is nothing here.");
+          }
+        })
+        .with("groundVariant", () => {
+          showBottomDialog("This soil can be cultivated.");
+        })
+        .with("harvestedBarley", () => {
+          console.log("This barley has been harvested.");
+        })
+        .otherwise(tileType => {
+          console.log(`The farmer inspected ${tileType}.`);
+        });
+    };
+
+    const getMovementTarget = (command: MovementCommand): TilePosition =>
+      match(command)
+        .with({ type: "inspect" }, ({ target }) => target.position)
+        .with({ type: "build" }, ({ target }) => target)
+        .with({ type: "pickup" }, ({ target }) => target)
+        .exhaustive();
+
+    const completeCommandMovement = (
+      command: MovementCommand,
+      outcome: FarmerMovementOutcome
+    ): void => {
+      match(outcome)
+        .with({ type: "arrived" }, () => {
+          match(command)
+            .with({ type: "inspect" }, handleFarmerArrival)
+            .with({ type: "build" }, () => undefined)
+            .with({ type: "pickup" }, () => undefined)
+            .exhaustive();
+        })
+        .with({ type: "blocked" }, ({ reason }) => {
+          showBottomDialog(reason);
+        })
+        .exhaustive();
+
+      completeMovementCommand(command.id);
+    };
+
+    const executeMovementCommand = (command: MovementCommand): void => {
+      activeMovementCommand = command;
+      farmerCommandStore.getState().setStatus({
+        type: "moving",
+        commandId: command.id
+      });
+      moveFarmerTo(
+        getMovementTarget(command),
+        outcome => completeCommandMovement(command, outcome),
+        reason => failMovementCommand(command.id, reason)
+      );
+    };
+
+    function processNextMovementCommand(): void {
+      const commandState = farmerCommandStore.getState();
+      const nextCommand = commandState.commands[0];
+
+      if (
+        activeMovementCommand === null &&
+        commandState.status.type === "idle" &&
+        (nextCommand?.type === "inspect" ||
+          nextCommand?.type === "build" ||
+          nextCommand?.type === "pickup")
+      ) {
+        executeMovementCommand(nextCommand);
+      }
+    }
+
+    const unsubscribeFromCommands = farmerCommandStore.subscribe(() => {
+      processNextMovementCommand();
+    });
+
+    processNextMovementCommand();
+
+    let renderedSceneWidth = this.scale.width;
+    let renderedSceneHeight = this.scale.height;
+
     const handleResize = (): void => {
+      if (
+        this.scale.width === renderedSceneWidth &&
+        this.scale.height === renderedSceneHeight
+      ) {
+        return;
+      }
+
+      renderedSceneWidth = this.scale.width;
+      renderedSceneHeight = this.scale.height;
+      activeFarmerMovement?.stop();
+      activeFarmerMovement = null;
       renderGround();
       positionFarm();
+
+      if (!farmerHasMoved) {
+        farmerPosition = translateTilePosition(
+          farmPosition,
+          initialFarmerPosition
+        );
+      }
+
       positionHarvestedBarley();
       renderRiver();
       renderGroundDecorations();
       positionFarmer();
       rebuildGrid();
+
+      if (activeBottomDialog !== null) {
+        activeBottomDialog
+          .updateSize()
+          .setPosition(this.scale.width / 2, this.scale.height);
+      }
+
+      if (activeMovementCommand !== null) {
+        const command = activeMovementCommand;
+        moveFarmerTo(
+          getMovementTarget(command),
+          outcome => completeCommandMovement(command, outcome),
+          reason => failMovementCommand(command.id, reason)
+        );
+      }
     };
 
     this.scale.on(Phaser.Scale.Events.RESIZE, handleResize);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off(Phaser.Scale.Events.RESIZE, handleResize);
+      unsubscribeFromCommands();
+      activeFarmerMovement?.stop();
+      activeBottomDialogTimer?.remove(false);
+      activeBottomDialog?.destroy();
+
+      if (activeMovementCommand !== null) {
+        farmerCommandStore.getState().setStatus({ type: "idle" });
+      }
+
       gridStore.getState().replaceGrid([]);
     });
   }

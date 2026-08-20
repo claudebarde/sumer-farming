@@ -27,3 +27,9 @@ type BasicTile = {
 export interface Tile extends BasicTile {
   readonly type: FarmSpriteName;
 }
+
+export type Crop = "barley" | "wheat" | "emmet";
+
+export type Build = "irrigation";
+
+export type InteractiveObject = Crop; // will be extended later when other objects are added

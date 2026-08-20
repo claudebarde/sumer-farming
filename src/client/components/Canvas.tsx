@@ -6,7 +6,13 @@ import { GAME_CONTAINER_ID, TILE_SIZE } from "../game/phaser/config";
 import { createGame } from "../game/phaser/game";
 import { MainScene } from "../game/phaser/scenes/MainScene";
 import { useStore } from "zustand";
+import { gridStore } from "../game/phaser/stores/gridStore";
 import { interactionStore } from "../game/phaser/stores/interactionStore";
+import {
+  farmerCommandStore,
+  type FarmerCommandInput
+} from "../game/phaser/stores/farmerCommandStore";
+import type { Tile } from "../game/phaser/types";
 
 if (import.meta.hot) {
   import.meta.hot.accept(
@@ -40,29 +46,69 @@ export default function GameCanvas() {
   const tilePopoverX =
     selectedTile === null
       ? 0
-      : selectedTile.position.column * TILE_SIZE + selectedTileSize / 2;
+      : selectedTile.position.posX + selectedTileSize / 2;
 
   const tilePopoverY =
     selectedTile === null
       ? 0
-      : selectedTile.position.row * TILE_SIZE +
-        (showPopoverBelow ? selectedTileSize : 0);
+      : selectedTile.position.posY + (showPopoverBelow ? selectedTileSize : 0);
+
+  const addCommand = (command: FarmerCommandInput): void => {
+    farmerCommandStore.getState().addCommand(command);
+    clearSelection();
+  };
 
   const displayPopoverContent = (tile: typeof selectedTile) => {
     if (!tile) return <span>No tile selected</span>;
 
     return match(tile.type)
-      .with("ground", () => (
-        <div className={styles["tile-popover-content"]}>
-          <div className={styles["tile-popover-content-header"]}>
-            <span className="cuneiforms">𒅖</span>
-            <span>Ground</span>
+      .with("ground", () => {
+        // there is a "build irrigation" button if the tile is next to a water tile
+        // there is an "inspect" button otherwise
+        const adjacentTiles = gridStore
+          .getState()
+          .findAdjacentTiles(tile.position);
+        const waterTile: Tile | undefined = Object.entries(adjacentTiles).find(
+          ([, tile]) => tile.type === "water"
+        )?.[1];
+        const button = waterTile ? (
+          <button
+            onClick={() =>
+              addCommand({
+                type: "build",
+                target: tile.position,
+                build: "irrigation"
+              })
+            }
+          >
+            Build Irrigation
+          </button>
+        ) : (
+          <button
+            onClick={() =>
+              addCommand({
+                type: "inspect",
+                target: tile
+              })
+            }
+          >
+            Inspect
+          </button>
+        );
+
+        return (
+          <div className={styles["tile-popover-content"]}>
+            <div className={styles["tile-popover-content-header"]}>
+              <span className="cuneiforms">𒅖</span>
+              <span>Ground</span>
+            </div>
+            <div className={styles["tile-popover-content-body"]}>
+              Dry, sterile soil
+              {button}
+            </div>
           </div>
-          <div className={styles["tile-popover-content-body"]}>
-            Dry, sterile soil
-          </div>
-        </div>
-      ))
+        );
+      })
       .with("groundVariant", () => (
         <div className={styles["tile-popover-content"]}>
           <div className={styles["tile-popover-content-header"]}>
@@ -71,6 +117,17 @@ export default function GameCanvas() {
           </div>
           <div className={styles["tile-popover-content-body"]}>
             Fertile soil suitable for farming
+            <button
+              onClick={() => {
+                // TODO: the button will change if the farmer has picked a crop before or not
+                addCommand({
+                  type: "inspect",
+                  target: tile
+                });
+              }}
+            >
+              Inspect
+            </button>
           </div>
         </div>
       ))
@@ -82,7 +139,18 @@ export default function GameCanvas() {
           </div>
           <div className={styles["tile-popover-content-body"]}>
             What would you like to do?
-            <button>Replant</button>
+            <button
+              onClick={() =>
+                addCommand({
+                  type: "pickup",
+                  target: tile.position,
+                  item: "barley"
+                })
+              }
+            >
+              Sow
+            </button>
+            {/* the Sell button is just a placeholder for now */}
             <button>Sell</button>
           </div>
         </div>

@@ -10,6 +10,12 @@ export const createGameConfig = (
   type: Phaser.AUTO,
   backgroundColor: "#1a2f1f",
   scene: [scene],
+  dom: {
+    createContainer: true
+  },
+  input: {
+    windowEvents: false
+  },
   scale: {
     parent,
     mode: Phaser.Scale.RESIZE,
