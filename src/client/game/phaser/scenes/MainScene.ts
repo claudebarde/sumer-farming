@@ -919,7 +919,7 @@ export class MainScene extends Phaser.Scene {
         .with({ type: "arrived" }, () => {
           match(command)
             .with({ type: "inspect" }, handleFarmerArrival)
-            .with({ type: "build" }, () => undefined)
+            .with({ type: "build" }, () => console.log("build something"))
             .with({ type: "pickup" }, () => undefined)
             .exhaustive();
         })
