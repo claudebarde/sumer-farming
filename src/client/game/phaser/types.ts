@@ -1,4 +1,6 @@
 import type { FarmSpriteName } from "../../../assets/farmSprites";
+import type { CropKey } from "../../../game-data/crops";
+import type { InventoryItemKey } from "../../../game-data/inventoryItems";
 
 export type TileId = `${number}:${number}`;
 
@@ -28,8 +30,8 @@ export interface Tile extends BasicTile {
   readonly type: FarmSpriteName;
 }
 
-export type Crop = "barley" | "wheat" | "emmet";
+export type Crop = CropKey;
 
-export type Build = "irrigation";
+export type Build = "irrigation" | "granary";
 
-export type InteractiveObject = Crop; // will be extended later when other objects are added
+export type InteractiveObject = InventoryItemKey;

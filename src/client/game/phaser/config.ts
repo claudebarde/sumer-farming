@@ -9,6 +9,7 @@ export const createGameConfig = (
 ): Phaser.Types.Core.GameConfig => ({
   type: Phaser.AUTO,
   backgroundColor: "#1a2f1f",
+  disableContextMenu: true,
   scene: [scene],
   dom: {
     createContainer: true

@@ -8,12 +8,15 @@
     "db:start": "docker compose up -d --wait postgres",
     "db:verify": "docker compose exec -T postgres pg_isready -U sumer -d sumer_farming",
     "db:stop": "docker compose stop postgres",
+    "farm:reset": "npm run db:start && npm run db:verify && node scripts/reset-development-farm.mjs",
+    "test:server": "npm run db:start && npm run db:verify && vitest run --config vitest.config.ts",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
     "docs:update": "node scripts/update-llm-docs.mjs"
   },
   "dependencies": {
+    "@radix-ui/react-icons": "^1.3.2",
     "drizzle-orm": "^0.45.2",
     "effect": "^3.22.1",
     "hono": "^4.13.2",
@@ -44,6 +47,7 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.65.0",
     "vite": "^8.2.0",
+    "vitest": "^4.1.11",
     "wrangler": "^4.123.0"
   }
 }

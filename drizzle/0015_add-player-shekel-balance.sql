@@ -1,0 +1,2 @@
+ALTER TABLE "players" ADD COLUMN "shekel_balance" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "players" ADD CONSTRAINT "players_shekel_balance_nonnegative" CHECK ("players"."shekel_balance" >= 0);

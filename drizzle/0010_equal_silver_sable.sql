@@ -1,0 +1,4 @@
+ALTER TABLE "farm_crops" ADD COLUMN "harvest_started_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "farm_crops" ADD COLUMN "harvest_completes_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "farm_crops" ADD CONSTRAINT "farm_crops_harvest_dates_together" CHECK (("farm_crops"."harvest_started_at" IS NULL) = ("farm_crops"."harvest_completes_at" IS NULL));--> statement-breakpoint
+ALTER TABLE "farm_crops" ADD CONSTRAINT "farm_crops_harvest_completion_after_start" CHECK ("farm_crops"."harvest_completes_at" IS NULL OR "farm_crops"."harvest_completes_at" > "farm_crops"."harvest_started_at");

@@ -2,7 +2,8 @@ import Phaser from "phaser";
 import { match } from "ts-pattern";
 import { createGameConfig, GAME_CONTAINER_ID, TILE_SIZE } from "./config";
 import type { Tile } from "./types";
-import { interactionStore } from "./stores/interactionStore";
+import { interactionStore } from "../../stores/interactionStore";
+import { buildingPlacementStore } from "../../stores/buildingPlacementStore";
 
 export const createGame = (
   scene: Phaser.Types.Scenes.SceneType,
@@ -14,6 +15,10 @@ export const handlePointerUp = (
   tile: Tile,
   selectionHighlight: Phaser.GameObjects.Rectangle
 ) => {
+  if (buildingPlacementStore.getState().placement.type !== "idle") {
+    return;
+  }
+
   const visibility = interactionStore.getState().selectedTile?.id !== tile.id;
 
   match(tile.type)
@@ -29,8 +34,6 @@ export const handlePointerUp = (
         .setVisible(visibility);
     })
     .with("groundVariant", () => {
-      console.log(`Farm tile clicked: ${JSON.stringify(tile)}`);
-
       selectionHighlight
         .setPosition(
           tile.position.column * TILE_SIZE,
@@ -41,6 +44,26 @@ export const handlePointerUp = (
     })
     .with("harvestedBarley", () => {
       console.log(`Harvested barley clicked: ${JSON.stringify(tile)}`);
+
+      selectionHighlight
+        .setPosition(
+          tile.position.column * TILE_SIZE,
+          tile.position.row * TILE_SIZE
+        )
+        .setSize(TILE_SIZE, TILE_SIZE)
+        .setVisible(visibility);
+    })
+    .with("reedBundle", "brickPile", "reeds", () => {
+      selectionHighlight
+        .setPosition(
+          tile.position.column * TILE_SIZE,
+          tile.position.row * TILE_SIZE
+        )
+        .setSize(TILE_SIZE, TILE_SIZE)
+        .setVisible(visibility);
+    })
+    .with("barleySeeded", "barleyGrowing", "barleyReady", () => {
+      console.log(`Barley crop clicked: ${JSON.stringify(tile)}`);
 
       selectionHighlight
         .setPosition(
@@ -62,6 +85,15 @@ export const handlePointerUp = (
         .setSize(TILE_SIZE * 2, TILE_SIZE * 2)
         .setVisible(visibility);
     })
+    .with("granary", () => {
+      selectionHighlight
+        .setPosition(
+          tile.position.column * TILE_SIZE,
+          tile.position.row * TILE_SIZE
+        )
+        .setSize(TILE_SIZE * 2, TILE_SIZE * 2)
+        .setVisible(visibility);
+    })
     .with("water", () => {
       console.log(`Water tile clicked`);
 
@@ -73,6 +105,24 @@ export const handlePointerUp = (
         .setSize(TILE_SIZE, TILE_SIZE)
         .setVisible(visibility);
     })
+    .with(
+      "canalHorizontal",
+      "canalVertical",
+      "canalCorner",
+      "canalCross",
+      "canalTJunction",
+      () => {
+        console.log(`Irrigation canal clicked`);
+
+        selectionHighlight
+          .setPosition(
+            tile.position.column * TILE_SIZE,
+            tile.position.row * TILE_SIZE
+          )
+          .setSize(TILE_SIZE, TILE_SIZE)
+          .setVisible(visibility);
+      }
+    )
     .with("farmerIdle0", () => {
       console.log(`Farmer clicked`);
 

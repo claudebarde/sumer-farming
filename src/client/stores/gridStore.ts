@@ -1,5 +1,5 @@
 import { createStore } from "zustand/vanilla";
-import type { Tile, TilePosition } from "../types";
+import type { Tile, TilePosition } from "../game/phaser/types";
 
 export type GridCoordinate = Pick<TilePosition, "row" | "column">;
 

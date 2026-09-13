@@ -1,0 +1,2 @@
+ALTER TABLE "farm_buildings" ADD COLUMN "stored_barley" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "farm_buildings" ADD CONSTRAINT "farm_buildings_stored_barley_in_range" CHECK ("farm_buildings"."stored_barley" >= 0 AND "farm_buildings"."stored_barley" <= 15);

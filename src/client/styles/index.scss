@@ -67,6 +67,10 @@ button {
   &:hover {
     background-color: color.scale($color-sand, $lightness: 10%);
   }
+
+  &.with-shadow {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+  }
 }
 
 button:focus-visible {
@@ -80,4 +84,22 @@ button:focus-visible {
   font-style: normal;
   font-size: 0.7rem;
   background-color: white;
+}
+
+.farm-inventory-chip {
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 3px 7px;
+  border: 2px solid $color-soil-dark;
+  border-radius: 999px;
+  background-color: $color-parchment-light;
+  color: $color-ink;
+  font-family: "Bree Serif", Georgia, serif;
+  font-size: 0.65rem;
+  line-height: 1;
+
+  &.is-full {
+    border-color: $color-barley-dark;
+    background-color: $color-barley-light;
+  }
 }

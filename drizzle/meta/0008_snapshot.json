@@ -1,0 +1,586 @@
+{
+  "id": "87f5fd25-dfc4-454a-8595-33ac0739c8a2",
+  "prevId": "5f54d781-8c79-4d7a-b742-377f958545df",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.farm_crops": {
+      "name": "farm_crops",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "crop_key": {
+          "name": "crop_key",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "column": {
+          "name": "column",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "row": {
+          "name": "row",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sowing_started_at": {
+          "name": "sowing_started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "planted_at": {
+          "name": "planted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "growth_completes_at": {
+          "name": "growth_completes_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farm_crops_farm_id_farms_id_fk": {
+          "name": "farm_crops_farm_id_farms_id_fk",
+          "tableFrom": "farm_crops",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farm_crops_farm_position_unique": {
+          "name": "farm_crops_farm_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "farm_id",
+            "column",
+            "row"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "farm_crops_planting_after_sowing_start": {
+          "name": "farm_crops_planting_after_sowing_start",
+          "value": "\"farm_crops\".\"planted_at\" > \"farm_crops\".\"sowing_started_at\""
+        },
+        "farm_crops_growth_completion_after_planting": {
+          "name": "farm_crops_growth_completion_after_planting",
+          "value": "\"farm_crops\".\"growth_completes_at\" > \"farm_crops\".\"planted_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.farm_ground_items": {
+      "name": "farm_ground_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_key": {
+          "name": "item_key",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "column": {
+          "name": "column",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "row": {
+          "name": "row",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farm_ground_items_farm_id_farms_id_fk": {
+          "name": "farm_ground_items_farm_id_farms_id_fk",
+          "tableFrom": "farm_ground_items",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farm_ground_items_farm_position_unique": {
+          "name": "farm_ground_items_farm_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "farm_id",
+            "column",
+            "row"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "farm_ground_items_quantity_positive": {
+          "name": "farm_ground_items_quantity_positive",
+          "value": "\"farm_ground_items\".\"quantity\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.farm_improvements": {
+      "name": "farm_improvements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "farm_improvement_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "column": {
+          "name": "column",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "row": {
+          "name": "row",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completes_at": {
+          "name": "completes_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "destroy_started_at": {
+          "name": "destroy_started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destroy_completes_at": {
+          "name": "destroy_completes_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farm_improvements_farm_id_farms_id_fk": {
+          "name": "farm_improvements_farm_id_farms_id_fk",
+          "tableFrom": "farm_improvements",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farm_improvements_farm_position_unique": {
+          "name": "farm_improvements_farm_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "farm_id",
+            "column",
+            "row"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "farm_improvements_completion_after_start": {
+          "name": "farm_improvements_completion_after_start",
+          "value": "\"farm_improvements\".\"completes_at\" > \"farm_improvements\".\"started_at\""
+        },
+        "farm_improvements_destruction_dates_together": {
+          "name": "farm_improvements_destruction_dates_together",
+          "value": "(\"farm_improvements\".\"destroy_started_at\" IS NULL) = (\"farm_improvements\".\"destroy_completes_at\" IS NULL)"
+        },
+        "farm_improvements_destruction_completion_after_start": {
+          "name": "farm_improvements_destruction_completion_after_start",
+          "value": "\"farm_improvements\".\"destroy_completes_at\" IS NULL OR \"farm_improvements\".\"destroy_completes_at\" > \"farm_improvements\".\"destroy_started_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.farm_inventory": {
+      "name": "farm_inventory",
+      "schema": "",
+      "columns": {
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_key": {
+          "name": "item_key",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farm_inventory_farm_id_farms_id_fk": {
+          "name": "farm_inventory_farm_id_farms_id_fk",
+          "tableFrom": "farm_inventory",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "farm_inventory_pkey": {
+          "name": "farm_inventory_pkey",
+          "columns": [
+            "farm_id",
+            "item_key"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "farm_inventory_quantity_nonnegative": {
+          "name": "farm_inventory_quantity_nonnegative",
+          "value": "\"farm_inventory\".\"quantity\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.farm_objects": {
+      "name": "farm_objects",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "farm_object_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "column": {
+          "name": "column",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "row": {
+          "name": "row",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farm_objects_farm_id_farms_id_fk": {
+          "name": "farm_objects_farm_id_farms_id_fk",
+          "tableFrom": "farm_objects",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farm_objects_farm_position_unique": {
+          "name": "farm_objects_farm_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "farm_id",
+            "column",
+            "row"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.farms": {
+      "name": "farms",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "player_id": {
+          "name": "player_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "carried_item_key": {
+          "name": "carried_item_key",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farms_player_id_players_id_fk": {
+          "name": "farms_player_id_players_id_fk",
+          "tableFrom": "farms",
+          "tableTo": "players",
+          "columnsFrom": [
+            "player_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farms_player_id_unique": {
+          "name": "farms_player_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "player_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.players": {
+      "name": "players",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.farm_improvement_type": {
+      "name": "farm_improvement_type",
+      "schema": "public",
+      "values": [
+        "irrigation"
+      ]
+    },
+    "public.farm_object_type": {
+      "name": "farm_object_type",
+      "schema": "public",
+      "values": [
+        "rock",
+        "bush"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

@@ -1,0 +1,4 @@
+ALTER TABLE "farm_improvements" ADD COLUMN "destroy_started_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "farm_improvements" ADD COLUMN "destroy_completes_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "farm_improvements" ADD CONSTRAINT "farm_improvements_destruction_dates_together" CHECK (("farm_improvements"."destroy_started_at" IS NULL) = ("farm_improvements"."destroy_completes_at" IS NULL));--> statement-breakpoint
+ALTER TABLE "farm_improvements" ADD CONSTRAINT "farm_improvements_destruction_completion_after_start" CHECK ("farm_improvements"."destroy_completes_at" IS NULL OR "farm_improvements"."destroy_completes_at" > "farm_improvements"."destroy_started_at");
