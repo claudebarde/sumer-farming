@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import HappinessMeter from "./HappinessMeter";
+import RationMeter from "./RationMeter";
 import { Dialog, Popover, Tabs } from "radix-ui";
 import { Cross2Icon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { match } from "ts-pattern";
@@ -1090,28 +1092,23 @@ export default function GameCanvas() {
               : `Carrying ${carriedItem.quantity} ${carriedItem.itemKey}`}
             {farmState.type === "ready" && (
               <>
-                <span>Hunger: {farmState.snapshot.farm.household.hungrySince === null ? "Fed" : "Hungry"}</span>
-                <span>
-                  Happiness: {farmState.snapshot.farm.household.happiness} / 100 ·{" "}
-                  {match(getFarmerMood(farmState.snapshot.farm.household.happiness))
-                    .with("happy", () => "Happy")
-                    .with("content", () => "Content")
-                    .with("unhappy", () => "Unhappy")
-                    .exhaustive()}
-                </span>
-                <meter aria-label="Farmer happiness" min={0} max={100}
-                  value={farmState.snapshot.farm.household.happiness} />
-                <span>
+                <div className={styles["farmer-metrics"]}>
+                  <div>
+                    <HappinessMeter value={farmState.snapshot.farm.household.happiness} />
+                    <span>Happiness</span>
+                  </div>
+                  <div>
+                    <RationMeter nextRationAt={farmState.snapshot.farm.household.nextBarleyConsumptionAt}
+                      hungry={farmState.snapshot.farm.household.hungrySince !== null} now={storageClock} />
+                    <span>Next ration</span>
+                  </div>
+                </div>
+                {(farmState.snapshot.farm.household.hungrySince !== null ||
+                  getFarmerMood(farmState.snapshot.farm.household.happiness) === "unhappy") && <span>
                   {farmState.snapshot.farm.household.hungrySince !== null
                     ? "I'm hungry and walking slowly. Store barley in the farm or a completed granary so I can eat."
-                    : getFarmerMood(farmState.snapshot.farm.household.happiness) === "unhappy"
-                      ? "I'm unhappy and walking a little more slowly."
-                      : "I'm fed and walking at my normal pace."}
-                </span>
-                {farmState.snapshot.farm.household.nextBarleyConsumptionAt !== null &&
-                  farmState.snapshot.farm.household.hungrySince === null && (
-                    <span>Next ration in {formatRemainingTime(farmState.snapshot.farm.household.nextBarleyConsumptionAt, storageClock)}</span>
-                  )}
+                    : "I'm unhappy and walking a little more slowly."}
+                </span>}
               </>
             )}
             {farmState.type === "ready" &&
