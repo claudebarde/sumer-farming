@@ -1,15 +1,21 @@
 import { HUNGRY_FARMER_MOVEMENT_DURATION_MULTIPLIER } from "../../game-data/household";
-import { BEER_HAPPINESS_BOOST, BEER_TREAT_INTERVAL_MS } from "../../game-data/household";
+import { BEER_HAPPINESS_BOOST, BEER_TREAT_INTERVAL_MS, FISH_HAPPINESS_BOOST } from "../../game-data/household";
 
 export const beerTreatErrors = {
   no_beer: "Collect or buy a beer jar first.",
-  beer_cooldown: "The farmer can receive one beer every 24 hours.",
+  beer_cooldown: "The farmer can receive one treat (beer or fish) every 24 hours.",
   happiness_full: "The farmer's happiness is already full."
 } as const;
 export const validateBeerTreat = (quantity: number, happiness: number, lastBeerAt: number | null, now: number): keyof typeof beerTreatErrors | null =>
   lastBeerAt !== null && now < lastBeerAt + BEER_TREAT_INTERVAL_MS ? "beer_cooldown" :
     quantity < 1 ? "no_beer" : happiness >= 100 ? "happiness_full" : null;
 export const happinessAfterBeer = (happiness: number): number => Math.min(100, happiness + BEER_HAPPINESS_BOOST);
+export const fishTreatErrors = { ...beerTreatErrors, no_fish: "Store a fish at the farm first." } as const;
+export const validateFishTreat = (quantity: number, happiness: number, lastTreatAt: number | null, now: number) => {
+  const rule = validateBeerTreat(quantity, happiness, lastTreatAt, now);
+  return rule === "no_beer" ? "no_fish" : rule;
+};
+export const happinessAfterFish = (happiness: number): number => Math.min(100, happiness + FISH_HAPPINESS_BOOST);
 
 export type FarmerMood = "happy" | "content" | "unhappy";
 export const INITIAL_HAPPINESS = 70;

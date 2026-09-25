@@ -1,4 +1,7 @@
 import groundUrl from "./sprite_assets/pngs/ground.png";
+import fishingUrl from "./sprite_assets/pngs/farmer-fishing.png";
+import withFishUrl from "./sprite_assets/pngs/farmer-with-fish.png";
+import fishUrl from "./sprite_assets/pngs/fish.png";
 import groundVariantUrl from "./sprite_assets/pngs/ground-grass.png";
 import canalHorizontalUrl from "./sprite_assets/pngs/canal-horizontal.png";
 import canalVerticalUrl from "./sprite_assets/pngs/canal-vertical.png";
@@ -37,7 +40,7 @@ import reedsUrl from "./sprite_assets/pngs/reeds-plant.png";
 import rocksUrl from "./sprite_assets/pngs/rocks.png";
 import fenceUrl from "./sprite_assets/pngs/fence.png";
 import signpostUrl from "./sprite_assets/pngs/signpost.png";
-import marketSignUrl from "./sprite_assets/pngs/market-sign.png";
+import marketUrl from "./sprite_assets/pngs/market.png";
 import granaryUrl from "./sprite_assets/pngs/granary.png";
 import reedBundleUrl from "./sprite_assets/pngs/reed-bundle.png";
 import brickPileUrl from "./sprite_assets/pngs/brick-pile.png";
@@ -46,6 +49,9 @@ import breweryUrl from "./sprite_assets/pngs/brewery.png";
 // Keep gameplay names stable; only the artwork URLs change.
 // The generated assets use "wheat" filenames for our existing barley artwork.
 export const FARM_SPRITES = {
+  farmerFishing: fishingUrl,
+  farmerWithFish: withFishUrl,
+  fish: fishUrl,
   ground: groundUrl,
   groundVariant: groundVariantUrl,
   canalHorizontal: canalHorizontalUrl,
@@ -85,7 +91,7 @@ export const FARM_SPRITES = {
   rocks: rocksUrl,
   fence: fenceUrl,
   signpost: signpostUrl,
-  marketSign: marketSignUrl,
+  market: marketUrl,
   granary: granaryUrl,
   reedBundle: reedBundleUrl,
   brickPile: brickPileUrl,

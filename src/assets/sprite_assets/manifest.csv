@@ -42,3 +42,8 @@ signpost.png,256x256,1x1,standalone object,extracted
 farm.png,512x512,2x2,building,extracted
 granary.png,512x512,2x2,building,extracted
 brewery.png,512x512,2x2,building,newly generated
+market-sign.png,256x256,1x1,standalone object,newly generated
+market.png,512x512,2x2,building,newly generated
+farmer-fishing.png,256x256,1x1,farmer pose,newly generated
+farmer-with-fish.png,256x256,1x1,farmer pose,newly generated
+fish.png,256x256,1x1,standalone object,newly generated

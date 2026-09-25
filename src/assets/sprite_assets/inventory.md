@@ -7,8 +7,20 @@
 - Buildings: farm, granary
 - Farmer poses: farmer-stand-staff-1 through farmer-stand-staff-6; farmer-walk-1 through farmer-walk-4; farmer-plant-1 through farmer-plant-4; farmer-harvest-1 through farmer-harvest-2; farmer-carry-wheat-1 through farmer-carry-wheat-2
 
-## Newly generated asset
+## Newly generated assets
 
-- brewery
+- brewery (512×512, 2×2 building)
+- market (512×512, 2×2 building; opens the market dialog on click/tap)
+- market-sign (256×256, 1×1; legacy artwork, replaced on the canvas by market)
 
-Total PNG assets: 43
+The original signpost artwork is also retained, but is not used as the market entrance.
+
+- farmer-fishing (256×256, 1×1; farmer using a rod)
+- farmer-with-fish (256×256, 1×1; farmer carrying one fish)
+- fish (256×256, 1×1; swimming fishing target)
+
+Total PNG assets: 48
+
+`farmSprites.ts` registers runtime textures; `manifest.json` and `manifest.csv`
+catalog the PNG files. `contact-sheet.png` is the original generation preview,
+not a current catalog (it does not include market, market-sign, or fishing assets).

@@ -1,8 +1,11 @@
 import { sql } from "drizzle-orm";
+import type { FishingSession } from "../../game-data/fishing";
 import {
   check,
   index,
   integer,
+  boolean,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
@@ -78,10 +81,10 @@ export const shekelTransactions = pgTable(
     delta: integer("delta").notNull(),
     balanceAfter: integer("balance_after").notNull(),
     itemKey: varchar("item_key", { length: 50 })
-      .$type<InventoryItemKey>()
-      .notNull(),
-    itemQuantity: integer("item_quantity").notNull(),
-    unitPrice: integer("unit_price").notNull(),
+      .$type<InventoryItemKey>(),
+    itemQuantity: integer("item_quantity"),
+    unitPrice: integer("unit_price"),
+    requestCustomer: varchar("request_customer", { length: 100 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull()
@@ -112,12 +115,23 @@ export const shekelTransactions = pgTable(
       "shekel_transactions_delta_matches_trade",
       sql`abs(${table.delta}) = ${table.itemQuantity} * ${table.unitPrice}`
     ),
+    check("shekel_transactions_reward_or_trade", sql`
+      (${table.type}::text = 'request_reward' AND ${table.requestCustomer} IS NOT NULL AND ${table.itemKey} IS NULL AND ${table.itemQuantity} IS NULL AND ${table.unitPrice} IS NULL)
+      OR (${table.type}::text <> 'request_reward' AND ${table.requestCustomer} IS NULL AND ${table.itemKey} IS NOT NULL AND ${table.itemQuantity} IS NOT NULL AND ${table.unitPrice} IS NOT NULL)`),
     check(
       "shekel_transactions_direction_matches_type",
-      sql`(${table.type} = 'market_sale' AND ${table.delta} > 0) OR (${table.type} = 'market_purchase' AND ${table.delta} < 0)`
+      sql`(${table.type}::text IN ('market_sale', 'request_reward') AND ${table.delta} > 0) OR (${table.type} = 'market_purchase' AND ${table.delta} < 0)`
     )
   ]
 );
+
+export const npcRequestBoards = pgTable("npc_request_boards", {
+  farmId: uuid("farm_id").primaryKey().references(() => farms.id, { onDelete: "cascade" }),
+  anchor: timestamp("anchor", { withTimezone: true }).notNull(),
+  cycle: integer("cycle").notNull(),
+  brewer: boolean("brewer").notNull(),
+  completed: jsonb("completed").$type<readonly number[]>().notNull().default([])
+}, table => [check("npc_request_cycle_nonnegative", sql`${table.cycle} >= 0`)]);
 
 export const marketOrders = pgTable(
   "market_orders",
@@ -197,6 +211,7 @@ export const marketTrades = pgTable("market_trades", {
 export const farms = pgTable(
   "farms",
   {
+    fishing: jsonb("fishing").$type<FishingSession>(),
     id: uuid("id").defaultRandom().primaryKey(),
     playerId: uuid("player_id")
       .notNull()
@@ -218,6 +233,7 @@ export const farms = pgTable(
     }),
     hungrySince: timestamp("hungry_since", { withTimezone: true }),
     happiness: integer("happiness").default(70).notNull(),
+    // Legacy name: shared last-treat timestamp for both beer and fish.
     lastBeerAt: timestamp("last_beer_at", { withTimezone: true }),
     gatheringItemKey: varchar("gathering_item_key", { length: 50 }).$type<
       GatherableResourceKey
@@ -387,7 +403,8 @@ export const farmInventory = pgTable(
       name: "farm_inventory_pkey",
       columns: [table.farmId, table.itemKey]
     }),
-    check("farm_inventory_quantity_nonnegative", sql`${table.quantity} >= 0`)
+    check("farm_inventory_quantity_nonnegative", sql`${table.quantity} >= 0`),
+    check("farm_inventory_fish_capacity", sql`${table.itemKey} <> 'fish' OR ${table.quantity} <= 5`)
   ]
 );
 

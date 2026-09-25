@@ -190,6 +190,20 @@
       "when": 1790281161531,
       "tag": "0026_brewery-barley-capacity",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790332449505,
+      "tag": "0027_npc-requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790338806228,
+      "tag": "0028_fishing",
+      "breakpoints": true
     }
   ]
 }

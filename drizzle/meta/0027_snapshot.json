@@ -1,0 +1,1528 @@
+{
+  "id": "2c7c88c3-b3a3-469c-8d86-32bf2d740a13",
+  "prevId": "20d7b1ad-97c6-40a5-bdee-dbfc6f2b320a",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.farm_buildings": {
+      "name": "farm_buildings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "farm_building_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "column": {
+          "name": "column",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "row": {
+          "name": "row",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stored_barley": {
+          "name": "stored_barley",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "brewing_barley": {
+          "name": "brewing_barley",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "brewing_water": {
+          "name": "brewing_water",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "empty_beer_jars": {
+          "name": "empty_beer_jars",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "beer_ready_at": {
+          "name": "beer_ready_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "beer_served": {
+          "name": "beer_served",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completes_at": {
+          "name": "completes_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farm_buildings_farm_id_farms_id_fk": {
+          "name": "farm_buildings_farm_id_farms_id_fk",
+          "tableFrom": "farm_buildings",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farm_buildings_farm_position_unique": {
+          "name": "farm_buildings_farm_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "farm_id",
+            "column",
+            "row"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "farm_buildings_empty_jars_valid": {
+          "name": "farm_buildings_empty_jars_valid",
+          "value": "\"farm_buildings\".\"empty_beer_jars\" >= 0 AND \"farm_buildings\".\"empty_beer_jars\" <= 10 AND (\"farm_buildings\".\"type\" = 'brewery' OR \"farm_buildings\".\"empty_beer_jars\" = 0)"
+        },
+        "farm_buildings_beer_batch_valid": {
+          "name": "farm_buildings_beer_batch_valid",
+          "value": "\"farm_buildings\".\"beer_ready_at\" IS NULL OR (\"farm_buildings\".\"type\" = 'brewery' AND \"farm_buildings\".\"beer_ready_at\" > \"farm_buildings\".\"completes_at\")"
+        },
+        "farm_buildings_beer_served_valid": {
+          "name": "farm_buildings_beer_served_valid",
+          "value": "\"farm_buildings\".\"beer_served\" >= 0 AND \"farm_buildings\".\"beer_served\" < 2 AND (\"farm_buildings\".\"beer_ready_at\" IS NOT NULL OR \"farm_buildings\".\"beer_served\" = 0)"
+        },
+        "farm_buildings_brewing_barley_capacity": {
+          "name": "farm_buildings_brewing_barley_capacity",
+          "value": "\"farm_buildings\".\"brewing_barley\" <= 2"
+        },
+        "farm_buildings_completion_after_start": {
+          "name": "farm_buildings_completion_after_start",
+          "value": "\"farm_buildings\".\"completes_at\" > \"farm_buildings\".\"started_at\""
+        },
+        "farm_buildings_stored_barley_in_range": {
+          "name": "farm_buildings_stored_barley_in_range",
+          "value": "\"farm_buildings\".\"stored_barley\" >= 0 AND \"farm_buildings\".\"stored_barley\" <= 15"
+        },
+        "farm_buildings_brewing_supplies_valid": {
+          "name": "farm_buildings_brewing_supplies_valid",
+          "value": "\"farm_buildings\".\"brewing_barley\" >= 0 AND \"farm_buildings\".\"brewing_water\" >= 0 AND \"farm_buildings\".\"brewing_water\" <= 2 AND (\"farm_buildings\".\"type\" = 'brewery' OR (\"farm_buildings\".\"brewing_barley\" = 0 AND \"farm_buildings\".\"brewing_water\" = 0))"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.farm_crops": {
+      "name": "farm_crops",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "crop_key": {
+          "name": "crop_key",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "column": {
+          "name": "column",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "row": {
+          "name": "row",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sowing_started_at": {
+          "name": "sowing_started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "planted_at": {
+          "name": "planted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "growth_completes_at": {
+          "name": "growth_completes_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "harvest_started_at": {
+          "name": "harvest_started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "harvest_completes_at": {
+          "name": "harvest_completes_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farm_crops_farm_id_farms_id_fk": {
+          "name": "farm_crops_farm_id_farms_id_fk",
+          "tableFrom": "farm_crops",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farm_crops_farm_position_unique": {
+          "name": "farm_crops_farm_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "farm_id",
+            "column",
+            "row"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "farm_crops_planting_after_sowing_start": {
+          "name": "farm_crops_planting_after_sowing_start",
+          "value": "\"farm_crops\".\"planted_at\" > \"farm_crops\".\"sowing_started_at\""
+        },
+        "farm_crops_growth_completion_after_planting": {
+          "name": "farm_crops_growth_completion_after_planting",
+          "value": "\"farm_crops\".\"growth_completes_at\" > \"farm_crops\".\"planted_at\""
+        },
+        "farm_crops_harvest_dates_together": {
+          "name": "farm_crops_harvest_dates_together",
+          "value": "(\"farm_crops\".\"harvest_started_at\" IS NULL) = (\"farm_crops\".\"harvest_completes_at\" IS NULL)"
+        },
+        "farm_crops_harvest_completion_after_start": {
+          "name": "farm_crops_harvest_completion_after_start",
+          "value": "\"farm_crops\".\"harvest_completes_at\" IS NULL OR \"farm_crops\".\"harvest_completes_at\" > \"farm_crops\".\"harvest_started_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.farm_ground_items": {
+      "name": "farm_ground_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_key": {
+          "name": "item_key",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "column": {
+          "name": "column",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "row": {
+          "name": "row",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farm_ground_items_farm_id_farms_id_fk": {
+          "name": "farm_ground_items_farm_id_farms_id_fk",
+          "tableFrom": "farm_ground_items",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farm_ground_items_farm_position_unique": {
+          "name": "farm_ground_items_farm_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "farm_id",
+            "column",
+            "row"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "farm_ground_items_quantity_positive": {
+          "name": "farm_ground_items_quantity_positive",
+          "value": "\"farm_ground_items\".\"quantity\" > 0"
+        },
+        "farm_ground_items_barley_has_expiry": {
+          "name": "farm_ground_items_barley_has_expiry",
+          "value": "\"farm_ground_items\".\"item_key\" <> 'barley' OR \"farm_ground_items\".\"expires_at\" IS NOT NULL"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.farm_improvements": {
+      "name": "farm_improvements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "farm_improvement_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "column": {
+          "name": "column",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "row": {
+          "name": "row",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completes_at": {
+          "name": "completes_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "destroy_started_at": {
+          "name": "destroy_started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "destroy_completes_at": {
+          "name": "destroy_completes_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farm_improvements_farm_id_farms_id_fk": {
+          "name": "farm_improvements_farm_id_farms_id_fk",
+          "tableFrom": "farm_improvements",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farm_improvements_farm_position_unique": {
+          "name": "farm_improvements_farm_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "farm_id",
+            "column",
+            "row"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "farm_improvements_completion_after_start": {
+          "name": "farm_improvements_completion_after_start",
+          "value": "\"farm_improvements\".\"completes_at\" > \"farm_improvements\".\"started_at\""
+        },
+        "farm_improvements_destruction_dates_together": {
+          "name": "farm_improvements_destruction_dates_together",
+          "value": "(\"farm_improvements\".\"destroy_started_at\" IS NULL) = (\"farm_improvements\".\"destroy_completes_at\" IS NULL)"
+        },
+        "farm_improvements_destruction_completion_after_start": {
+          "name": "farm_improvements_destruction_completion_after_start",
+          "value": "\"farm_improvements\".\"destroy_completes_at\" IS NULL OR \"farm_improvements\".\"destroy_completes_at\" > \"farm_improvements\".\"destroy_started_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.farm_inventory": {
+      "name": "farm_inventory",
+      "schema": "",
+      "columns": {
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_key": {
+          "name": "item_key",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farm_inventory_farm_id_farms_id_fk": {
+          "name": "farm_inventory_farm_id_farms_id_fk",
+          "tableFrom": "farm_inventory",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "farm_inventory_pkey": {
+          "name": "farm_inventory_pkey",
+          "columns": [
+            "farm_id",
+            "item_key"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "farm_inventory_quantity_nonnegative": {
+          "name": "farm_inventory_quantity_nonnegative",
+          "value": "\"farm_inventory\".\"quantity\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.farm_objects": {
+      "name": "farm_objects",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "farm_object_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "column": {
+          "name": "column",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "row": {
+          "name": "row",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farm_objects_farm_id_farms_id_fk": {
+          "name": "farm_objects_farm_id_farms_id_fk",
+          "tableFrom": "farm_objects",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farm_objects_farm_position_unique": {
+          "name": "farm_objects_farm_position_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "farm_id",
+            "column",
+            "row"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.farms": {
+      "name": "farms",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "player_id": {
+          "name": "player_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "carried_item_key": {
+          "name": "carried_item_key",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "carried_item_quantity": {
+          "name": "carried_item_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "carried_item_expires_at": {
+          "name": "carried_item_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cultivation_started_at": {
+          "name": "cultivation_started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_barley_consumption_at": {
+          "name": "next_barley_consumption_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hungry_since": {
+          "name": "hungry_since",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "happiness": {
+          "name": "happiness",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 70
+        },
+        "last_beer_at": {
+          "name": "last_beer_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_item_key": {
+          "name": "gathering_item_key",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_column": {
+          "name": "gathering_column",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_row": {
+          "name": "gathering_row",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_started_at": {
+          "name": "gathering_started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "gathering_completes_at": {
+          "name": "gathering_completes_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "farms_player_id_players_id_fk": {
+          "name": "farms_player_id_players_id_fk",
+          "tableFrom": "farms",
+          "tableTo": "players",
+          "columnsFrom": [
+            "player_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "farms_player_id_unique": {
+          "name": "farms_player_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "player_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "farms_happiness_in_range": {
+          "name": "farms_happiness_in_range",
+          "value": "\"farms\".\"happiness\" >= 0 AND \"farms\".\"happiness\" <= 100"
+        },
+        "farms_carried_item_quantity_in_range": {
+          "name": "farms_carried_item_quantity_in_range",
+          "value": "\"farms\".\"carried_item_quantity\" >= 0 AND \"farms\".\"carried_item_quantity\" <= 2"
+        },
+        "farms_carried_item_key_matches_quantity": {
+          "name": "farms_carried_item_key_matches_quantity",
+          "value": "(\"farms\".\"carried_item_key\" IS NULL) = (\"farms\".\"carried_item_quantity\" = 0)"
+        },
+        "farms_gathering_fields_together": {
+          "name": "farms_gathering_fields_together",
+          "value": "(\"farms\".\"gathering_item_key\" IS NULL AND \"farms\".\"gathering_column\" IS NULL AND \"farms\".\"gathering_row\" IS NULL AND \"farms\".\"gathering_started_at\" IS NULL AND \"farms\".\"gathering_completes_at\" IS NULL) OR (\"farms\".\"gathering_item_key\" IS NOT NULL AND \"farms\".\"gathering_column\" IS NOT NULL AND \"farms\".\"gathering_row\" IS NOT NULL AND \"farms\".\"gathering_started_at\" IS NOT NULL AND \"farms\".\"gathering_completes_at\" IS NOT NULL)"
+        },
+        "farms_gathering_completion_after_start": {
+          "name": "farms_gathering_completion_after_start",
+          "value": "\"farms\".\"gathering_completes_at\" IS NULL OR \"farms\".\"gathering_completes_at\" > \"farms\".\"gathering_started_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.market_orders": {
+      "name": "market_orders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "player_id": {
+          "name": "player_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "side": {
+          "name": "side",
+          "type": "market_order_side",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "market_order_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "item_key": {
+          "name": "item_key",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit_price": {
+          "name": "unit_price",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_quantity": {
+          "name": "original_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "remaining_quantity": {
+          "name": "remaining_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "market_orders_order_book_idx": {
+          "name": "market_orders_order_book_idx",
+          "columns": [
+            {
+              "expression": "item_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "side",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "unit_price",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "market_orders_player_status_idx": {
+          "name": "market_orders_player_status_idx",
+          "columns": [
+            {
+              "expression": "player_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "market_orders_player_id_players_id_fk": {
+          "name": "market_orders_player_id_players_id_fk",
+          "tableFrom": "market_orders",
+          "tableTo": "players",
+          "columnsFrom": [
+            "player_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "market_orders_player_idempotency_unique": {
+          "name": "market_orders_player_idempotency_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "player_id",
+            "idempotency_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "market_orders_unit_price_positive": {
+          "name": "market_orders_unit_price_positive",
+          "value": "\"market_orders\".\"unit_price\" > 0"
+        },
+        "market_orders_original_quantity_positive": {
+          "name": "market_orders_original_quantity_positive",
+          "value": "\"market_orders\".\"original_quantity\" > 0"
+        },
+        "market_orders_remaining_quantity_in_range": {
+          "name": "market_orders_remaining_quantity_in_range",
+          "value": "\"market_orders\".\"remaining_quantity\" >= 0 AND \"market_orders\".\"remaining_quantity\" <= \"market_orders\".\"original_quantity\""
+        },
+        "market_orders_status_matches_quantity": {
+          "name": "market_orders_status_matches_quantity",
+          "value": "(\"market_orders\".\"status\" = 'open' AND \"market_orders\".\"remaining_quantity\" > 0) OR (\"market_orders\".\"status\" IN ('filled', 'cancelled') AND \"market_orders\".\"remaining_quantity\" = 0)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.market_trades": {
+      "name": "market_trades",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "order_id": {
+          "name": "order_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buyer_id": {
+          "name": "buyer_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seller_id": {
+          "name": "seller_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_key": {
+          "name": "item_key",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "quantity": {
+          "name": "quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "unit_price": {
+          "name": "unit_price",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "buyer_transaction_id": {
+          "name": "buyer_transaction_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "seller_transaction_id": {
+          "name": "seller_transaction_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "market_trades_item_created_idx": {
+          "name": "market_trades_item_created_idx",
+          "columns": [
+            {
+              "expression": "item_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "market_trades_order_id_market_orders_id_fk": {
+          "name": "market_trades_order_id_market_orders_id_fk",
+          "tableFrom": "market_trades",
+          "tableTo": "market_orders",
+          "columnsFrom": [
+            "order_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "market_trades_buyer_id_players_id_fk": {
+          "name": "market_trades_buyer_id_players_id_fk",
+          "tableFrom": "market_trades",
+          "tableTo": "players",
+          "columnsFrom": [
+            "buyer_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "market_trades_seller_id_players_id_fk": {
+          "name": "market_trades_seller_id_players_id_fk",
+          "tableFrom": "market_trades",
+          "tableTo": "players",
+          "columnsFrom": [
+            "seller_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "market_trades_buyer_transaction_id_shekel_transactions_id_fk": {
+          "name": "market_trades_buyer_transaction_id_shekel_transactions_id_fk",
+          "tableFrom": "market_trades",
+          "tableTo": "shekel_transactions",
+          "columnsFrom": [
+            "buyer_transaction_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "market_trades_seller_transaction_id_shekel_transactions_id_fk": {
+          "name": "market_trades_seller_transaction_id_shekel_transactions_id_fk",
+          "tableFrom": "market_trades",
+          "tableTo": "shekel_transactions",
+          "columnsFrom": [
+            "seller_transaction_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "market_trades_buyer_transaction_id_unique": {
+          "name": "market_trades_buyer_transaction_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "buyer_transaction_id"
+          ]
+        },
+        "market_trades_seller_transaction_id_unique": {
+          "name": "market_trades_seller_transaction_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "seller_transaction_id"
+          ]
+        },
+        "market_trades_buyer_idempotency_unique": {
+          "name": "market_trades_buyer_idempotency_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "buyer_id",
+            "idempotency_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "market_trades_positive": {
+          "name": "market_trades_positive",
+          "value": "\"market_trades\".\"quantity\" > 0 AND \"market_trades\".\"unit_price\" > 0"
+        },
+        "market_trades_distinct_players": {
+          "name": "market_trades_distinct_players",
+          "value": "\"market_trades\".\"buyer_id\" <> \"market_trades\".\"seller_id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.npc_request_boards": {
+      "name": "npc_request_boards",
+      "schema": "",
+      "columns": {
+        "farm_id": {
+          "name": "farm_id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "anchor": {
+          "name": "anchor",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cycle": {
+          "name": "cycle",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "brewer": {
+          "name": "brewer",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "completed": {
+          "name": "completed",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "npc_request_boards_farm_id_farms_id_fk": {
+          "name": "npc_request_boards_farm_id_farms_id_fk",
+          "tableFrom": "npc_request_boards",
+          "tableTo": "farms",
+          "columnsFrom": [
+            "farm_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "npc_request_cycle_nonnegative": {
+          "name": "npc_request_cycle_nonnegative",
+          "value": "\"npc_request_boards\".\"cycle\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.players": {
+      "name": "players",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "shekel_balance": {
+          "name": "shekel_balance",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "players_shekel_balance_nonnegative": {
+          "name": "players_shekel_balance_nonnegative",
+          "value": "\"players\".\"shekel_balance\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.shekel_transactions": {
+      "name": "shekel_transactions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "player_id": {
+          "name": "player_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "shekel_transaction_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'npc'"
+        },
+        "delta": {
+          "name": "delta",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "balance_after": {
+          "name": "balance_after",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "item_key": {
+          "name": "item_key",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "item_quantity": {
+          "name": "item_quantity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unit_price": {
+          "name": "unit_price",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "request_customer": {
+          "name": "request_customer",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "shekel_transactions_player_created_at_idx": {
+          "name": "shekel_transactions_player_created_at_idx",
+          "columns": [
+            {
+              "expression": "player_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "shekel_transactions_player_id_players_id_fk": {
+          "name": "shekel_transactions_player_id_players_id_fk",
+          "tableFrom": "shekel_transactions",
+          "tableTo": "players",
+          "columnsFrom": [
+            "player_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "shekel_transactions_player_idempotency_unique": {
+          "name": "shekel_transactions_player_idempotency_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "player_id",
+            "idempotency_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "shekel_transactions_delta_nonzero": {
+          "name": "shekel_transactions_delta_nonzero",
+          "value": "\"shekel_transactions\".\"delta\" <> 0"
+        },
+        "shekel_transactions_balance_after_nonnegative": {
+          "name": "shekel_transactions_balance_after_nonnegative",
+          "value": "\"shekel_transactions\".\"balance_after\" >= 0"
+        },
+        "shekel_transactions_item_quantity_positive": {
+          "name": "shekel_transactions_item_quantity_positive",
+          "value": "\"shekel_transactions\".\"item_quantity\" > 0"
+        },
+        "shekel_transactions_unit_price_positive": {
+          "name": "shekel_transactions_unit_price_positive",
+          "value": "\"shekel_transactions\".\"unit_price\" > 0"
+        },
+        "shekel_transactions_delta_matches_trade": {
+          "name": "shekel_transactions_delta_matches_trade",
+          "value": "abs(\"shekel_transactions\".\"delta\") = \"shekel_transactions\".\"item_quantity\" * \"shekel_transactions\".\"unit_price\""
+        },
+        "shekel_transactions_reward_or_trade": {
+          "name": "shekel_transactions_reward_or_trade",
+          "value": "\n      (\"shekel_transactions\".\"type\"::text = 'request_reward' AND \"shekel_transactions\".\"request_customer\" IS NOT NULL AND \"shekel_transactions\".\"item_key\" IS NULL AND \"shekel_transactions\".\"item_quantity\" IS NULL AND \"shekel_transactions\".\"unit_price\" IS NULL)\n      OR (\"shekel_transactions\".\"type\"::text <> 'request_reward' AND \"shekel_transactions\".\"request_customer\" IS NULL AND \"shekel_transactions\".\"item_key\" IS NOT NULL AND \"shekel_transactions\".\"item_quantity\" IS NOT NULL AND \"shekel_transactions\".\"unit_price\" IS NOT NULL)"
+        },
+        "shekel_transactions_direction_matches_type": {
+          "name": "shekel_transactions_direction_matches_type",
+          "value": "(\"shekel_transactions\".\"type\"::text IN ('market_sale', 'request_reward') AND \"shekel_transactions\".\"delta\" > 0) OR (\"shekel_transactions\".\"type\" = 'market_purchase' AND \"shekel_transactions\".\"delta\" < 0)"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.farm_building_type": {
+      "name": "farm_building_type",
+      "schema": "public",
+      "values": [
+        "granary",
+        "brewery"
+      ]
+    },
+    "public.farm_improvement_type": {
+      "name": "farm_improvement_type",
+      "schema": "public",
+      "values": [
+        "irrigation"
+      ]
+    },
+    "public.farm_object_type": {
+      "name": "farm_object_type",
+      "schema": "public",
+      "values": [
+        "rock",
+        "bush",
+        "reeds"
+      ]
+    },
+    "public.market_order_side": {
+      "name": "market_order_side",
+      "schema": "public",
+      "values": [
+        "sell",
+        "buy"
+      ]
+    },
+    "public.market_order_status": {
+      "name": "market_order_status",
+      "schema": "public",
+      "values": [
+        "open",
+        "filled",
+        "cancelled"
+      ]
+    },
+    "public.shekel_transaction_type": {
+      "name": "shekel_transaction_type",
+      "schema": "public",
+      "values": [
+        "market_sale",
+        "market_purchase",
+        "request_reward"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

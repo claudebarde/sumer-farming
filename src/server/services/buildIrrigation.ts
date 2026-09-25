@@ -1,3 +1,4 @@
+import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
 import { and, eq, isNull, lte, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
@@ -58,7 +59,7 @@ export class IrrigationPersistenceError extends Data.TaggedError(
   readonly cause: unknown;
 }> {}
 
-export type BuildIrrigationError =
+export type BuildIrrigationError = FarmerUnavailableError
   | IrrigationFarmNotFoundError
   | FarmVersionConflictError
   | InvalidIrrigationLocationError
@@ -120,6 +121,7 @@ export const buildIrrigation = (
             loadedFarm,
             startedAt
           );
+          assertFarmerAvailable(farm);
 
           if (farm.version !== input.expectedFarmVersion) {
             return {
@@ -275,7 +277,7 @@ export const buildIrrigation = (
             snapshot: await readFarmSnapshot(transaction, updatedFarm, false)
           };
         }),
-      catch: cause => new IrrigationPersistenceError({ cause })
+      catch: cause => cause instanceof FarmerUnavailableError ? cause : new IrrigationPersistenceError({ cause })
     });
 
     return yield* match(outcome)

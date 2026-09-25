@@ -1,3 +1,4 @@
+import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
 import { and, eq, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
@@ -49,7 +50,7 @@ export class GatherResourcePersistenceError extends Data.TaggedError(
   readonly cause: unknown;
 }> {}
 
-export type GatherResourceError =
+export type GatherResourceError = FarmerUnavailableError
   | GatherResourceRuleError
   | GatherResourcePersistenceError;
 
@@ -204,6 +205,7 @@ export const startGatherResource = (
             loadedFarm,
             now
           );
+          assertFarmerAvailable(farm);
 
           if (farm.version !== input.expectedFarmVersion) {
             return {
@@ -294,7 +296,7 @@ export const startGatherResource = (
                 )
               };
         }),
-      catch: cause => new GatherResourcePersistenceError({ cause })
+      catch: cause => cause instanceof FarmerUnavailableError ? cause : new GatherResourcePersistenceError({ cause })
     });
 
     return yield* match(outcome)
@@ -332,6 +334,7 @@ export const completeGatherResource = (
             loadedFarm,
             now
           );
+          assertFarmerAvailable(farm);
 
           if (farm.version !== input.expectedFarmVersion) {
             return {
@@ -398,7 +401,7 @@ export const completeGatherResource = (
                 )
               };
         }),
-      catch: cause => new GatherResourcePersistenceError({ cause })
+      catch: cause => cause instanceof FarmerUnavailableError ? cause : new GatherResourcePersistenceError({ cause })
     });
 
     return yield* match(outcome)

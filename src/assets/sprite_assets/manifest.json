@@ -294,6 +294,41 @@
     "source": "extracted"
   },
   {
+    "filename": "market-sign.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "standalone object",
+    "source": "newly generated"
+  },
+  {
+    "filename": "market.png",
+    "dimensions": "512x512",
+    "tile_footprint": "2x2",
+    "asset_type": "building",
+    "source": "newly generated"
+  },
+  {
+    "filename": "farmer-fishing.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "newly generated"
+  },
+  {
+    "filename": "farmer-with-fish.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "newly generated"
+  },
+  {
+    "filename": "fish.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "standalone object",
+    "source": "newly generated"
+  },
+  {
     "filename": "brewery.png",
     "dimensions": "512x512",
     "tile_footprint": "2x2",

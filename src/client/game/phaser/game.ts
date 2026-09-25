@@ -122,7 +122,7 @@ export const handlePointerUp = (
       }
     )
     .with("farmerIdle0", () => {
-      console.log(`Farmer clicked`);
+      // console.log(`Farmer clicked`);
 
       selectionHighlight
         .setPosition(tile.position.posX, tile.position.posY)

@@ -3,6 +3,11 @@ import { match, P } from "ts-pattern";
 import { colors } from "../../../styles/colorPalette";
 import { FARM_SPRITES, spriteName } from "../../../../assets/farmSprites";
 import { TILE_SIZE } from "../config";
+import { CARRY_BUBBLE_RADIUS, getCarryBubblePosition } from "../carryBubblePosition";
+import { CAST_COOLDOWN_MS, CAST_DELAY_MS } from "../../../../game-data/fishing";
+import { fishPosition } from "../../../../game-core/farm/fishing";
+import { blendFishPosition, riverFishY } from "../riverFishMotion";
+import { getMarketPosition, MARKET_SIZE } from "../marketPlacement";
 import { preservesBuildingAccess } from "../../../../game-core/farm/buildingAccess";
 import { scheduleActionDeadline, type ActionDeadline } from "../actionDeadline";
 import {
@@ -59,7 +64,7 @@ const DECORATION_DEPTH = 2;
 const CROP_DEPTH = 3;
 const BUILDING_DEPTH = 3;
 const ACTOR_DEPTH = 4;
-const MARKET_SIGN_ROW = 2;
+const RIVER_ROW = 10;
 const FARMER_MOVE_DURATION_PER_TILE = 180;
 const BOTTOM_DIALOG_DURATION = 2_000;
 const gameplayWidth = INITIAL_FARM_SIZE * TILE_SIZE;
@@ -79,7 +84,7 @@ type HarvestCommand = Extract<FarmerCommand, { readonly type: "harvest" }>;
 type GatherCommand = Extract<FarmerCommand, { readonly type: "gather" }>;
 type FarmItemCommand = Extract<
   FarmerCommand,
-  { readonly type: "pickup" | "drop" | "deposit" | "withdraw" | "brewery_supply" }
+  { readonly type: "pickup" | "drop" | "deposit" | "withdraw" | "brewery_supply" | "fishing" }
 >;
 type MovementCommand = Extract<
   FarmerCommand,
@@ -95,7 +100,8 @@ type MovementCommand = Extract<
       | "plant"
       | "harvest"
       | "gather"
-      | "brewery_supply";
+      | "brewery_supply"
+      | "fishing";
   }
 >;
 type FarmerMovementOutcome =
@@ -543,39 +549,34 @@ export class MainScene extends Phaser.Scene {
 
     positionFarm();
 
-    // PLACES THE MARKET SIGN ON THE RIGHT EDGE OF THE VISIBLE GRID
-    const marketSign = this.add
-      .image(0, 0, spriteName("marketSign"))
-      .setDisplaySize(TILE_SIZE, TILE_SIZE)
+    // Keep the public market near the visible right edge, outside the estate.
+    const marketBuilding = this.add
+      .image(0, 0, spriteName("market"))
+      .setOrigin(0)
+      .setDisplaySize(MARKET_SIZE * TILE_SIZE, MARKET_SIZE * TILE_SIZE)
       .setDepth(ACTOR_DEPTH + 1)
       .setInteractive({ useHandCursor: true });
 
-    const positionMarketSign = (): void => {
-      const rows = Math.max(1, Math.ceil(this.scale.height / TILE_SIZE));
-      const maximumRow = Math.max(0, rows - 2);
-      const preferredRow = Math.min(MARKET_SIGN_ROW, maximumRow);
-      const tileCenterX = Math.max(
-        TILE_SIZE / 2,
-        this.scale.width - TILE_SIZE / 2
+    const positionMarket = (): void => {
+      const position = getMarketPosition(
+        this.scale.width,
+        this.scale.height,
+        TILE_SIZE,
+        [
+          { x: farmPosition.column * TILE_SIZE, y: farmPosition.row * TILE_SIZE,
+            width: gameplayWidth, height: gameplayHeight },
+          { x: 0, y: RIVER_ROW * TILE_SIZE, width: this.scale.width, height: TILE_SIZE },
+          ...this.farmSnapshot.objects.map(object => ({
+            x: (farmPosition.column + object.column) * TILE_SIZE,
+            y: (farmPosition.row + object.row) * TILE_SIZE,
+            width: TILE_SIZE, height: TILE_SIZE
+          }))
+        ]
       );
-      const signColumn = Math.floor(tileCenterX / TILE_SIZE);
-      const occupiedRows = new Set(
-        this.farmSnapshot.objects
-          .filter(object => object.type === "rock" || object.type === "bush")
-          .filter(object => farmPosition.column + object.column === signColumn)
-          .map(object => farmPosition.row + object.row)
-      );
-      const row =
-        Array.from(
-          { length: maximumRow - preferredRow + 1 },
-          (_, offset) => preferredRow + offset
-        ).find(candidateRow => !occupiedRows.has(candidateRow)) ?? preferredRow;
-      const tileCenterY = row * TILE_SIZE + TILE_SIZE / 2;
-
-      marketSign.setPosition(tileCenterX, tileCenterY);
+      marketBuilding.setPosition(position.x, position.y);
     };
 
-    marketSign.on(
+    marketBuilding.on(
       Phaser.Input.Events.POINTER_UP,
       (
         _pointer: Phaser.Input.Pointer,
@@ -590,7 +591,7 @@ export class MainScene extends Phaser.Scene {
       }
     );
 
-    positionMarketSign();
+    positionMarket();
 
     // DISPLAYS THE QUANTITY STORED INSIDE THE FARM BUILDING
     const farmInventoryChipElement = document.createElement("div");
@@ -635,7 +636,7 @@ export class MainScene extends Phaser.Scene {
 
       this.farmSnapshot.groundItems.forEach(item => {
         // Purchased equipment belongs to estate inventory, never a ground sprite.
-        if (item.itemKey === "brewingVessels" || item.itemKey === "emptyBeerJar" || item.itemKey === "water" || item.itemKey === "beer") return;
+        if (item.itemKey === "brewingVessels" || item.itemKey === "emptyBeerJar" || item.itemKey === "water" || item.itemKey === "beer" || item.itemKey === "fish") return;
         const position = translateTilePosition(farmPosition, item);
         const tileType = match(item.itemKey)
           .with("barley", () => spriteName("harvestedBarley"))
@@ -725,7 +726,7 @@ export class MainScene extends Phaser.Scene {
     renderCrops();
 
     // DRAWS A RIVER ON THE 11TH ROW
-    const riverRow: number = 10; // 11th row (0-indexed)
+    const riverRow: number = RIVER_ROW; // 11th row (0-indexed)
     const riverTiles = this.add.group();
     let waterTileData: readonly Tile[] = [];
 
@@ -757,7 +758,11 @@ export class MainScene extends Phaser.Scene {
           "water"
         );
         // sets interaction for the river tile
-        waterImage.on(Phaser.Input.Events.POINTER_UP, () => {
+        waterImage.on(Phaser.Input.Events.POINTER_UP, (pointer: Phaser.Input.Pointer) => {
+          if (this.farmSnapshot.farm.fishing) {
+            void castFishing(pointer.worldX);
+            return;
+          }
           handlePointerUp(waterTile, selectionHighlight);
         });
 
@@ -1058,9 +1063,11 @@ export class MainScene extends Phaser.Scene {
       .setOrigin(0)
       .setDisplaySize(TILE_SIZE, TILE_SIZE)
       .setInteractive();
-    let farmerPosition = resolveInitialFarmerPosition();
+    let farmerPosition = this.farmSnapshot.farm.fishing
+      ? toTilePosition({ column: farmPosition.column + this.farmSnapshot.farm.fishing.column, row: riverRow - 1 })
+      : resolveInitialFarmerPosition();
     let farmerVisualOffset: PixelPosition = { x: 0, y: 0 };
-    let farmerHasMoved = false;
+    let farmerHasMoved = this.farmSnapshot.farm.fishing !== null;
     let activeFarmerMovement: Phaser.Tweens.TweenChain | null = null;
     let activeMovementCommand: MovementCommand | null = null;
     let activeImprovementActionTimer: ActionDeadline | null = null;
@@ -1111,7 +1118,7 @@ export class MainScene extends Phaser.Scene {
     });
 
     const farmerCarryBubble = this.add
-      .circle(0, 0, 12, 0xffd45a, 1)
+      .circle(0, 0, CARRY_BUBBLE_RADIUS, 0xffd45a, 1)
       .setStrokeStyle(2, 0x4b2f20)
       .setVisible(false);
     const farmerCarryBubbleText = this.add
@@ -1126,8 +1133,9 @@ export class MainScene extends Phaser.Scene {
     actorLayer.add([farmer, farmerCarryBubble, farmerCarryBubbleText]);
 
     const updateFarmerCarryBubblePosition = (): void => {
-      const x = farmer.x + TILE_SIZE * 0.78;
-      const y = farmer.y + TILE_SIZE * 0.08;
+      const { x, y } = getCarryBubblePosition(
+        farmer.x, farmer.y, TILE_SIZE, this.scale.width, this.scale.height
+      );
       farmerCarryBubble.setPosition(x, y);
       farmerCarryBubbleText.setPosition(x, y);
     };
@@ -1137,7 +1145,7 @@ export class MainScene extends Phaser.Scene {
       const isCarrying = carriedItem !== null;
       farmer
         .setTexture(
-          spriteName(isCarrying ? "farmerHarvest3" : "farmerIdle0")
+          spriteName(carriedItem?.itemKey === "fish" ? "farmerWithFish" : this.farmSnapshot.farm.fishing ? "farmerFishing" : isCarrying ? "farmerHarvest3" : "farmerIdle0")
         )
         .setDisplaySize(TILE_SIZE, TILE_SIZE);
       farmerCarryBubble.setVisible(isCarrying);
@@ -1146,6 +1154,108 @@ export class MainScene extends Phaser.Scene {
         .setVisible(isCarrying);
       updateFarmerCarryBubblePosition();
     };
+
+    // Fishing stays in the Phaser world; React only supplies instructions/cancel.
+    const swimmingFish = this.add.image(0, 0, spriteName("fish"))
+      .setDisplaySize(TILE_SIZE * 0.6, TILE_SIZE * 0.6).setDepth(ACTOR_DEPTH + 2).setVisible(false);
+    const fishingArea = this.add.rectangle(0, 0, 1, TILE_SIZE, 0xffffff, 0.08)
+      .setOrigin(0).setStrokeStyle(2, 0xffd45a).setDepth(ACTOR_DEPTH + 1).setVisible(false);
+    const hook = this.add.circle(0, 0, 7, 0xffd45a).setDepth(ACTOR_DEPTH + 3).setVisible(false);
+    let fishingClockOffset = (this.farmSnapshot.farm.fishing?.serverNow ?? Date.now()) - Date.now();
+    let casting = false;
+    let nextCastAt = 0;
+    let keyboardAim = 0.5;
+    const roamingSeed = Math.floor(Math.random() * 4294967296);
+    const roamingStartedAt = Date.now();
+    const fishYAt = (now: number) => riverFishY(riverRow * TILE_SIZE, TILE_SIZE, TILE_SIZE * 0.6, now - roamingStartedAt);
+    let fishMode = "roaming";
+    let transitionStartedAt = roamingStartedAt;
+    let transitionFrom = this.scale.width / 2;
+    let transitionDuration = 0;
+    let respawnAt = 0;
+    let fishReadyToCatch = false;
+    swimmingFish.setPosition(transitionFrom, riverRow * TILE_SIZE + TILE_SIZE / 2).setVisible(true);
+    const fishingBounds = (column = this.farmSnapshot.farm.fishing?.column ?? 0) => {
+      const width = Math.min(TILE_SIZE * 4, this.scale.width);
+      const x = Math.max(0, Math.min(this.scale.width - width, (farmPosition.column + column + 0.5) * TILE_SIZE - width / 2));
+      return { x, width, y: riverRow * TILE_SIZE };
+    };
+    const castFishing = async (worldX: number): Promise<void> => {
+      const session = this.farmSnapshot.farm.fishing;
+      if (!session || casting || Date.now() < nextCastAt) return;
+      if (!fishReadyToCatch) {
+        showBottomDialog("The fish is swimming into range. Get ready to cast!");
+        return;
+      }
+      const bounds = fishingBounds();
+      const aim = (worldX - bounds.x) / bounds.width;
+      if (aim < 0 || aim > 1) return;
+      casting = true;
+      nextCastAt = Date.now() + CAST_COOLDOWN_MS;
+      hook.setPosition(worldX, bounds.y).setVisible(true);
+      this.tweens.add({ targets: hook, y: fishYAt(Date.now() + CAST_DELAY_MS), duration: CAST_DELAY_MS });
+      try {
+        const snapshot = await executeGameCommand({ type: "cast_fishing", sessionId: session.id, aim });
+        if (!sceneIsActive) return;
+        farmStore.getState().setReady(snapshot);
+        updateFarmerCarryVisual();
+        showBottomDialog(snapshot.farm.carriedItem?.itemKey === "fish" ? "Caught one fish! Store it at the farm or release it at the river." : "Missed! Watch its movement and cast ahead.");
+      } catch (error) {
+        if (sceneIsActive) showBottomDialog(error instanceof Error ? error.message : "The cast failed.");
+      } finally {
+        casting = false;
+        if (sceneIsActive) hook.setVisible(false);
+      }
+    };
+    const updateFishing = () => {
+      const now = Date.now();
+      const session = this.farmSnapshot.farm.fishing;
+      const command = farmerCommandStore.getState().commands[0];
+      const approaching = command?.type === "fishing" && command.action === "start" ? command : null;
+      const mode = session ? `fishing:${session.id}` : approaching ? `approaching:${approaching.id}` : "roaming";
+      if (mode !== fishMode) {
+        transitionFrom = swimmingFish.x;
+        transitionStartedAt = now;
+        transitionDuration = session ? 1200 : 2500;
+        fishMode = mode;
+      }
+      swimmingFish.setVisible(now >= respawnAt);
+      fishingArea.setVisible(session !== null);
+      fishReadyToCatch = session !== null && now >= respawnAt && now - transitionStartedAt >= transitionDuration;
+      if (now < respawnAt) return;
+      const bounds = fishingBounds(approaching && !session ? approaching.target.column - farmPosition.column : session?.column);
+      const targetX = session
+        ? bounds.x + fishPosition(session.seed, now + fishingClockOffset - session.startedAt) * bounds.width
+        : approaching
+          ? bounds.x + bounds.width / 2
+          : TILE_SIZE * 0.3 + fishPosition(roamingSeed, (now - roamingStartedAt) / 7) * Math.max(0, this.scale.width - TILE_SIZE * 0.6);
+      const x = blendFishPosition(transitionFrom, targetX, now - transitionStartedAt, transitionDuration || 1);
+      if (Math.abs(x - swimmingFish.x) > 0.01) swimmingFish.setFlipX(x < swimmingFish.x);
+      swimmingFish.setPosition(x, fishYAt(now));
+      if (session) {
+        fishingArea.setPosition(bounds.x, bounds.y).setSize(bounds.width, TILE_SIZE);
+        farmer.setTexture(spriteName("farmerFishing")).setDisplaySize(TILE_SIZE, TILE_SIZE);
+      } else {
+        hook.setVisible(false);
+      }
+    };
+    const fishingKey = (event: KeyboardEvent) => {
+      if (!this.farmSnapshot.farm.fishing || (event.target instanceof HTMLElement && ["INPUT", "TEXTAREA", "BUTTON"].includes(event.target.tagName))) return;
+      const bounds = fishingBounds();
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        event.preventDefault();
+        keyboardAim = Math.max(0, Math.min(1, keyboardAim + (event.key === "ArrowLeft" ? -0.04 : 0.04)));
+        if (!casting) hook.setPosition(bounds.x + keyboardAim * bounds.width, fishYAt(Date.now())).setVisible(true);
+      } else if (event.code === "Space") {
+        event.preventDefault(); void castFishing(bounds.x + keyboardAim * bounds.width);
+      }
+    };
+    this.events.on(Phaser.Scenes.Events.UPDATE, updateFishing);
+    window.addEventListener("keydown", fishingKey);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.events.off(Phaser.Scenes.Events.UPDATE, updateFishing);
+      window.removeEventListener("keydown", fishingKey);
+    });
 
     const positionFarmer = (): void => {
       farmer.setPosition(
@@ -1827,6 +1937,7 @@ export class MainScene extends Phaser.Scene {
 
     const getMovementTarget = (command: MovementCommand): TilePosition =>
       match(command)
+        .with({ type: "fishing" }, ({ action, target }) => action === "store" ? getFarmDepositTarget() : toTilePosition({ column: target.column, row: riverRow - 1 }))
         .with({ type: "brewery_supply" }, ({ action, target }) =>
           action === "deliver" || action === "stock_jars" || action === "start_brewing" || action === "collect_beer" || action === "give_beer" ? getBuildingInteractionTarget(target, "brewery") :
             target.row === riverRow ? toTilePosition({ column: target.column, row: riverRow - 1 }) : target
@@ -2124,6 +2235,7 @@ export class MainScene extends Phaser.Scene {
       farmerCommandStore.getState().setStatus(
         match(command)
           .returnType<FarmerStatus>()
+          .with({ type: "fishing" }, () => ({ type: "depositing", commandId: command.id }))
           .with({ type: "brewery_supply" }, () => ({ type: "depositing", commandId: command.id }))
           .with({ type: "pickup" }, () => ({
             type: "pickingUp",
@@ -2153,6 +2265,9 @@ export class MainScene extends Phaser.Scene {
       }
 
       const request = match(command)
+        .with({ type: "fishing" }, fishing => executeGameCommand({ type: "fishing", action: fishing.action,
+          target: { column: fishing.target.column - farmPosition.column, row: fishing.target.row - farmPosition.row },
+          expectedFarmVersion: farmState.snapshot.farm.version }))
         .with({ type: "brewery_supply" }, supply => executeGameCommand({
           type: "brewery_supply", action: supply.action,
           target: { column: supply.target.column - farmPosition.column, row: supply.target.row - farmPosition.row },
@@ -2223,6 +2338,7 @@ export class MainScene extends Phaser.Scene {
 
           showBottomDialog(
             match(command)
+              .with({ type: "fishing" }, ({ action }) => action === "start" ? "Cast ahead of the fish: click or tap the highlighted river." : action === "store" ? "Fish stored at the farm." : "Fish released into the river.")
               .with({ type: "brewery_supply" }, ({ action }) => match(action)
                 .with("collect_water", () => "The farmer collected one load of water.")
                 .with("pour_water", () => "The water was poured out.")
@@ -2621,6 +2737,7 @@ export class MainScene extends Phaser.Scene {
       match(outcome)
         .with({ type: "arrived" }, () => {
           match(command)
+            .with({ type: "fishing" }, startFarmItemAction)
             .with({ type: "inspect" }, inspectCommand => {
               handleFarmerArrival(inspectCommand);
               completeMovementCommand(inspectCommand.id);
@@ -2671,6 +2788,10 @@ export class MainScene extends Phaser.Scene {
     };
 
     const executeMovementCommand = (command: MovementCommand): void => {
+      if (farmerCommandStore.getState().carriedItem?.itemKey === "fish" && command.type !== "fishing") {
+        completeMovementCommand(command.id);
+        return;
+      }
       const carriedItem = farmerCommandStore.getState().carriedItem;
 
       if (
@@ -2734,6 +2855,8 @@ export class MainScene extends Phaser.Scene {
     };
 
     function processNextMovementCommand(): void {
+      const current = farmStore.getState().farm;
+      if (current.type === "ready" && current.snapshot.farm.fishing) return;
       const commandState = farmerCommandStore.getState();
       const nextCommand = commandState.commands[0];
       const canStartCommand =
@@ -2753,7 +2876,7 @@ export class MainScene extends Phaser.Scene {
           nextCommand?.type === "plant" ||
           nextCommand?.type === "harvest" ||
           nextCommand?.type === "gather" ||
-          nextCommand?.type === "brewery_supply")
+          nextCommand?.type === "brewery_supply" || nextCommand?.type === "fishing")
       ) {
         executeMovementCommand(nextCommand);
       }
@@ -2770,7 +2893,17 @@ export class MainScene extends Phaser.Scene {
     });
     const unsubscribeFromFarm = farmStore.subscribe(state => {
       if (state.farm.type === "ready") {
+        const wasFishing = this.farmSnapshot.farm.fishing !== null;
         this.farmSnapshot = state.farm.snapshot;
+        if (wasFishing && !this.farmSnapshot.farm.fishing && this.farmSnapshot.farm.carriedItem?.itemKey === "fish") {
+          respawnAt = Date.now() + 3000;
+          swimmingFish.setVisible(false).setPosition(Math.random() < 0.5 ? -TILE_SIZE * 0.3 : this.scale.width + TILE_SIZE * 0.3, riverRow * TILE_SIZE + TILE_SIZE / 2);
+          fishMode = "roaming";
+          transitionFrom = swimmingFish.x;
+          transitionStartedAt = respawnAt;
+          transitionDuration = 4000;
+        }
+        fishingClockOffset = (this.farmSnapshot.farm.fishing?.serverNow ?? Date.now()) - Date.now();
         farmerCommandStore
           .getState()
           .setCarriedItem(state.farm.snapshot.farm.carriedItem);
@@ -2780,8 +2913,12 @@ export class MainScene extends Phaser.Scene {
         renderCrops();
         renderBuildings();
         renderGroundDecorations();
-        positionMarketSign();
+        positionMarket();
         rebuildGrid();
+        if (wasFishing && !this.farmSnapshot.farm.fishing) {
+          updateFarmerCarryVisual();
+          processNextMovementCommand();
+        }
 
         if (buildingPlacementStore.getState().placement.type === "placing") {
           updateBuildingPlacementPreview(this.input.activePointer);
@@ -2836,7 +2973,7 @@ export class MainScene extends Phaser.Scene {
       activeFarmerMovement = null;
       renderGround();
       positionFarm();
-      positionMarketSign();
+      positionMarket();
       updateFarmInventoryChip();
 
       if (!farmerHasMoved) {

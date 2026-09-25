@@ -1,3 +1,4 @@
+import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
 import { eq, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
@@ -54,7 +55,7 @@ export class PlantCropPersistenceError extends Data.TaggedError(
   readonly cause: unknown;
 }> {}
 
-export type PlantCropError = PlantCropRuleError | PlantCropPersistenceError;
+export type PlantCropError = FarmerUnavailableError | PlantCropRuleError | PlantCropPersistenceError;
 
 type PlantCropInput = {
   readonly playerId: string;
@@ -122,6 +123,7 @@ export const plantCrop = (
             loadedFarm,
             sowingStartedAt
           );
+          assertFarmerAvailable(farm);
 
           if (farm.version !== input.expectedFarmVersion) {
             return {
@@ -264,7 +266,7 @@ export const plantCrop = (
             snapshot: await readFarmSnapshot(transaction, updatedFarm, false)
           };
         }),
-      catch: cause => new PlantCropPersistenceError({ cause })
+      catch: cause => cause instanceof FarmerUnavailableError ? cause : new PlantCropPersistenceError({ cause })
     });
 
     return yield* match(outcome)

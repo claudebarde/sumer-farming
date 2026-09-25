@@ -137,6 +137,7 @@ export const readFarmSnapshot = async (
         happiness: currentFarm.happiness,
         lastBeerAt: currentFarm.lastBeerAt?.toISOString() ?? null
       },
+      fishing: currentFarm.fishing === null ? null : { ...currentFarm.fishing, serverNow: Date.now() },
       carriedItem:
         currentFarm.carriedItemKey === null
           ? null

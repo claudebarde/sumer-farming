@@ -13,6 +13,10 @@ export const FarmSnapshotSchema = z.object({
     shekelBalance: z.int().nonnegative()
   }),
   farm: z.object({
+    fishing: z.object({
+      id: z.uuid(), seed: z.int().nonnegative(), startedAt: z.number(),
+      lastCastAt: z.number().nullable(), column: z.int(), row: z.int(), serverNow: z.number()
+    }).nullable().default(null),
     id: z.uuid(),
     playerId: z.uuid(),
     version: z.int().positive(),

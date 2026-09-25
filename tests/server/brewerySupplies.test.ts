@@ -41,6 +41,55 @@ const fixture = async (complete = true) => {
 };
 
 describe("persistent brewery supplies", () => {
+  it("feeds stored fish without a brewery and shares its persistent cooldown with both beer actions", async () => {
+    const { farm, command } = await fixture();
+    const fishCommand = { type: "give_farmer_fish" as const, playerId: farm.playerId, expectedFarmVersion: 1 };
+    await db.delete(farmBuildings).where(eq(farmBuildings.farmId, farm.id));
+    await db.insert(farmInventory).values([
+      { farmId: farm.id, itemKey: "fish", quantity: 3 },
+      { farmId: farm.id, itemKey: "beer", quantity: 2 }
+    ]);
+    await db.update(farms).set({ happiness: 50, hungrySince: new Date(Date.now() - 1000) }).where(eq(farms.id, farm.id));
+    const fed = await Effect.runPromise(supplyBrewery(db, fishCommand));
+    expect(fed.farm.household.happiness).toBe(60);
+    expect(fed.farm.household.hungrySince).not.toBeNull();
+    expect(fed.inventory.find(item => item.itemKey === "fish")?.quantity).toBe(2);
+    expect(fed.farm.household.lastBeerAt).not.toBeNull();
+    await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, fishCommand))))
+      .resolves.toMatchObject({ type: "farm_version_conflict" });
+    for (const type of ["give_farmer_fish", "give_farmer_beer"] as const) {
+      await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, { ...fishCommand, type, expectedFarmVersion: 2 }))))
+        .resolves.toMatchObject({ type: "beer_cooldown" });
+    }
+    await db.update(farms).set({ lastBeerAt: new Date(Date.now() - 86400001) }).where(eq(farms.id, farm.id));
+    const beer = await Effect.runPromise(supplyBrewery(db, { ...fishCommand, type: "give_farmer_beer", expectedFarmVersion: 2 }));
+    expect(beer.farm.household.happiness).toBe(75);
+    await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, { ...fishCommand, expectedFarmVersion: 3 }))))
+      .resolves.toMatchObject({ type: "beer_cooldown" });
+    // A completed brewery must use that same timestamp, not a separate allowance.
+    await db.insert(farmBuildings).values({ farmId: farm.id, type: "brewery", column: 5, row: 3,
+      startedAt: new Date(0), completesAt: new Date(1), beerReadyAt: new Date(2) });
+    await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("give_beer", 3, { column: 5, row: 3 })))))
+      .resolves.toMatchObject({ type: "beer_cooldown" });
+    await db.update(farms).set({ happiness: 95, lastBeerAt: new Date(Date.now() - 86400001) }).where(eq(farms.id, farm.id));
+    const capped = await Effect.runPromise(supplyBrewery(db, { ...fishCommand, expectedFarmVersion: 3 }));
+    expect(capped.farm.household.happiness).toBe(100);
+    expect(capped.inventory.find(item => item.itemKey === "fish")?.quantity).toBe(1);
+  });
+
+  it("does not consume fish at full happiness or grant happiness without stored fish", async () => {
+    const { farm } = await fixture();
+    const command = { type: "give_farmer_fish" as const, playerId: farm.playerId, expectedFarmVersion: 1 };
+    await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command))))
+      .resolves.toMatchObject({ type: "no_fish" });
+    await db.insert(farmInventory).values({ farmId: farm.id, itemKey: "fish", quantity: 1 });
+    await db.update(farms).set({ happiness: 100 }).where(eq(farms.id, farm.id));
+    await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command))))
+      .resolves.toMatchObject({ type: "happiness_full" });
+    expect((await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id)))[0]?.quantity).toBe(1);
+    expect((await db.select().from(farms).where(eq(farms.id, farm.id)))[0]?.version).toBe(1);
+  });
+
   it("rejects over-capacity barley in direct database writes", async () => {
     const { farm, building } = await fixture();
     await expect(db.update(farmBuildings).set({ brewingBarley: 3 }).where(eq(farmBuildings.id, building.id)))

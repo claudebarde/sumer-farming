@@ -1,3 +1,4 @@
+import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
 import { and, eq, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
@@ -60,7 +61,7 @@ export class FarmItemPersistenceError extends Data.TaggedError(
   readonly cause: unknown;
 }> {}
 
-export type FarmItemActionError =
+export type FarmItemActionError = FarmerUnavailableError
   | FarmItemRuleError
   | FarmItemPersistenceError;
 
@@ -216,6 +217,7 @@ const executeFarmItemAction = (
             loadedFarm,
             now
           );
+          assertFarmerAvailable(farm);
 
           if (farm.version !== action.input.expectedFarmVersion) {
             return {
@@ -228,7 +230,7 @@ const executeFarmItemAction = (
             };
           }
 
-          if (farm.carriedItemKey === "water" && (action.type === "drop" || action.type === "deposit")) {
+          if (farm.carriedItemKey === "fish" || (farm.carriedItemKey === "water" && (action.type === "drop" || action.type === "deposit"))) {
             return { type: "rule_error", rule: { type: "incompatible_carried_item" } };
           }
 
@@ -675,7 +677,7 @@ const executeFarmItemAction = (
             })
             .with({ type: "withdraw" }, async ({ input }) => {
               // Filled beer jars stay in estate inventory until sold or used.
-              if (input.itemKey === "beer") {
+              if (input.itemKey === "beer" || input.itemKey === "fish") {
                 return { type: "rule_error", rule: { type: "incompatible_carried_item" } };
               }
               if (
@@ -765,7 +767,7 @@ const executeFarmItemAction = (
             })
             .exhaustive();
         }),
-      catch: cause => new FarmItemPersistenceError({ cause })
+      catch: cause => cause instanceof FarmerUnavailableError ? cause : new FarmItemPersistenceError({ cause })
     });
 
     return yield* match(outcome)

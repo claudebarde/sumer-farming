@@ -1,0 +1,2 @@
+ALTER TABLE "farms" ADD COLUMN "fishing" jsonb;--> statement-breakpoint
+ALTER TABLE "farm_inventory" ADD CONSTRAINT "farm_inventory_fish_capacity" CHECK ("farm_inventory"."item_key" <> 'fish' OR "farm_inventory"."quantity" <= 5);

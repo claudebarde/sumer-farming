@@ -44,7 +44,7 @@ export const executeGameCommand = async (
   }
 
   const snapshot = FarmSnapshotSchema.parse(body);
-  if (command.type === "buy_from_npc_market" || command.type === "sell_to_npc_market" || command.type === "buy_market_sell_order") {
+  if (command.type === "deliver_npc_request" || command.type === "buy_from_npc_market" || command.type === "sell_to_npc_market" || command.type === "buy_market_sell_order") {
     // Fetch the committed receipt; toast failure must never make a successful
     // economic action appear to have failed. The background poll can retry it.
     void fetchTradeHistory({ limit: 1, transactionKey: command.idempotencyKey }).then(

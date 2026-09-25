@@ -43,11 +43,11 @@ function TradeList({ trades }: { readonly trades: TradeHistory["trades"] }) {
       {trades.map(trade => (
         <li key={trade.id}>
           <div className={styles.summary}>
-            <strong>{trade.type === "market_sale" ? "Sold" : "Bought"} {trade.quantity} {trade.itemKey === "beer" ? (trade.quantity === 1 ? "beer jar" : "beer jars") : trade.itemKey === "brewingVessels" || trade.itemKey === "emptyBeerJar" ? MARKET_ITEM_DEFINITIONS[trade.itemKey].label.toLowerCase() : trade.itemKey}</strong>
-            <span>{trade.type === "market_sale" ? "+" : "−"}{shekels(trade.total)}</span>
+            <strong>{trade.type === "request_reward" ? `Request delivered: ${trade.requestCustomer}` : <>{trade.type === "market_sale" ? "Sold" : "Bought"} {trade.quantity} {trade.itemKey === "beer" ? (trade.quantity === 1 ? "beer jar" : "beer jars") : trade.itemKey === "brewingVessels" || trade.itemKey === "emptyBeerJar" ? MARKET_ITEM_DEFINITIONS[trade.itemKey].label.toLowerCase() : trade.itemKey}</>}</strong>
+            <span>{trade.type === "market_purchase" ? "−" : "+"}{shekels(trade.total)}</span>
           </div>
           <div className={styles.details}>
-            <span>{trade.source === "npc" ? "NPC market" : "Player market"} · {shekels(trade.unitPrice)} each</span>
+            <span>{trade.source === "npc" ? "NPC market" : "Player market"}{trade.unitPrice !== null && <> · {shekels(trade.unitPrice)} each</>}</span>
             <time dateTime={trade.createdAt}>{new Date(trade.createdAt).toLocaleString(undefined, {
               dateStyle: "medium", timeStyle: "short"
             })}</time>

@@ -13,9 +13,10 @@ export const TradeHistorySchema = z.object({
     id: z.uuid(),
     type: ShekelTransactionTypeSchema,
     source: z.enum(["npc", "player"]),
-    itemKey: InventoryItemKeySchema,
-    quantity: z.int().positive(),
-    unitPrice: z.int().positive(),
+    itemKey: InventoryItemKeySchema.nullable(),
+    quantity: z.int().positive().nullable(),
+    unitPrice: z.int().positive().nullable(),
+    requestCustomer: z.string().nullable().optional(),
     total: z.int().positive(),
     createdAt: z.iso.datetime()
   })),

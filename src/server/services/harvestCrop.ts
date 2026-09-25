@@ -1,3 +1,4 @@
+import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
@@ -45,7 +46,7 @@ export class HarvestCropPersistenceError extends Data.TaggedError(
   readonly cause: unknown;
 }> {}
 
-export type HarvestCropError =
+export type HarvestCropError = FarmerUnavailableError
   | HarvestCropRuleError
   | HarvestCropPersistenceError;
 
@@ -90,6 +91,7 @@ const executeHarvestAction = (
             loadedFarm,
             now
           );
+          assertFarmerAvailable(farm);
 
           if (farm.version !== action.input.expectedFarmVersion) {
             return {
@@ -233,7 +235,7 @@ const executeHarvestAction = (
             })
             .exhaustive();
         }),
-      catch: cause => new HarvestCropPersistenceError({ cause })
+      catch: cause => cause instanceof FarmerUnavailableError ? cause : new HarvestCropPersistenceError({ cause })
     });
 
     return yield* match(outcome)

@@ -12,6 +12,7 @@ import { FARMER_CARRY_CAPACITY } from "../../game-data/storage";
 import type { GatherableResourceKey } from "../../game-data/resources";
 
 export type FarmerCommand =
+  | { readonly id: string; readonly type: "fishing"; readonly action: "start" | "store" | "release"; readonly target: TilePosition }
   | {
       readonly id: string;
       readonly type: "brewery_supply";
@@ -132,6 +133,7 @@ export const farmerCommandStore = createStore<State>()(set => ({
 
   addCommand: command =>
     set(state => {
+      if (state.carriedItem?.itemKey === "fish" && command.type !== "fishing") return {};
       if (command.type === "brewery_supply") {
         if (command.action === "collect_water" && state.carriedItem !== null) return {};
         if (command.action === "stock_jars" && state.carriedItem !== null) return {};
@@ -194,6 +196,7 @@ export const farmerCommandStore = createStore<State>()(set => ({
           ? { type: "idle" }
           : match(newCommands[0])
               .returnType<FarmerStatus>()
+              .with({ type: "fishing" }, () => ({ type: "moving", commandId: newCommands[0].id }))
               .with({ type: "move" }, () => ({
                 type: "moving",
                 commandId: newCommands[0].id

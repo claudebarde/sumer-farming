@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const inventoryItemKeys = ["barley", "reed", "clay", "brewingVessels", "emptyBeerJar", "water", "beer"] as const;
+export const inventoryItemKeys = ["barley", "reed", "clay", "brewingVessels", "emptyBeerJar", "water", "beer", "fish"] as const;
 
 export const InventoryItemKeySchema = z.enum(inventoryItemKeys);
 

@@ -37,10 +37,10 @@ function TradeToast({ trade }: { readonly trade: TradeNotification }) {
       onPointerUp={event => event.stopPropagation()}
     >
       <Toast.Title className={styles.title}>
-        {trade.type === "market_sale" ? "Sale completed" : "Purchase completed"}
+        {trade.type === "request_reward" ? "Request delivered" : trade.type === "market_sale" ? "Sale completed" : "Purchase completed"}
       </Toast.Title>
       <Toast.Description className={styles.description}>
-        {trade.type === "market_sale" ? "Sold" : "Bought"} {trade.quantity} {trade.itemKey === "beer" ? (trade.quantity === 1 ? "beer jar" : "beer jars") : trade.itemKey === "brewingVessels" || trade.itemKey === "emptyBeerJar" ? MARKET_ITEM_DEFINITIONS[trade.itemKey].label.toLowerCase() : trade.itemKey} for {trade.total} {trade.total === 1 ? "shekel" : "shekels"}.
+        {trade.type === "request_reward" ? `${trade.requestCustomer}: earned ${trade.total} shekels.` : <>{trade.type === "market_sale" ? "Sold" : "Bought"} {trade.quantity} {trade.itemKey === "beer" ? (trade.quantity === 1 ? "beer jar" : "beer jars") : trade.itemKey === "brewingVessels" || trade.itemKey === "emptyBeerJar" ? MARKET_ITEM_DEFINITIONS[trade.itemKey].label.toLowerCase() : trade.itemKey} for {trade.total} {trade.total === 1 ? "shekel" : "shekels"}.</>}
         <span>{trade.source === "npc" ? "NPC market" : "Player market"}</span>
       </Toast.Description>
       <Toast.Close className={styles.close} aria-label="Dismiss trade notification"><Cross2Icon /></Toast.Close>

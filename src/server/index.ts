@@ -6,6 +6,9 @@ import { Client } from "pg";
 import { match, P } from "ts-pattern";
 
 import { GameCommandSchema } from "../schemas/gameCommands";
+import { FarmerUnavailableError } from "./services/farmerAvailability";
+import { fishingAction, FishingRuleError, FishingPersistenceError } from "./services/fishing";
+import { getNpcRequests, deliverNpcRequest, NpcRequestRuleError, NpcRequestPersistenceError } from "./services/npcRequests";
 import type { FarmSnapshot } from "../schemas/farm";
 import { getMarketQuotes } from "./services/marketQuotes";
 import { getMarketListings } from "./services/marketListings";
@@ -108,6 +111,11 @@ app.use("/api/*", async (c, next) => {
 type GameActionEffect = Effect.Effect<
   FarmSnapshot,
   | BuildIrrigationError
+  | FishingRuleError
+  | FarmerUnavailableError
+  | FishingPersistenceError
+  | NpcRequestRuleError
+  | NpcRequestPersistenceError
   | BrewerySupplyRuleError
   | BrewerySupplyPersistenceError
   | BuildFarmBuildingError
@@ -170,6 +178,24 @@ app.get("/api/market/quotes", async c => {
     await client.end().catch(error => {
       console.error("Failed to close database connection", error);
     });
+  }
+});
+
+app.get("/api/market/requests", async c => {
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await Effect.runPromise(Effect.either(getNpcRequests(createDatabase(client), c.get("developmentPlayer").id)));
+    if (Either.isLeft(result)) {
+      console.error("NPC requests failed", result.left);
+      return c.json({ error: { message: "Requests could not be loaded" } }, 500);
+    }
+    return c.json(result.right);
+  } catch (error) {
+    console.error("NPC request connection failed", error);
+    return c.json({ error: { message: "Requests are unavailable" } }, 503);
+  } finally {
+    await client.end().catch(error => console.error("Failed to close database connection", error));
   }
 });
 
@@ -319,8 +345,10 @@ app.post("/api/game/action", async c => {
       Effect.either(
         match(parsedCommand.data)
           .returnType<GameActionEffect>()
+          .with({ type: P.union("fishing", "cast_fishing", "cancel_fishing") }, command => fishingAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "brewery_supply" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "give_farmer_beer" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: "give_farmer_fish" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "build_irrigation" }, command =>
             buildIrrigation(database, {
               playerId: c.get("developmentPlayer").id,
@@ -420,6 +448,9 @@ app.post("/api/game/action", async c => {
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
+          .with({ type: "deliver_npc_request" }, command =>
+            deliverNpcRequest(database, { ...command, playerId: c.get("developmentPlayer").id })
+          )
           .with({ type: "buy_from_npc_market" }, command =>
             buyFromNpcMarket(database, {
               playerId: c.get("developmentPlayer").id,
@@ -470,6 +501,27 @@ app.post("/api/game/action", async c => {
 
     return match(result.left)
       .with(P.instanceOf(BrewerySupplyRuleError), error => c.json({ error: { type: error.type, message: error.message } }, 409))
+      .with(P.instanceOf(FarmerUnavailableError), error => c.json({ error: { type: "farmer_busy", message: error.message } }, 409))
+      .with(P.instanceOf(FishingRuleError), error => c.json({ error: { type: "fishing_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(FishingPersistenceError), error => {
+        console.error("Fishing failed", error.cause);
+        return c.json({ error: { type: "fishing_failed", message: "Fishing could not be completed." } }, 500);
+      })
+      .with(P.instanceOf(NpcRequestRuleError), error => c.json({ error: {
+        type: error.reason === "version_conflict" ? "farm_version_conflict" : "npc_request_unavailable",
+        message: match(error.reason)
+          .with("missing_farm", () => "Your farm could not be found.")
+          .with("expired", () => "This request has expired. Refresh the requests.")
+          .with("insufficient_goods", () => "Store all the requested goods before delivering.")
+          .with("version_conflict", () => "Your farm changed. Please try again.")
+          .with("idempotency_conflict", () => "This transaction key was already used.")
+          .with("balance_limit", () => "Your shekel balance is at its limit.")
+          .exhaustive()
+      } }, 409))
+      .with(P.instanceOf(NpcRequestPersistenceError), error => {
+        console.error("NPC delivery failed", error.cause);
+        return c.json({ error: { type: "npc_request_failed", message: "The delivery could not be completed." } }, 500);
+      })
       .with(P.instanceOf(BrewerySupplyPersistenceError), () => c.json({ error: { type: "brewery_supply_failed", message: "The brewery supply action could not be completed." } }, 500))
       .with(P.instanceOf(IrrigationFarmNotFoundError), () =>
         c.json(

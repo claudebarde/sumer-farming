@@ -1,3 +1,4 @@
+import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
 import { and, eq, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
@@ -49,7 +50,7 @@ export class BuildFarmBuildingPersistenceError extends Data.TaggedError(
   readonly cause: unknown;
 }> {}
 
-export type BuildFarmBuildingError =
+export type BuildFarmBuildingError = FarmerUnavailableError
   | BuildFarmBuildingRuleError
   | BuildFarmBuildingPersistenceError;
 
@@ -147,6 +148,7 @@ export const buildFarmBuilding = (
             loadedFarm,
             startedAt
           );
+          assertFarmerAvailable(farm);
 
           if (farm.version !== input.expectedFarmVersion) {
             return {
@@ -302,7 +304,7 @@ export const buildFarmBuilding = (
                 )
               };
         }),
-      catch: cause => new BuildFarmBuildingPersistenceError({ cause })
+      catch: cause => cause instanceof FarmerUnavailableError ? cause : new BuildFarmBuildingPersistenceError({ cause })
     });
 
     return yield* match(outcome)

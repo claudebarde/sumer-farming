@@ -6,6 +6,7 @@ export type CardinalDirection = "up" | "down" | "left" | "right";
 
 export const getFarmerArrivalAlignment = (command: FarmerCommand): FarmerArrivalAlignment =>
   match(command)
+    .with({ type: "fishing" }, () => "tile" as const)
     .with({ type: "brewery_supply" }, () => "tile" as const)
     .with({ type: "deposit", storage: "granary" }, () => "tile" as const)
     .with({ type: "withdraw", storage: "granary" }, () => "tile" as const)

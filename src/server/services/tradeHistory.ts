@@ -34,6 +34,7 @@ export const getTradeHistory = (
         trades: page.map(entry => ({
           id: entry.id,
           type: entry.type,
+          requestCustomer: entry.requestCustomer,
           source: entry.source,
           itemKey: entry.itemKey,
           quantity: entry.itemQuantity,
