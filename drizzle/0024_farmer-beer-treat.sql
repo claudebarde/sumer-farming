@@ -1,0 +1,1 @@
+ALTER TABLE "farms" ADD COLUMN "last_beer_at" timestamp with time zone;

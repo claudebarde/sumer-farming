@@ -13,7 +13,7 @@ export const CROP_DEFINITIONS = {
     seedItemKey: "barley",
     harvestItemKey: "barley",
     sowingDurationMs: 10_000,
-    growthDurationMs: 5 * 60_000,
+    growthDurationMs: 30 * 60_000,
     harvestDurationMs: 10_000,
     harvestYield: 2
   }

@@ -13,11 +13,10 @@ import {
   players
 } from "../db/schema";
 import { readFarmSnapshot } from "./farmSnapshot";
+import { DEVELOPMENT_PLAYERS } from "../../game-data/developmentPlayers";
+import { DEVELOPMENT_FIXTURES, type DevelopmentFixture } from "../development/fixtures";
 
-export const DEVELOPMENT_PLAYER = {
-  id: "00000000-0000-4000-8000-000000000001",
-  displayName: "Development Player"
-} as const;
+export const DEVELOPMENT_PLAYER = DEVELOPMENT_PLAYERS[0];
 
 export class InitialFarmPersistenceError extends Data.TaggedError(
   "InitialFarmPersistenceError"
@@ -28,7 +27,8 @@ export class InitialFarmPersistenceError extends Data.TaggedError(
 export const ensureInitialFarm = (
   database: Database,
   playerId: string,
-  seed: number
+  seed: number,
+  fixture?: DevelopmentFixture
 ): Effect.Effect<FarmSnapshot, InitialFarmPersistenceError> =>
   Effect.tryPromise({
     try: () =>
@@ -57,9 +57,10 @@ export const ensureInitialFarm = (
         if (createdFarm !== undefined) {
           const plan = createInitialFarmPlan(seed);
 
-          if (plan.inventory.length > 0) {
+          const inventory = fixture?.inventory ?? plan.inventory;
+          if (inventory.length > 0) {
             await transaction.insert(farmInventory).values(
-              plan.inventory.map(entry => ({
+              inventory.map(entry => ({
                 farmId: farm.id,
                 itemKey: entry.itemKey,
                 quantity: entry.quantity
@@ -76,7 +77,7 @@ export const ensureInitialFarm = (
             }))
           );
 
-          await transaction.insert(farmGroundItems).values(
+          if (plan.groundItems.length > 0) await transaction.insert(farmGroundItems).values(
               plan.groundItems.map(item => ({
               farmId: farm.id,
               itemKey: item.itemKey,
@@ -102,17 +103,18 @@ export const ensureInitialFarm = (
 
 export const ensureDevelopmentFarm = (
   database: Database,
-  seed: number
+  seed: number,
+  player: { readonly id: string; readonly displayName: string; readonly key: keyof typeof DEVELOPMENT_FIXTURES } = DEVELOPMENT_PLAYER
 ): Effect.Effect<FarmSnapshot, InitialFarmPersistenceError> =>
   Effect.gen(function* () {
     yield* Effect.tryPromise({
       try: () =>
         database
           .insert(players)
-          .values(DEVELOPMENT_PLAYER)
+          .values({ id: player.id, displayName: player.displayName, shekelBalance: DEVELOPMENT_FIXTURES[player.key].shekels })
           .onConflictDoNothing({ target: players.id }),
       catch: cause => new InitialFarmPersistenceError({ cause })
     });
 
-    return yield* ensureInitialFarm(database, DEVELOPMENT_PLAYER.id, seed);
+    return yield* ensureInitialFarm(database, player.id, seed, DEVELOPMENT_FIXTURES[player.key]);
   });

@@ -290,6 +290,7 @@ describe.sequential("farm item storage actions", () => {
     expect(inventory).toHaveLength(0);
     expect(granary?.storedBarley).toBe(1);
     expect(updatedFarm.hungrySince).toBeNull();
+    expect(updatedFarm.happiness).toBe(80);
     expect(updatedFarm.nextBarleyConsumptionAt?.getTime()).toBeGreaterThan(
       now.getTime()
     );
@@ -364,6 +365,18 @@ describe.sequential("farm item storage actions", () => {
     });
 
     expect(updatedFarm.hungrySince).not.toBeNull();
+    expect(updatedFarm.happiness).toBe(50);
+    const stillHungry = await database.transaction(transaction =>
+      advanceFarmLifecycle(transaction, updatedFarm, new Date(now.getTime() + 864_000_000)));
+    expect(stillHungry.happiness).toBe(50);
+    await database.insert(farmInventory).values({ farmId: fixture.farmId, itemKey: "barley", quantity: 1 });
+    const fed = await database.transaction(transaction =>
+      advanceFarmLifecycle(transaction, stillHungry, new Date(now.getTime() + 864_000_001)));
+    expect(fed.hungrySince).toBeNull();
+    expect(fed.happiness).toBe(60);
+    const rechecked = await database.transaction(transaction =>
+      advanceFarmLifecycle(transaction, fed, new Date(now.getTime() + 864_000_002)));
+    expect(rechecked.happiness).toBe(60);
     expect(updatedFarm.nextBarleyConsumptionAt?.getTime()).toBe(
       now.getTime() + 86_400_000
     );

@@ -2,6 +2,11 @@
 
 Before making architectural decisions or implementing features, read `PROJECT.md`.
 
+When the user asks what task to tackle next, first read the root `TODOS.md` and
+recommend an outstanding task according to its priorities. If there are no
+outstanding tasks, suggest a new task consistent with `PROJECT.md` and the user's
+current direction.
+
 `PROJECT.md` is the source of truth for:
 
 - project architecture

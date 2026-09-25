@@ -8,6 +8,10 @@ import { match, P } from "ts-pattern";
 import { GameCommandSchema } from "../schemas/gameCommands";
 import type { FarmSnapshot } from "../schemas/farm";
 import { getMarketQuotes } from "./services/marketQuotes";
+import { getMarketListings } from "./services/marketListings";
+import { MarketListingsQuerySchema } from "../schemas/marketListings";
+import { getTradeHistory } from "./services/tradeHistory";
+import { TradeHistoryQuerySchema } from "../schemas/tradeHistory";
 import { describeBuildingPlacementRule } from "../game-core/farm/buildings";
 import { createDatabase } from "./db/client";
 import { players } from "./db/schema";
@@ -23,11 +27,11 @@ import {
   type BuildIrrigationError
 } from "./services/buildIrrigation";
 import {
-  buildGranary,
-  BuildGranaryPersistenceError,
-  BuildGranaryRuleError,
-  type BuildGranaryError
-} from "./services/buildGranary";
+  buildFarmBuilding,
+  BuildFarmBuildingPersistenceError,
+  BuildFarmBuildingRuleError,
+  type BuildFarmBuildingError
+} from "./services/buildFarmBuilding";
 import {
   destroyIrrigation,
   IrrigationAlreadyBeingDestroyedError,
@@ -63,7 +67,6 @@ import {
   type GatherResourceError
 } from "./services/gatherResource";
 import {
-  DEVELOPMENT_PLAYER,
   ensureDevelopmentFarm
 } from "./services/initialFarm";
 import {
@@ -79,26 +82,151 @@ import {
   sellToNpcMarket,
   type MarketTradeError
 } from "./services/tradeMarketItem";
+import {
+  cancelMarketSellOrder,
+  createMarketSellOrder,
+  MarketSellOrderPersistenceError,
+  MarketSellOrderRuleError,
+  type MarketSellOrderError
+} from "./services/marketSellOrders";
 
-const app = new Hono<{ Bindings: Env }>();
+import { resolveDevelopmentPlayer } from "../game-data/developmentPlayers";
+import { supplyBrewery, BrewerySupplyRuleError, BrewerySupplyPersistenceError } from "./services/brewerySupplies";
+import { buyMarketSellOrder, PlayerMarketRuleError, PlayerMarketPersistenceError } from "./services/buyMarketSellOrder";
+
+const app = new Hono<{ Bindings: Env; Variables: { developmentPlayer: NonNullable<ReturnType<typeof resolveDevelopmentPlayer>> } }>();
+
+app.use("/api/*", async (c, next) => {
+  if (c.req.path === "/api/health" || c.req.path === "/api/db/health") return next();
+  if (!import.meta.env.DEV) return c.notFound();
+  const player = resolveDevelopmentPlayer(c.req.header("x-development-player"));
+  if (player === undefined) return c.json({ error: { type: "invalid_development_player", message: "Unknown test player" } }, 400);
+  c.set("developmentPlayer", player);
+  return next();
+});
 
 type GameActionEffect = Effect.Effect<
   FarmSnapshot,
   | BuildIrrigationError
-  | BuildGranaryError
+  | BrewerySupplyRuleError
+  | BrewerySupplyPersistenceError
+  | BuildFarmBuildingError
   | DestroyIrrigationError
   | FarmItemActionError
   | GatherResourceError
   | HarvestCropError
   | PlantCropError
   | MarketTradeError
+  | MarketSellOrderError
+  | PlayerMarketRuleError
+  | PlayerMarketPersistenceError
 >;
 
 app.get("/api/health", c => {
   return c.json({ ok: true });
 });
 
-app.get("/api/market/quotes", c => c.json(getMarketQuotes()));
+app.get("/api/market/quotes", async c => {
+  const client = new Client({
+    connectionString: c.env.HYPERDRIVE.connectionString
+  });
+
+  try {
+    await client.connect();
+    const result = await Effect.runPromise(
+      Effect.either(
+        getMarketQuotes(createDatabase(client), c.get("developmentPlayer").id)
+      )
+    );
+
+    if (Either.isLeft(result)) {
+      console.error("Market quotes failed", result.left.cause);
+
+      return c.json(
+        {
+          error: {
+            type: "market_quotes_unavailable",
+            message: "The current market prices could not be loaded"
+          }
+        },
+        500
+      );
+    }
+
+    return c.json(result.right);
+  } catch (error) {
+    console.error("Market quote connection failed", error);
+
+    return c.json(
+      {
+        error: {
+          type: "market_quotes_unavailable",
+          message: "The current market prices could not be loaded"
+        }
+      },
+      503
+    );
+  } finally {
+    await client.end().catch(error => {
+      console.error("Failed to close database connection", error);
+    });
+  }
+});
+
+app.get("/api/market/listings", async c => {
+  let after: unknown;
+  try {
+    const raw = c.req.query("after");
+    after = raw === undefined ? undefined : JSON.parse(raw);
+  } catch {
+    return c.json({ error: { type: "invalid_listings_query", message: "Invalid listing cursor" } }, 400);
+  }
+  const query = MarketListingsQuerySchema.safeParse({ ...c.req.query(), after });
+  if (!query.success) {
+    return c.json({ error: { type: "invalid_listings_query", message: "Invalid listings request" } }, 400);
+  }
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await Effect.runPromise(Effect.either(
+      getMarketListings(createDatabase(client), c.get("developmentPlayer").id, query.data)
+    ));
+    if (Either.isLeft(result)) {
+      console.error("Market listings failed", result.left.cause);
+      return c.json({ error: { type: "market_listings_unavailable", message: "Listings could not be loaded" } }, 500);
+    }
+    return c.json(result.right);
+  } catch (error) {
+    console.error("Market listings connection failed", error);
+    return c.json({ error: { type: "market_listings_unavailable", message: "Listings are unavailable" } }, 503);
+  } finally {
+    await client.end().catch(error => console.error("Failed to close database connection", error));
+  }
+});
+
+app.get("/api/market/history", async c => {
+  const query = TradeHistoryQuerySchema.safeParse(c.req.query());
+  if (!query.success) {
+    return c.json({ error: { type: "invalid_history_query", message: "Invalid history page request" } }, 400);
+  }
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await Effect.runPromise(Effect.either(
+      getTradeHistory(createDatabase(client), c.get("developmentPlayer").id, query.data)
+    ));
+    if (Either.isLeft(result)) {
+      console.error("Trade history failed", result.left.cause);
+      return c.json({ error: { type: "trade_history_unavailable", message: "Trade history could not be loaded" } }, 500);
+    }
+    return c.json(result.right);
+  } catch (error) {
+    console.error("Trade history connection failed", error);
+    return c.json({ error: { type: "trade_history_unavailable", message: "Trade history is unavailable" } }, 503);
+  } finally {
+    await client.end().catch(error => console.error("Failed to close database connection", error));
+  }
+});
 
 app.get("/api/db/health", async c => {
   const client = new Client({
@@ -138,7 +266,7 @@ app.post("/api/development/farm", async c => {
     const database = createDatabase(client);
     const randomSeed = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
     const result = await Effect.runPromise(
-      Effect.either(ensureDevelopmentFarm(database, randomSeed))
+      Effect.either(ensureDevelopmentFarm(database, randomSeed, c.get("developmentPlayer")))
     );
 
     if (Either.isLeft(result)) {
@@ -191,30 +319,33 @@ app.post("/api/game/action", async c => {
       Effect.either(
         match(parsedCommand.data)
           .returnType<GameActionEffect>()
+          .with({ type: "brewery_supply" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: "give_farmer_beer" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "build_irrigation" }, command =>
             buildIrrigation(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
-          .with({ type: "build_granary" }, command =>
-            buildGranary(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+          .with({ type: P.union("build_granary", "build_brewery") }, command =>
+            buildFarmBuilding(database, {
+              building: command.type === "build_brewery" ? "brewery" : "granary",
+              playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
           .with({ type: "destroy_irrigation" }, command =>
             destroyIrrigation(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
           .with({ type: "plant_crop" }, command =>
             plantCrop(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               crop: command.crop,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
@@ -222,21 +353,21 @@ app.post("/api/game/action", async c => {
           )
           .with({ type: "start_harvest_crop" }, command =>
             startHarvestCrop(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
           .with({ type: "complete_harvest_crop" }, command =>
             completeHarvestCrop(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
           .with({ type: "start_gather_resource" }, command =>
             startGatherResource(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               itemKey: command.itemKey,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
@@ -244,54 +375,54 @@ app.post("/api/game/action", async c => {
           )
           .with({ type: "complete_gather_resource" }, command =>
             completeGatherResource(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
           .with({ type: "pickup_ground_item" }, command =>
             pickupGroundItem(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
           .with({ type: "drop_carried_item" }, command =>
             dropCarriedItem(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
           .with({ type: "deposit_carried_item" }, command =>
             depositCarriedItem(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
           .with({ type: "deposit_carried_item_in_granary" }, command =>
             depositCarriedItemInGranary(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
           .with({ type: "withdraw_inventory_item" }, command =>
             withdrawInventoryItem(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               itemKey: command.itemKey,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
           .with({ type: "withdraw_barley_from_granary" }, command =>
             withdrawBarleyFromGranary(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
           .with({ type: "buy_from_npc_market" }, command =>
             buyFromNpcMarket(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               itemKey: command.itemKey,
               quantity: command.quantity,
               expectedUnitPrice: command.expectedUnitPrice,
@@ -301,11 +432,31 @@ app.post("/api/game/action", async c => {
           )
           .with({ type: "sell_to_npc_market" }, command =>
             sellToNpcMarket(database, {
-              playerId: DEVELOPMENT_PLAYER.id,
+              playerId: c.get("developmentPlayer").id,
               itemKey: command.itemKey,
               quantity: command.quantity,
               expectedUnitPrice: command.expectedUnitPrice,
               idempotencyKey: command.idempotencyKey,
+              expectedFarmVersion: command.expectedFarmVersion
+            })
+          )
+          .with({ type: "buy_market_sell_order" }, command =>
+            buyMarketSellOrder(database, { ...command, playerId: c.get("developmentPlayer").id })
+          )
+          .with({ type: "create_market_sell_order" }, command =>
+            createMarketSellOrder(database, {
+              playerId: c.get("developmentPlayer").id,
+              itemKey: command.itemKey,
+              quantity: command.quantity,
+              unitPrice: command.unitPrice,
+              idempotencyKey: command.idempotencyKey,
+              expectedFarmVersion: command.expectedFarmVersion
+            })
+          )
+          .with({ type: "cancel_market_sell_order" }, command =>
+            cancelMarketSellOrder(database, {
+              playerId: c.get("developmentPlayer").id,
+              orderId: command.orderId,
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
@@ -318,6 +469,8 @@ app.post("/api/game/action", async c => {
     }
 
     return match(result.left)
+      .with(P.instanceOf(BrewerySupplyRuleError), error => c.json({ error: { type: error.type, message: error.message } }, 409))
+      .with(P.instanceOf(BrewerySupplyPersistenceError), () => c.json({ error: { type: "brewery_supply_failed", message: "The brewery supply action could not be completed." } }, 500))
       .with(P.instanceOf(IrrigationFarmNotFoundError), () =>
         c.json(
           {
@@ -399,7 +552,7 @@ app.post("/api/game/action", async c => {
           500
         );
       })
-      .with(P.instanceOf(BuildGranaryRuleError), error =>
+      .with(P.instanceOf(BuildFarmBuildingRuleError), error =>
         match(error.rule)
           .with({ type: "farm_not_found" }, () =>
             c.json(
@@ -438,13 +591,14 @@ app.post("/api/game/action", async c => {
           .with(
             { type: "outside_arable_plot" },
             { type: "footprint_occupied" },
+            { type: "access_blocked" },
             { type: "hands_not_empty" },
             { type: "missing_material" },
             rule =>
               c.json(
                 {
                   error: {
-                    type: `invalid_granary_${rule.type}`,
+                    type: `invalid_building_${rule.type}`,
                     message: describeBuildingPlacementRule(rule)
                   }
                 },
@@ -453,14 +607,14 @@ app.post("/api/game/action", async c => {
           )
           .exhaustive()
       )
-      .with(P.instanceOf(BuildGranaryPersistenceError), error => {
-        console.error("Granary construction failed", error.cause);
+      .with(P.instanceOf(BuildFarmBuildingPersistenceError), error => {
+        console.error("Building construction failed", error.cause);
 
         return c.json(
           {
             error: {
-              type: "granary_persistence_failed",
-              message: "The granary construction could not be saved"
+              type: "building_persistence_failed",
+              message: "The building construction could not be saved"
             }
           },
           500
@@ -1138,6 +1292,119 @@ app.post("/api/game/action", async c => {
             error: {
               type: "barley_trade_persistence_failed",
               message: "The market trade could not be completed"
+            }
+          },
+          500
+        );
+      })
+      .with(P.instanceOf(PlayerMarketRuleError), error =>
+        c.json({ error: { type: error.type, message: error.message } }, 409)
+      )
+      .with(P.instanceOf(PlayerMarketPersistenceError), error => {
+        console.error("Player purchase failed", error.cause);
+        return c.json({ error: { type: "player_purchase_failed", message: "The purchase could not be completed" } }, 500);
+      })
+      .with(P.instanceOf(MarketSellOrderRuleError), error =>
+        match(error.rule)
+          .with({ type: "farm_not_found" }, () =>
+            c.json(
+              {
+                error: {
+                  type: "farm_not_found",
+                  message: "The farm does not exist"
+                }
+              },
+              404
+            )
+          )
+          .with({ type: "version_conflict" }, rule =>
+            c.json(
+              {
+                error: {
+                  type: "farm_version_conflict",
+                  message: "The farm changed before this order was applied",
+                  actualVersion: rule.actualVersion
+                }
+              },
+              409
+            )
+          )
+          .with({ type: "sell_order_unavailable" }, rule =>
+            c.json(
+              {
+                error: {
+                  type: "market_sell_order_unavailable",
+                  message: `${rule.itemKey} cannot currently be listed for sale`
+                }
+              },
+              409
+            )
+          )
+          .with({ type: "insufficient_stored_item" }, rule =>
+            c.json(
+              {
+                error: {
+                  type: "insufficient_stored_item",
+                  message: `Only ${rule.available} stored ${rule.itemKey} is available to list`
+                }
+              },
+              409
+            )
+          )
+          .with({ type: "order_not_found" }, () =>
+            c.json(
+              {
+                error: {
+                  type: "market_order_not_found",
+                  message: "The market order does not exist"
+                }
+              },
+              404
+            )
+          )
+          .with({ type: "order_already_filled" }, () =>
+            c.json(
+              {
+                error: {
+                  type: "market_order_already_filled",
+                  message: "A filled market order cannot be cancelled"
+                }
+              },
+              409
+            )
+          )
+          .with({ type: "insufficient_storage" }, rule =>
+            c.json(
+              {
+                error: {
+                  type: "insufficient_storage",
+                  message: `Free ${rule.available} ${rule.itemKey} storage spaces before cancelling this order`
+                }
+              },
+              409
+            )
+          )
+          .with({ type: "idempotency_conflict" }, () =>
+            c.json(
+              {
+                error: {
+                  type: "idempotency_conflict",
+                  message: "This order identifier was already used"
+                }
+              },
+              409
+            )
+          )
+          .exhaustive()
+      )
+      .with(P.instanceOf(MarketSellOrderPersistenceError), error => {
+        console.error("Market sell order failed", error.cause);
+
+        return c.json(
+          {
+            error: {
+              type: "market_sell_order_persistence_failed",
+              message: "The market sell order could not be saved"
             }
           },
           500

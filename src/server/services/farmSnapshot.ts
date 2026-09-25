@@ -109,6 +109,11 @@ export const readFarmSnapshot = async (
       column: farmBuildings.column,
       row: farmBuildings.row,
       storedBarley: farmBuildings.storedBarley,
+      brewingBarley: farmBuildings.brewingBarley,
+      brewingWater: farmBuildings.brewingWater,
+      emptyBeerJars: farmBuildings.emptyBeerJars,
+      beerReadyAt: farmBuildings.beerReadyAt,
+      beerServed: farmBuildings.beerServed,
       startedAt: farmBuildings.startedAt,
       completesAt: farmBuildings.completesAt
     })
@@ -128,7 +133,9 @@ export const readFarmSnapshot = async (
           currentFarm.cultivationStartedAt?.toISOString() ?? null,
         nextBarleyConsumptionAt:
           currentFarm.nextBarleyConsumptionAt?.toISOString() ?? null,
-        hungrySince: currentFarm.hungrySince?.toISOString() ?? null
+        hungrySince: currentFarm.hungrySince?.toISOString() ?? null,
+        happiness: currentFarm.happiness,
+        lastBeerAt: currentFarm.lastBeerAt?.toISOString() ?? null
       },
       carriedItem:
         currentFarm.carriedItemKey === null
@@ -180,6 +187,7 @@ export const readFarmSnapshot = async (
     })),
     buildings: buildings.map(building => ({
       ...building,
+      beerReadyAt: building.beerReadyAt?.toISOString() ?? null,
       startedAt: building.startedAt.toISOString(),
       completesAt: building.completesAt.toISOString()
     }))

@@ -23,7 +23,7 @@ export const handlePointerUp = (
 
   match(tile.type)
     .with("ground", () => {
-      console.log(`Ground tile clicked: ${JSON.stringify(tile)}`);
+      // console.log(`Ground tile clicked: ${JSON.stringify(tile)}`);
 
       selectionHighlight
         .setPosition(
@@ -63,8 +63,6 @@ export const handlePointerUp = (
         .setVisible(visibility);
     })
     .with("barleySeeded", "barleyGrowing", "barleyReady", () => {
-      console.log(`Barley crop clicked: ${JSON.stringify(tile)}`);
-
       selectionHighlight
         .setPosition(
           tile.position.column * TILE_SIZE,
@@ -85,7 +83,7 @@ export const handlePointerUp = (
         .setSize(TILE_SIZE * 2, TILE_SIZE * 2)
         .setVisible(visibility);
     })
-    .with("granary", () => {
+    .with("granary", "brewery", () => {
       selectionHighlight
         .setPosition(
           tile.position.column * TILE_SIZE,

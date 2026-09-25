@@ -1,332 +1,95 @@
+import groundUrl from "./sprite_assets/pngs/ground.png";
+import groundVariantUrl from "./sprite_assets/pngs/ground-grass.png";
+import canalHorizontalUrl from "./sprite_assets/pngs/canal-horizontal.png";
+import canalVerticalUrl from "./sprite_assets/pngs/canal-vertical.png";
+import canalCornerUrl from "./sprite_assets/pngs/canal-corner.png";
+import canalCrossUrl from "./sprite_assets/pngs/canal-intersection-a.png";
+import canalTJunctionUrl from "./sprite_assets/pngs/canal-intersection-b.png";
+import waterUrl from "./sprite_assets/pngs/water.png";
+import groundPathHorizontalUrl from "./sprite_assets/pngs/mud-road-horizontal.png";
+import groundFenceUrl from "./sprite_assets/pngs/ground-fence-tile.png";
+import barleySeededUrl from "./sprite_assets/pngs/field-plowed.png";
+import barleyGrowingUrl from "./sprite_assets/pngs/field-seeded.png";
+import barleyReadyUrl from "./sprite_assets/pngs/field-wheat-ripe.png";
+import harvestedBarleyUrl from "./sprite_assets/pngs/wheat-sheaf.png";
+import farmerIdle0Url from "./sprite_assets/pngs/farmer-stand-staff-1.png";
+import farmerIdle1Url from "./sprite_assets/pngs/farmer-stand-staff-2.png";
+import farmerIdle2Url from "./sprite_assets/pngs/farmer-stand-staff-3.png";
+import farmerIdle3Url from "./sprite_assets/pngs/farmer-stand-staff-4.png";
+import farmerIdle4Url from "./sprite_assets/pngs/farmer-stand-staff-5.png";
+import farmerIdle5Url from "./sprite_assets/pngs/farmer-stand-staff-6.png";
+import farmerWalk0Url from "./sprite_assets/pngs/farmer-walk-1.png";
+import farmerWalk1Url from "./sprite_assets/pngs/farmer-walk-2.png";
+import farmerWalk2Url from "./sprite_assets/pngs/farmer-walk-3.png";
+import farmerWalk3Url from "./sprite_assets/pngs/farmer-walk-4.png";
+import farmerPlant0Url from "./sprite_assets/pngs/farmer-plant-1.png";
+import farmerPlant1Url from "./sprite_assets/pngs/farmer-plant-2.png";
+import farmerPlant2Url from "./sprite_assets/pngs/farmer-plant-3.png";
+import farmerPlant3Url from "./sprite_assets/pngs/farmer-plant-4.png";
+import farmerHarvest0Url from "./sprite_assets/pngs/farmer-harvest-1.png";
+import farmerHarvest1Url from "./sprite_assets/pngs/farmer-harvest-2.png";
+import farmerHarvest2Url from "./sprite_assets/pngs/farmer-carry-wheat-1.png";
+import farmerHarvest3Url from "./sprite_assets/pngs/farmer-carry-wheat-2.png";
+import farmUrl from "./sprite_assets/pngs/farm.png";
+import palmTreeUrl from "./sprite_assets/pngs/palm-tree.png";
+import bushUrl from "./sprite_assets/pngs/bush.png";
+import reedsUrl from "./sprite_assets/pngs/reeds-plant.png";
+import rocksUrl from "./sprite_assets/pngs/rocks.png";
+import fenceUrl from "./sprite_assets/pngs/fence.png";
+import signpostUrl from "./sprite_assets/pngs/signpost.png";
+import marketSignUrl from "./sprite_assets/pngs/market-sign.png";
+import granaryUrl from "./sprite_assets/pngs/granary.png";
+import reedBundleUrl from "./sprite_assets/pngs/reed-bundle.png";
+import brickPileUrl from "./sprite_assets/pngs/brick-pile.png";
+import breweryUrl from "./sprite_assets/pngs/brewery.png";
+
+// Keep gameplay names stable; only the artwork URLs change.
+// The generated assets use "wheat" filenames for our existing barley artwork.
 export const FARM_SPRITES = {
-  // ============================================================
-  // TERRAIN — TOP ROW
-  // ============================================================
-
-  ground: {
-    x: 6,
-    y: 6,
-    width: 161,
-    height: 162
-  },
-
-  groundVariant: {
-    x: 168,
-    y: 6,
-    width: 158,
-    height: 162
-  },
-
-  canalHorizontal: {
-    x: 326,
-    y: 6,
-    width: 163,
-    height: 162
-  },
-
-  canalVertical: {
-    x: 490,
-    y: 6,
-    width: 164,
-    height: 162
-  },
-
-  canalCorner: {
-    x: 654,
-    y: 6,
-    width: 161,
-    height: 162
-  },
-
-  canalCross: {
-    x: 817,
-    y: 6,
-    width: 160,
-    height: 162
-  },
-
-  canalTJunction: {
-    x: 979,
-    y: 6,
-    width: 159,
-    height: 162
-  },
-
-  water: {
-    x: 1139,
-    y: 6,
-    width: 161,
-    height: 162
-  },
-
-  groundPathHorizontal: {
-    x: 1301,
-    y: 6,
-    width: 173,
-    height: 162
-  },
-
-  groundFence: {
-    x: 1475,
-    y: 6,
-    width: 167,
-    height: 162
-  },
-
-  // ============================================================
-  // CROPS — SECOND ROW
-  // ============================================================
-
-  barleySeeded: {
-    x: 6,
-    y: 170,
-    width: 161,
-    height: 176
-  },
-
-  barleyGrowing: {
-    x: 168,
-    y: 170,
-    width: 158,
-    height: 176
-  },
-
-  barleyReady: {
-    x: 326,
-    y: 170,
-    width: 163,
-    height: 176
-  },
-
-  harvestedBarley: {
-    x: 510,
-    y: 170,
-    width: 144,
-    height: 168
-  },
-
-  // ============================================================
-  // FARMER IDLE
-  // ============================================================
-
-  farmerIdle0: {
-    x: 674,
-    y: 170,
-    width: 142,
-    height: 176
-  },
-
-  farmerIdle1: {
-    x: 853,
-    y: 170,
-    width: 125,
-    height: 176
-  },
-
-  farmerIdle2: {
-    x: 978,
-    y: 170,
-    width: 105,
-    height: 175
-  },
-
-  farmerIdle3: {
-    x: 1083,
-    y: 170,
-    width: 109,
-    height: 176
-  },
-
-  farmerIdle4: {
-    x: 1192,
-    y: 170,
-    width: 111,
-    height: 176
-  },
-
-  farmerIdle5: {
-    x: 1318,
-    y: 171,
-    width: 77,
-    height: 174
-  },
-
-  // ============================================================
-  // FARMER WALK
-  // ============================================================
-
-  farmerWalk0: {
-    x: 29,
-    y: 364,
-    width: 109,
-    height: 146
-  },
-
-  farmerWalk1: {
-    x: 153,
-    y: 364,
-    width: 84,
-    height: 135
-  },
-
-  farmerWalk2: {
-    x: 286,
-    y: 353,
-    width: 98,
-    height: 156
-  },
-
-  farmerWalk3: {
-    x: 400,
-    y: 358,
-    width: 99,
-    height: 143
-  },
-
-  // ============================================================
-  // FARMER PLANT / WORK
-  // ============================================================
-
-  farmerPlant0: {
-    x: 516,
-    y: 364,
-    width: 138,
-    height: 143
-  },
-
-  farmerPlant1: {
-    x: 678,
-    y: 374,
-    width: 109,
-    height: 108
-  },
-
-  farmerPlant2: {
-    x: 833,
-    y: 377,
-    width: 125,
-    height: 104
-  },
-
-  farmerPlant3: {
-    x: 973,
-    y: 353,
-    width: 117,
-    height: 129
-  },
-
-  // ============================================================
-  // FARMER HARVEST
-  // ============================================================
-
-  farmerHarvest0: {
-    x: 26,
-    y: 516,
-    width: 108,
-    height: 144
-  },
-
-  farmerHarvest1: {
-    x: 142,
-    y: 535,
-    width: 125,
-    height: 121
-  },
-
-  farmerHarvest2: {
-    x: 294,
-    y: 522,
-    width: 79,
-    height: 138
-  },
-
-  farmerHarvest3: {
-    x: 418,
-    y: 521,
-    width: 88,
-    height: 141
-  },
-
-  // ============================================================
-  // BUILDING / VEGETATION
-  // ============================================================
-
-  farm: {
-    x: 509,
-    y: 512,
-    width: 363,
-    height: 303
-  },
-
-  palmTree: {
-    x: 874,
-    y: 513,
-    width: 161,
-    height: 197
-  },
-
-  bush: {
-    x: 1052,
-    y: 588,
-    width: 143,
-    height: 122
-  },
-
-  reeds: {
-    x: 1214,
-    y: 536,
-    width: 136,
-    height: 174
-  },
-
-  // ============================================================
-  // PROPS
-  // ============================================================
-
-  rocks: {
-    x: 23,
-    y: 678,
-    width: 158,
-    height: 128
-  },
-
-  fence: {
-    x: 200,
-    y: 666,
-    width: 185,
-    height: 214
-  },
-
-  signpost: {
-    x: 407,
-    y: 664,
-    width: 99,
-    height: 216
-  },
-
-  // ============================================================
-  // BUILDINGS BUILT BY THE PLAYER
-  // ============================================================
-
-  granary: { x: 1355, y: 528, width: 374, height: 316 },
-
-  // ============================================================
-  // INTERACTIONABLE OBJECTS
-  // ============================================================
-
-  reedBundle: {
-    x: 1433,
-    y: 171,
-    width: 161,
-    height: 162
-  },
-
-  brickPile: {
-    x: 1594,
-    y: 171,
-    width: 161,
-    height: 162
-  }
+  ground: groundUrl,
+  groundVariant: groundVariantUrl,
+  canalHorizontal: canalHorizontalUrl,
+  canalVertical: canalVerticalUrl,
+  canalCorner: canalCornerUrl,
+  canalCross: canalCrossUrl,
+  canalTJunction: canalTJunctionUrl,
+  water: waterUrl,
+  groundPathHorizontal: groundPathHorizontalUrl,
+  groundFence: groundFenceUrl,
+  barleySeeded: barleySeededUrl,
+  barleyGrowing: barleyGrowingUrl,
+  barleyReady: barleyReadyUrl,
+  harvestedBarley: harvestedBarleyUrl,
+  farmerIdle0: farmerIdle0Url,
+  farmerIdle1: farmerIdle1Url,
+  farmerIdle2: farmerIdle2Url,
+  farmerIdle3: farmerIdle3Url,
+  farmerIdle4: farmerIdle4Url,
+  farmerIdle5: farmerIdle5Url,
+  farmerWalk0: farmerWalk0Url,
+  farmerWalk1: farmerWalk1Url,
+  farmerWalk2: farmerWalk2Url,
+  farmerWalk3: farmerWalk3Url,
+  farmerPlant0: farmerPlant0Url,
+  farmerPlant1: farmerPlant1Url,
+  farmerPlant2: farmerPlant2Url,
+  farmerPlant3: farmerPlant3Url,
+  farmerHarvest0: farmerHarvest0Url,
+  farmerHarvest1: farmerHarvest1Url,
+  farmerHarvest2: farmerHarvest2Url,
+  farmerHarvest3: farmerHarvest3Url,
+  farm: farmUrl,
+  palmTree: palmTreeUrl,
+  bush: bushUrl,
+  reeds: reedsUrl,
+  rocks: rocksUrl,
+  fence: fenceUrl,
+  signpost: signpostUrl,
+  marketSign: marketSignUrl,
+  granary: granaryUrl,
+  reedBundle: reedBundleUrl,
+  brickPile: brickPileUrl,
+  brewery: breweryUrl
 } as const;
 
 export type FarmSpriteName = keyof typeof FARM_SPRITES;

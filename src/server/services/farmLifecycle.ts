@@ -1,6 +1,7 @@
 import { and, asc, eq, lte, sql } from "drizzle-orm";
 
 import { BARLEY_CONSUMPTION_INTERVAL_MS } from "../../game-data/household";
+import { happinessAfterFeeding } from "../../game-core/farm/wellbeing";
 import type { DatabaseTransaction } from "../db/client";
 import {
   farmBuildings,
@@ -79,6 +80,7 @@ export const advanceFarmLifecycle = async (
 
   let hungrySince = farm.hungrySince;
   let nextBarleyConsumptionAt = nextConsumptionAt;
+  let ate = false;
 
   if (dueRations > 0) {
     const farmBarley = (
@@ -135,6 +137,7 @@ export const advanceFarmLifecycle = async (
     }
 
     const consumed = dueRations - remaining;
+    ate = consumed > 0;
 
     if (remaining === 0) {
       hungrySince = null;
@@ -155,7 +158,10 @@ export const advanceFarmLifecycle = async (
     }
   }
 
+  const happiness = happinessAfterFeeding(farm.happiness,
+    hungrySince !== null && farm.hungrySince === null, ate && hungrySince === null);
   const farmChanged =
+    happiness !== farm.happiness ||
     carriedBarleyExpired ||
     hungrySince?.getTime() !== farm.hungrySince?.getTime() ||
     nextBarleyConsumptionAt?.getTime() !==
@@ -176,6 +182,7 @@ export const advanceFarmLifecycle = async (
         ? null
         : farm.carriedItemExpiresAt,
       hungrySince,
+      happiness,
       nextBarleyConsumptionAt
     })
     .where(eq(farms.id, farm.id))

@@ -120,6 +120,76 @@
       "when": 1789137659749,
       "tag": "0016_add-shekel-transaction-ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789336684595,
+      "tag": "0017_add-market-orders",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790004006224,
+      "tag": "0018_add-player-market-trades",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790085483519,
+      "tag": "0019_add-brewery",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790185914991,
+      "tag": "0020_brewery-supplies",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790189166088,
+      "tag": "0021_brewery-empty-jars",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790257969029,
+      "tag": "0022_beer-batches",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790261397283,
+      "tag": "0023_farmer-happiness",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790262409049,
+      "tag": "0024_farmer-beer-treat",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790263427320,
+      "tag": "0025_brewery-beer-servings",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790281161531,
+      "tag": "0026_brewery-barley-capacity",
+      "breakpoints": true
     }
   ]
 }

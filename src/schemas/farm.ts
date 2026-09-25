@@ -19,7 +19,9 @@ export const FarmSnapshotSchema = z.object({
     household: z.object({
       cultivationStartedAt: z.iso.datetime().nullable(),
       nextBarleyConsumptionAt: z.iso.datetime().nullable(),
-      hungrySince: z.iso.datetime().nullable()
+      hungrySince: z.iso.datetime().nullable(),
+      happiness: z.int().min(0).max(100),
+      lastBeerAt: z.iso.datetime().nullable()
     }),
     carriedItem: z
       .object({
@@ -96,6 +98,11 @@ export const FarmSnapshotSchema = z.object({
       column: z.int(),
       row: z.int(),
       storedBarley: z.int().nonnegative(),
+      brewingBarley: z.int().nonnegative(),
+      brewingWater: z.int().nonnegative(),
+      emptyBeerJars: z.int().nonnegative(),
+      beerReadyAt: z.iso.datetime().nullable(),
+      beerServed: z.int().nonnegative(),
       startedAt: z.iso.datetime(),
       completesAt: z.iso.datetime()
     })

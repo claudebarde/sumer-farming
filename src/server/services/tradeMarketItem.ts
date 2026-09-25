@@ -1,24 +1,21 @@
-import { and, asc, eq, lte, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
 
-import { FARM_BUILDING_DEFINITIONS } from "../../game-data/buildings";
 import {
   MARKET_ITEM_DEFINITIONS,
   type MarketItemKey
 } from "../../game-data/marketItems";
-import { FARM_STORAGE_CAPACITY } from "../../game-data/storage";
 import type { FarmSnapshot } from "../../schemas/farm";
-import type { Database, DatabaseTransaction } from "../db/client";
-import {
-  farmBuildings,
-  farmInventory,
-  farms,
-  players,
-  shekelTransactions
-} from "../db/schema";
+import type { Database } from "../db/client";
+import { farms, players, shekelTransactions } from "../db/schema";
 import { advanceFarmLifecycle } from "./farmLifecycle";
 import { readFarmSnapshot } from "./farmSnapshot";
+import {
+  addToMarketItemStorage,
+  loadMarketItemStorage,
+  removeFromMarketItemStorage
+} from "./marketItemStorage";
 
 type MarketTradeRule =
   | { readonly type: "farm_not_found" }
@@ -90,126 +87,7 @@ type DatabaseOutcome =
   | { readonly type: "success"; readonly snapshot: FarmSnapshot }
   | { readonly type: "rule_error"; readonly rule: MarketTradeRule };
 
-type CompletedGranary = {
-  readonly id: string;
-  readonly storedBarley: number;
-};
-
-const updateFarmInventory = async (
-  transaction: DatabaseTransaction,
-  farmId: string,
-  currentQuantity: number,
-  nextQuantity: number,
-  now: Date
-): Promise<void> => {
-  if (nextQuantity === currentQuantity) {
-    return;
-  }
-
-  if (nextQuantity === 0) {
-    await transaction
-      .delete(farmInventory)
-      .where(
-        and(
-          eq(farmInventory.farmId, farmId),
-          eq(farmInventory.itemKey, "barley")
-        )
-      );
-    return;
-  }
-
-  await transaction
-    .insert(farmInventory)
-    .values({
-      farmId,
-      itemKey: "barley",
-      quantity: nextQuantity,
-      updatedAt: now
-    })
-    .onConflictDoUpdate({
-      target: [farmInventory.farmId, farmInventory.itemKey],
-      set: { quantity: nextQuantity, updatedAt: now }
-    });
-};
-
-const removeBarleyFromStorage = async (
-  transaction: DatabaseTransaction,
-  farmId: string,
-  farmBarley: number,
-  granaries: readonly CompletedGranary[],
-  quantity: number,
-  now: Date
-): Promise<void> => {
-  const removedFromFarm = Math.min(farmBarley, quantity);
-  await updateFarmInventory(
-    transaction,
-    farmId,
-    farmBarley,
-    farmBarley - removedFromFarm,
-    now
-  );
-
-  let remaining = quantity - removedFromFarm;
-
-  for (const granary of granaries) {
-    if (remaining === 0) {
-      break;
-    }
-
-    const removed = Math.min(granary.storedBarley, remaining);
-
-    if (removed > 0) {
-      await transaction
-        .update(farmBuildings)
-        .set({ storedBarley: granary.storedBarley - removed })
-        .where(eq(farmBuildings.id, granary.id));
-      remaining -= removed;
-    }
-  }
-};
-
-const addBarleyToStorage = async (
-  transaction: DatabaseTransaction,
-  farmId: string,
-  farmBarley: number,
-  granaries: readonly CompletedGranary[],
-  quantity: number,
-  now: Date
-): Promise<void> => {
-  const addedToFarm = Math.min(
-    FARM_STORAGE_CAPACITY - farmBarley,
-    quantity
-  );
-  await updateFarmInventory(
-    transaction,
-    farmId,
-    farmBarley,
-    farmBarley + addedToFarm,
-    now
-  );
-
-  let remaining = quantity - addedToFarm;
-  const granaryCapacity =
-    FARM_BUILDING_DEFINITIONS.granary.barleyStorageBonus;
-
-  for (const granary of granaries) {
-    if (remaining === 0) {
-      break;
-    }
-
-    const added = Math.min(granaryCapacity - granary.storedBarley, remaining);
-
-    if (added > 0) {
-      await transaction
-        .update(farmBuildings)
-        .set({ storedBarley: granary.storedBarley + added })
-        .where(eq(farmBuildings.id, granary.id));
-      remaining -= added;
-    }
-  }
-};
-
-const executeBarleyStorageTrade = (
+const executeStorageTrade = (
   database: Database,
   trade: MarketTrade
 ): Effect.Effect<FarmSnapshot, MarketTradeError> =>
@@ -262,6 +140,7 @@ const executeBarleyStorageTrade = (
 
           if (existingTransaction !== undefined) {
             const isSameTrade =
+              existingTransaction.source === "npc" &&
               existingTransaction.type === transactionType &&
               existingTransaction.itemKey === input.itemKey &&
               existingTransaction.itemQuantity === input.quantity &&
@@ -330,53 +209,24 @@ const executeBarleyStorageTrade = (
             return { type: "rule_error", rule: { type: "player_not_found" } };
           }
 
-          const farmBarley = (
-            await transaction
-              .select({ quantity: farmInventory.quantity })
-              .from(farmInventory)
-              .where(
-                and(
-                  eq(farmInventory.farmId, farm.id),
-                  eq(farmInventory.itemKey, "barley")
-                )
-              )
-              .limit(1)
-              .for("update")
-          )[0]?.quantity ?? 0;
-          const granaries = await transaction
-            .select({
-              id: farmBuildings.id,
-              storedBarley: farmBuildings.storedBarley
-            })
-            .from(farmBuildings)
-            .where(
-              and(
-                eq(farmBuildings.farmId, farm.id),
-                eq(farmBuildings.type, "granary"),
-                lte(farmBuildings.completesAt, now)
-              )
-            )
-            .orderBy(asc(farmBuildings.completesAt), asc(farmBuildings.id))
-            .for("update");
-          const storedBarley =
-            farmBarley +
-            granaries.reduce(
-              (total, granary) => total + granary.storedBarley,
-              0
-            );
-          const totalCapacity =
-            FARM_STORAGE_CAPACITY +
-            granaries.length *
-              FARM_BUILDING_DEFINITIONS.granary.barleyStorageBonus;
+          const storage = await loadMarketItemStorage(
+            transaction,
+            farm.id,
+            input.itemKey,
+            now
+          );
 
-          if (trade.type === "sell" && storedBarley < input.quantity) {
+          if (
+            trade.type === "sell" &&
+            storage.storedQuantity < input.quantity
+          ) {
             return {
               type: "rule_error",
               rule: {
                 type: "insufficient_stored_item",
                 itemKey: input.itemKey,
                 requested: input.quantity,
-                available: storedBarley
+                available: storage.storedQuantity
               }
             };
           }
@@ -392,35 +242,32 @@ const executeBarleyStorageTrade = (
             };
           }
 
-          const availableStorage = totalCapacity - storedBarley;
-
-          if (trade.type === "buy" && availableStorage < input.quantity) {
+          if (
+            trade.type === "buy" &&
+            storage.availableCapacity < input.quantity
+          ) {
             return {
               type: "rule_error",
               rule: {
                 type: "insufficient_storage",
                 itemKey: input.itemKey,
                 requested: input.quantity,
-                available: availableStorage
+                available: storage.availableCapacity
               }
             };
           }
 
           if (trade.type === "sell") {
-            await removeBarleyFromStorage(
+            await removeFromMarketItemStorage(
               transaction,
-              farm.id,
-              farmBarley,
-              granaries,
+              storage,
               input.quantity,
               now
             );
           } else {
-            await addBarleyToStorage(
+            await addToMarketItemStorage(
               transaction,
-              farm.id,
-              farmBarley,
-              granaries,
+              storage,
               input.quantity,
               now
             );
@@ -482,7 +329,7 @@ const executeTrade = (
 ): Effect.Effect<FarmSnapshot, MarketTradeError> =>
   match(trade.input.itemKey)
     .returnType<Effect.Effect<FarmSnapshot, MarketTradeError>>()
-    .with("barley", () => executeBarleyStorageTrade(database, trade))
+    .with("barley", "brewingVessels", "emptyBeerJar", "beer", () => executeStorageTrade(database, trade))
     .exhaustive();
 
 export const buyFromNpcMarket = (

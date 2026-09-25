@@ -32,6 +32,6 @@ export interface Tile extends BasicTile {
 
 export type Crop = CropKey;
 
-export type Build = "irrigation" | "granary";
+export type Build = "irrigation" | "granary" | "brewery";
 
 export type InteractiveObject = InventoryItemKey;

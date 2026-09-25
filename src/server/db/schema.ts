@@ -17,10 +17,16 @@ import type { InventoryItemKey } from "../../game-data/inventoryItems";
 import type { GatherableResourceKey } from "../../game-data/resources";
 import { farmBuildingTypes } from "../../game-data/buildings";
 import { FARM_BUILDING_DEFINITIONS } from "../../game-data/buildings";
+import { BREWERY_WATER_CAPACITY, BREWERY_EMPTY_JAR_CAPACITY, BEER_RECIPE } from "../../game-data/brewing";
 import { farmObjectTypes } from "../../game-data/farmObjects";
 import { farmImprovementTypes } from "../../game-data/farmImprovements";
 import { FARMER_CARRY_CAPACITY } from "../../game-data/storage";
 import { shekelTransactionTypes } from "../../game-data/shekelTransactions";
+import type { MarketItemKey } from "../../game-data/marketItems";
+import {
+  marketOrderSides,
+  marketOrderStatuses
+} from "../../game-data/marketOrders";
 
 export const farmObjectType = pgEnum("farm_object_type", farmObjectTypes);
 export const farmImprovementType = pgEnum(
@@ -34,6 +40,11 @@ export const farmBuildingType = pgEnum(
 export const shekelTransactionType = pgEnum(
   "shekel_transaction_type",
   shekelTransactionTypes
+);
+export const marketOrderSide = pgEnum("market_order_side", marketOrderSides);
+export const marketOrderStatus = pgEnum(
+  "market_order_status",
+  marketOrderStatuses
 );
 
 export const players = pgTable(
@@ -63,6 +74,7 @@ export const shekelTransactions = pgTable(
       .references(() => players.id, { onDelete: "cascade" }),
     idempotencyKey: uuid("idempotency_key").notNull(),
     type: shekelTransactionType("type").notNull(),
+    source: varchar("source", { length: 10 }).$type<"npc" | "player">().default("npc").notNull(),
     delta: integer("delta").notNull(),
     balanceAfter: integer("balance_after").notNull(),
     itemKey: varchar("item_key", { length: 50 })
@@ -107,6 +119,81 @@ export const shekelTransactions = pgTable(
   ]
 );
 
+export const marketOrders = pgTable(
+  "market_orders",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    playerId: uuid("player_id")
+      .notNull()
+      .references(() => players.id, { onDelete: "cascade" }),
+    idempotencyKey: uuid("idempotency_key").notNull(),
+    side: marketOrderSide("side").notNull(),
+    status: marketOrderStatus("status").default("open").notNull(),
+    itemKey: varchar("item_key", { length: 50 })
+      .$type<MarketItemKey>()
+      .notNull(),
+    unitPrice: integer("unit_price").notNull(),
+    originalQuantity: integer("original_quantity").notNull(),
+    remainingQuantity: integer("remaining_quantity").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull()
+  },
+  table => [
+    unique("market_orders_player_idempotency_unique").on(
+      table.playerId,
+      table.idempotencyKey
+    ),
+    index("market_orders_order_book_idx").on(
+      table.itemKey,
+      table.side,
+      table.status,
+      table.unitPrice,
+      table.createdAt
+    ),
+    index("market_orders_player_status_idx").on(
+      table.playerId,
+      table.status,
+      table.createdAt
+    ),
+    check("market_orders_unit_price_positive", sql`${table.unitPrice} > 0`),
+    check(
+      "market_orders_original_quantity_positive",
+      sql`${table.originalQuantity} > 0`
+    ),
+    check(
+      "market_orders_remaining_quantity_in_range",
+      sql`${table.remainingQuantity} >= 0 AND ${table.remainingQuantity} <= ${table.originalQuantity}`
+    ),
+    check(
+      "market_orders_status_matches_quantity",
+      sql`(${table.status} = 'open' AND ${table.remainingQuantity} > 0) OR (${table.status} IN ('filled', 'cancelled') AND ${table.remainingQuantity} = 0)`
+    )
+  ]
+);
+
+export const marketTrades = pgTable("market_trades", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderId: uuid("order_id").notNull().references(() => marketOrders.id, { onDelete: "cascade" }),
+  buyerId: uuid("buyer_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  sellerId: uuid("seller_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  idempotencyKey: uuid("idempotency_key").notNull(),
+  itemKey: varchar("item_key", { length: 50 }).$type<MarketItemKey>().notNull(),
+  quantity: integer("quantity").notNull(),
+  unitPrice: integer("unit_price").notNull(),
+  buyerTransactionId: uuid("buyer_transaction_id").notNull().unique().references(() => shekelTransactions.id, { onDelete: "cascade" }),
+  sellerTransactionId: uuid("seller_transaction_id").notNull().unique().references(() => shekelTransactions.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+}, table => [
+  unique("market_trades_buyer_idempotency_unique").on(table.buyerId, table.idempotencyKey),
+  index("market_trades_item_created_idx").on(table.itemKey, table.createdAt),
+  check("market_trades_positive", sql`${table.quantity} > 0 AND ${table.unitPrice} > 0`),
+  check("market_trades_distinct_players", sql`${table.buyerId} <> ${table.sellerId}`)
+]);
+
 export const farms = pgTable(
   "farms",
   {
@@ -130,6 +217,8 @@ export const farms = pgTable(
       withTimezone: true
     }),
     hungrySince: timestamp("hungry_since", { withTimezone: true }),
+    happiness: integer("happiness").default(70).notNull(),
+    lastBeerAt: timestamp("last_beer_at", { withTimezone: true }),
     gatheringItemKey: varchar("gathering_item_key", { length: 50 }).$type<
       GatherableResourceKey
     >(),
@@ -149,6 +238,10 @@ export const farms = pgTable(
       .notNull()
   },
   table => [
+    check(
+      "farms_happiness_in_range",
+      sql`${table.happiness} >= 0 AND ${table.happiness} <= 100`
+    ),
     check(
       "farms_carried_item_quantity_in_range",
       sql`${table.carriedItemQuantity} >= 0 AND ${table.carriedItemQuantity} <= ${sql.raw(String(FARMER_CARRY_CAPACITY))}`
@@ -309,6 +402,11 @@ export const farmBuildings = pgTable(
     column: integer("column").notNull(),
     row: integer("row").notNull(),
     storedBarley: integer("stored_barley").default(0).notNull(),
+    brewingBarley: integer("brewing_barley").default(0).notNull(),
+    brewingWater: integer("brewing_water").default(0).notNull(),
+    emptyBeerJars: integer("empty_beer_jars").default(0).notNull(),
+    beerReadyAt: timestamp("beer_ready_at", { withTimezone: true }),
+    beerServed: integer("beer_served").default(0).notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     completesAt: timestamp("completes_at", { withTimezone: true }).notNull()
   },
@@ -318,6 +416,10 @@ export const farmBuildings = pgTable(
       table.column,
       table.row
     ),
+    check("farm_buildings_empty_jars_valid", sql`${table.emptyBeerJars} >= 0 AND ${table.emptyBeerJars} <= ${sql.raw(String(BREWERY_EMPTY_JAR_CAPACITY))} AND (${table.type} = 'brewery' OR ${table.emptyBeerJars} = 0)`),
+    check("farm_buildings_beer_batch_valid", sql`${table.beerReadyAt} IS NULL OR (${table.type} = 'brewery' AND ${table.beerReadyAt} > ${table.completesAt})`),
+    check("farm_buildings_beer_served_valid", sql`${table.beerServed} >= 0 AND ${table.beerServed} < 2 AND (${table.beerReadyAt} IS NOT NULL OR ${table.beerServed} = 0)`),
+    check("farm_buildings_brewing_barley_capacity", sql`${table.brewingBarley} <= ${sql.raw(String(BEER_RECIPE.barley))}`),
     check(
       "farm_buildings_completion_after_start",
       sql`${table.completesAt} > ${table.startedAt}`
@@ -325,7 +427,8 @@ export const farmBuildings = pgTable(
     check(
       "farm_buildings_stored_barley_in_range",
       sql`${table.storedBarley} >= 0 AND ${table.storedBarley} <= ${sql.raw(String(FARM_BUILDING_DEFINITIONS.granary.barleyStorageBonus))}`
-    )
+    ),
+    check("farm_buildings_brewing_supplies_valid", sql`${table.brewingBarley} >= 0 AND ${table.brewingWater} >= 0 AND ${table.brewingWater} <= ${sql.raw(String(BREWERY_WATER_CAPACITY))} AND (${table.type} = 'brewery' OR (${table.brewingBarley} = 0 AND ${table.brewingWater} = 0))`)
   ]
 );
 

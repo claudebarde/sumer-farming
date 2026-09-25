@@ -33,15 +33,15 @@ export const INITIAL_FARM_INVENTORY: readonly {
   readonly quantity: number;
 }[] = [];
 
-export const INITIAL_FARM_GROUND_ITEMS = [
-  { itemKey: "barley", quantity: 1, column: 2, row: 0 },
-  { itemKey: "barley", quantity: 1, column: 2, row: 1 }
-] as const satisfies readonly {
+export const INITIAL_FARM_GROUND_ITEMS: readonly {
   readonly itemKey: InventoryItemKey;
   readonly quantity: number;
   readonly column: number;
   readonly row: number;
-}[];
+}[] = [
+  { itemKey: "barley", quantity: 1, column: 2, row: 0 },
+  { itemKey: "barley", quantity: 1, column: 2, row: 1 }
+];
 
 export type InitialFarmObject = {
   readonly type: FarmObjectType;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Dialog, Popover, Tabs } from "radix-ui";
-import { Cross2Icon } from "@radix-ui/react-icons";
+import { Cross2Icon, ExternalLinkIcon } from "@radix-ui/react-icons";
 import { match } from "ts-pattern";
 import styles from "../styles/GameCanvas.module.scss";
 import { GAME_CONTAINER_ID, TILE_SIZE } from "../game/phaser/config";
@@ -9,16 +9,29 @@ import { MainScene } from "../game/phaser/scenes/MainScene";
 import { useStore } from "zustand";
 import { gridStore } from "../stores/gridStore";
 import { interactionStore } from "../stores/interactionStore";
+import { BEER_TREAT_INTERVAL_MS } from "../../game-data/household";
+import { getFarmerMood, validateBeerTreat, beerTreatErrors } from "../../game-core/farm/wellbeing";
+import { getBrewingState, validateBrewing, brewingErrors, readyBeerQuantity } from "../../game-core/farm/brewing";
+import {
+  BREWERY_WATER_CAPACITY,
+  BREWERY_EMPTY_JAR_CAPACITY,
+  BEER_RECIPE
+} from "../../game-data/brewing";
 import {
   farmerCommandStore,
   type FarmerCommandInput
 } from "../stores/farmerCommandStore";
 import type { Tile } from "../game/phaser/types";
-import { FarmSnapshotSchema } from "../../schemas/farm";
 import { executeGameCommand } from "../api/gameActions";
 import { fetchMarketQuotes } from "../api/marketQuotes";
+import MarketTradeHistory from "./MarketTradeHistory";
+import MarketListings from "./MarketListings";
+import { fetchDevelopmentFarm } from "../api/developmentPlayer";
 import type { MarketQuotes } from "../../schemas/market";
-import type { MarketItemKey } from "../../game-data/marketItems";
+import {
+  MARKET_ITEM_DEFINITIONS,
+  type MarketItemKey
+} from "../../game-data/marketItems";
 import { farmStore } from "../stores/farmStore";
 import { buildingPlacementStore } from "../stores/buildingPlacementStore";
 import { marketUiStore } from "../stores/marketUiStore";
@@ -49,16 +62,6 @@ if (import.meta.hot) {
   );
 }
 
-const fetchDevelopmentFarm = async () => {
-  const response = await fetch("/api/development/farm", { method: "POST" });
-
-  if (!response.ok) {
-    throw new Error("The development farm could not be loaded");
-  }
-
-  return FarmSnapshotSchema.parse(await response.json());
-};
-
 const formatRemainingTime = (deadline: string, now: number): string => {
   const remainingMinutes = Math.max(
     0,
@@ -75,10 +78,15 @@ const formatShekels = (quantity: number): string =>
 
 export default function GameCanvas() {
   const [isOpenManageDialog, setIsOpenManageDialog] = useState(false);
+  const [beerGiftPending, setBeerGiftPending] = useState(false);
+  const [beerGiftMessage, setBeerGiftMessage] = useState<string | null>(null);
   const [storageClock, setStorageClock] = useState(() => Date.now());
   const [marketQuantity, setMarketQuantity] = useState(1);
   const [marketTradePending, setMarketTradePending] = useState(false);
   const [marketTradeError, setMarketTradeError] = useState<string | null>(null);
+  const [marketSellPrices, setMarketSellPrices] = useState<
+    Partial<Record<MarketItemKey, number>>
+  >({});
   const [marketQuoteState, setMarketQuoteState] = useState<MarketQuoteState>({
     type: "idle"
   });
@@ -87,6 +95,10 @@ export default function GameCanvas() {
   const selectedTile = useStore(interactionStore, state => state.selectedTile);
   const carriedItem = useStore(farmerCommandStore, state => state.carriedItem);
   const farmState = useStore(farmStore, state => state.farm);
+  const beerAvailableAt = farmState.type === "ready" && farmState.snapshot.farm.household.lastBeerAt !== null
+    ? Date.parse(farmState.snapshot.farm.household.lastBeerAt) + BEER_TREAT_INTERVAL_MS
+    : null;
+  const beerOnCooldown = beerAvailableAt !== null && storageClock < beerAvailableAt;
   const isOpenMarketDialog = useStore(marketUiStore, state => state.isOpen);
   const setMarketDialogOpen = useStore(marketUiStore, state => state.setOpen);
   const storedBarley =
@@ -114,10 +126,7 @@ export default function GameCanvas() {
               building.type === "granary" &&
               Date.parse(building.completesAt) <= storageClock
           )
-          .reduce(
-            (quantity, building) => quantity + building.storedBarley,
-            0
-          )
+          .reduce((quantity, building) => quantity + building.storedBarley, 0)
       : 0;
   const carriedBarley =
     carriedItem?.itemKey === "barley" ? carriedItem.quantity : 0;
@@ -127,14 +136,43 @@ export default function GameCanvas() {
           .filter(item => item.itemKey === "barley")
           .reduce((quantity, item) => quantity + item.quantity, 0)
       : 0;
+  const breweryBarley =
+    farmState.type === "ready"
+      ? farmState.snapshot.buildings.reduce(
+          (total, building) => total + building.brewingBarley,
+          0
+        )
+      : 0;
   const totalBarley =
-    storedBarley + granaryBarley + carriedBarley + exposedBarley;
+    storedBarley +
+    granaryBarley +
+    carriedBarley +
+    exposedBarley +
+    breweryBarley;
   const carriedReed =
     carriedItem?.itemKey === "reed" ? carriedItem.quantity : 0;
   const carriedClay =
     carriedItem?.itemKey === "clay" ? carriedItem.quantity : 0;
   const totalReed = availableReed + carriedReed;
   const totalClay = availableClay + carriedClay;
+  const availableVessels =
+    farmState.type === "ready"
+      ? (farmState.snapshot.inventory.find(
+          item => item.itemKey === "brewingVessels"
+        )?.quantity ?? 0)
+      : 0;
+  const availableEmptyBeerJars =
+    farmState.type === "ready"
+      ? (farmState.snapshot.inventory.find(
+          item => item.itemKey === "emptyBeerJar"
+        )?.quantity ?? 0)
+      : 0;
+  const canBuildBrewery =
+    availableReed >= FARM_BUILDING_DEFINITIONS.brewery.materials.reed &&
+    availableClay >= FARM_BUILDING_DEFINITIONS.brewery.materials.clay &&
+    availableVessels >=
+      FARM_BUILDING_DEFINITIONS.brewery.materials.brewingVessels &&
+    carriedItem === null;
   const canBuildGranary =
     availableReed >= FARM_BUILDING_DEFINITIONS.granary.materials.reed &&
     availableClay >= FARM_BUILDING_DEFINITIONS.granary.materials.clay;
@@ -206,30 +244,15 @@ export default function GameCanvas() {
         };
   })();
   const storedHouseholdBarley =
-    farmState.type === "ready"
-      ? storedBarley + granaryBarley
-      : 0;
+    farmState.type === "ready" ? storedBarley + granaryBarley : 0;
   const householdBarleyCapacity =
     farmState.type === "ready"
-      ? calculateFarmStorageCapacity(
-          farmState.snapshot.buildings,
-          storageClock
-        )
+      ? calculateFarmStorageCapacity(farmState.snapshot.buildings, storageClock)
       : FARM_STORAGE_CAPACITY;
   const availableBarleyStorage = Math.max(
     0,
     householdBarleyCapacity - storedHouseholdBarley
   );
-  const householdStatus =
-    farmState.type !== "ready" ||
-    farmState.snapshot.farm.household.cultivationStartedAt === null
-      ? null
-      : farmState.snapshot.farm.household.hungrySince !== null
-        ? "Household is hungry"
-        : `Food: ${storedHouseholdBarley} barley · next ration in ${formatRemainingTime(
-            farmState.snapshot.farm.household.nextBarleyConsumptionAt!,
-            storageClock
-          )}`;
 
   const clearSelection = useStore(
     interactionStore,
@@ -239,7 +262,9 @@ export default function GameCanvas() {
   const isOpenTilePopover = selectedTile !== null;
 
   const selectedTileSize =
-    selectedTile?.type === "farm" || selectedTile?.type === "granary"
+    selectedTile?.type === "farm" ||
+    selectedTile?.type === "granary" ||
+    selectedTile?.type === "brewery"
       ? TILE_SIZE * 2
       : TILE_SIZE;
 
@@ -313,6 +338,98 @@ export default function GameCanvas() {
     }
   };
 
+  const createMarketSellOrder = async (
+    itemKey: MarketItemKey,
+    unitPrice: number
+  ): Promise<void> => {
+    if (farmState.type !== "ready" || marketTradePending) {
+      return;
+    }
+
+    setMarketTradePending(true);
+    setMarketTradeError(null);
+
+    try {
+      const snapshot = await executeGameCommand({
+        type: "create_market_sell_order",
+        itemKey,
+        quantity: marketQuantity,
+        unitPrice,
+        idempotencyKey: crypto.randomUUID(),
+        expectedFarmVersion: farmState.snapshot.farm.version
+      });
+      farmStore.getState().setReady(snapshot);
+      setMarketSellPrices(prices => ({ ...prices, [itemKey]: undefined }));
+      setMarketQuoteRefresh(refresh => refresh + 1);
+    } catch (error) {
+      setMarketTradeError(
+        error instanceof Error
+          ? error.message
+          : "The sell order could not be created"
+      );
+      setMarketQuoteRefresh(refresh => refresh + 1);
+    } finally {
+      setMarketTradePending(false);
+    }
+  };
+
+  const cancelMarketSellOrder = async (orderId: string): Promise<void> => {
+    if (farmState.type !== "ready" || marketTradePending) {
+      return;
+    }
+
+    setMarketTradePending(true);
+    setMarketTradeError(null);
+
+    try {
+      const snapshot = await executeGameCommand({
+        type: "cancel_market_sell_order",
+        orderId,
+        expectedFarmVersion: farmState.snapshot.farm.version
+      });
+      farmStore.getState().setReady(snapshot);
+      setMarketQuoteRefresh(refresh => refresh + 1);
+    } catch (error) {
+      setMarketTradeError(
+        error instanceof Error
+          ? error.message
+          : "The sell order could not be cancelled"
+      );
+      setMarketQuoteRefresh(refresh => refresh + 1);
+    } finally {
+      setMarketTradePending(false);
+    }
+  };
+
+  const buyPlayerListing = async (
+    orderId: string,
+    expectedUnitPrice: number
+  ): Promise<void> => {
+    if (farmState.type !== "ready" || marketTradePending) return;
+    setMarketTradePending(true);
+    setMarketTradeError(null);
+    try {
+      const snapshot = await executeGameCommand({
+        type: "buy_market_sell_order",
+        orderId,
+        expectedUnitPrice,
+        quantity: marketQuantity,
+        idempotencyKey: crypto.randomUUID(),
+        expectedFarmVersion: farmState.snapshot.farm.version
+      });
+      farmStore.getState().setReady(snapshot);
+    } catch (error) {
+      setMarketTradeError(
+        error instanceof Error
+          ? error.message
+          : "The purchase could not be completed"
+      );
+    } finally {
+      setMarketTradePending(false);
+      setMarketQuoteRefresh(refresh => refresh + 1);
+    }
+  };
+
   const isNextToIrrigationSource = (tile: Tile): boolean =>
     Object.values(gridStore.getState().findAdjacentTiles(tile.position)).some(
       adjacentTile =>
@@ -347,10 +464,48 @@ export default function GameCanvas() {
   const displayPopoverContent = (tile: typeof selectedTile) => {
     if (!tile) return <span>No tile selected</span>;
 
+    if (carriedItem?.itemKey === "water" && tile.type !== "brewery") {
+      const canPour = [
+        "ground",
+        "groundVariant",
+        "water",
+        "canalHorizontal",
+        "canalVertical",
+        "canalCorner",
+        "canalCross",
+        "canalTJunction"
+      ].includes(tile.type);
+      return (
+        <div className={styles["tile-popover-content"]}>
+          <div className={styles["tile-popover-content-header"]}>
+            Selected tile
+          </div>
+          <div className={styles["tile-popover-content-body"]}>
+            {canPour ? (
+              <button
+                onClick={() =>
+                  addCommand({
+                    type: "brewery_supply",
+                    action: "pour_water",
+                    target: tile.position
+                  })
+                }
+              >
+                Pour out water
+              </button>
+            ) : (
+              "No available actions."
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return match(tile.type)
       .with("ground", () => {
         const isRiverBank = isNextToRiver(tile);
-        const canBuildIrrigation = isNextToIrrigationSource(tile);
+        const canBuildIrrigation =
+          carriedItem === null && isNextToIrrigationSource(tile);
 
         return (
           <div className={styles["tile-popover-content"]}>
@@ -377,7 +532,7 @@ export default function GameCanvas() {
                 </button>
               )}
               {canBuildIrrigation && buildIrrigationButton(tile)}
-              {!isRiverBank && !canBuildIrrigation && (
+              {carriedItem === null && !isRiverBank && !canBuildIrrigation && (
                 <button
                   onClick={() =>
                     addCommand({
@@ -394,10 +549,10 @@ export default function GameCanvas() {
         );
       })
       .with("groundVariant", () => {
-        const canBuildIrrigation = isNextToIrrigationSource(tile);
+        const canBuildIrrigation =
+          carriedItem === null && isNextToIrrigationSource(tile);
         const isIrrigated = isNextToIrrigationCanal(tile);
-        const canPlantBarley =
-          carriedItem?.itemKey === "barley" && isIrrigated;
+        const canPlantBarley = carriedItem?.itemKey === "barley" && isIrrigated;
         const canRetrieveBarley =
           carriedItem === null &&
           barleyWithdrawalSource !== null &&
@@ -448,7 +603,8 @@ export default function GameCanvas() {
                 )}
               {isIrrigated &&
                 carriedItem !== null &&
-                carriedItem.itemKey !== "barley" && (
+                carriedItem.itemKey !== "barley" &&
+                carriedItem.itemKey !== "reed" && (
                   <button disabled>Empty your hands before planting</button>
                 )}
               {canDropCarriedItem && (
@@ -657,13 +813,163 @@ export default function GameCanvas() {
           </div>
         </div>
       ))
+      .with("brewery", () => {
+        const brewery =
+          farmState.type === "ready" && farmBuildingTile !== undefined
+            ? farmState.snapshot.buildings.find(
+                building =>
+                  building.type === "brewery" &&
+                  building.column ===
+                    tile.position.column -
+                      (farmBuildingTile.position.column -
+                        INITIAL_FARM_CONFIG.buildingBounds.minimumColumn) &&
+                  building.row ===
+                    tile.position.row -
+                      (farmBuildingTile.position.row -
+                        INITIAL_FARM_CONFIG.buildingBounds.minimumRow)
+              )
+            : undefined;
+        const complete =
+          brewery !== undefined &&
+          Date.parse(brewery.completesAt) <= storageClock;
+        const brewing = getBrewingState(brewery?.beerReadyAt ?? null, storageClock);
+        const readyBeer = brewery === undefined ? 0 : readyBeerQuantity(brewery, storageClock);
+        const household = farmState.type === "ready" ? farmState.snapshot.farm.household : null;
+        const lastBeerAt = household?.lastBeerAt ? Date.parse(household.lastBeerAt) : null;
+        const beerQuantity = farmState.type === "ready" ? farmState.snapshot.inventory.find(item => item.itemKey === "beer")?.quantity ?? 0 : 0;
+        const treatRule = validateBeerTreat(readyBeer + beerQuantity, household?.happiness ?? 100, lastBeerAt, storageClock);
+        const brewRule = brewery === undefined ? null : validateBrewing("start_brewing", brewery, storageClock);
+        const canDeliver =
+          complete &&
+          (carriedItem?.itemKey === "water" ||
+            carriedItem?.itemKey === "barley");
+        const full =
+          carriedItem !== null &&
+          brewery !== undefined &&
+          (carriedItem.itemKey === "water"
+            ? brewery.brewingWater + carriedItem.quantity > BREWERY_WATER_CAPACITY
+            : carriedItem.itemKey === "barley" &&
+              brewery.brewingBarley + carriedItem.quantity > BEER_RECIPE.barley);
+        return (
+          <div className={styles["tile-popover-content"]}>
+            <div className={styles["tile-popover-content-header"]}>
+              <span className="cuneiforms">𒂍𒋆</span>
+              <span>Brewery</span>
+            </div>
+            <div className={styles["tile-popover-content-body"]}>
+              {!complete ? (
+                "Under construction"
+              ) : (
+                <>
+                  <span>
+                    Water: {brewery.brewingWater} / {BREWERY_WATER_CAPACITY}{" "}
+                    loads
+                  </span>
+                  <span>Barley: {brewery.brewingBarley} / {BEER_RECIPE.barley}</span>
+                  <span>
+                    Empty beer jars: {brewery.emptyBeerJars} /{" "}
+                    {BREWERY_EMPTY_JAR_CAPACITY}
+                  </span>
+                  {match(brewing)
+                    .with({ type: "idle" }, () => (
+                      <>
+                        {brewRule === null ? (
+                          <button onClick={() => addCommand({
+                            type: "brewery_supply", action: "start_brewing", target: tile.position
+                          })}>Start brewing</button>
+                        ) : <span>{brewingErrors[brewRule]}</span>}
+                      </>
+                    ))
+                    .with({ type: "brewing" }, ({ readyAt }) => {
+                      const seconds = Math.max(0, Math.ceil((readyAt - storageClock) / 1000));
+                      return <span>Brewing: {Math.floor(seconds / 60)}:{String(seconds % 60).padStart(2, "0")} remaining</span>;
+                    })
+                    .with({ type: "ready" }, () => (
+                      <>
+                        <span>{readyBeer} beer {readyBeer === 1 ? "jar" : "jars"} ready. Collect to free the brewery.</span>
+                        <button onClick={() => addCommand({
+                          type: "brewery_supply", action: "collect_beer", target: tile.position
+                        })}>Collect {readyBeer} beer {readyBeer === 1 ? "jar" : "jars"} into estate inventory</button>
+                      </>
+                    ))
+                    .exhaustive()}
+                  {treatRule === null ? (
+                    <button onClick={() => addCommand({
+                      type: "brewery_supply", action: "give_beer", target: tile.position
+                    })}>Give 1 beer to the farmer (+15 happiness)</button>
+                  ) : null}
+                  {carriedItem === null &&
+                  availableEmptyBeerJars === 0 &&
+                  brewery.emptyBeerJars < BREWERY_EMPTY_JAR_CAPACITY ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearSelection();
+                        setMarketDialogOpen(true);
+                      }}
+                    >
+                      Buy empty beer jars at the market{" "}
+                      <ExternalLinkIcon
+                        aria-hidden="true"
+                        style={{
+                          width: "1em",
+                          height: "1em",
+                          verticalAlign: "middle"
+                        }}
+                      />
+                    </button>
+                  ) : (
+                    carriedItem === null && (
+                      <button
+                        disabled={
+                          brewery.emptyBeerJars >= BREWERY_EMPTY_JAR_CAPACITY
+                        }
+                        onClick={() =>
+                          addCommand({
+                            type: "brewery_supply",
+                            action: "stock_jars",
+                            target: tile.position
+                          })
+                        }
+                      >
+                        {brewery.emptyBeerJars >= BREWERY_EMPTY_JAR_CAPACITY
+                          ? "Beer jar storage is full"
+                          : `Transfer ${Math.min(availableEmptyBeerJars, BREWERY_EMPTY_JAR_CAPACITY - brewery.emptyBeerJars)} empty beer jars from estate inventory`}
+                      </button>
+                    )
+                  )}
+                  {canDeliver && (
+                    <button
+                      disabled={full}
+                      onClick={() =>
+                        addCommand({
+                          type: "brewery_supply",
+                          action: "deliver",
+                          target: tile.position
+                        })
+                      }
+                    >
+                      {full
+                        ? carriedItem.itemKey === "barley"
+                          ? "Not enough barley space (maximum 2)"
+                          : "Brewery water supply is full"
+                        : `Deliver ${carriedItem.itemKey}`}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        );
+      })
       .with("granary", () => (
         <div className={styles["tile-popover-content"]}>
           <div className={styles["tile-popover-content-header"]}>
+            <span className="cuneiforms">𒉌𒁾</span>
             <span>Granary</span>
           </div>
           <div className={styles["tile-popover-content-body"]}>
-            Adds 15 barley storage when construction is complete
+            Adds 15 barley storage.
             {selectedGranary !== undefined &&
               Date.parse(selectedGranary.completesAt) <= storageClock && (
                 <>
@@ -691,25 +997,23 @@ export default function GameCanvas() {
                         : "Store Barley"}
                     </button>
                   )}
-                  <button
-                    disabled={
-                      selectedGranary.storedBarley === 0 || carriedItem !== null
-                    }
-                    onClick={() =>
-                      addCommand({
-                        type: "withdraw",
-                        target: tile.position,
-                        item: "barley",
-                        storage: "granary"
-                      })
-                    }
-                  >
-                    {selectedGranary.storedBarley === 0
-                      ? "Granary is empty"
-                      : carriedItem !== null
-                        ? "The farmer is already carrying barley."
+                  {carriedItem === null && (
+                    <button
+                      disabled={selectedGranary.storedBarley === 0}
+                      onClick={() =>
+                        addCommand({
+                          type: "withdraw",
+                          target: tile.position,
+                          item: "barley",
+                          storage: "granary"
+                        })
+                      }
+                    >
+                      {selectedGranary.storedBarley === 0
+                        ? "Granary is empty"
                         : "Take 1 Barley"}
-                  </button>
+                    </button>
+                  )}
                 </>
               )}
           </div>
@@ -723,6 +1027,25 @@ export default function GameCanvas() {
           </div>
           <div className={styles["tile-popover-content-body"]}>
             A body of water
+            {carriedItem === null &&
+              farmState.type === "ready" &&
+              farmState.snapshot.buildings.some(
+                building =>
+                  building.type === "brewery" &&
+                  Date.parse(building.completesAt) <= storageClock
+              ) && (
+                <button
+                  onClick={() =>
+                    addCommand({
+                      type: "brewery_supply",
+                      action: "collect_water",
+                      target: tile.position
+                    })
+                  }
+                >
+                  Collect water
+                </button>
+              )}
           </div>
         </div>
       ))
@@ -765,6 +1088,32 @@ export default function GameCanvas() {
             {carriedItem === null
               ? "A farmer tending to the fields"
               : `Carrying ${carriedItem.quantity} ${carriedItem.itemKey}`}
+            {farmState.type === "ready" && (
+              <>
+                <span>Hunger: {farmState.snapshot.farm.household.hungrySince === null ? "Fed" : "Hungry"}</span>
+                <span>
+                  Happiness: {farmState.snapshot.farm.household.happiness} / 100 ·{" "}
+                  {match(getFarmerMood(farmState.snapshot.farm.household.happiness))
+                    .with("happy", () => "Happy")
+                    .with("content", () => "Content")
+                    .with("unhappy", () => "Unhappy")
+                    .exhaustive()}
+                </span>
+                <meter aria-label="Farmer happiness" min={0} max={100}
+                  value={farmState.snapshot.farm.household.happiness} />
+                <span>
+                  {farmState.snapshot.farm.household.hungrySince !== null
+                    ? "I'm hungry and walking slowly. Store barley in the farm or a completed granary so I can eat."
+                    : getFarmerMood(farmState.snapshot.farm.household.happiness) === "unhappy"
+                      ? "I'm unhappy and walking a little more slowly."
+                      : "I'm fed and walking at my normal pace."}
+                </span>
+                {farmState.snapshot.farm.household.nextBarleyConsumptionAt !== null &&
+                  farmState.snapshot.farm.household.hungrySince === null && (
+                    <span>Next ration in {formatRemainingTime(farmState.snapshot.farm.household.nextBarleyConsumptionAt, storageClock)}</span>
+                  )}
+              </>
+            )}
             {farmState.type === "ready" &&
               farmState.snapshot.farm.carriedItem?.itemKey === "barley" &&
               farmState.snapshot.farm.carriedItem.expiresAt !== null && (
@@ -789,11 +1138,23 @@ export default function GameCanvas() {
 
     const controller = new AbortController();
 
-    void fetchMarketQuotes(controller.signal).then(
-      quotes => {
+    void Promise.all([
+      fetchMarketQuotes(controller.signal),
+      fetchDevelopmentFarm(controller.signal)
+    ]).then(
+      ([quotes, snapshot]) => {
+        if (controller.signal.aborted) return;
+        const current = farmStore.getState().farm;
+        if (
+          current.type !== "ready" ||
+          current.snapshot.farm.version < snapshot.farm.version
+        ) {
+          farmStore.getState().setReady(snapshot);
+        }
         setMarketQuoteState({ type: "ready", quotes });
       },
       error => {
+        if (controller.signal.aborted) return;
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
@@ -814,12 +1175,67 @@ export default function GameCanvas() {
   }, [isOpenMarketDialog, marketQuoteRefresh]);
 
   useEffect(() => {
+    if (!isOpenMarketDialog || marketTradePending) return;
+    const refresh = () => setMarketQuoteRefresh(value => value + 1);
+    const timer = window.setInterval(refresh, 5_000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [isOpenMarketDialog, marketTradePending]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const controller = new AbortController();
+    let pending = false;
+    const refresh = async () => {
+      if (
+        pending ||
+        document.visibilityState === "hidden" ||
+        farmStore.getState().farm.type !== "ready"
+      )
+        return;
+      pending = true;
+      try {
+        const snapshot = await fetchDevelopmentFarm(controller.signal);
+        const current = farmStore.getState().farm;
+        if (
+          !controller.signal.aborted &&
+          current.type === "ready" &&
+          snapshot.farm.id === current.snapshot.farm.id &&
+          snapshot.farm.version > current.snapshot.farm.version
+        ) {
+          farmStore.getState().setReady(snapshot);
+        }
+      } catch (error) {
+        if (!controller.signal.aborted)
+          console.error("Failed to refresh player state", error);
+      } finally {
+        pending = false;
+      }
+    };
     const timer = window.setInterval(() => {
-      setStorageClock(Date.now());
-    }, 60_000);
+      void refresh();
+    }, 15_000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      controller.abort();
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, []);
+
+  useEffect(() => {
+    const refreshClock = (): void => setStorageClock(Date.now());
+    const timer = window.setInterval(refreshClock, 1_000);
+    window.addEventListener("focus", refreshClock);
+    document.addEventListener("visibilitychange", refreshClock);
 
     return () => {
       window.clearInterval(timer);
+      window.removeEventListener("focus", refreshClock);
+      document.removeEventListener("visibilitychange", refreshClock);
     };
   }, []);
 
@@ -864,7 +1280,9 @@ export default function GameCanvas() {
       .filter((deadline): deadline is string => deadline !== null)
       .map(Date.parse)
       .filter(deadline => Number.isFinite(deadline));
-    const nextDeadline = deadlines.toSorted((first, second) => first - second)[0];
+    const nextDeadline = deadlines.toSorted(
+      (first, second) => first - second
+    )[0];
 
     if (nextDeadline === undefined) {
       return;
@@ -931,199 +1349,290 @@ export default function GameCanvas() {
         open={isOpenManageDialog}
         onOpenChange={setIsOpenManageDialog}
       >
-      <div className={styles["canvas"]}>
-        <div className={styles["buttons-container"]}>
-          <Dialog.Trigger asChild>
-            <button className="with-shadow" style={{ padding: "8px 16px" }}>
-              🏺 Manage
-            </button>
-          </Dialog.Trigger>
-        </div>
-        {householdStatus !== null && (
-          <div className={styles["household-status"]} role="status">
-            {householdStatus}
+        <div className={styles["canvas"]}>
+          <div className={styles["buttons-container"]}>
+            <Dialog.Trigger asChild>
+              <button className="with-shadow" style={{ padding: "8px 16px" }}>
+                🏺 Manage
+              </button>
+            </Dialog.Trigger>
           </div>
-        )}
-        <div id={GAME_CONTAINER_ID} className={styles["game-container"]} />
-        <Popover.Root
-          key={selectedTile?.id ?? "no-selection"}
-          open={isOpenTilePopover}
-          onOpenChange={open => {
-            if (!open) {
-              clearSelection();
-            }
-          }}
-        >
-          <Popover.Anchor asChild>
-            <span
-              aria-hidden
-              style={{
-                position: "absolute",
-                left: tilePopoverX,
-                top: tilePopoverY,
-                width: 0,
-                height: 0,
-                pointerEvents: "none"
-              }}
-            />
-          </Popover.Anchor>
+          <div id={GAME_CONTAINER_ID} className={styles["game-container"]} />
+          <Popover.Root
+            key={selectedTile?.id ?? "no-selection"}
+            open={isOpenTilePopover}
+            onOpenChange={open => {
+              if (!open) {
+                clearSelection();
+              }
+            }}
+          >
+            <Popover.Anchor asChild>
+              <span
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  left: tilePopoverX,
+                  top: tilePopoverY,
+                  width: 0,
+                  height: 0,
+                  pointerEvents: "none"
+                }}
+              />
+            </Popover.Anchor>
 
-          <Popover.Portal>
-            <Popover.Content
-              className={styles["tile-popover"]}
-              side={showPopoverBelow ? "bottom" : "top"}
-              align="center"
-              sideOffset={10}
-              collisionPadding={12}
-              avoidCollisions={!showPopoverBelow}
-              onInteractOutside={event => {
-                event.preventDefault();
-              }}
-            >
-              {displayPopoverContent(selectedTile)}
-              <Popover.Close
-                className={styles["tile-popover-close"]}
-                aria-label="Close"
-                onClick={() => {
-                  clearSelection();
+            <Popover.Portal>
+              <Popover.Content
+                className={styles["tile-popover"]}
+                side={showPopoverBelow ? "bottom" : "top"}
+                align="center"
+                sideOffset={10}
+                collisionPadding={12}
+                avoidCollisions={!showPopoverBelow}
+                onInteractOutside={event => {
+                  event.preventDefault();
                 }}
               >
-                <Cross2Icon />
-              </Popover.Close>
-              <Popover.Arrow className={styles["tile-popover-arrow"]} />
-            </Popover.Content>
-          </Popover.Portal>
-        </Popover.Root>
-      </div>
+                {displayPopoverContent(selectedTile)}
+                <Popover.Close
+                  className={styles["tile-popover-close"]}
+                  aria-label="Close"
+                  onClick={() => {
+                    clearSelection();
+                  }}
+                >
+                  <Cross2Icon />
+                </Popover.Close>
+                <Popover.Arrow className={styles["tile-popover-arrow"]} />
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+        </div>
         <Dialog.Portal>
           <Dialog.Overlay className={styles["manage-dialog-overlay"]} />
           <Dialog.Content className={styles["manage-dialog-content"]}>
-          <Dialog.Title>Manage estate</Dialog.Title>
-          <Dialog.Description>
-            Review your resources and plan improvements to the farm.
-          </Dialog.Description>
-          <Tabs.Root defaultValue="build" className={styles["manage-tabs"]}>
-            <Tabs.List
-              className={styles["manage-tabs-list"]}
-              aria-label="Estate management sections"
-            >
-              <Tabs.Trigger
-                className={styles["manage-tabs-trigger"]}
+            <Dialog.Title>Manage estate</Dialog.Title>
+            <Dialog.Description>
+              Review your resources and plan improvements to the farm.
+            </Dialog.Description>
+            <Tabs.Root defaultValue="build" className={styles["manage-tabs"]}>
+              <Tabs.List
+                className={styles["manage-tabs-list"]}
+                aria-label="Estate management sections"
+              >
+                <Tabs.Trigger
+                  className={styles["manage-tabs-trigger"]}
+                  value="build"
+                >
+                  Build
+                </Tabs.Trigger>
+                <Tabs.Trigger
+                  className={styles["manage-tabs-trigger"]}
+                  value="resources"
+                >
+                  Resources
+                </Tabs.Trigger>
+              </Tabs.List>
+
+              <Tabs.Content
+                className={styles["manage-tabs-content"]}
                 value="build"
               >
-                Build
-              </Tabs.Trigger>
-              <Tabs.Trigger
-                className={styles["manage-tabs-trigger"]}
+                <h2>Available buildings</h2>
+                <p>Select a building to place on the farm.</p>
+                <ul className={styles["building-list"]}>
+                  <li>
+                    <h3>Granary</h3>
+                    <button
+                      disabled={!canBuildGranary}
+                      onClick={() => {
+                        clearSelection();
+                        buildingPlacementStore
+                          .getState()
+                          .startPlacement("granary");
+                        setIsOpenManageDialog(false);
+                      }}
+                    >
+                      {canBuildGranary
+                        ? "Build granary"
+                        : "Collect the required materials first"}
+                    </button>
+                    <span>
+                      2×2 · 2 minutes · +15 barley storage · {availableReed}/
+                      {FARM_BUILDING_DEFINITIONS.granary.materials.reed} reed ·{" "}
+                      {availableClay}/
+                      {FARM_BUILDING_DEFINITIONS.granary.materials.clay} clay
+                    </span>
+                  </li>
+                  <li>
+                    <h3>Brewery</h3>
+                    <button
+                      disabled={!canBuildBrewery}
+                      onClick={() => {
+                        clearSelection();
+                        buildingPlacementStore
+                          .getState()
+                          .startPlacement("brewery");
+                        setIsOpenManageDialog(false);
+                      }}
+                    >
+                      {carriedItem !== null
+                        ? "Empty your hands first"
+                        : canBuildBrewery
+                          ? "Build brewery"
+                          : "Collect the required materials first"}
+                    </button>
+                    <span>
+                      2×2 ·{" "}
+                      {FARM_BUILDING_DEFINITIONS.brewery
+                        .constructionDurationMs / 60000}{" "}
+                      minutes · {availableReed}/
+                      {FARM_BUILDING_DEFINITIONS.brewery.materials.reed} reed ·{" "}
+                      {availableClay}/
+                      {FARM_BUILDING_DEFINITIONS.brewery.materials.clay} clay ·{" "}
+                      {availableVessels}/
+                      {
+                        FARM_BUILDING_DEFINITIONS.brewery.materials
+                          .brewingVessels
+                      }{" "}
+                      brewing jars
+                    </span>
+                    <p>
+                      Buy a brewing jar at the NPC market for{" "}
+                      {
+                        MARKET_ITEM_DEFINITIONS.brewingVessels.npcMarket
+                          .buyPrice
+                      }{" "}
+                      shekels. Materials are consumed when construction starts.
+                    </p>
+                  </li>
+                </ul>
+              </Tabs.Content>
+
+              <Tabs.Content
+                className={styles["manage-tabs-content"]}
                 value="resources"
               >
-                Resources
-              </Tabs.Trigger>
-            </Tabs.List>
+                <h2>Resources</h2>
+                {farmState.type === "ready" ? (
+                  <div className={styles["resource-sections"]}>
+                    <section>
+                      <dl className={styles["resource-list"]}>
+                        <div>
+                          <dt>Shekels</dt>
+                          <dd>{farmState.snapshot.player.shekelBalance}</dd>
+                        </div>
+                      </dl>
+                    </section>
 
-            <Tabs.Content
-              className={styles["manage-tabs-content"]}
-              value="build"
-            >
-              <h2>Available buildings</h2>
-              <p>Select a building to place on the farm.</p>
-              <ul className={styles["building-list"]}>
-                <li>
-                  <h3>Granary</h3>
-                  <button
-                    disabled={!canBuildGranary}
-                    onClick={() => {
-                      clearSelection();
-                      buildingPlacementStore
-                        .getState()
-                        .startPlacement("granary");
-                      setIsOpenManageDialog(false);
-                    }}
-                  >
-                    {canBuildGranary
-                      ? "Build granary"
-                      : "Collect the required materials first"}
-                  </button>
-                  <span>
-                    2×2 · 2 minutes · +15 barley storage · {availableReed}/
-                    {FARM_BUILDING_DEFINITIONS.granary.materials.reed} reed ·{" "}
-                    {availableClay}/
-                    {FARM_BUILDING_DEFINITIONS.granary.materials.clay} clay
-                  </span>
-                </li>
-              </ul>
-            </Tabs.Content>
+                    <section>
+                      <h3>Barley</h3>
+                      <dl className={styles["resource-list"]}>
+                        <div className={styles["resource-total"]}>
+                          <dt>Total</dt>
+                          <dd>{totalBarley}</dd>
+                        </div>
+                        <div>
+                          <dt>Farm storage</dt>
+                          <dd>{storedBarley}</dd>
+                        </div>
+                        <div>
+                          <dt>Granary storage</dt>
+                          <dd>{granaryBarley}</dd>
+                        </div>
+                        <div>
+                          <dt>Other</dt>
+                          <dd>{carriedBarley + exposedBarley}</dd>
+                        </div>
+                        <div>
+                          <dt>Reserved for brewing</dt>
+                          <dd>{breweryBarley}</dd>
+                        </div>
+                      </dl>
+                    </section>
 
-            <Tabs.Content
-              className={styles["manage-tabs-content"]}
-              value="resources"
-            >
-              <h2>Resources</h2>
-              {farmState.type === "ready" ? (
-                <div className={styles["resource-sections"]}>
-                  <section>
-                    <h3>Currency</h3>
-                    <dl className={styles["resource-list"]}>
-                      <div>
-                        <dt>Shekels</dt>
-                        <dd>{farmState.snapshot.player.shekelBalance}</dd>
-                      </div>
-                    </dl>
-                  </section>
+                    <section>
+                      <h3>Beer</h3>
+                      <dl className={styles["resource-list"]}>
+                        <div>
+                          <dt>Filled beer jars</dt>
+                          <dd>{farmState.snapshot.inventory.find(item => item.itemKey === "beer")?.quantity ?? 0}</dd>
+                        </div>
+                      </dl>
+                      {(farmState.snapshot.inventory.find(item => item.itemKey === "beer")?.quantity ?? 0) > 0 && (
+                        <button disabled={beerGiftPending || beerOnCooldown} onClick={async () => {
+                          if (beerGiftPending) return;
+                          setBeerGiftPending(true);
+                          setBeerGiftMessage(null);
+                          const household = farmState.snapshot.farm.household;
+                          const rule = validateBeerTreat(
+                            farmState.snapshot.inventory.find(item => item.itemKey === "beer")?.quantity ?? 0,
+                            household.happiness, household.lastBeerAt === null ? null : Date.parse(household.lastBeerAt), Date.now()
+                          );
+                          if (rule !== null) {
+                            setBeerGiftMessage(beerTreatErrors[rule]);
+                            setBeerGiftPending(false);
+                            return;
+                          }
+                          try {
+                            const snapshot = await executeGameCommand({
+                              type: "give_farmer_beer", expectedFarmVersion: farmState.snapshot.farm.version
+                            });
+                            farmStore.getState().setReady(snapshot);
+                            setBeerGiftMessage("The farmer enjoyed a beer. Happiness increased!");
+                          } catch (error) {
+                            setBeerGiftMessage(error instanceof Error ? error.message : "Could not give the farmer a beer.");
+                          } finally {
+                            setBeerGiftPending(false);
+                          }
+                        }}>{beerGiftPending ? "Giving beer…" : beerOnCooldown
+                          ? `Wait ${formatRemainingTime(new Date(beerAvailableAt!).toISOString(), storageClock)}`
+                          : "Give one beer to the farmer"}</button>
+                      )}
+                      {beerGiftMessage !== null && <p role="status">{beerGiftMessage}</p>}
+                    </section>
 
-                  <section>
-                    <h3>Barley</h3>
-                    <dl className={styles["resource-list"]}>
-                      <div className={styles["resource-total"]}>
-                        <dt>Total</dt>
-                        <dd>{totalBarley}</dd>
-                      </div>
-                      <div>
-                        <dt>Farm storage</dt>
-                        <dd>{storedBarley}</dd>
-                      </div>
-                      <div>
-                        <dt>Granary storage</dt>
-                        <dd>{granaryBarley}</dd>
-                      </div>
-                      <div>
-                        <dt>Carried by farmer</dt>
-                        <dd>{carriedBarley}</dd>
-                      </div>
-                      <div>
-                        <dt>Exposed on the ground</dt>
-                        <dd>{exposedBarley}</dd>
-                      </div>
-                    </dl>
-                  </section>
+                    <section>
+                      <h3>Equipment</h3>
+                      <dl className={styles["resource-list"]}>
+                        <div>
+                          <dt>Brewing jars</dt>
+                          <dd>{availableVessels}</dd>
+                        </div>
+                        <div>
+                          <dt>Empty beer jars</dt>
+                          <dd>{availableEmptyBeerJars}</dd>
+                        </div>
+                      </dl>
+                    </section>
 
-                  <section>
-                    <h3>Building materials</h3>
-                    <dl className={styles["resource-list"]}>
-                      <div>
-                        <dt>Reed</dt>
-                        <dd>{totalReed}</dd>
-                      </div>
-                      <div>
-                        <dt>Clay bricks</dt>
-                        <dd>{totalClay}</dd>
-                      </div>
-                    </dl>
-                  </section>
-                </div>
-              ) : (
-                <p>Farm resources are loading…</p>
-              )}
-            </Tabs.Content>
-          </Tabs.Root>
-          <Dialog.Close asChild>
-            <button
-              className={styles["manage-dialog-close"]}
-              aria-label="Close estate management"
-            >
-              <Cross2Icon />
-            </button>
-          </Dialog.Close>
+                    <section>
+                      <h3>Building materials</h3>
+                      <dl className={styles["resource-list"]}>
+                        <div>
+                          <dt>Reed</dt>
+                          <dd>{totalReed}</dd>
+                        </div>
+                        <div>
+                          <dt>Clay bricks</dt>
+                          <dd>{totalClay}</dd>
+                        </div>
+                      </dl>
+                    </section>
+                  </div>
+                ) : (
+                  <p>Farm resources are loading…</p>
+                )}
+              </Tabs.Content>
+            </Tabs.Root>
+            <Dialog.Close asChild>
+              <button
+                className={styles["manage-dialog-close"]}
+                aria-label="Close estate management"
+              >
+                <Cross2Icon />
+              </button>
+            </Dialog.Close>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
@@ -1142,16 +1651,26 @@ export default function GameCanvas() {
         <Dialog.Portal>
           <Dialog.Overlay className={styles["market-dialog-overlay"]} />
           <Dialog.Content className={styles["market-dialog-content"]}>
-            <Dialog.Title>Market</Dialog.Title>
+            <Dialog.Title>
+              Market <span className="cuneiforms">𒆠𒇴</span>
+            </Dialog.Title>
             <Dialog.Description>
-              Buy and sell safely stored goods at the current NPC market
-              prices.
+              Trade stored goods with the NPC market or buy listings from other
+              players.
             </Dialog.Description>
             {farmState.type === "ready" && marketQuoteState.type === "ready" ? (
               <div className={styles["market-trade"]}>
                 <dl className={styles["market-balances"]}>
-                  <div>
-                    <dt>Shekels</dt>
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center"
+                    }}
+                  >
+                    <dt>
+                      Shekels <span className="cuneiforms small">𒂆</span>
+                    </dt>
                     <dd>{farmState.snapshot.player.shekelBalance}</dd>
                   </div>
                   <div>
@@ -1162,110 +1681,393 @@ export default function GameCanvas() {
                   </div>
                 </dl>
 
-                {marketQuoteState.quotes.items.map(item => {
-                  const storedQuantity = match(item.itemKey)
-                    .with("barley", () => storedHouseholdBarley)
-                    .exhaustive();
-                  const availableStorage = match(item.storageType)
-                    .with("barley_storage", () => availableBarleyStorage)
-                    .exhaustive();
-                  const purchaseCost =
-                    marketQuantity * item.npcMarket.buyPrice;
-                  const saleValue =
-                    marketQuantity * item.npcMarket.sellPrice;
-
-                  return (
-                    <section
-                      className={styles["market-item"]}
-                      key={item.itemKey}
+                <Tabs.Root defaultValue="npc" className={styles["manage-tabs"]}>
+                  <Tabs.List
+                    className={styles["manage-tabs-list"]}
+                    aria-label="Market type"
+                  >
+                    <Tabs.Trigger
+                      className={styles["manage-tabs-trigger"]}
+                      value="npc"
                     >
-                      <h3>{item.label}</h3>
+                      NPC market
+                    </Tabs.Trigger>
+                    <Tabs.Trigger
+                      className={styles["manage-tabs-trigger"]}
+                      value="player"
+                    >
+                      Player market
+                    </Tabs.Trigger>
+                  </Tabs.List>
+                  {(["npc", "player"] as const).map(market => (
+                    <Tabs.Content
+                      key={market}
+                      value={market}
+                      className={styles["market-tab-content"]}
+                    >
                       <p>
-                        Buy for {formatShekels(item.npcMarket.buyPrice)} · Sell
-                        for {formatShekels(item.npcMarket.sellPrice)}
+                        {market === "npc"
+                          ? "Buy and sell at fixed prices with NPC merchants."
+                          : "Buy goods from other players or sell your own stored goods."}
                       </p>
-                      <label className={styles["market-quantity"]}>
-                        Quantity
-                        <input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={marketQuantity}
-                          disabled={marketTradePending}
-                          onChange={event => {
-                            const quantity = Number.parseInt(
-                              event.currentTarget.value,
-                              10
-                            );
-                            setMarketQuantity(
-                              Number.isNaN(quantity)
-                                ? 1
-                                : Math.max(1, quantity)
-                            );
-                          }}
-                        />
-                      </label>
-                      <div className={styles["market-actions"]}>
-                        <button
-                          disabled={
-                            marketTradePending ||
-                            !item.npcMarket.canBuy ||
-                            farmState.snapshot.player.shekelBalance <
-                              purchaseCost ||
-                            availableStorage < marketQuantity
-                          }
-                          onClick={() => {
-                            void tradeMarketItem(
-                              "buy",
-                              item.itemKey,
-                              item.npcMarket.buyPrice
-                            );
-                          }}
-                        >
-                          {!item.npcMarket.canBuy
-                            ? "Buying unavailable"
-                            : availableStorage < marketQuantity
-                            ? "Not enough storage"
-                            : farmState.snapshot.player.shekelBalance <
-                                purchaseCost
-                              ? "Not enough shekels"
-                              : `Buy for ${formatShekels(purchaseCost)}`}
-                        </button>
-                        <button
-                          disabled={
-                            marketTradePending ||
-                            !item.npcMarket.canSell ||
-                            storedQuantity < marketQuantity
-                          }
-                          onClick={() => {
-                            void tradeMarketItem(
-                              "sell",
-                              item.itemKey,
-                              item.npcMarket.sellPrice
-                            );
-                          }}
-                        >
-                          {!item.npcMarket.canSell
-                            ? "Selling unavailable"
-                            : storedQuantity < marketQuantity
-                            ? `Not enough stored ${item.label.toLowerCase()}`
-                            : `Sell for ${formatShekels(saleValue)}`}
-                        </button>
-                      </div>
-                      {marketTradeError !== null && (
-                        <p className={styles["market-error"]} role="alert">
-                          {marketTradeError}
-                        </p>
-                      )}
-                      <p>
-                        {item.playerMarket.lowestSellPrice === null &&
-                        item.playerMarket.highestBuyPrice === null
-                          ? "There are no player market orders yet."
-                          : "Player market orders are available."}
-                      </p>
-                    </section>
-                  );
-                })}
+                      <Tabs.Root
+                        defaultValue="buy"
+                        className={styles["manage-tabs"]}
+                      >
+                          <Tabs.List
+                            className={styles["manage-tabs-list"]}
+                            aria-label={market === "npc" ? "NPC market action" : "Player market action"}
+                          >
+                            <Tabs.Trigger
+                              className={styles["manage-tabs-trigger"]}
+                              value="buy"
+                            >
+                              Buy
+                            </Tabs.Trigger>
+                            <Tabs.Trigger
+                              className={styles["manage-tabs-trigger"]}
+                              value="sell"
+                            >
+                              Sell
+                            </Tabs.Trigger>
+                          </Tabs.List>
+                        {(["buy", "sell"] as const).map(action => (
+                          <Tabs.Content
+                            key={action}
+                            value={action}
+                            className={styles["market-tab-content"]}
+                          >
+                              <p>
+                                {market === "npc"
+                                  ? action === "buy"
+                                    ? "Choose a quantity to buy from NPC merchants."
+                                    : "Choose a quantity of stored goods to sell to NPC merchants."
+                                  : action === "buy"
+                                  ? "Choose a quantity and buy from another player's listing. Your own listings are shown under Sell."
+                                  : "Choose a quantity and asking price to create a listing. Manage your unsold listings below."}
+                              </p>
+                            {marketQuoteState.quotes.items
+                              .filter(item =>
+                                market === "npc"
+                                  ? action === "buy" ? item.npcMarket.canBuy : item.npcMarket.canSell
+                                  : item.playerMarket.canCreateSellOrder
+                              )
+                              .map(item => {
+                                const storedQuantity = match(item.itemKey)
+                                  .with("barley", () => storedHouseholdBarley)
+                                  .with("beer", () => farmState.snapshot.inventory.find(entry => entry.itemKey === "beer")?.quantity ?? 0)
+                                  .with(
+                                    "brewingVessels",
+                                    () => availableVessels
+                                  )
+                                  .with(
+                                    "emptyBeerJar",
+                                    () => availableEmptyBeerJars
+                                  )
+                                  .exhaustive();
+                                const availableStorage = match(item.storageType)
+                                  .with(
+                                    "barley_storage",
+                                    () => availableBarleyStorage
+                                  )
+                                  .with(
+                                    "estate_inventory",
+                                    () => 2147483647 - storedQuantity
+                                  )
+                                  .exhaustive();
+                                const purchaseCost =
+                                  marketQuantity * item.npcMarket.buyPrice;
+                                const saleValue =
+                                  marketQuantity * item.npcMarket.sellPrice;
+                                const listingPrice =
+                                  marketSellPrices[item.itemKey] ??
+                                  item.playerMarket.suggestedSellPrice;
+                                const cuneiformLabel = () => {
+                                  switch (item.itemKey) {
+                                    case "barley":
+                                      return "𒊺";
+                                    case "brewingVessels":
+                                      return "𒂁";
+                                    case "emptyBeerJar":
+                                      return "𒂁𒋤𒂵";
+                                    default:
+                                      return "";
+                                  }
+                                };
+
+                                return (
+                                  <section
+                                    className={styles["market-item"]}
+                                    key={item.itemKey}
+                                  >
+                                    <h3>
+                                      {item.label}
+                                      <span
+                                        className="cuneiforms small"
+                                        style={{ marginLeft: "0.5rem" }}
+                                      >
+                                        {cuneiformLabel()}
+                                      </span>
+                                    </h3>
+                                    {item.itemKey === "beer" && (
+                                      <p>Owned: {storedQuantity} filled jars in estate inventory. Each sale includes the jar; no empty jar is returned.</p>
+                                    )}
+                                    {market === "npc" && (
+                                      <p>
+                                        {action === "buy" ? "Buy for " : "Sell for "}
+                                        {formatShekels(action === "buy" ? item.npcMarket.buyPrice : item.npcMarket.sellPrice)} each
+                                        {item.storageType ===
+                                          "estate_inventory" && (
+                                          <>
+                                            {" "}
+                                            · Owned: {storedQuantity}. Kept in
+                                            estate inventory; does not use
+                                            barley storage.
+                                          </>
+                                        )}
+                                      </p>
+                                    )}
+                                    <label
+                                      className={styles["market-quantity"]}
+                                    >
+                                      {action === "buy"
+                                        ? "Quantity to buy"
+                                        : action === "sell"
+                                          ? "Quantity to sell"
+                                          : "Quantity"}
+                                      <input
+                                        type="number"
+                                        min="1"
+                                        step="1"
+                                        value={marketQuantity}
+                                        disabled={marketTradePending}
+                                        onChange={event => {
+                                          const quantity = Number.parseInt(
+                                            event.currentTarget.value,
+                                            10
+                                          );
+                                          setMarketQuantity(
+                                            Number.isNaN(quantity)
+                                              ? 1
+                                              : Math.max(1, quantity)
+                                          );
+                                        }}
+                                      />
+                                    </label>
+                                    {market === "npc" && (
+                                      <div className={styles["market-actions"]}>
+                                        {action === "buy" && <button
+                                          disabled={
+                                            marketTradePending ||
+                                            !item.npcMarket.canBuy ||
+                                            farmState.snapshot.player
+                                              .shekelBalance < purchaseCost ||
+                                            availableStorage < marketQuantity
+                                          }
+                                          onClick={() => {
+                                            void tradeMarketItem(
+                                              "buy",
+                                              item.itemKey,
+                                              item.npcMarket.buyPrice
+                                            );
+                                          }}
+                                        >
+                                          {!item.npcMarket.canBuy
+                                            ? "Buying unavailable"
+                                            : availableStorage < marketQuantity
+                                              ? "Not enough storage"
+                                              : farmState.snapshot.player
+                                                    .shekelBalance <
+                                                  purchaseCost
+                                                ? "Not enough shekels"
+                                                : `Buy for ${formatShekels(purchaseCost)}`}
+                                        </button>}
+                                        {action === "sell" && <button
+                                          disabled={
+                                            marketTradePending ||
+                                            !item.npcMarket.canSell ||
+                                            storedQuantity < marketQuantity
+                                          }
+                                          onClick={() => {
+                                            void tradeMarketItem(
+                                              "sell",
+                                              item.itemKey,
+                                              item.npcMarket.sellPrice
+                                            );
+                                          }}
+                                        >
+                                          {!item.npcMarket.canSell
+                                            ? "Selling unavailable"
+                                            : storedQuantity < marketQuantity
+                                              ? `Not enough stored ${item.label.toLowerCase()}`
+                                              : `Sell for ${formatShekels(saleValue)}`}
+                                        </button>}
+                                      </div>
+                                    )}
+                                    {market === "player" && (
+                                      <>
+                                        <dl
+                                          className={
+                                            styles["market-statistics"]
+                                          }
+                                        >
+                                          <div>
+                                            <dt>Lowest asking price</dt>
+                                            <dd>
+                                              {item.playerMarket
+                                                .lowestSellPrice === null
+                                                ? "No listings"
+                                                : formatShekels(
+                                                    item.playerMarket
+                                                      .lowestSellPrice
+                                                  )}
+                                            </dd>
+                                          </div>
+                                          <div>
+                                            <dt>Average asking price</dt>
+                                            <dd>
+                                              {item.playerMarket
+                                                .weightedAverageSellPrice ===
+                                              null
+                                                ? "No listings"
+                                                : formatShekels(
+                                                    Number(
+                                                      item.playerMarket.weightedAverageSellPrice.toFixed(
+                                                        1
+                                                      )
+                                                    )
+                                                  )}
+                                            </dd>
+                                          </div>
+                                          <div>
+                                            <dt>Quantity for sale</dt>
+                                            <dd>
+                                              {
+                                                item.playerMarket
+                                                  .totalSellQuantity
+                                              }
+                                            </dd>
+                                          </div>
+                                          <div>
+                                            <dt>Average traded price (24h)</dt>
+                                            <dd>
+                                              {item.playerMarket
+                                                .recentTradeAveragePrice ===
+                                              null
+                                                ? "No trades in the last 24h"
+                                                : formatShekels(
+                                                    Number(
+                                                      item.playerMarket.recentTradeAveragePrice.toFixed(
+                                                        1
+                                                      )
+                                                    )
+                                                  )}
+                                            </dd>
+                                          </div>
+                                        </dl>
+                                        {action === "sell" && (
+                                          <div
+                                            className={
+                                              styles["market-listing-controls"]
+                                            }
+                                          >
+                                            <label
+                                              className={
+                                                styles["market-quantity"]
+                                              }
+                                            >
+                                              Asking price per item
+                                              <input
+                                                type="number"
+                                                min="1"
+                                                step="1"
+                                                value={listingPrice}
+                                                disabled={marketTradePending}
+                                                onChange={event => {
+                                                  const price = Number.parseInt(
+                                                    event.currentTarget.value,
+                                                    10
+                                                  );
+                                                  setMarketSellPrices(
+                                                    prices => ({
+                                                      ...prices,
+                                                      [item.itemKey]:
+                                                        Number.isNaN(price)
+                                                          ? 1
+                                                          : Math.max(1, price)
+                                                    })
+                                                  );
+                                                }}
+                                              />
+                                            </label>
+                                            <span>
+                                              Suggested:{" "}
+                                              {formatShekels(
+                                                item.playerMarket
+                                                  .suggestedSellPrice
+                                              )}
+                                            </span>
+                                            <button
+                                              disabled={
+                                                marketTradePending ||
+                                                !item.playerMarket
+                                                  .canCreateSellOrder ||
+                                                storedQuantity < marketQuantity
+                                              }
+                                              onClick={() => {
+                                                void createMarketSellOrder(
+                                                  item.itemKey,
+                                                  listingPrice
+                                                );
+                                              }}
+                                            >
+                                              {!item.playerMarket
+                                                .canCreateSellOrder
+                                                ? "Player listings unavailable"
+                                                : storedQuantity <
+                                                    marketQuantity
+                                                  ? `Not enough stored ${item.label.toLowerCase()}`
+                                                  : `Create sell listing: ${marketQuantity} for ${formatShekels(
+                                                      listingPrice
+                                                    )} each`}
+                                            </button>
+                                          </div>
+                                        )}
+                                        <MarketListings
+                                          key={`${action}:${item.itemKey}`}
+                                          itemKey={item.itemKey}
+                                          action={
+                                            action === "sell" ? "sell" : "buy"
+                                          }
+                                          quantity={marketQuantity}
+                                          availableStorage={availableStorage}
+                                          balance={
+                                            farmState.snapshot.player
+                                              .shekelBalance
+                                          }
+                                          pending={marketTradePending}
+                                          farmVersion={
+                                            farmState.snapshot.farm.version
+                                          }
+                                          buy={buyPlayerListing}
+                                          cancel={cancelMarketSellOrder}
+                                        />
+                                      </>
+                                    )}
+                                  </section>
+                                );
+                              })}
+                          </Tabs.Content>
+                        ))}
+                      </Tabs.Root>
+                    </Tabs.Content>
+                  ))}
+                </Tabs.Root>
+                {marketTradeError !== null && (
+                  <p className={styles["market-error"]} role="alert">
+                    {marketTradeError}
+                  </p>
+                )}
               </div>
             ) : marketQuoteState.type === "failed" ? (
               <div>
@@ -1285,6 +2087,9 @@ export default function GameCanvas() {
                   ? "Loading market prices…"
                   : "Farm resources are loading…"}
               </p>
+            )}
+            {isOpenMarketDialog && (
+              <MarketTradeHistory refresh={marketQuoteRefresh} />
             )}
             <Dialog.Close asChild>
               <button

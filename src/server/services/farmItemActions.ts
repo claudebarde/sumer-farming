@@ -228,6 +228,10 @@ const executeFarmItemAction = (
             };
           }
 
+          if (farm.carriedItemKey === "water" && (action.type === "drop" || action.type === "deposit")) {
+            return { type: "rule_error", rule: { type: "incompatible_carried_item" } };
+          }
+
           await removeCompletedImprovementDestructions(
             transaction,
             farm.id,
@@ -670,6 +674,10 @@ const executeFarmItemAction = (
                   };
             })
             .with({ type: "withdraw" }, async ({ input }) => {
+              // Filled beer jars stay in estate inventory until sold or used.
+              if (input.itemKey === "beer") {
+                return { type: "rule_error", rule: { type: "incompatible_carried_item" } };
+              }
               if (
                 farm.carriedItemKey !== null ||
                 farm.carriedItemQuantity !== 0

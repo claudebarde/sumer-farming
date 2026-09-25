@@ -1,0 +1,1 @@
+ALTER TYPE "public"."farm_building_type" ADD VALUE 'brewery';

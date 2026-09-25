@@ -1,0 +1,2 @@
+ALTER TABLE "farm_buildings" ADD COLUMN "empty_beer_jars" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "farm_buildings" ADD CONSTRAINT "farm_buildings_empty_jars_valid" CHECK ("farm_buildings"."empty_beer_jars" >= 0 AND "farm_buildings"."empty_beer_jars" <= 10 AND ("farm_buildings"."type" = 'brewery' OR "farm_buildings"."empty_beer_jars" = 0));

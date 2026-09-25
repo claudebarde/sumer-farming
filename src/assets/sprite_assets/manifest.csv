@@ -1,0 +1,44 @@
+filename,dimensions,tile_footprint,asset_type,source
+ground.png,256x256,1x1,terrain tile,extracted
+ground-grass.png,256x256,1x1,terrain tile,extracted
+canal-horizontal.png,256x256,1x1,terrain tile,extracted
+canal-vertical.png,256x256,1x1,terrain tile,extracted
+canal-corner.png,256x256,1x1,terrain tile,extracted
+canal-intersection-a.png,256x256,1x1,terrain tile,extracted
+canal-intersection-b.png,256x256,1x1,terrain tile,extracted
+water.png,256x256,1x1,terrain tile,extracted
+mud-road-horizontal.png,256x256,1x1,terrain tile,extracted
+ground-fence-tile.png,256x256,1x1,terrain tile,extracted
+field-plowed.png,256x256,1x1,terrain tile,extracted
+field-seeded.png,256x256,1x1,terrain tile,extracted
+field-wheat-ripe.png,256x256,1x1,terrain tile,extracted
+wheat-sheaf.png,256x256,1x1,standalone object,extracted
+farmer-stand-staff-1.png,256x256,1x1,farmer pose,extracted
+farmer-stand-staff-2.png,256x256,1x1,farmer pose,extracted
+farmer-stand-staff-3.png,256x256,1x1,farmer pose,extracted
+farmer-stand-staff-4.png,256x256,1x1,farmer pose,extracted
+farmer-stand-staff-5.png,256x256,1x1,farmer pose,extracted
+farmer-stand-staff-6.png,256x256,1x1,farmer pose,extracted
+reed-bundle.png,256x256,1x1,standalone object,extracted
+brick-pile.png,256x256,1x1,standalone object,extracted
+farmer-walk-1.png,256x256,1x1,farmer pose,extracted
+farmer-walk-2.png,256x256,1x1,farmer pose,extracted
+farmer-walk-3.png,256x256,1x1,farmer pose,extracted
+farmer-walk-4.png,256x256,1x1,farmer pose,extracted
+farmer-plant-1.png,256x256,1x1,farmer pose,extracted
+farmer-plant-2.png,256x256,1x1,farmer pose,extracted
+farmer-plant-3.png,256x256,1x1,farmer pose,extracted
+farmer-plant-4.png,256x256,1x1,farmer pose,extracted
+farmer-harvest-1.png,256x256,1x1,farmer pose,extracted
+farmer-harvest-2.png,256x256,1x1,farmer pose,extracted
+farmer-carry-wheat-1.png,256x256,1x1,farmer pose,extracted
+farmer-carry-wheat-2.png,256x256,1x1,farmer pose,extracted
+palm-tree.png,256x256,1x1,standalone object,extracted
+bush.png,256x256,1x1,standalone object,extracted
+reeds-plant.png,256x256,1x1,standalone object,extracted
+rocks.png,256x256,1x1,standalone object,extracted
+fence.png,256x256,1x1,standalone object,extracted
+signpost.png,256x256,1x1,standalone object,extracted
+farm.png,512x512,2x2,building,extracted
+granary.png,512x512,2x2,building,extracted
+brewery.png,512x512,2x2,building,newly generated

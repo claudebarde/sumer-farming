@@ -79,23 +79,6 @@
   z-index: 10;
 }
 
-.household-status {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  z-index: 10;
-  max-width: calc(100% - 20px);
-  box-sizing: border-box;
-  padding: 8px 12px;
-  border: $container-border;
-  border-radius: $container-border-radius;
-  background-color: $color-parchment-light;
-  color: $color-ink;
-  font-family: "Bree Serif", Georgia, serif;
-  font-size: 0.8rem;
-  text-align: right;
-}
-
 .manage-dialog-overlay {
   position: fixed;
   inset: 0;
@@ -279,6 +262,27 @@
   gap: 16px;
 }
 
+.market-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.market-tab-content {
+  &[data-state="active"] {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  > p {
+    margin: 0;
+  }
+}
+
 .market-balances {
   display: flex;
   flex-wrap: wrap;
@@ -323,6 +327,47 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
+}
+
+.market-statistics {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 0 16px;
+
+  > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  dd {
+    margin: 0;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.market-listing-controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.market-order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
 }
 
 .market-error {

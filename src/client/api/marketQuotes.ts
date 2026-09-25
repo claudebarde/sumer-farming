@@ -1,3 +1,4 @@
+import { developmentPlayerHeaders } from "./developmentPlayer";
 import {
   MarketQuotesSchema,
   type MarketQuotes
@@ -6,7 +7,7 @@ import {
 export const fetchMarketQuotes = async (
   signal?: AbortSignal
 ): Promise<MarketQuotes> => {
-  const response = await fetch("/api/market/quotes", { signal });
+  const response = await fetch("/api/market/quotes", { signal, headers: developmentPlayerHeaders() });
 
   if (!response.ok) {
     throw new Error("The current market prices could not be loaded");

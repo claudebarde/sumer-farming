@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
 
@@ -8,13 +8,14 @@ import {
   type BuildingCoordinate,
   type BuildingPlacementRule
 } from "../../game-core/farm/buildings";
-import { FARM_BUILDING_DEFINITIONS } from "../../game-data/buildings";
+import { FARM_BUILDING_DEFINITIONS, type FarmBuildingType } from "../../game-data/buildings";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import type { InventoryItemKey } from "../../game-data/inventoryItems";
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { Database } from "../db/client";
 import {
   farmBuildings,
+  farmInventory,
   farmCrops,
   farmGroundItems,
   farmImprovements,
@@ -24,8 +25,9 @@ import {
 import { removeCompletedImprovementDestructions } from "./farmImprovementLifecycle";
 import { readFarmSnapshot } from "./farmSnapshot";
 import { advanceFarmLifecycle } from "./farmLifecycle";
+import { preservesBuildingAccess } from "../../game-core/farm/buildingAccess";
 
-type BuildGranaryRule =
+type BuildFarmBuildingRule =
   | { readonly type: "farm_not_found" }
   | {
       readonly type: "version_conflict";
@@ -35,23 +37,24 @@ type BuildGranaryRule =
   | { readonly type: "farmer_busy" }
   | Exclude<BuildingPlacementRule, { readonly type: "valid" }>;
 
-export class BuildGranaryRuleError extends Data.TaggedError(
-  "BuildGranaryRuleError"
+export class BuildFarmBuildingRuleError extends Data.TaggedError(
+  "BuildFarmBuildingRuleError"
 )<{
-  readonly rule: BuildGranaryRule;
+  readonly rule: BuildFarmBuildingRule;
 }> {}
 
-export class BuildGranaryPersistenceError extends Data.TaggedError(
-  "BuildGranaryPersistenceError"
+export class BuildFarmBuildingPersistenceError extends Data.TaggedError(
+  "BuildFarmBuildingPersistenceError"
 )<{
   readonly cause: unknown;
 }> {}
 
-export type BuildGranaryError =
-  | BuildGranaryRuleError
-  | BuildGranaryPersistenceError;
+export type BuildFarmBuildingError =
+  | BuildFarmBuildingRuleError
+  | BuildFarmBuildingPersistenceError;
 
-type BuildGranaryInput = {
+type BuildFarmBuildingInput = {
+  readonly building: FarmBuildingType;
   readonly playerId: string;
   readonly target: BuildingCoordinate;
   readonly expectedFarmVersion: number;
@@ -59,7 +62,7 @@ type BuildGranaryInput = {
 
 type DatabaseOutcome =
   | { readonly type: "success"; readonly snapshot: FarmSnapshot }
-  | { readonly type: "rule_error"; readonly rule: BuildGranaryRule };
+  | { readonly type: "rule_error"; readonly rule: BuildFarmBuildingRule };
 
 const coordinateKey = ({ column, row }: BuildingCoordinate): string =>
   `${column}:${row}`;
@@ -112,16 +115,17 @@ const consumeGroundMaterial = async (
   }
 };
 
-export const buildGranary = (
+export const buildFarmBuilding = (
   database: Database,
-  input: BuildGranaryInput
-): Effect.Effect<FarmSnapshot, BuildGranaryError> =>
+  input: BuildFarmBuildingInput
+): Effect.Effect<FarmSnapshot, BuildFarmBuildingError> =>
   Effect.gen(function* () {
+    const buildingType = input.building;
     const currentTimeMillis = yield* Clock.currentTimeMillis;
     const startedAt = new Date(currentTimeMillis);
     const completesAt = new Date(
       currentTimeMillis +
-        FARM_BUILDING_DEFINITIONS.granary.constructionDurationMs
+        FARM_BUILDING_DEFINITIONS[buildingType].constructionDurationMs
     );
     const outcome = yield* Effect.tryPromise({
       try: (): Promise<DatabaseOutcome> =>
@@ -216,6 +220,7 @@ export const buildGranary = (
             }
           }
 
+          const [vessels] = await transaction.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "brewingVessels"))).for("update");
           const availableMaterials = groundItems.reduce<
             Partial<Record<InventoryItemKey, number>>
           >(
@@ -224,10 +229,10 @@ export const buildGranary = (
               [item.itemKey]:
                 (quantities[item.itemKey] ?? 0) + item.quantity
             }),
-            {}
+            { brewingVessels: vessels?.quantity ?? 0 }
           );
           const placement = validateBuildingPlacement({
-            building: "granary",
+            building: buildingType,
             target: input.target,
             occupiedCoordinates,
             carriedItem: farm.carriedItemKey,
@@ -238,22 +243,15 @@ export const buildGranary = (
             return { type: "rule_error", rule: placement };
           }
 
-          for (const [itemKey, quantity] of Object.entries(
-            FARM_BUILDING_DEFINITIONS.granary.materials
-          ) as [InventoryItemKey, number][]) {
-            await consumeGroundMaterial(
-              transaction,
-              groundItems,
-              itemKey,
-              quantity
-            );
+          if (!preservesBuildingAccess({ buildings: [...buildings, { ...input.target, type: buildingType }] })) {
+            return { type: "rule_error", rule: { type: "access_blocked" } };
           }
 
           const [building] = await transaction
             .insert(farmBuildings)
             .values({
               farmId: farm.id,
-              type: "granary",
+              type: buildingType,
               column: input.target.column,
               row: input.target.row,
               startedAt,
@@ -267,6 +265,21 @@ export const buildGranary = (
               type: "rule_error",
               rule: { type: "footprint_occupied" }
             };
+          }
+
+          for (const [itemKey, quantity] of Object.entries(
+            FARM_BUILDING_DEFINITIONS[buildingType].materials
+          ) as [InventoryItemKey, number][]) {
+            if (itemKey === "brewingVessels") {
+              await transaction.update(farmInventory).set({ quantity: sql`${farmInventory.quantity} - ${quantity}`, updatedAt: startedAt }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, itemKey)));
+              continue;
+            }
+            await consumeGroundMaterial(
+              transaction,
+              groundItems,
+              itemKey,
+              quantity
+            );
           }
 
           const [updatedFarm] = await transaction
@@ -289,13 +302,13 @@ export const buildGranary = (
                 )
               };
         }),
-      catch: cause => new BuildGranaryPersistenceError({ cause })
+      catch: cause => new BuildFarmBuildingPersistenceError({ cause })
     });
 
     return yield* match(outcome)
       .with({ type: "success" }, ({ snapshot }) => Effect.succeed(snapshot))
       .with({ type: "rule_error" }, ({ rule }) =>
-        Effect.fail(new BuildGranaryRuleError({ rule }))
+        Effect.fail(new BuildFarmBuildingRuleError({ rule }))
       )
       .exhaustive();
   });

@@ -2,13 +2,19 @@ import { z } from "zod";
 
 import type { InventoryItemKey } from "./inventoryItems";
 
-export const farmBuildingTypes = ["granary"] as const;
+export const farmBuildingTypes = ["granary", "brewery"] as const;
 
 export const FarmBuildingTypeSchema = z.enum(farmBuildingTypes);
 
 export type FarmBuildingType = z.infer<typeof FarmBuildingTypeSchema>;
 
 export const FARM_BUILDING_DEFINITIONS = {
+  brewery: {
+    footprint: { columns: 2, rows: 2 },
+    constructionDurationMs: 3 * 60 * 1_000,
+    barleyStorageBonus: 0,
+    materials: { reed: 4, clay: 6, brewingVessels: 2 }
+  },
   granary: {
     footprint: { columns: 2, rows: 2 },
     constructionDurationMs: 2 * 60 * 1_000,

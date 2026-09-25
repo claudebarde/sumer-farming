@@ -79,6 +79,9 @@ button:focus-visible {
 }
 
 .dialog-bottom-container {
+  box-sizing: border-box;
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-family: "Press Start 2P", system-ui;
   font-weight: 400;
   font-style: normal;

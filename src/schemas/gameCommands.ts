@@ -12,7 +12,22 @@ const FarmCoordinateSchema = z.object({
 
 export const GameCommandSchema = z.discriminatedUnion("type", [
   z.object({
+    type: z.literal("give_farmer_beer"),
+    expectedFarmVersion: z.int().positive()
+  }),
+  z.object({
+    type: z.literal("brewery_supply"),
+    action: z.enum(["collect_water", "pour_water", "deliver", "stock_jars", "start_brewing", "collect_beer", "give_beer"]),
+    target: FarmCoordinateSchema,
+    expectedFarmVersion: z.int().positive()
+  }),
+  z.object({
     type: z.literal("build_irrigation"),
+    target: FarmCoordinateSchema,
+    expectedFarmVersion: z.int().positive()
+  }),
+  z.object({
+    type: z.literal("build_brewery"),
     target: FarmCoordinateSchema,
     expectedFarmVersion: z.int().positive()
   }),
@@ -94,6 +109,27 @@ export const GameCommandSchema = z.discriminatedUnion("type", [
     itemKey: MarketItemKeySchema,
     quantity: z.int().positive(),
     expectedUnitPrice: z.int().positive(),
+    idempotencyKey: z.uuid(),
+    expectedFarmVersion: z.int().positive()
+  }),
+  z.object({
+    type: z.literal("create_market_sell_order"),
+    itemKey: MarketItemKeySchema,
+    quantity: z.int().positive(),
+    unitPrice: z.int().positive(),
+    idempotencyKey: z.uuid(),
+    expectedFarmVersion: z.int().positive()
+  }),
+  z.object({
+    type: z.literal("cancel_market_sell_order"),
+    orderId: z.uuid(),
+    expectedFarmVersion: z.int().positive()
+  }),
+  z.object({
+    type: z.literal("buy_market_sell_order"),
+    orderId: z.uuid(),
+    quantity: z.int().positive().max(2147483647),
+    expectedUnitPrice: z.int().positive().max(2147483647),
     idempotencyKey: z.uuid(),
     expectedFarmVersion: z.int().positive()
   })

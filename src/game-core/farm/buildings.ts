@@ -17,6 +17,7 @@ export type BuildingPlacementRule =
   | { readonly type: "outside_arable_plot" }
   | { readonly type: "footprint_occupied" }
   | { readonly type: "hands_not_empty" }
+  | { readonly type: "access_blocked" }
   | {
       readonly type: "missing_material";
       readonly itemKey: InventoryItemKey;
@@ -98,9 +99,10 @@ export const describeBuildingPlacementRule = (
   rule: Exclude<BuildingPlacementRule, { readonly type: "valid" }>
 ): string =>
   match(rule)
+    .with({ type: "access_blocked" }, () => "Keep a clear path for the farmer and access to every building.")
     .with(
       { type: "outside_arable_plot" },
-      () => "The granary must fit entirely inside the 8×8 arable plot."
+      () => "The building must fit entirely inside the 8×8 arable plot."
     )
     .with(
       { type: "footprint_occupied" },
@@ -113,6 +115,6 @@ export const describeBuildingPlacementRule = (
     .with(
       { type: "missing_material" },
       ({ itemKey, required, available }) =>
-        `The granary needs ${required} ${itemKey}; only ${available} available.`
+        `The building needs ${required} ${itemKey === "brewingVessels" ? (required === 1 ? "brewing jar" : "brewing jars") : itemKey}; only ${available} available.`
     )
     .exhaustive();

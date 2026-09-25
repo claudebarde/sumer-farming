@@ -1,0 +1,303 @@
+[
+  {
+    "filename": "ground.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "ground-grass.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "canal-horizontal.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "canal-vertical.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "canal-corner.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "canal-intersection-a.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "canal-intersection-b.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "water.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "mud-road-horizontal.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "ground-fence-tile.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "field-plowed.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "field-seeded.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "field-wheat-ripe.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "extracted"
+  },
+  {
+    "filename": "wheat-sheaf.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "standalone object",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-stand-staff-1.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-stand-staff-2.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-stand-staff-3.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-stand-staff-4.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-stand-staff-5.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-stand-staff-6.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "reed-bundle.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "standalone object",
+    "source": "extracted"
+  },
+  {
+    "filename": "brick-pile.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "standalone object",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-walk-1.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-walk-2.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-walk-3.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-walk-4.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-plant-1.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-plant-2.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-plant-3.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-plant-4.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-harvest-1.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-harvest-2.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-carry-wheat-1.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "farmer-carry-wheat-2.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "farmer pose",
+    "source": "extracted"
+  },
+  {
+    "filename": "palm-tree.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "standalone object",
+    "source": "extracted"
+  },
+  {
+    "filename": "bush.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "standalone object",
+    "source": "extracted"
+  },
+  {
+    "filename": "reeds-plant.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "standalone object",
+    "source": "extracted"
+  },
+  {
+    "filename": "rocks.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "standalone object",
+    "source": "extracted"
+  },
+  {
+    "filename": "fence.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "standalone object",
+    "source": "extracted"
+  },
+  {
+    "filename": "signpost.png",
+    "dimensions": "256x256",
+    "tile_footprint": "1x1",
+    "asset_type": "standalone object",
+    "source": "extracted"
+  },
+  {
+    "filename": "farm.png",
+    "dimensions": "512x512",
+    "tile_footprint": "2x2",
+    "asset_type": "building",
+    "source": "extracted"
+  },
+  {
+    "filename": "granary.png",
+    "dimensions": "512x512",
+    "tile_footprint": "2x2",
+    "asset_type": "building",
+    "source": "extracted"
+  },
+  {
+    "filename": "brewery.png",
+    "dimensions": "512x512",
+    "tile_footprint": "2x2",
+    "asset_type": "building",
+    "source": "newly generated"
+  }
+]

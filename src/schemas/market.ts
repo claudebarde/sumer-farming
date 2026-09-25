@@ -10,7 +10,7 @@ export const MarketQuotesSchema = z.object({
     z.object({
       itemKey: MarketItemKeySchema,
       label: z.string().min(1),
-      storageType: z.literal("barley_storage"),
+      storageType: z.enum(["barley_storage", "estate_inventory"]),
       npcMarket: z.object({
         canBuy: z.boolean(),
         canSell: z.boolean(),
@@ -18,8 +18,13 @@ export const MarketQuotesSchema = z.object({
         sellPrice: UnitPriceSchema
       }),
       playerMarket: z.object({
+        canCreateSellOrder: z.boolean(),
         lowestSellPrice: UnitPriceSchema.nullable(),
-        highestBuyPrice: UnitPriceSchema.nullable()
+        highestBuyPrice: UnitPriceSchema.nullable(),
+        weightedAverageSellPrice: z.number().positive().nullable(),
+        recentTradeAveragePrice: z.number().positive().nullable(),
+        totalSellQuantity: z.int().nonnegative(),
+        suggestedSellPrice: UnitPriceSchema
       })
     })
   )

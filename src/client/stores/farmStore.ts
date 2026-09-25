@@ -22,7 +22,13 @@ export const farmStore = createStore<State>()(set => ({
   },
 
   setReady: snapshot => {
-    set({ farm: { type: "ready", snapshot } });
+    set(state =>
+      state.farm.type === "ready" &&
+      state.farm.snapshot.farm.id === snapshot.farm.id &&
+      state.farm.snapshot.farm.version > snapshot.farm.version
+        ? state
+        : { farm: { type: "ready", snapshot } }
+    );
   },
 
   setFailed: reason => {

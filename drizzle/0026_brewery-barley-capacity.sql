@@ -1,0 +1,1 @@
+ALTER TABLE "farm_buildings" ADD CONSTRAINT "farm_buildings_brewing_barley_capacity" CHECK ("farm_buildings"."brewing_barley" <= 2);

@@ -1,0 +1,2 @@
+ALTER TABLE "farm_buildings" ADD COLUMN "beer_ready_at" timestamp with time zone;--> statement-breakpoint
+ALTER TABLE "farm_buildings" ADD CONSTRAINT "farm_buildings_beer_batch_valid" CHECK ("farm_buildings"."beer_ready_at" IS NULL OR ("farm_buildings"."type" = 'brewery' AND "farm_buildings"."beer_ready_at" > "farm_buildings"."completes_at"));

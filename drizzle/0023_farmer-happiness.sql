@@ -1,0 +1,2 @@
+ALTER TABLE "farms" ADD COLUMN "happiness" integer DEFAULT 70 NOT NULL;--> statement-breakpoint
+ALTER TABLE "farms" ADD CONSTRAINT "farms_happiness_in_range" CHECK ("farms"."happiness" >= 0 AND "farms"."happiness" <= 100);

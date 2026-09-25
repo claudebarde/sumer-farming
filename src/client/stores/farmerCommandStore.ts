@@ -14,6 +14,12 @@ import type { GatherableResourceKey } from "../../game-data/resources";
 export type FarmerCommand =
   | {
       readonly id: string;
+      readonly type: "brewery_supply";
+      readonly action: "collect_water" | "pour_water" | "deliver" | "stock_jars" | "start_brewing" | "collect_beer" | "give_beer";
+      readonly target: TilePosition;
+    }
+  | {
+      readonly id: string;
       readonly type: "build";
       readonly target: TilePosition;
       readonly build: Build;
@@ -126,6 +132,12 @@ export const farmerCommandStore = createStore<State>()(set => ({
 
   addCommand: command =>
     set(state => {
+      if (command.type === "brewery_supply") {
+        if (command.action === "collect_water" && state.carriedItem !== null) return {};
+        if (command.action === "stock_jars" && state.carriedItem !== null) return {};
+        if (command.action === "pour_water" && state.carriedItem?.itemKey !== "water") return {};
+        if (command.action === "deliver" && state.carriedItem?.itemKey !== "water" && state.carriedItem?.itemKey !== "barley") return {};
+      }
       if (command.type === "pickup" && state.carriedItem !== null) {
         if (
           state.carriedItem.itemKey !== command.item ||
