@@ -2,6 +2,11 @@
 
 Before making architectural decisions or implementing features, read `PROJECT.md`.
 
+When adding or changing player-facing game rules, update the root `game-rules.md`
+in the same task. Keep it aligned with implemented behaviour, and clearly separate
+planned features from playable rules. Use it as the consolidated reference for
+player explanations and rule questions; retain technical details in `docs/`.
+
 When the user asks what task to tackle next, first read the root `TODOS.md` and
 recommend an outstanding task according to its priorities. If there are no
 outstanding tasks, suggest a new task consistent with `PROJECT.md` and the user's

@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { DatabaseTransaction } from "../db/client";
@@ -12,6 +12,7 @@ import {
   farms,
   players
 } from "../db/schema";
+import { shekelTransactions } from "../db/schema";
 import { removeCompletedImprovementDestructions } from "./farmImprovementLifecycle";
 import { advanceFarmLifecycle } from "./farmLifecycle";
 
@@ -121,10 +122,16 @@ export const readFarmSnapshot = async (
     .where(eq(farmBuildings.farmId, currentFarm.id))
     .orderBy(asc(farmBuildings.row), asc(farmBuildings.column));
 
+  const [achievements] = await transaction.select({
+    barleySold: sql<number>`coalesce(sum(case when ${shekelTransactions.type} = 'market_sale' and ${shekelTransactions.itemKey} = 'barley' then ${shekelTransactions.itemQuantity} else 0 end), 0)::int`,
+    beerSold: sql<number>`coalesce(sum(case when ${shekelTransactions.type} = 'market_sale' and ${shekelTransactions.itemKey} = 'beer' then ${shekelTransactions.itemQuantity} else 0 end), 0)::int`,
+    requestsDelivered: sql<number>`count(*) filter (where ${shekelTransactions.type} = 'request_reward')::int`
+  }).from(shekelTransactions).where(eq(shekelTransactions.playerId, currentFarm.playerId));
   return {
     created,
     player,
     farm: {
+      progression: { level: currentFarm.level, stats: currentFarm.progressionStats, ...achievements! },
       id: currentFarm.id,
       playerId: currentFarm.playerId,
       version: currentFarm.version,
@@ -135,7 +142,8 @@ export const readFarmSnapshot = async (
           currentFarm.nextBarleyConsumptionAt?.toISOString() ?? null,
         hungrySince: currentFarm.hungrySince?.toISOString() ?? null,
         happiness: currentFarm.happiness,
-        lastBeerAt: currentFarm.lastBeerAt?.toISOString() ?? null
+        lastBeerAt: currentFarm.lastBeerAt?.toISOString() ?? null,
+        lastFishAt: currentFarm.lastFishAt?.toISOString() ?? null
       },
       fishing: currentFarm.fishing === null ? null : { ...currentFarm.fishing, serverNow: Date.now() },
       carriedItem:

@@ -4,7 +4,7 @@ import DevelopmentPlayerSelector from "./DevelopmentPlayerSelector";
 const Header = () => {
   return (
     <header className={styles.header}>
-      <h1>Welcome to Sumer Farming</h1>
+      <h1>A Home Between Rivers</h1>
       <DevelopmentPlayerSelector />
     </header>
   );

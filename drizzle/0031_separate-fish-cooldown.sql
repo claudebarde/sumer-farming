@@ -1,0 +1,1 @@
+ALTER TABLE "farms" ADD COLUMN "last_fish_at" timestamp with time zone;

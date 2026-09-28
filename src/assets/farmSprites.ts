@@ -1,15 +1,21 @@
 import groundUrl from "./sprite_assets/pngs/ground.png";
+import dogStandingUrl from "./sprite_assets/pngs/dog-on-four.png";
+import dogSittingUrl from "./sprite_assets/pngs/dog-sitting.png";
 import fishingUrl from "./sprite_assets/pngs/farmer-fishing.png";
 import withFishUrl from "./sprite_assets/pngs/farmer-with-fish.png";
 import fishUrl from "./sprite_assets/pngs/fish.png";
 import groundVariantUrl from "./sprite_assets/pngs/ground-grass.png";
 import canalHorizontalUrl from "./sprite_assets/pngs/canal-horizontal.png";
+import canalBridgeUrl from "./sprite_assets/pngs/horizontal-bridge-over-irrigation-canal.png";
 import canalVerticalUrl from "./sprite_assets/pngs/canal-vertical.png";
 import canalCornerUrl from "./sprite_assets/pngs/canal-corner.png";
 import canalCrossUrl from "./sprite_assets/pngs/canal-intersection-a.png";
 import canalTJunctionUrl from "./sprite_assets/pngs/canal-intersection-b.png";
 import waterUrl from "./sprite_assets/pngs/water.png";
 import groundPathHorizontalUrl from "./sprite_assets/pngs/mud-road-horizontal.png";
+import roadCornerUrl from "./sprite_assets/pngs/mud-road-90-deg.png";
+import marketStandUrl from "./sprite_assets/pngs/market-stand.png";
+import merchantChariotUrl from "./sprite_assets/pngs/merchant-chariot.png";
 import groundFenceUrl from "./sprite_assets/pngs/ground-fence-tile.png";
 import barleySeededUrl from "./sprite_assets/pngs/field-plowed.png";
 import barleyGrowingUrl from "./sprite_assets/pngs/field-seeded.png";
@@ -49,18 +55,24 @@ import breweryUrl from "./sprite_assets/pngs/brewery.png";
 // Keep gameplay names stable; only the artwork URLs change.
 // The generated assets use "wheat" filenames for our existing barley artwork.
 export const FARM_SPRITES = {
+  dogStanding: dogStandingUrl,
+  dogSitting: dogSittingUrl,
   farmerFishing: fishingUrl,
   farmerWithFish: withFishUrl,
   fish: fishUrl,
   ground: groundUrl,
   groundVariant: groundVariantUrl,
   canalHorizontal: canalHorizontalUrl,
+  canalBridge: canalBridgeUrl,
   canalVertical: canalVerticalUrl,
   canalCorner: canalCornerUrl,
   canalCross: canalCrossUrl,
   canalTJunction: canalTJunctionUrl,
   water: waterUrl,
   groundPathHorizontal: groundPathHorizontalUrl,
+  roadCorner: roadCornerUrl,
+  marketStand: marketStandUrl,
+  merchantChariot: merchantChariotUrl,
   groundFence: groundFenceUrl,
   barleySeeded: barleySeededUrl,
   barleyGrowing: barleyGrowingUrl,

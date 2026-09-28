@@ -2,9 +2,11 @@ import { match } from "ts-pattern";
 
 import {
   FARM_BUILDING_DEFINITIONS,
+  FARM_BUILDING_LIMITS,
   type FarmBuildingType
 } from "../../game-data/buildings";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
+import { isProgressionSignpost } from "../../game-data/progression";
 import type { InventoryItemKey } from "../../game-data/inventoryItems";
 
 export type BuildingCoordinate = {
@@ -13,6 +15,7 @@ export type BuildingCoordinate = {
 };
 
 export type BuildingPlacementRule =
+  | { readonly type: "building_limit"; readonly limit: number }
   | { readonly type: "valid" }
   | { readonly type: "outside_arable_plot" }
   | { readonly type: "footprint_occupied" }
@@ -44,6 +47,7 @@ const isInsideArablePlot = ({
   const { plotBounds } = INITIAL_FARM_CONFIG;
 
   return (
+    row !== INITIAL_FARM_CONFIG.roadRow &&
     column >= plotBounds.minimumColumn &&
     column <= plotBounds.maximumColumn &&
     row >= plotBounds.minimumRow &&
@@ -55,13 +59,23 @@ const coordinateKey = ({ column, row }: BuildingCoordinate): string =>
   `${column}:${row}`;
 
 export const validateBuildingPlacement = (context: {
+  readonly granaryLimit?: number;
   readonly building: FarmBuildingType;
+  readonly existingBuildings: readonly { readonly type: FarmBuildingType }[];
   readonly target: BuildingCoordinate;
   readonly occupiedCoordinates: ReadonlySet<string>;
   readonly carriedItem: InventoryItemKey | null;
   readonly availableMaterials: Readonly<Partial<Record<InventoryItemKey, number>>>;
 }): BuildingPlacementRule => {
+  const limit = context.building === "granary" ? (context.granaryLimit ?? FARM_BUILDING_LIMITS.granary) : FARM_BUILDING_LIMITS[context.building];
+  if (limit !== undefined && context.existingBuildings.filter(building => building.type === context.building).length >= limit) {
+    return { type: "building_limit", limit };
+  }
   const footprint = getBuildingFootprint(context.building, context.target);
+
+  if (footprint.some(isProgressionSignpost)) {
+    return { type: "footprint_occupied" };
+  }
 
   if (!footprint.every(isInsideArablePlot)) {
     return { type: "outside_arable_plot" };
@@ -99,6 +113,7 @@ export const describeBuildingPlacementRule = (
   rule: Exclude<BuildingPlacementRule, { readonly type: "valid" }>
 ): string =>
   match(rule)
+    .with({ type: "building_limit" }, ({ limit }) => `Building limit reached (${limit}), including buildings under construction.`)
     .with({ type: "access_blocked" }, () => "Keep a clear path for the farmer and access to every building.")
     .with(
       { type: "outside_arable_plot" },

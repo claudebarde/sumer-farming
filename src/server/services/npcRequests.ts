@@ -1,6 +1,6 @@
 import { and, eq, lte, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
-import { NPC_REQUESTS } from "../../game-data/npcRequests";
+import { MERCHANT_TRAVEL_MS, NPC_REQUESTS } from "../../game-data/npcRequests";
 import { canDeliverRequest, getRequestWindow } from "../../game-core/market/npcRequests";
 import type { NpcRequests } from "../../schemas/npcRequests";
 import type { FarmSnapshot } from "../../schemas/farm";
@@ -11,14 +11,15 @@ import { readFarmSnapshot } from "./farmSnapshot";
 import { loadMarketItemStorage, removeFromMarketItemStorage } from "./marketItemStorage";
 
 export class NpcRequestRuleError extends Data.TaggedError("NpcRequestRuleError")<{
-  readonly reason: "missing_farm" | "expired" | "insufficient_goods" | "version_conflict" | "idempotency_conflict" | "balance_limit";
+  readonly reason: "missing_farm" | "locked" | "expired" | "insufficient_goods" | "version_conflict" | "idempotency_conflict" | "balance_limit";
 }> {}
 export class NpcRequestPersistenceError extends Data.TaggedError("NpcRequestPersistenceError")<{ readonly cause: unknown }> {}
 
 // Call only while holding the owning farm row lock. One stable schedule per farm.
 const loadBoard = async (tx: DatabaseTransaction, farmId: string, now: Date) => {
   const [existing] = await tx.select().from(npcRequestBoards).where(eq(npcRequestBoards.farmId, farmId));
-  const anchor = existing?.anchor ?? now;
+  // New visits enter first, then offer a full 24 hours of requests at rest.
+  const anchor = existing?.anchor ?? new Date(now.getTime() + MERCHANT_TRAVEL_MS);
   const window = getRequestWindow(anchor.getTime(), now.getTime());
   if (existing && existing.cycle === window.cycle) return { board: existing, window };
   const [brewery] = await tx.select({ id: farmBuildings.id }).from(farmBuildings).where(and(
@@ -38,6 +39,7 @@ export const getNpcRequests = (database: Database, playerId: string) => Effect.g
     try: () => database.transaction(async tx => {
       const [loaded] = await tx.select().from(farms).where(eq(farms.playerId, playerId)).for("update");
       if (!loaded) return null;
+      if (loaded.level < 7) return "locked" as const;
       const now = new Date();
       const farm = await advanceFarmLifecycle(tx, loaded, now);
       const { board, window } = await loadBoard(tx, farm.id, now);
@@ -54,7 +56,7 @@ export const getNpcRequests = (database: Database, playerId: string) => Effect.g
     }),
     catch: cause => new NpcRequestPersistenceError({ cause })
   });
-  return result === null ? yield* Effect.fail(new NpcRequestRuleError({ reason: "missing_farm" })) : result;
+  return result === null || result === "locked" ? yield* Effect.fail(new NpcRequestRuleError({ reason: result === null ? "missing_farm" : "locked" })) : result;
 });
 
 type DeliveryInput = {
@@ -68,6 +70,7 @@ export const deliverNpcRequest = (database: Database, input: DeliveryInput) => E
     try: (): Promise<Outcome> => database.transaction(async tx => {
       const [loaded] = await tx.select().from(farms).where(eq(farms.playerId, input.playerId)).for("update");
       if (!loaded) return { reason: "missing_farm" };
+      if (loaded.level < 7) return { reason: "locked" };
       // Read time after acquiring the lock, so a queued delivery cannot beat expiry.
       const now = new Date();
       const farm = await advanceFarmLifecycle(tx, loaded, now);

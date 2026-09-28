@@ -1,0 +1,1 @@
+ALTER TABLE "farms" ADD COLUMN "happiness_checked_at" timestamp with time zone DEFAULT now() NOT NULL;

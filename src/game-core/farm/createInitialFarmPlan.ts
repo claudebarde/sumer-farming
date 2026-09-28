@@ -48,7 +48,7 @@ const availableObjectPositions = (): readonly GridCoordinate[] => {
     const row = worldBounds.minimumRow + Math.floor(index / columns);
 
     return { column, row };
-  }).filter(position => position.row !== riverRow && !isInsidePlot(position));
+  }).filter(position => position.row !== riverRow && position.row !== INITIAL_FARM_CONFIG.roadRow && !isInsidePlot(position));
 };
 
 const availableReedPositions = (): readonly GridCoordinate[] => {

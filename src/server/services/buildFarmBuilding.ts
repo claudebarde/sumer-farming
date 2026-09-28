@@ -1,4 +1,5 @@
 import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
+import { granaryLimitForLevel } from "../../game-data/progression";
 import { and, eq, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
@@ -234,6 +235,8 @@ export const buildFarmBuilding = (
             { brewingVessels: vessels?.quantity ?? 0 }
           );
           const placement = validateBuildingPlacement({
+            granaryLimit: granaryLimitForLevel(farm.level),
+            existingBuildings: buildings,
             building: buildingType,
             target: input.target,
             occupiedCoordinates,

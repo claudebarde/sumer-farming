@@ -1,4 +1,5 @@
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
+import { isProgressionSignpost } from "../../game-data/progression";
 
 export type FarmCoordinate = {
   readonly column: number;
@@ -8,6 +9,7 @@ export type FarmCoordinate = {
 export type IrrigationLocationValidation =
   | { readonly type: "valid" }
   | { readonly type: "outside_world" }
+  | { readonly type: "reserved_tile" }
   | { readonly type: "river" };
 
 export const areCardinallyAdjacent = (
@@ -33,6 +35,10 @@ export const validateIrrigationLocation = (
 
   if (coordinate.row === riverRow) {
     return { type: "river" };
+  }
+
+  if (isProgressionSignpost(coordinate)) {
+    return { type: "reserved_tile" };
   }
 
   return { type: "valid" };

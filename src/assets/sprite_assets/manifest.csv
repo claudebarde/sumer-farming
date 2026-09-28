@@ -1,4 +1,10 @@
 filename,dimensions,tile_footprint,asset_type,source
+dog-on-four.png,1254x1254,0.75x0.75,character,user supplied
+dog-sitting.png,1254x1254,0.75x0.75,character,user supplied
+merchant-chariot.png,512x256,3x1.5,character,user supplied
+mud-road-90-deg.png,1254x1254,1x1,terrain tile,user supplied
+market-stand.png,512x512,2x2,building,user supplied
+horizontal-bridge-over-irrigation-canal.png,1254x1254,1x1,terrain tile,user supplied
 ground.png,256x256,1x1,terrain tile,extracted
 ground-grass.png,256x256,1x1,terrain tile,extracted
 canal-horizontal.png,256x256,1x1,terrain tile,extracted

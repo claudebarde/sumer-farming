@@ -52,12 +52,22 @@
 }
 
 .tile-popover {
+  box-sizing: border-box;
   background-color: $color-parchment-light;
   border: $container-border;
   border-radius: $container-border-radius;
   padding: $container-padding;
   outline: none;
-  min-width: 250px; // min-width is required so that the close button doesn't overlap the popover title
+  min-width: min(250px, calc(100vw - 24px));
+  white-space: normal;
+  overflow-wrap: anywhere;
+
+  button {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 
   .tile-popover-arrow {
     width: 12px;
@@ -77,6 +87,7 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
+  padding-right: 32px; // Reserve space for the close button when titles wrap.
 }
 
 .tile-popover-content-body {
@@ -84,6 +95,22 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.crop-growth-progress {
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 8px;
+  overflow: hidden;
+  border: 1px solid $color-sand;
+  border-radius: 999px;
+  background-color: $color-parchment;
+  color: $color-leaf;
+
+  &::-webkit-progress-bar { background-color: $color-parchment; }
+  &::-webkit-progress-value { background-color: $color-leaf; border-radius: 999px; }
+  &::-moz-progress-bar { background-color: $color-leaf; border-radius: 999px; }
 }
 
 .tile-popover-close {
@@ -187,7 +214,7 @@
   border-bottom-right-radius: 0;
   border-bottom-left-radius: 0;
 
-  &[data-state="active"] {
+  &[data-state="active"]:not(:disabled) {
     background-color: $color-barley-light;
     border-color: $color-soil-dark;
   }
@@ -217,6 +244,20 @@
   }
 }
 
+.building-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  img {
+    display: block;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
+    object-fit: contain;
+  }
+}
+
 .resource-sections {
   display: flex;
   flex-direction: column;
@@ -238,6 +279,7 @@
 
   > div {
     display: flex;
+    align-items: center;
     justify-content: space-between;
     gap: 16px;
   }
@@ -245,6 +287,21 @@
   dd {
     margin: 0;
     font-variant-numeric: tabular-nums;
+  }
+}
+
+.resource-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+
+  img {
+    display: block;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
   }
 }
 
@@ -390,6 +447,19 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
+}
+
+.level-claim-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  svg {
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+  }
 }
 
 .market-statistics {

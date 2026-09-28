@@ -3,6 +3,7 @@ import {
   type CropKey
 } from "../../game-data/crops";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
+import { isProgressionSignpost } from "../../game-data/progression";
 import type { InventoryItemKey } from "../../game-data/inventoryItems";
 import {
   areCardinallyAdjacent,
@@ -32,6 +33,8 @@ export const isInsideArablePlot = (coordinate: FarmCoordinate): boolean => {
   const { plotBounds } = INITIAL_FARM_CONFIG;
 
   return (
+    coordinate.row !== INITIAL_FARM_CONFIG.roadRow &&
+    !isProgressionSignpost(coordinate) &&
     coordinate.column >= plotBounds.minimumColumn &&
     coordinate.column <= plotBounds.maximumColumn &&
     coordinate.row >= plotBounds.minimumRow &&

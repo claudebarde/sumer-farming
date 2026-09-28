@@ -28,7 +28,7 @@ const fixture = async (complete = true) => {
   const playerId = randomUUID();
   ids.add(playerId);
   await db.insert(players).values({ id: playerId, displayName: "Brewery supplies test" });
-  const [farm] = await db.insert(farms).values({ playerId }).returning();
+  const [farm] = await db.insert(farms).values({ playerId, level: 5 }).returning();
   const [building] = await db.insert(farmBuildings).values({
     farmId: farm!.id, type: "brewery", column: 5, row: 3,
     startedAt: new Date(Date.now() - 180000),
@@ -41,7 +41,21 @@ const fixture = async (complete = true) => {
 };
 
 describe("persistent brewery supplies", () => {
-  it("feeds stored fish without a brewery and shares its persistent cooldown with both beer actions", async () => {
+  it("persists offline happiness decay and does not decay twice when rereading", async () => {
+    const { farm } = await fixture();
+    await db.update(farms).set({ happiness: 100, happinessCheckedAt: new Date(Date.now() - 8 * 3600000) })
+      .where(eq(farms.id, farm.id));
+    const reload = () => db.transaction(async tx => {
+      const [record] = await tx.select().from(farms).where(eq(farms.id, farm.id)).for("update");
+      return readFarmSnapshot(tx, record!, false);
+    });
+    expect((await reload()).farm.household.happiness).toBe(60);
+    expect((await reload()).farm.household.happiness).toBe(60);
+    const [stored] = await db.select().from(farms).where(eq(farms.id, farm.id));
+    expect(stored?.happiness).toBe(60);
+    expect(stored!.happinessCheckedAt.getTime()).toBeGreaterThan(Date.now() - 10000);
+  });
+  it("feeds fish every eight hours independently of the daily beer cooldown", async () => {
     const { farm, command } = await fixture();
     const fishCommand = { type: "give_farmer_fish" as const, playerId: farm.playerId, expectedFarmVersion: 1 };
     await db.delete(farmBuildings).where(eq(farmBuildings.farmId, farm.id));
@@ -54,26 +68,26 @@ describe("persistent brewery supplies", () => {
     expect(fed.farm.household.happiness).toBe(60);
     expect(fed.farm.household.hungrySince).not.toBeNull();
     expect(fed.inventory.find(item => item.itemKey === "fish")?.quantity).toBe(2);
-    expect(fed.farm.household.lastBeerAt).not.toBeNull();
+    expect(fed.farm.household.lastBeerAt).toBeNull();
+    expect(fed.farm.household.lastFishAt).not.toBeNull();
     await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, fishCommand))))
       .resolves.toMatchObject({ type: "farm_version_conflict" });
-    for (const type of ["give_farmer_fish", "give_farmer_beer"] as const) {
-      await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, { ...fishCommand, type, expectedFarmVersion: 2 }))))
-        .resolves.toMatchObject({ type: "beer_cooldown" });
-    }
-    await db.update(farms).set({ lastBeerAt: new Date(Date.now() - 86400001) }).where(eq(farms.id, farm.id));
+    await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, { ...fishCommand, expectedFarmVersion: 2 }))))
+      .resolves.toMatchObject({ type: "fish_cooldown" });
     const beer = await Effect.runPromise(supplyBrewery(db, { ...fishCommand, type: "give_farmer_beer", expectedFarmVersion: 2 }));
     expect(beer.farm.household.happiness).toBe(75);
+    expect(beer.farm.household.lastFishAt).toBe(fed.farm.household.lastFishAt);
     await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, { ...fishCommand, expectedFarmVersion: 3 }))))
-      .resolves.toMatchObject({ type: "beer_cooldown" });
+      .resolves.toMatchObject({ type: "fish_cooldown" });
     // A completed brewery must use that same timestamp, not a separate allowance.
     await db.insert(farmBuildings).values({ farmId: farm.id, type: "brewery", column: 5, row: 3,
       startedAt: new Date(0), completesAt: new Date(1), beerReadyAt: new Date(2) });
     await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("give_beer", 3, { column: 5, row: 3 })))))
       .resolves.toMatchObject({ type: "beer_cooldown" });
-    await db.update(farms).set({ happiness: 95, lastBeerAt: new Date(Date.now() - 86400001) }).where(eq(farms.id, farm.id));
+    await db.update(farms).set({ happiness: 95, lastFishAt: new Date(Date.now() - 8 * 3600000 - 1) }).where(eq(farms.id, farm.id));
     const capped = await Effect.runPromise(supplyBrewery(db, { ...fishCommand, expectedFarmVersion: 3 }));
     expect(capped.farm.household.happiness).toBe(100);
+    expect(capped.farm.household.lastBeerAt).toBe(beer.farm.household.lastBeerAt);
     expect(capped.inventory.find(item => item.itemKey === "fish")?.quantity).toBe(1);
   });
 

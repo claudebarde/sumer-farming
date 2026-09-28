@@ -23,6 +23,7 @@ import {
 import { advanceFarmLifecycle } from "../../src/server/services/farmLifecycle";
 import {
   depositCarriedItem,
+  destroyGroundMaterial,
   depositCarriedItemInGranary,
   withdrawBarleyFromGranary,
   withdrawInventoryItem
@@ -290,7 +291,7 @@ describe.sequential("farm item storage actions", () => {
     expect(inventory).toHaveLength(0);
     expect(granary?.storedBarley).toBe(1);
     expect(updatedFarm.hungrySince).toBeNull();
-    expect(updatedFarm.happiness).toBe(80);
+    expect(updatedFarm.happiness).toBe(90); // Two consumed rations, +10 each.
     expect(updatedFarm.nextBarleyConsumptionAt?.getTime()).toBeGreaterThan(
       now.getTime()
     );
@@ -337,12 +338,47 @@ describe.sequential("farm item storage actions", () => {
     expect(exposedBarley).toHaveLength(0);
   });
 
+  it.each(["reed", "clay"] as const)("destroys only the selected ground %s pile permanently", async itemKey => {
+    const f = await createFixture({ carriedItem: { itemKey, quantity: 1 } });
+    const [pile, other] = await database.insert(farmGroundItems).values([
+      { farmId: f.farmId, itemKey, quantity: 2, column: 1, row: 2 },
+      { farmId: f.farmId, itemKey, quantity: 1, column: 2, row: 2 }
+    ]).returning();
+    await database.insert(farmInventory).values({ farmId: f.farmId, itemKey, quantity: 3 });
+    const input = { playerId: f.playerId, groundItemId: pile!.id, expectedFarmVersion: 1 };
+    const snapshot = await Effect.runPromise(destroyGroundMaterial(database, input));
+    expect(snapshot.groundItems.map(i => i.id)).toEqual([other!.id]);
+    expect(snapshot.inventory).toContainEqual({ itemKey, quantity: 3 });
+    expect(snapshot.farm.carriedItem).toMatchObject({ itemKey, quantity: 1 });
+    expect(snapshot.farm.version).toBe(2);
+    await expect(Effect.runPromise(Effect.flip(destroyGroundMaterial(database, input))))
+      .resolves.toMatchObject({ rule: { type: "version_conflict" } });
+    expect(await database.select().from(farmGroundItems).where(eq(farmGroundItems.id, pile!.id))).toHaveLength(0);
+  });
+
+  it("cannot destroy another farm's materials or barley", async () => {
+    const a = await createFixture();
+    const b = await createFixture();
+    const [foreign, barley] = await database.insert(farmGroundItems).values([
+      { farmId: b.farmId, itemKey: "reed", quantity: 1, column: 1, row: 2 },
+      { farmId: a.farmId, itemKey: "barley", quantity: 1, column: 1, row: 2, expiresAt: new Date(Date.now() + 86400000) }
+    ]).returning();
+    for (const groundItemId of [foreign!.id, barley!.id]) {
+      await expect(Effect.runPromise(Effect.flip(destroyGroundMaterial(database, {
+        playerId: a.playerId, groundItemId, expectedFarmVersion: 1
+      })))).resolves.toMatchObject({ rule: { type: "ground_item_not_found" } });
+      expect(await database.select().from(farmGroundItems).where(eq(farmGroundItems.id, groundItemId))).toHaveLength(1);
+    }
+  });
+
   it("marks the household hungry without accumulating ration debt", async () => {
     const fixture = await createFixture();
     const now = new Date();
     await database
       .update(farms)
       .set({
+        level: 4,
+        happinessCheckedAt: now,
         cultivationStartedAt: new Date(now.getTime() - 864_000_000),
         nextBarleyConsumptionAt: new Date(now.getTime() - 864_000_000)
       })
@@ -368,15 +404,15 @@ describe.sequential("farm item storage actions", () => {
     expect(updatedFarm.happiness).toBe(50);
     const stillHungry = await database.transaction(transaction =>
       advanceFarmLifecycle(transaction, updatedFarm, new Date(now.getTime() + 864_000_000)));
-    expect(stillHungry.happiness).toBe(50);
+    expect(stillHungry.happiness).toBe(10); // Ten days of slow natural decay.
     await database.insert(farmInventory).values({ farmId: fixture.farmId, itemKey: "barley", quantity: 1 });
     const fed = await database.transaction(transaction =>
       advanceFarmLifecycle(transaction, stillHungry, new Date(now.getTime() + 864_000_001)));
     expect(fed.hungrySince).toBeNull();
-    expect(fed.happiness).toBe(60);
+    expect(fed.happiness).toBe(20);
     const rechecked = await database.transaction(transaction =>
       advanceFarmLifecycle(transaction, fed, new Date(now.getTime() + 864_000_002)));
-    expect(rechecked.happiness).toBe(60);
+    expect(rechecked.happiness).toBe(20);
     expect(updatedFarm.nextBarleyConsumptionAt?.getTime()).toBe(
       now.getTime() + 86_400_000
     );

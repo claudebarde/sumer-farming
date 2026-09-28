@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import type { FishingSession } from "../../game-data/fishing";
+import { INITIAL_PROGRESSION_STATS, type ProgressionStats } from "../../game-data/progression";
 import {
   check,
   index,
@@ -212,6 +213,8 @@ export const farms = pgTable(
   "farms",
   {
     fishing: jsonb("fishing").$type<FishingSession>(),
+    level: integer("level").default(1).notNull(),
+    progressionStats: jsonb("progression_stats").$type<ProgressionStats>().default(INITIAL_PROGRESSION_STATS).notNull(),
     id: uuid("id").defaultRandom().primaryKey(),
     playerId: uuid("player_id")
       .notNull()
@@ -233,8 +236,9 @@ export const farms = pgTable(
     }),
     hungrySince: timestamp("hungry_since", { withTimezone: true }),
     happiness: integer("happiness").default(70).notNull(),
-    // Legacy name: shared last-treat timestamp for both beer and fish.
+    happinessCheckedAt: timestamp("happiness_checked_at", { withTimezone: true }).defaultNow().notNull(),
     lastBeerAt: timestamp("last_beer_at", { withTimezone: true }),
+    lastFishAt: timestamp("last_fish_at", { withTimezone: true }),
     gatheringItemKey: varchar("gathering_item_key", { length: 50 }).$type<
       GatherableResourceKey
     >(),
@@ -258,6 +262,7 @@ export const farms = pgTable(
       "farms_happiness_in_range",
       sql`${table.happiness} >= 0 AND ${table.happiness} <= 100`
     ),
+    check("farms_level_valid", sql`${table.level} >= 1 AND ${table.level} <= 10`),
     check(
       "farms_carried_item_quantity_in_range",
       sql`${table.carriedItemQuantity} >= 0 AND ${table.carriedItemQuantity} <= ${sql.raw(String(FARMER_CARRY_CAPACITY))}`

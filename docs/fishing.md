@@ -33,9 +33,11 @@ separate from barley, and enforced by a database constraint. Fish cannot be
 withdrawn, sold, dropped, or delivered to other buildings in this version.
 
 In Resources, **Give one fish to the farmer** consumes one stored fish for +10
-happiness (capped at 100). Fish and beer share a single 24-hour treat cooldown;
-the existing `last_beer_at` timestamp now records either treat, preserving existing
-beer cooldowns without a migration. Full happiness or a cooldown never consumes
+happiness (capped at 100). Fish has an eight-hour cooldown recorded in
+`last_fish_at`, independent of beer's 24-hour `last_beer_at` cooldown.
+Migration 0031 leaves existing beer deadlines intact and makes fish immediately
+available because legacy shared timestamps cannot identify the last fish gift.
+Full happiness or a cooldown never consumes
 stock. Fish treats leave automatic barley rations and hunger unchanged.
 
 Sessions survive refresh and do not catch fish automatically while away. A resumed

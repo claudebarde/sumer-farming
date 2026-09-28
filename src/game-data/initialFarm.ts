@@ -21,6 +21,7 @@ export const INITIAL_FARM_CONFIG = {
     maximumRow: 1
   },
   riverRow: 10,
+  roadRow: 5,
   objectCount: {
     minimum: 2,
     maximum: 4

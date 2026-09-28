@@ -1,5 +1,6 @@
 export const REQUEST_OPEN_MS = 24 * 60 * 60 * 1000;
 export const REQUEST_CYCLE_MS = 3 * REQUEST_OPEN_MS;
+export const MERCHANT_TRAVEL_MS = 15_000;
 
 export type NpcRequestDefinition = {
   readonly customer: string;

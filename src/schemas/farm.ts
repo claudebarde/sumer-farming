@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ProgressionSchema } from "./progression";
 
 import { CropKeySchema } from "../game-data/crops";
 import { FarmObjectTypeSchema } from "../game-data/farmObjects";
@@ -13,6 +14,7 @@ export const FarmSnapshotSchema = z.object({
     shekelBalance: z.int().nonnegative()
   }),
   farm: z.object({
+    progression: ProgressionSchema.optional(),
     fishing: z.object({
       id: z.uuid(), seed: z.int().nonnegative(), startedAt: z.number(),
       lastCastAt: z.number().nullable(), column: z.int(), row: z.int(), serverNow: z.number()
@@ -25,7 +27,8 @@ export const FarmSnapshotSchema = z.object({
       nextBarleyConsumptionAt: z.iso.datetime().nullable(),
       hungrySince: z.iso.datetime().nullable(),
       happiness: z.int().min(0).max(100),
-      lastBeerAt: z.iso.datetime().nullable()
+      lastBeerAt: z.iso.datetime().nullable(),
+      lastFishAt: z.iso.datetime().nullable().default(null)
     }),
     carriedItem: z
       .object({

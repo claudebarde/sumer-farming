@@ -8,7 +8,7 @@ import { farmBuildings, farmInventory, farms, npcRequestBoards, players, shekelT
 import { deliverNpcRequest, getNpcRequests } from "../../src/server/services/npcRequests";
 import { getTradeHistory } from "../../src/server/services/tradeHistory";
 import { TradeHistorySchema } from "../../src/schemas/tradeHistory";
-import { REQUEST_CYCLE_MS, REQUEST_OPEN_MS } from "../../src/game-data/npcRequests";
+import { MERCHANT_TRAVEL_MS, REQUEST_CYCLE_MS, REQUEST_OPEN_MS } from "../../src/game-data/npcRequests";
 import { getRequestWindow } from "../../src/game-core/market/npcRequests";
 
 const connectionString = process.env.TEST_DATABASE_URL ?? "postgres://sumer:sumer_dev@localhost:5432/sumer_farming";
@@ -22,22 +22,33 @@ afterEach(async () => {
 });
 afterAll(() => client.end());
 
-const fixture = async (brewer = false, beer = 2) => {
+const fixture = async (brewer = false, beer = 2, arriving = false) => {
   const playerId = randomUUID(); ids.add(playerId);
   await db.insert(players).values({ id: playerId, displayName: "NPC request test" });
-  const [farm] = await db.insert(farms).values({ playerId }).returning();
+  const [farm] = await db.insert(farms).values({ playerId, level: 7 }).returning();
   await db.insert(farmInventory).values([
     { farmId: farm!.id, itemKey: "barley", quantity: 5 },
     { farmId: farm!.id, itemKey: "beer", quantity: beer }
   ]);
   if (brewer) await db.insert(farmBuildings).values({ farmId: farm!.id, type: "brewery", column: 5, row: 3,
     startedAt: new Date(0), completesAt: new Date(1000), brewingBarley: 2 });
-  const board = await Effect.runPromise(getNpcRequests(db, playerId));
+  let board = await Effect.runPromise(getNpcRequests(db, playerId));
+  if (!arriving) {
+    await db.update(npcRequestBoards).set({ anchor: new Date(Date.now() - 1000) }).where(eq(npcRequestBoards.farmId, farm!.id));
+    board = await Effect.runPromise(getNpcRequests(db, playerId));
+  }
   const command = (slot = 0) => ({ playerId, slot, cycle: board.cycle, expectedFarmVersion: 1, idempotencyKey: randomUUID() });
   return { playerId, farmId: farm!.id, board, command };
 };
 
 describe("NPC requests", () => {
+  it("allows an arrival before the first full 24-hour window, rejecting early deliveries", async () => {
+    const f = await fixture(false, 2, true);
+    expect(f.board.open).toBe(false);
+    expect(f.board.requests).toEqual([]);
+    expect(Date.parse(f.board.closesAt) - Date.parse(f.board.serverNow)).toBe(REQUEST_OPEN_MS + MERCHANT_TRAVEL_MS);
+    expect(await Effect.runPromise(Effect.flip(deliverNpcRequest(db, f.command())))).toMatchObject({ reason: "expired" });
+  });
   it("uses exact 24-hour open and 48-hour closed boundaries without missed-window catch-up", () => {
     expect(getRequestWindow(100, 100 + REQUEST_OPEN_MS - 1).open).toBe(true);
     expect(getRequestWindow(100, 100 + REQUEST_OPEN_MS).open).toBe(false);

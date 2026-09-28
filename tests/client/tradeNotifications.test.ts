@@ -12,6 +12,20 @@ const page = (ids: readonly string[], nextCursor: string | null = null): TradeHi
 });
 
 describe("trade notification delivery", () => {
+  it("prioritizes level congratulations and announces each farm level only once", () => {
+    const store = createNotificationStore();
+    store.getState().setPlayer("one");
+    store.getState().notifyTrade("one", trade("sale"));
+    store.getState().notifyLevel("one", "farm", 2);
+    store.getState().notifyLevel("one", "farm", 2);
+    expect(store.getState().pending.map(n => n.id)).toEqual(["level:farm:2", "sale"]);
+    store.getState().dismiss("level:farm:2");
+    store.getState().notifyLevel("one", "farm", 2);
+    expect(store.getState().pending).toHaveLength(1);
+    store.getState().setPlayer("two");
+    store.getState().notifyLevel("one", "farm", 3);
+    expect(store.getState().pending).toHaveLength(0);
+  });
   it("silently establishes a baseline without replaying old trades", async () => {
     const fetchPage = vi.fn().mockResolvedValue(page(["old"], "older"));
     expect(await collectNewTrades(fetchPage, undefined)).toEqual({ newestId: "old", trades: [] });

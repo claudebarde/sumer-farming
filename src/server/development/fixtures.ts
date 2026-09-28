@@ -6,8 +6,8 @@ export type DevelopmentFixture = {
 };
 
 // Applied once on creation. Edit these values to prepare new test scenarios.
-// The second player's money is a development fixture, not a gameplay reward.
+// Both local players use the same ordinary starting economy for progression testing.
 export const DEVELOPMENT_FIXTURES = {
   primary: { shekels: 0, inventory: [] },
-  second: { shekels: 20, inventory: [{ itemKey: "barley", quantity: 2 }] }
+  second: { shekels: 0, inventory: [] }
 } as const satisfies Record<string, DevelopmentFixture>;

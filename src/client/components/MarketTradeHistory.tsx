@@ -5,6 +5,7 @@ import type { TradeHistory } from "../../schemas/tradeHistory";
 import { fetchTradeHistory } from "../api/tradeHistory";
 import styles from "../styles/TradeHistory.module.scss";
 import { MARKET_ITEM_DEFINITIONS } from "../../game-data/marketItems";
+import { marketIncludesItem, type MarketScope } from "../stores/marketUiStore";
 
 type HistoryResult =
   | { readonly type: "ready"; readonly page: TradeHistory }
@@ -58,13 +59,17 @@ function TradeList({ trades }: { readonly trades: TradeHistory["trades"] }) {
   );
 }
 
-function HistoryPage({ result, retry }: { readonly result: HistoryResult | null; readonly retry: () => void }) {
+function HistoryPage({ result, retry, scope }: { readonly result: HistoryResult | null; readonly retry: () => void; readonly scope: MarketScope }) {
   if (result === null) return <p role="status">Loading trades…</p>;
   if (result.type === "failed") return <div><p role="alert">{result.message}</p><button onClick={retry}>Retry</button></div>;
-  return <TradeList trades={result.page.trades} />;
+  const trades = result.page.trades.filter(trade => trade.itemKey !== null && marketIncludesItem(scope, trade.itemKey, {
+    market: trade.source, action: trade.type === "market_purchase" ? "buy" : "sell"
+  }));
+  if (trades.length === 0) return <p>No {scope} trades on this page.</p>;
+  return <TradeList trades={trades} />;
 }
 
-function FullTradeHistory() {
+function FullTradeHistory({ scope }: { readonly scope: MarketScope }) {
   const [cursors, setCursors] = useState<readonly (string | undefined)[]>([undefined]);
   const [refresh, setRefresh] = useState(0);
   const result = useTradeHistory(20, cursors.at(-1), refresh);
@@ -73,7 +78,7 @@ function FullTradeHistory() {
   return (
     <>
       <button onClick={() => { setCursors([undefined]); setRefresh(value => value + 1); }}>Refresh latest trades</button>
-      <HistoryPage result={result} retry={() => setRefresh(value => value + 1)} />
+      <HistoryPage result={result} retry={() => setRefresh(value => value + 1)} scope={scope} />
       <nav className={styles.navigation} aria-label="Trade history pages">
         <button disabled={cursors.length === 1} onClick={() => setCursors(values => values.slice(0, -1))}>Newer</button>
         <span>Page {cursors.length}</span>
@@ -85,13 +90,13 @@ function FullTradeHistory() {
   );
 }
 
-export default function MarketTradeHistory({ refresh }: { readonly refresh: number }) {
+export default function MarketTradeHistory({ refresh, scope }: { readonly refresh: number; readonly scope: MarketScope }) {
   const [retry, setRetry] = useState(0);
   const result = useTradeHistory(5, undefined, refresh + retry);
   return (
     <section className={styles.history} aria-label="Recent trades">
       <h3>Recent trades</h3>
-      <HistoryPage result={result} retry={() => setRetry(value => value + 1)} />
+      <HistoryPage result={result} retry={() => setRetry(value => value + 1)} scope={scope} />
       <Dialog.Root>
         <Dialog.Trigger asChild><button>View all trades</button></Dialog.Trigger>
         <Dialog.Portal>
@@ -99,7 +104,7 @@ export default function MarketTradeHistory({ refresh }: { readonly refresh: numb
           <Dialog.Content className={styles.dialog}>
             <Dialog.Title>Trade history</Dialog.Title>
             <Dialog.Description>Your completed purchases and sales, newest first. Dates use your local time.</Dialog.Description>
-            <FullTradeHistory />
+            <FullTradeHistory scope={scope} />
             <Dialog.Close asChild>
               <button className={styles.close} aria-label="Close trade history"><Cross2Icon /></button>
             </Dialog.Close>

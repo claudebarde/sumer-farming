@@ -3,5 +3,9 @@ export const EXPOSED_BARLEY_LIFETIME_MS = 3 * 24 * 60 * 60 * 1_000;
 export const HUNGRY_FARMER_MOVEMENT_DURATION_MULTIPLIER = 1.75;
 export const BEER_HAPPINESS_BOOST = 15;
 export const FISH_HAPPINESS_BOOST = 10;
-// Beer and fish share one daily treat allowance.
+export const FISH_TREAT_INTERVAL_MS = 8 * 60 * 60 * 1000;
 export const BEER_TREAT_INTERVAL_MS = 24 * 60 * 60 * 1000;
+export const HAPPY_DECAY_POINT_MS = 12 * 60 * 1000;
+export const CONTENT_DECAY_POINT_MS = 6 * 60 * 60 * 1000;
+export const HAPPINESS_MANAGEMENT_LEVEL = 4;
+export const INTRODUCTORY_HAPPINESS_FLOOR = 70;

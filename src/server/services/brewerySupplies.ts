@@ -39,12 +39,17 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           const itemKey = input.type === "give_farmer_fish" ? "fish" : "beer";
           const quantity = snapshot.inventory.find(item => item.itemKey === itemKey)?.quantity ?? 0;
           const validate = itemKey === "fish" ? validateFishTreat : validateBeerTreat;
-          const rule = validate(quantity, farm.happiness, farm.lastBeerAt?.getTime() ?? null, now.getTime());
+          const lastTreatAt = itemKey === "fish" ? farm.lastFishAt : farm.lastBeerAt;
+          const rule = validate(quantity, farm.happiness, lastTreatAt?.getTime() ?? null, now.getTime());
           if (rule !== null) return new BrewerySupplyRuleError({ type: rule, message: fishTreatErrors[rule] });
           await transaction.update(farmInventory).set({ quantity: quantity - 1, updatedAt: now })
             .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, itemKey)));
           const [updated] = await transaction.update(farms).set({
-            happiness: itemKey === "fish" ? happinessAfterFish(farm.happiness) : happinessAfterBeer(farm.happiness), lastBeerAt: now,
+            happiness: itemKey === "fish" ? happinessAfterFish(farm.happiness) : happinessAfterBeer(farm.happiness),
+            lastBeerAt: itemKey === "beer" ? now : farm.lastBeerAt,
+            lastFishAt: itemKey === "fish" ? now : farm.lastFishAt,
+            progressionStats: { ...farm.progressionStats, fishFed: farm.progressionStats.fishFed + (itemKey === "fish" ? 1 : 0) },
+            happinessCheckedAt: now,
             version: sql`${farms.version} + 1`, updatedAt: now
           }).where(eq(farms.id, farm.id)).returning();
           return readFarmSnapshot(transaction, updated!, false);
@@ -52,6 +57,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
         const rule = validateBrewerySupply({ ...snapshot, ...input, carriedItem: snapshot.farm.carriedItem, now: now.getTime() });
         if (rule !== null) return new BrewerySupplyRuleError({ type: rule, message: brewerySupplyErrors[rule] });
         const brewingAction = input.action === "start_brewing" || input.action === "collect_beer" || input.action === "give_beer";
+        let beerProduced = 0;
         if (input.action === "give_beer") {
           const brewery = snapshot.buildings.find(building => building.type === "brewery" &&
             building.column === input.target.column && building.row === input.target.row)!;
@@ -60,6 +66,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           const treatRule = validateBeerTreat(readyBeer + beerQuantity, farm.happiness, farm.lastBeerAt?.getTime() ?? null, now.getTime());
           if (treatRule !== null) return new BrewerySupplyRuleError({ type: treatRule, message: beerTreatErrors[treatRule] });
           if (readyBeer > 0) {
+            beerProduced = 1;
             await transaction.update(farmBuildings).set({
               beerServed: readyBeer === 1 ? 0 : brewery.beerServed + 1,
               beerReadyAt: readyBeer === 1 ? null : new Date(brewery.beerReadyAt!)
@@ -85,6 +92,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           } else {
             const storedBeer = snapshot.inventory.find(item => item.itemKey === "beer")?.quantity ?? 0;
             const quantity = readyBeerQuantity(brewery, now.getTime());
+            beerProduced = quantity;
             if (storedBeer > 2147483647 - quantity) {
               return new BrewerySupplyRuleError({ type: "beer_inventory_full", message: brewingErrors.beer_inventory_full });
             }
@@ -114,8 +122,10 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
         }
         const collecting = input.action === "collect_water";
         const [updated] = await transaction.update(farms).set({
+          progressionStats: { ...farm.progressionStats, beerProduced: farm.progressionStats.beerProduced + beerProduced },
           happiness: input.action === "give_beer" ? happinessAfterBeer(farm.happiness) : farm.happiness,
           lastBeerAt: input.action === "give_beer" ? now : farm.lastBeerAt,
+          happinessCheckedAt: input.action === "give_beer" ? now : farm.happinessCheckedAt,
           carriedItemKey: brewingAction ? farm.carriedItemKey : collecting ? "water" : null,
           carriedItemQuantity: brewingAction ? farm.carriedItemQuantity : collecting ? WATER_LOAD_QUANTITY : 0,
           carriedItemExpiresAt: brewingAction ? farm.carriedItemExpiresAt : null,

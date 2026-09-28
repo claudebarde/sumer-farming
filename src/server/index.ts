@@ -1,6 +1,10 @@
 // src/server/index.ts
 
 import { Effect, Either } from "effect";
+import { eq } from "drizzle-orm";
+import { commandUnlockLevel } from "../game-core/farm/commandUnlock";
+import { isProgressionSignpost } from "../game-data/progression";
+import { claimFarmLevel, LevelClaimRuleError, LevelClaimPersistenceError } from "./services/claimFarmLevel";
 import { Hono } from "hono";
 import { Client } from "pg";
 import { match, P } from "ts-pattern";
@@ -17,7 +21,7 @@ import { getTradeHistory } from "./services/tradeHistory";
 import { TradeHistoryQuerySchema } from "../schemas/tradeHistory";
 import { describeBuildingPlacementRule } from "../game-core/farm/buildings";
 import { createDatabase } from "./db/client";
-import { players } from "./db/schema";
+import { players, farms, marketOrders } from "./db/schema";
 import {
   buildIrrigation,
   FarmVersionConflictError,
@@ -46,6 +50,7 @@ import {
 } from "./services/destroyIrrigation";
 import {
   depositCarriedItem,
+  destroyGroundMaterial,
   depositCarriedItemInGranary,
   dropCarriedItem,
   FarmItemPersistenceError,
@@ -111,6 +116,8 @@ app.use("/api/*", async (c, next) => {
 type GameActionEffect = Effect.Effect<
   FarmSnapshot,
   | BuildIrrigationError
+  | LevelClaimRuleError
+  | LevelClaimPersistenceError
   | FishingRuleError
   | FarmerUnavailableError
   | FishingPersistenceError
@@ -187,6 +194,9 @@ app.get("/api/market/requests", async c => {
     await client.connect();
     const result = await Effect.runPromise(Effect.either(getNpcRequests(createDatabase(client), c.get("developmentPlayer").id)));
     if (Either.isLeft(result)) {
+      if (result.left instanceof NpcRequestRuleError && result.left.reason === "locked") {
+        return c.json({ error: { type: "level_locked", message: "Merchant requests unlock at farm level 7." } }, 422);
+      }
       console.error("NPC requests failed", result.left);
       return c.json({ error: { message: "Requests could not be loaded" } }, 500);
     }
@@ -341,10 +351,20 @@ app.post("/api/game/action", async c => {
     await client.connect();
 
     const database = createDatabase(client);
+    const command = parsedCommand.data;
+    const [progressFarm] = await database.select({ level: farms.level }).from(farms).where(eq(farms.playerId, c.get("developmentPlayer").id));
+    const order = command.type === "buy_market_sell_order"
+      ? (await database.select({ itemKey: marketOrders.itemKey }).from(marketOrders).where(eq(marketOrders.id, command.orderId)))[0]
+      : undefined;
+    const requiredLevel = commandUnlockLevel(command, order?.itemKey);
+    // Levels only increase. The service still validates resources/version under its farm lock.
+    if (progressFarm && progressFarm.level < requiredLevel) return c.json({ error: { type: "level_locked", message: `Reach farm level ${requiredLevel} to unlock this action.` } }, 422);
+    if ("target" in command && isProgressionSignpost(command.target)) return c.json({ error: { type: "tile_occupied", message: "This tile is reserved for the farm's level signpost." } }, 422);
     const result = await Effect.runPromise(
       Effect.either(
-        match(parsedCommand.data)
+        match(command)
           .returnType<GameActionEffect>()
+          .with({ type: "claim_farm_level" }, command => claimFarmLevel(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: P.union("fishing", "cast_fishing", "cancel_fishing") }, command => fishingAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "brewery_supply" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "give_farmer_beer" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
@@ -406,6 +426,9 @@ app.post("/api/game/action", async c => {
               playerId: c.get("developmentPlayer").id,
               expectedFarmVersion: command.expectedFarmVersion
             })
+          )
+          .with({ type: "destroy_ground_material" }, command =>
+            destroyGroundMaterial(database, { ...command, playerId: c.get("developmentPlayer").id })
           )
           .with({ type: "pickup_ground_item" }, command =>
             pickupGroundItem(database, {
@@ -502,6 +525,11 @@ app.post("/api/game/action", async c => {
     return match(result.left)
       .with(P.instanceOf(BrewerySupplyRuleError), error => c.json({ error: { type: error.type, message: error.message } }, 409))
       .with(P.instanceOf(FarmerUnavailableError), error => c.json({ error: { type: "farmer_busy", message: error.message } }, 409))
+      .with(P.instanceOf(LevelClaimRuleError), error => c.json({ error: { type: "level_claim_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(LevelClaimPersistenceError), error => {
+        console.error("Level claim failed", error);
+        return c.json({ error: { type: "level_claim_failed", message: "The next level could not be claimed." } }, 500);
+      })
       .with(P.instanceOf(FishingRuleError), error => c.json({ error: { type: "fishing_unavailable", message: error.message } }, 409))
       .with(P.instanceOf(FishingPersistenceError), error => {
         console.error("Fishing failed", error.cause);
@@ -511,6 +539,7 @@ app.post("/api/game/action", async c => {
         type: error.reason === "version_conflict" ? "farm_version_conflict" : "npc_request_unavailable",
         message: match(error.reason)
           .with("missing_farm", () => "Your farm could not be found.")
+          .with("locked", () => "Merchant requests unlock at farm level 7.")
           .with("expired", () => "This request has expired. Refresh the requests.")
           .with("insufficient_goods", () => "Store all the requested goods before delivering.")
           .with("version_conflict", () => "Your farm changed. Please try again.")
@@ -643,6 +672,7 @@ app.post("/api/game/action", async c => {
           .with(
             { type: "outside_arable_plot" },
             { type: "footprint_occupied" },
+            { type: "building_limit" },
             { type: "access_blocked" },
             { type: "hands_not_empty" },
             { type: "missing_material" },

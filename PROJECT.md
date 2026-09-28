@@ -1438,3 +1438,15 @@ Processing creates added value.
 Commerce connects the economy.
 
 The marketplace should be one of the primary engines of player decision-making and long-term engagement.
+
+## 33. Popup layout convention
+
+Always place all informational text, resource counts, status messages, and alerts
+above the action buttons. Action buttons must be the last elements at the bottom
+of a popup; never render explanatory text after them. Reorder actions only within
+this bottom action section (for example, prioritize delivering carried water).
+
+Item/action popups must be no wider than five ground tiles, including padding
+and borders. Derive this cap from `TILE_SIZE`, shrink it to fit narrow viewports,
+and wrap descriptions and button labels. Reserve space for the close button when
+titles wrap. This cap does not apply to full dialogs such as markets or farm levels.

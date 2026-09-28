@@ -1,3 +1,5 @@
+import { INITIAL_FARM_CONFIG } from "../../../game-data/initialFarm";
+
 type Rectangle = {
   readonly x: number;
   readonly y: number;
@@ -7,7 +9,7 @@ type Rectangle = {
 
 export const MARKET_SIZE = 2;
 
-/** Prefer the right edge, searching down from row two before trying other rows. */
+/** Keep the market directly above the road; avoid obstacles by moving sideways. */
 export const getMarketPosition = (
   width: number,
   height: number,
@@ -16,18 +18,13 @@ export const getMarketPosition = (
 ): { readonly x: number; readonly y: number } => {
   const size = MARKET_SIZE * tileSize;
   const right = Math.max(0, width - size);
-  const maximumRow = Math.max(0, Math.floor((height - size) / tileSize));
-  const preferredRow = Math.min(2, maximumRow);
-  const rows = [
-    ...Array.from({ length: maximumRow - preferredRow + 1 }, (_, i) => preferredRow + i),
-    ...Array.from({ length: preferredRow }, (_, i) => preferredRow - i - 1)
-  ];
+  const y = Math.max(0, Math.min((INITIAL_FARM_CONFIG.roadRow - MARKET_SIZE) * tileSize, height - size));
   const columns = Array.from({ length: Math.ceil(right / tileSize) + 1 }, (_, i) =>
     Math.max(0, right - i * tileSize)
   );
-  const positions = columns.flatMap(x => rows.map(row => ({ x, y: row * tileSize })));
+  const positions = columns.map(x => ({ x, y }));
   return positions.find(({ x, y }) => obstacles.every(obstacle =>
     x + size <= obstacle.x || x >= obstacle.x + obstacle.width ||
     y + size <= obstacle.y || y >= obstacle.y + obstacle.height
-  )) ?? { x: right, y: preferredRow * tileSize };
+  )) ?? { x: right, y };
 };

@@ -2,13 +2,16 @@ import { createStore } from "zustand/vanilla";
 import type { TradeHistory } from "../../schemas/tradeHistory";
 
 export type TradeNotification = TradeHistory["trades"][number];
+export type LevelNotification = { readonly id: string; readonly type: "level_up"; readonly level: number };
+export type GameNotification = TradeNotification | LevelNotification;
 
 type State = {
   readonly playerId: string | null;
-  readonly pending: readonly TradeNotification[];
+  readonly pending: readonly GameNotification[];
   readonly announced: ReadonlySet<string>;
   readonly setPlayer: (playerId: string | null) => void;
   readonly notifyTrade: (playerId: string, trade: TradeNotification) => void;
+  readonly notifyLevel: (playerId: string, farmId: string, level: number) => void;
   readonly dismiss: (id: string) => void;
 };
 
@@ -25,6 +28,13 @@ export const createNotificationStore = () => createStore<State>()(set => ({
       announced: new Set([...state.announced, trade.id])
     }
   ),
+  notifyLevel: (playerId, farmId, level) => set(state => {
+    const id = `level:${farmId}:${level}`;
+    return state.playerId !== playerId || state.announced.has(id) ? state : {
+      pending: [{ id, type: "level_up", level }, ...state.pending],
+      announced: new Set([...state.announced, id])
+    };
+  }),
   dismiss: id => set(state => ({ pending: state.pending.filter(trade => trade.id !== id) }))
 }));
 

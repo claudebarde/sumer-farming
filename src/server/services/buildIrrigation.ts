@@ -138,6 +138,8 @@ export const buildIrrigation = (
 
           const location = validateIrrigationLocation(input.target);
 
+          if (location.type === "reserved_tile") return { type: "occupied" };
+
           if (location.type !== "valid") {
             return { type: "invalid_location", reason: location.type };
           }

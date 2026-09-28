@@ -2,7 +2,7 @@ import { eq, inArray } from "drizzle-orm";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createDatabase } from "../../src/server/db/client";
-import { players } from "../../src/server/db/schema";
+import { players, farms, farmInventory } from "../../src/server/db/schema";
 import app from "../../src/server/index";
 
 // Exercise the real HTTP handlers without touching either interactive test farm.
@@ -46,7 +46,15 @@ describe.sequential("development HTTP identity and trading", () => {
     const b = await bResponse.json();
     expect(a.farm.playerId).toBe(identities[0]!.id);
     expect(b.farm.playerId).toBe(identities[1]!.id);
-    expect(b.player.shekelBalance).toBe(20);
+    expect(b.player.shekelBalance).toBe(0);
+    expect(b.farm.progression.level).toBe(1);
+    const lockedTrade = await request("/api/game/action", "second", {
+      type: "create_market_sell_order", itemKey: "barley", quantity: 1, unitPrice: 3,
+      expectedFarmVersion: b.farm.version, idempotencyKey: crypto.randomUUID()
+    });
+    expect(lockedTrade.status).toBe(422);
+    await db.update(farms).set({ level: 3 }).where(inArray(farms.playerId, identities.map(player => player.id)));
+    await db.insert(farmInventory).values({ farmId: b.farm.id, itemKey: "barley", quantity: 2 });
 
     // Test-only funding; normal players still start with zero shekels.
     await db.update(players).set({ shekelBalance: 10 }).where(eq(players.id, identities[0]!.id));
@@ -71,7 +79,7 @@ describe.sequential("development HTTP identity and trading", () => {
     expect(bought.player.shekelBalance).toBe(7);
     expect(bought.inventory).toContainEqual({ itemKey: "barley", quantity: 1 });
     const seller = await (await request("/api/development/farm", "second")).json();
-    expect(seller.player.shekelBalance).toBe(23);
+    expect(seller.player.shekelBalance).toBe(3);
     const buyerHistory = await (await request("/api/market/history?limit=5", "primary")).json();
     const sellerHistory = await (await request("/api/market/history?limit=5", "second")).json();
     expect(buyerHistory.trades).toHaveLength(1);

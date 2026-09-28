@@ -64,12 +64,23 @@ button {
   transition: background-color 0.3s;
   outline: none;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background-color: color.scale($color-sand, $lightness: 10%);
   }
 
   &.with-shadow {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+  }
+
+  &:disabled {
+    background-color: $color-disabled-background;
+    color: $color-disabled-text;
+    border-color: $color-disabled-border;
+    box-shadow: none;
+    cursor: not-allowed;
+    opacity: 1;
+    transition: none;
+    animation: none;
   }
 }
 
@@ -80,7 +91,7 @@ button:focus-visible {
 
 .dialog-bottom-container {
   box-sizing: border-box;
-  white-space: normal;
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: "Press Start 2P", system-ui;
   font-weight: 400;

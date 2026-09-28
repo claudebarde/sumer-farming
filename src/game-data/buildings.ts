@@ -8,6 +8,9 @@ export const FarmBuildingTypeSchema = z.enum(farmBuildingTypes);
 
 export type FarmBuildingType = z.infer<typeof FarmBuildingTypeSchema>;
 
+// Estate-level caps; future progression can supply higher limits here.
+export const FARM_BUILDING_LIMITS: Readonly<Partial<Record<FarmBuildingType, number>>> = { granary: 2 };
+
 export const FARM_BUILDING_DEFINITIONS = {
   brewery: {
     footprint: { columns: 2, rows: 2 },

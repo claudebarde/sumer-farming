@@ -1,4 +1,16 @@
 [
+  { "filename": "dog-on-four.png", "dimensions": "1254x1254", "tile_footprint": "0.75x0.75", "asset_type": "character", "source": "user supplied" },
+  { "filename": "dog-sitting.png", "dimensions": "1254x1254", "tile_footprint": "0.75x0.75", "asset_type": "character", "source": "user supplied" },
+  { "filename": "merchant-chariot.png", "dimensions": "512x256", "tile_footprint": "3x1.5", "asset_type": "character", "source": "user supplied" },
+  { "filename": "mud-road-90-deg.png", "dimensions": "1254x1254", "tile_footprint": "1x1", "asset_type": "terrain tile", "source": "user supplied" },
+  { "filename": "market-stand.png", "dimensions": "512x512", "tile_footprint": "2x2", "asset_type": "building", "source": "user supplied" },
+  {
+    "filename": "horizontal-bridge-over-irrigation-canal.png",
+    "dimensions": "1254x1254",
+    "tile_footprint": "1x1",
+    "asset_type": "terrain tile",
+    "source": "user supplied"
+  },
   {
     "filename": "ground.png",
     "dimensions": "256x256",

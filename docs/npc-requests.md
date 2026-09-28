@@ -1,8 +1,21 @@
 # NPC delivery requests
 
-Open Market → NPC market → Requests. The first visit starts a persistent personal
-schedule: 24 hours open, then 48 hours closed. Completing requests does not bring
+Click the stopped merchant chariot on the estate road to open its requests-only
+dialog. The Requests tab has been removed from the market dialog; the merchant
+does not offer ordinary buying or selling yet.
+
+Loading the estate fetches the persistent personal schedule. For a new board,
+the chariot enters for 15 seconds before its first opening: 24 hours open, then
+48 hours closed. Existing boards retain their original timestamps. Completing requests does not bring
 forward the next window. Missed windows do not accumulate; expiry has no penalty.
+
+The chariot travels from fully offscreen left to the center of the 8×8 plot,
+staying on road row 5. It stops for the entire request window, then travels to
+fully offscreen right over 15 seconds, past the market. The next arrival happens
+in the final 15 seconds before the next scheduled opening. Clicking during travel
+shows only “Merchant chariot”; expiry closes the requests dialog. Travel position
+is derived from server timestamps, so reloads, hidden tabs, and offline periods
+do not restart or extend a visit. The visitor is estate-scene-only.
 
 Each window has three requests, fulfilled once each, with no acceptance step or
 farmer journey. Starter requests require 3, 2, and 4 barley for 5, 3, and 6 shekels.

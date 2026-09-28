@@ -6,11 +6,12 @@ import { useStore } from "zustand";
 import { fetchTradeHistory } from "../api/tradeHistory";
 import { collectNewTrades } from "../features/market/tradeNotifications";
 import { farmStore } from "../stores/farmStore";
-import { notificationStore, type TradeNotification } from "../stores/notificationStore";
+import { notificationStore, type GameNotification } from "../stores/notificationStore";
+import { LEVEL_NAMES, LEVEL_UNLOCKS } from "../../game-data/progression";
 import styles from "../styles/TradeNotifications.module.scss";
 import { MARKET_ITEM_DEFINITIONS } from "../../game-data/marketItems";
 
-function TradeToast({ trade }: { readonly trade: TradeNotification }) {
+function TradeToast({ trade }: { readonly trade: GameNotification }) {
   const [open, setOpen] = useState(true);
 
   useEffect(() => {
@@ -24,8 +25,9 @@ function TradeToast({ trade }: { readonly trade: TradeNotification }) {
 
   return (
     <Toast.Root
-      className={styles.toast}
-      type="background"
+      className={`${styles.toast} ${trade.type === "level_up" ? styles.celebration : ""}`}
+      type={trade.type === "level_up" ? "foreground" : "background"}
+      duration={trade.type === "level_up" ? 8_000 : 5_000}
       open={open}
       onOpenChange={setOpen}
       onAnimationEnd={event => {
@@ -37,13 +39,15 @@ function TradeToast({ trade }: { readonly trade: TradeNotification }) {
       onPointerUp={event => event.stopPropagation()}
     >
       <Toast.Title className={styles.title}>
-        {trade.type === "request_reward" ? "Request delivered" : trade.type === "market_sale" ? "Sale completed" : "Purchase completed"}
+        {trade.type === "level_up" ? `Congratulations! Farm level ${trade.level}!` : trade.type === "request_reward" ? "Request delivered" : trade.type === "market_sale" ? "Sale completed" : "Purchase completed"}
       </Toast.Title>
       <Toast.Description className={styles.description}>
-        {trade.type === "request_reward" ? `${trade.requestCustomer}: earned ${trade.total} shekels.` : <>{trade.type === "market_sale" ? "Sold" : "Bought"} {trade.quantity} {trade.itemKey === "beer" ? (trade.quantity === 1 ? "beer jar" : "beer jars") : trade.itemKey === "brewingVessels" || trade.itemKey === "emptyBeerJar" ? MARKET_ITEM_DEFINITIONS[trade.itemKey].label.toLowerCase() : trade.itemKey} for {trade.total} {trade.total === 1 ? "shekel" : "shekels"}.</>}
-        <span>{trade.source === "npc" ? "NPC market" : "Player market"}</span>
+        {trade.type === "level_up" ? <>{LEVEL_NAMES[trade.level]}<span>Unlocked: {LEVEL_UNLOCKS[trade.level]}.</span></> : <>
+          {trade.type === "request_reward" ? `${trade.requestCustomer}: earned ${trade.total} shekels.` : <>{trade.type === "market_sale" ? "Sold" : "Bought"} {trade.quantity} {trade.itemKey === "beer" ? (trade.quantity === 1 ? "beer jar" : "beer jars") : trade.itemKey === "brewingVessels" || trade.itemKey === "emptyBeerJar" ? MARKET_ITEM_DEFINITIONS[trade.itemKey].label.toLowerCase() : trade.itemKey} for {trade.total} {trade.total === 1 ? "shekel" : "shekels"}.</>}
+          <span>{trade.source === "npc" ? "NPC market" : "Player market"}</span>
+        </>}
       </Toast.Description>
-      <Toast.Close className={styles.close} aria-label="Dismiss trade notification"><Cross2Icon /></Toast.Close>
+      <Toast.Close className={styles.close} aria-label="Dismiss notification"><Cross2Icon /></Toast.Close>
     </Toast.Root>
   );
 }
@@ -96,7 +100,7 @@ export default function TradeNotifications() {
       {pending.slice(0, 3).map(trade => (
         <TradeToast key={trade.id} trade={trade} />
       ))}
-      <Toast.Viewport className={styles.viewport} label="Trade notifications ({hotkey})" />
+      <Toast.Viewport className={styles.viewport} label="Game notifications ({hotkey})" />
     </Toast.Provider>,
     document.body
   );

@@ -25,7 +25,7 @@ const fixture = async (vessels = 2) => {
   const playerId = randomUUID();
   ids.add(playerId);
   await db.insert(players).values({ id: playerId, displayName: "Brewery test", shekelBalance: 20 });
-  const [farm] = await db.insert(farms).values({ playerId }).returning();
+  const [farm] = await db.insert(farms).values({ playerId, level: 8 }).returning();
   await db.insert(farmGroundItems).values([
     { farmId: farm!.id, itemKey: "reed", quantity: 4, column: 0, row: 0 },
     { farmId: farm!.id, itemKey: "clay", quantity: 6, column: 1, row: 0 }
@@ -34,10 +34,25 @@ const fixture = async (vessels = 2) => {
     { farmId: farm!.id, itemKey: "barley", quantity: 5 },
     { farmId: farm!.id, itemKey: "brewingVessels", quantity: vessels }
   ]);
-  return { playerId, farmId: farm!.id, building: "brewery" as const, target: { column: 5, row: 4 }, expectedFarmVersion: 1 };
+  return { playerId, farmId: farm!.id, building: "brewery" as const, target: { column: 5, row: 2 }, expectedFarmVersion: 1 };
 };
 
 describe("brewery construction and equipment", () => {
+  it("allows two granaries but rejects a third even while both are under construction", async () => {
+    const input = await fixture();
+    const first = await Effect.runPromise(buildFarmBuilding(db, { ...input, building: "granary" }));
+    expect(first.buildings.filter(building => building.type === "granary")).toHaveLength(1);
+    const second = await Effect.runPromise(buildFarmBuilding(db, {
+      ...input, building: "granary", target: { column: 0, row: 2 }, expectedFarmVersion: first.farm.version
+    }));
+    expect(second.buildings.filter(building => building.type === "granary")).toHaveLength(2);
+    expect(second.buildings.every(building => Date.parse(building.completesAt) > Date.now())).toBe(true);
+    await expect(Effect.runPromise(Effect.flip(buildFarmBuilding(db, {
+      ...input, building: "granary", target: { column: 2, row: 6 }, expectedFarmVersion: second.farm.version
+    })))).resolves.toMatchObject({ rule: { type: "building_limit", limit: 2 } });
+    expect((await db.select().from(farmBuildings).where(eq(farmBuildings.farmId, input.farmId)))).toHaveLength(2);
+    expect((await db.select().from(farms).where(eq(farms.id, input.farmId)))[0]?.version).toBe(second.farm.version);
+  });
   it("rejects a trapping layout on the server without spending materials or changing the farm version", async () => {
     const input = await fixture();
     await db.update(farmGroundItems).set({ row: 6 }).where(eq(farmGroundItems.farmId, input.farmId));
@@ -142,6 +157,7 @@ describe("brewery construction and equipment", () => {
 
   it.each([
     ["outside_arable_plot", { column: 7, row: 7 }],
+    ["footprint_occupied", { column: 0, row: 3 }],
     ["footprint_occupied", { column: 3, row: 0 }],
     ["footprint_occupied", { column: 0, row: 0 }]
   ] as const)("rejects %s without consuming materials", async (reason, target) => {
@@ -165,7 +181,7 @@ describe("brewery construction and equipment", () => {
   });
 
   it("uses the same farmer-overlap and empty-hands placement rules", () => {
-    const context = { building: "brewery" as const, target: { column: 5, row: 4 }, occupiedCoordinates: new Set(["6:5"]), carriedItem: null, availableMaterials: { reed: 4, clay: 6, brewingVessels: 2 } };
+    const context = { building: "brewery" as const, existingBuildings: [], target: { column: 5, row: 2 }, occupiedCoordinates: new Set(["6:3"]), carriedItem: null, availableMaterials: { reed: 4, clay: 6, brewingVessels: 2 } };
     expect(validateBuildingPlacement(context)).toEqual({ type: "footprint_occupied" });
     expect(validateBuildingPlacement({ ...context, occupiedCoordinates: new Set(), carriedItem: "barley" })).toEqual({ type: "hands_not_empty" });
   });

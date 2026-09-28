@@ -36,7 +36,9 @@ it("creates independent farms and never restores fixture money on refresh", asyn
     { itemKey: "barley", quantity: 1, column: 2, row: 1 }
   ]);
   expect(CROP_DEFINITIONS.barley.growthDurationMs).toBe(30 * 60_000);
-  expect(b.inventory).toContainEqual({ itemKey: "barley", quantity: 2 });
+  expect(b.inventory).toEqual([]);
+  expect(b.player.shekelBalance).toBe(0);
+  expect(b.farm.progression?.level).toBe(1);
   await db.update(players).set({ shekelBalance: 7 }).where(eq(players.id, second.id));
   const reloaded = await Effect.runPromise(ensureDevelopmentFarm(db, 999, second));
   expect(reloaded.farm.id).toBe(b.farm.id);

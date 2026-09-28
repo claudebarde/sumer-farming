@@ -1,5 +1,5 @@
 import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
 
@@ -177,6 +177,7 @@ const isGroundTileOccupied = async (
 };
 
 type FarmItemAction =
+  | { readonly type: "destroy_material"; readonly input: DepositCarriedItemInput & { readonly groundItemId: string } }
   | { readonly type: "pickup"; readonly input: TargetedFarmItemActionInput }
   | { readonly type: "drop"; readonly input: TargetedFarmItemActionInput }
   | { readonly type: "deposit"; readonly input: DepositCarriedItemInput }
@@ -242,6 +243,18 @@ const executeFarmItemAction = (
 
           return match(action)
             .returnType<Promise<DatabaseOutcome>>()
+            .with({ type: "destroy_material" }, async ({ input }) => {
+              const removed = await transaction.delete(farmGroundItems).where(and(
+                eq(farmGroundItems.id, input.groundItemId),
+                eq(farmGroundItems.farmId, farm.id),
+                inArray(farmGroundItems.itemKey, ["reed", "clay"])
+              )).returning({ id: farmGroundItems.id });
+              if (removed.length === 0) return { type: "rule_error", rule: { type: "ground_item_not_found" } };
+              const [updated] = await transaction.update(farms)
+                .set({ version: sql`${farms.version} + 1`, updatedAt: now })
+                .where(eq(farms.id, farm.id)).returning();
+              return { type: "success", snapshot: await readFarmSnapshot(transaction, updated!, false) };
+            })
             .with({ type: "pickup" }, async ({ input }) => {
               const groundItem = (
                 await transaction
@@ -783,6 +796,12 @@ export const pickupGroundItem = (
   input: TargetedFarmItemActionInput
 ): Effect.Effect<FarmSnapshot, FarmItemActionError> =>
   executeFarmItemAction(database, { type: "pickup", input });
+
+export const destroyGroundMaterial = (
+  database: Database,
+  input: DepositCarriedItemInput & { readonly groundItemId: string }
+): Effect.Effect<FarmSnapshot, FarmItemActionError> =>
+  executeFarmItemAction(database, { type: "destroy_material", input });
 
 export const dropCarriedItem = (
   database: Database,

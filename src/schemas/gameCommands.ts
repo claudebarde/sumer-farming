@@ -11,6 +11,8 @@ const FarmCoordinateSchema = z.object({
 });
 
 export const GameCommandSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("destroy_ground_material"), groundItemId: z.uuid(), expectedFarmVersion: z.int().positive() }),
+  z.object({ type: z.literal("claim_farm_level"), expectedLevel: z.int().min(1).max(10), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("fishing"), action: z.enum(["start", "store", "release"]), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("cast_fishing"), sessionId: z.uuid(), aim: z.number().min(0).max(1) }),
   z.object({ type: z.literal("cancel_fishing"), sessionId: z.uuid() }),

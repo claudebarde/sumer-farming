@@ -212,6 +212,9 @@ const executeHarvestAction = (
                 .update(farms)
                 .set({
                   carriedItemKey: cropDefinition.harvestItemKey,
+                  progressionStats: { ...farm.progressionStats,
+                    harvestedBarley: farm.progressionStats.harvestedBarley + cropDefinition.harvestYield,
+                    harvests: farm.progressionStats.harvests + 1 },
                   carriedItemQuantity: cropDefinition.harvestYield,
                   carriedItemExpiresAt: new Date(
                     now.getTime() + EXPOSED_BARLEY_LIFETIME_MS
