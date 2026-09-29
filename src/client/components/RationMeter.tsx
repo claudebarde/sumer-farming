@@ -14,12 +14,12 @@ export default function RationMeter({ nextRationAt, hungry, now }: Props) {
   const minutes = Math.ceil(remaining / 60000);
   const hours = Math.floor(minutes / 60);
   const label = inactive ? "Automatic feeding begins after cultivation starts" :
-    hungry ? "Hungry: a ration is needed now" :
-      remaining === 0 ? "Ration due now" : `Next ration in ${hours} hours and ${minutes % 60} minutes`;
+    hungry ? "Hungry: a meal is needed now" :
+      remaining === 0 ? "Meal due now" : `Next meal in ${hours} hours and ${minutes % 60} minutes`;
 
   return (
     <div className={styles.meter} data-mood={percentage >= 50 ? "happy" : percentage > 0 ? "content" : "unhappy"}
-      role="meter" aria-label="Time until next ration" aria-valuemin={0} aria-valuemax={100}
+      role="meter" aria-label="Time until next meal" aria-valuemin={0} aria-valuemax={100}
       aria-valuenow={percentage} aria-valuetext={label} title={label}>
       <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
         <circle className={styles.track} cx="50" cy="50" r="43" />

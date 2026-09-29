@@ -16,6 +16,8 @@
 ## Newly generated assets
 
 - brewery (512×512, 2×2 building)
+- empty-mill / busy-mill (512×512, 2×2 building; idle and farmer-operated milling)
+- flour-bags (512×512; shared Flour/Groats output stack at the Mill and Resources icon)
 - market (512×512, 2×2 building; opens the market dialog on click/tap)
 - market-sign (256×256, 1×1; legacy artwork, replaced on the canvas by market)
 
@@ -31,7 +33,8 @@ The horizontal mud road spans row index 5. Irrigation on that row uses the bridg
 texture while retaining its canal connections and normal construction rules.
 
 - mud-road-90-deg (1254×1254, 1×1; rotated corners of the market square)
-- market-stand (512×512, 2×2; shared artwork for market stands)
+- market-stand (512×512, 2×2; generic artwork for the barley and decorative stands)
+- market-beer-stand (1303×1207, displayed at 2×2; dedicated beer market artwork)
 
 - `merchant-chariot.png`: user-supplied 512×256 merchant and chariot, displayed at 3×1.5 tiles with its wheels/feet anchored to the estate road's centerline for periodic request visits.
 

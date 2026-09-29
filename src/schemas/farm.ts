@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MillingJobSchema, MillGoodsSchema, emptyMillGoods } from "../game-data/milling";
 import { ProgressionSchema } from "./progression";
 
 import { CropKeySchema } from "../game-data/crops";
@@ -14,6 +15,8 @@ export const FarmSnapshotSchema = z.object({
     shekelBalance: z.int().nonnegative()
   }),
   farm: z.object({
+    milling: MillingJobSchema.nullable().default(null),
+    millGoods: MillGoodsSchema.default(emptyMillGoods),
     progression: ProgressionSchema.optional(),
     fishing: z.object({
       id: z.uuid(), seed: z.int().nonnegative(), startedAt: z.number(),

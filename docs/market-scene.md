@@ -1,8 +1,9 @@
 # Market scene prototype
 
-Click the estate's market building to start walking toward it. After one second,
-enter `MarketScene` regardless of how far the farmer has travelled (or whether a
-route was available). Repeated clicks are ignored during this transition.
+Click the estate's market building to start walking toward it. Enter `MarketScene`
+only when the farmer reaches the road tile directly beside the building. There
+is no fixed timeout; an unavailable route leaves the player on the farm with a
+message and restores interaction. Repeated clicks are ignored during travel.
 A road at row five
 splits around a square. Corners use two cropped, rotated sections of the straight
 road sprite overlapping at the center, like the composed T-junctions; no separate
@@ -15,7 +16,9 @@ two-jar purchase limit. Player trading remains finished beer only. The legacy
 general dialog is removed; the third stand is now decorative and noninteractive.
 The brewery's empty-jar shortcut opens the Beer market. Requests
 are now accessed through the visiting merchant chariot on the estate road.
-All stands share artwork. The two-tile farm at the far left returns home.
+The beer stand uses `market-beer-stand.png`; barley and decorative stands still use
+`market-stand.png`. All stand footprints remain 2×2. Clicking the two-tile farm at the far left walks the
+farmer to the road tile directly below its left-hand tile before returning home.
 The player's farmer appears on the road directly below the return-home farm,
 at the same tile scale as on the estate. His carrying sprite
 stays synchronized with the shared inventory state; this is a scene-local visual,
@@ -26,7 +29,8 @@ ongoing work deadlines. Queued travel waits until the visit ends. Farm-only HUD
 and fishing keyboard input are hidden/disabled during the visit. Returning stops
 the market scene and reveals the original farm rather than rebuilding it. The
 farmer is placed on the road beside the market's current position, then any
-interrupted travel resumes. Scene shutdown cancels the transition timeout.
+interrupted travel resumes. Scene shutdown cancels active travel. Resizing during
+travel restarts the approach using the updated layout, without a timed switch.
 
 Both scenes install DOM overlay isolation: HTML labels share Phaser's global
 DOM container, so their visibility is synchronized before rendering even when

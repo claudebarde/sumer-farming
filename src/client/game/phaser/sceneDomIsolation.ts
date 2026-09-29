@@ -8,7 +8,9 @@ export const installSceneDomIsolation = (scene: Phaser.Scene): void => {
     for (const overlay of overlays) {
       const node = overlay.node;
       if (!(node instanceof HTMLElement)) continue;
-      if (!scene.sys.settings.visible || !scene.sys.settings.active) {
+      // Newly mounted labels have no position until Phaser's first render.
+      // Keep them measurable but hidden if that render is delayed or interrupted.
+      if (!scene.sys.settings.visible || !scene.sys.settings.active || !node.style.transform) {
         if (!hiddenStyles.has(node)) hiddenStyles.set(node, node.style.visibility);
         node.style.visibility = "hidden";
       } else if (hiddenStyles.has(node)) {

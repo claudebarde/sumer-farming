@@ -1,4 +1,8 @@
 filename,dimensions,tile_footprint,asset_type,source
+market-beer-stand.png,1303x1207,2x2,building,user supplied
+empty-mill.png,512x512,2x2,building,user supplied
+busy-mill.png,512x512,2x2,building,user supplied
+flour-bags.png,512x512,1x1,resource,user supplied
 dog-on-four.png,1254x1254,0.75x0.75,character,user supplied
 dog-sitting.png,1254x1254,0.75x0.75,character,user supplied
 merchant-chariot.png,512x256,3x1.5,character,user supplied

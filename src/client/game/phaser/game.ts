@@ -78,7 +78,7 @@ export const handlePointerUp = (
         .setSize(TILE_SIZE * 2, TILE_SIZE * 2)
         .setVisible(visibility);
     })
-    .with("granary", "brewery", () => {
+    .with("granary", "brewery", "mill", () => {
       selectionHighlight
         .setPosition(
           tile.position.column * TILE_SIZE,

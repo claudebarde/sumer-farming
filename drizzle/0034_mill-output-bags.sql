@@ -1,0 +1,1 @@
+ALTER TABLE "farms" ADD COLUMN "mill_goods" jsonb DEFAULT '{"pending":{},"delivery":null}'::jsonb NOT NULL;

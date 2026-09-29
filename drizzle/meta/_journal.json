@@ -232,6 +232,20 @@
       "when": 1790609018542,
       "tag": "0032_farm-progression",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790694789418,
+      "tag": "0033_mill-production",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790700799761,
+      "tag": "0034_mill-output-bags",
+      "breakpoints": true
     }
   ]
 }

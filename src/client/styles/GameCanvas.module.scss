@@ -1,5 +1,15 @@
 @use "./variables" as *;
 
+.requirement-status {
+  display: inline-block;
+  font-weight: 700;
+  color: #b3332b;
+
+  &[data-met="true"] {
+    color: $color-leaf-dark;
+  }
+}
+
 .fishing-controls {
   position: fixed;
   top: 12px;
@@ -15,6 +25,17 @@
   border: $container-border;
   border-radius: $container-border-radius;
   font-size: 0.8rem;
+}
+
+.farmer-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  span {
+    font-size: 0.8em;
+    line-height: 1;
+  }
 }
 
 .farmer-metrics {
@@ -58,9 +79,18 @@
   border-radius: $container-border-radius;
   padding: $container-padding;
   outline: none;
-  min-width: min(250px, calc(100vw - 24px));
+  min-width: min(250px, calc(100vw - 24px), var(--radix-popover-content-available-width));
+  max-height: var(--radix-popover-content-available-height);
+  display: flex;
+  flex-direction: column;
   white-space: normal;
   overflow-wrap: anywhere;
+
+  // The content layout supplies spacing; paragraph margins otherwise stack
+  // with its 8px gap and make text-heavy popups unnecessarily tall.
+  p {
+    margin: 0;
+  }
 
   button {
     min-width: 0;
@@ -79,6 +109,10 @@
 .tile-popover-content {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  // Keep the 2px focus outline + 2px offset inside the scrollable bounds.
+  padding: 6px;
+  overflow-y: auto;
 }
 
 .tile-popover-content-header {
@@ -211,6 +245,10 @@
 }
 
 .manage-tabs-trigger {
+  min-width: 0;
+  padding-inline: 8px;
+  white-space: normal;
+  overflow-wrap: anywhere;
   border-bottom-right-radius: 0;
   border-bottom-left-radius: 0;
 
@@ -231,6 +269,9 @@
 }
 
 .building-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
   padding-left: 20px;
 
   li {
@@ -239,7 +280,8 @@
     gap: 8px;
   }
 
-  h3 {
+  h3,
+  p {
     margin: 0;
   }
 }
@@ -268,6 +310,15 @@
     border: $container-border;
     border-radius: $container-border-radius;
     background-color: $color-parchment;
+    &[data-locked="true"] {
+      background-color: $color-disabled-background;
+      color: $color-disabled-text;
+      border-color: $color-disabled-border;
+
+      img {
+        filter: grayscale(1);
+      }
+    }
   }
 }
 

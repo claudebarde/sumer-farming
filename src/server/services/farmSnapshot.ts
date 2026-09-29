@@ -131,6 +131,8 @@ export const readFarmSnapshot = async (
     created,
     player,
     farm: {
+      milling: currentFarm.milling,
+      millGoods: currentFarm.millGoods,
       progression: { level: currentFarm.level, stats: currentFarm.progressionStats, ...achievements! },
       id: currentFarm.id,
       playerId: currentFarm.playerId,

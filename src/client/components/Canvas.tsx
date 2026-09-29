@@ -1,12 +1,17 @@
 import { useEffect, useState } from "react";
 import granaryImage from "../../assets/sprite_assets/pngs/granary.png";
 import breweryImage from "../../assets/sprite_assets/pngs/brewery.png";
+import breadOvenImage from "../../assets/sprite_assets/pngs/bread-oven.png";
 import barleyImage from "../../assets/sprite_assets/pngs/wheat-sheaf.png";
+import flourBagsImage from "../../assets/sprite_assets/pngs/flour-bags.png";
 import fishImage from "../../assets/sprite_assets/pngs/fish.png";
 import reedImage from "../../assets/sprite_assets/pngs/reed-bundle.png";
 import clayImage from "../../assets/sprite_assets/pngs/brick-pile.png";
 import HappinessMeter from "./HappinessMeter";
 import RationMeter from "./RationMeter";
+import FarmerPanel from "./FarmerPanel";
+import MillContent from "./MillContent";
+import millImage from "../../assets/sprite_assets/pngs/empty-mill.png";
 import { Dialog, Popover, Tabs } from "radix-ui";
 import {
   Cross2Icon,
@@ -113,6 +118,7 @@ const formatShekels = (quantity: number): string =>
 
 export default function GameCanvas() {
   const [isOpenManageDialog, setIsOpenManageDialog] = useState(false);
+  const [canvasBoundary, setCanvasBoundary] = useState<HTMLDivElement | null>(null);
   const [beerGiftPending, setBeerGiftPending] = useState(false);
   const [beerGiftMessage, setBeerGiftMessage] = useState<string | null>(null);
   const [fishGiftMessage, setFishGiftMessage] = useState<string | null>(null);
@@ -160,7 +166,10 @@ export default function GameCanvas() {
     : null;
   const fishOnCooldown =
     fishAvailableAt !== null && storageClock < fishAvailableAt;
-  const isOpenMarketDialog = useStore(marketUiStore, state => state.isOpen && canOpenMarketStand(state.scope, farmLevel));
+  const isOpenMarketDialog = useStore(
+    marketUiStore,
+    state => state.isOpen && canOpenMarketStand(state.scope, farmLevel)
+  );
   const marketScope = useStore(marketUiStore, state => state.scope);
   const marketSceneVisible = useStore(
     marketUiStore,
@@ -243,18 +252,27 @@ export default function GameCanvas() {
           FARM_BUILDING_DEFINITIONS.brewery.materials.brewingVessels -
             availableVessels
         );
-  const canBuildBrewery =
+  const canBuildMill =
     farmLevel >= 5 &&
+    carriedItem === null &&
+    !(farmState.type === "ready" && farmState.snapshot.farm.milling) &&
+    availableReed >= FARM_BUILDING_DEFINITIONS.mill.materials.reed &&
+    availableClay >= FARM_BUILDING_DEFINITIONS.mill.materials.clay;
+  const canBuildBrewery =
+    !(farmState.type === "ready" && farmState.snapshot.farm.milling) &&
+    farmLevel >= 6 &&
     availableReed >= FARM_BUILDING_DEFINITIONS.brewery.materials.reed &&
     availableClay >= FARM_BUILDING_DEFINITIONS.brewery.materials.clay &&
     availableVessels >=
       FARM_BUILDING_DEFINITIONS.brewery.materials.brewingVessels &&
     carriedItem === null;
+  const granaryCount = farmState.type === "ready"
+    ? farmState.snapshot.buildings.filter(building => building.type === "granary").length
+    : 0;
   const granaryLimitReached =
-    farmState.type === "ready" &&
-    farmState.snapshot.buildings.filter(building => building.type === "granary")
-      .length >= granaryLimitForLevel(farmLevel);
+    farmState.type === "ready" && granaryCount >= granaryLimitForLevel(farmLevel);
   const canBuildGranary =
+    !(farmState.type === "ready" && farmState.snapshot.farm.milling) &&
     farmLevel >= 2 &&
     !granaryLimitReached &&
     availableReed >= FARM_BUILDING_DEFINITIONS.granary.materials.reed &&
@@ -347,7 +365,7 @@ export default function GameCanvas() {
   const selectedTileSize =
     selectedTile?.type === "farm" ||
     selectedTile?.type === "granary" ||
-    selectedTile?.type === "brewery"
+    selectedTile?.type === "brewery" || selectedTile?.type === "mill"
       ? TILE_SIZE * 2
       : TILE_SIZE;
 
@@ -548,6 +566,35 @@ export default function GameCanvas() {
   );
 
   const displayPopoverContent = (tile: typeof selectedTile) => {
+    if (tile?.type === "granary" && farmState.type === "ready" && farmState.snapshot.farm.millGoods.delivery) {
+      const delivery = farmState.snapshot.farm.millGoods.delivery;
+      return <div className={styles["tile-popover-content"]}>
+        <div className={styles["tile-popover-content-header"]}>Store processed grain</div>
+        <div className={styles["tile-popover-content-body"]}>
+          <p>Carrying {delivery.bags.flour} Flour and {delivery.bags.brewersGroats} Brewer's Groats bags.</p>
+          <button onClick={() => addCommand({ type: "store_mill_goods", target: tile.position, millId: delivery.millId, granaryId: delivery.granaryId })}>Store</button>
+        </div>
+      </div>;
+    }
+    if (tile?.type === "millBags" && farmState.type === "ready") {
+      const snapshot = farmState.snapshot;
+      const bags = snapshot.farm.millGoods.pending[tile.millId ?? ""];
+      const granary = snapshot.buildings.find(b => b.type === "granary" && Date.parse(b.completesAt) <= storageClock);
+      return <div className={styles["tile-popover-content"]}>
+        <div className={styles["tile-popover-content-header"]}>Processed grain</div>
+        <div className={styles["tile-popover-content-body"]}>
+          <p>Flour bags: {bags?.flour ?? 0}</p>
+          <p>Brewer's Groats bags: {bags?.brewersGroats ?? 0}</p>
+          <p>The farmer will carry all these bags to a granary to add them to Resources.</p>
+          {!granary && <p>Build a granary before storing these bags.</p>}
+          {carriedItem && <p>Empty the farmer's hands first.</p>}
+          <button disabled={!bags || !granary || !!carriedItem || !!snapshot.farm.milling || !!snapshot.farm.millGoods.delivery}
+            onClick={() => { if (granary && tile.millId) addCommand({ type: "store_mill_goods", target: tile.position, millId: tile.millId, granaryId: granary.id }); }}>Store</button>
+        </div>
+      </div>;
+    }
+    if (tile?.type === "mill" && farmState.type === "ready") return <MillContent snapshot={farmState.snapshot} target={tile.position} now={storageClock} addCommand={addCommand} />;
+    if (farmState.type === "ready" && farmState.snapshot.farm.milling) return <div className={styles["tile-popover-content"]}><div className={styles["tile-popover-content-header"]}>Farmer busy</div><p>The farmer is working in the Mill. Wait for milling to finish before starting another task.</p></div>;
     if (!tile) return <span>No tile selected</span>;
     if (farmState.type === "ready" && farmState.snapshot.farm.fishing)
       return (
@@ -1061,7 +1108,7 @@ export default function GameCanvas() {
             <span>
               Stored barley: {storedBarley} / {FARM_STORAGE_CAPACITY}
             </span>
-            <span>
+            {farmLevel >= 4 && <span>
               Stored fish:{" "}
               {farmState.type === "ready"
                 ? (farmState.snapshot.inventory.find(
@@ -1069,7 +1116,7 @@ export default function GameCanvas() {
                   )?.quantity ?? 0)
                 : 0}{" "}
               / {FISH_CAPACITY}
-            </span>
+            </span>}
             {carriedItem?.itemKey === "barley" && (
               <button
                 disabled={storedBarley >= FARM_STORAGE_CAPACITY}
@@ -1086,8 +1133,8 @@ export default function GameCanvas() {
                   : "Store Barley"}
               </button>
             )}
-            <button
-              disabled={storedBarley === 0 || carriedItem !== null}
+            {carriedItem === null && <button
+              disabled={storedBarley === 0}
               onClick={() =>
                 addCommand({
                   type: "withdraw",
@@ -1099,10 +1146,8 @@ export default function GameCanvas() {
             >
               {storedBarley === 0
                 ? "Farm storage is empty"
-                : carriedItem !== null
-                  ? "Empty your hands first"
-                  : "Take 1 Barley"}
-            </button>
+                : "Take 1 Barley"}
+            </button>}
           </div>
         </div>
       ))
@@ -1502,7 +1547,7 @@ export default function GameCanvas() {
                       }
                       now={storageClock}
                     />
-                    <span>Next ration</span>
+                    <span>Next meal</span>
                   </div>
                 </div>
                 {(farmState.snapshot.farm.household.hungrySince !== null ||
@@ -1674,6 +1719,21 @@ export default function GameCanvas() {
   }, [farmState]);
 
   useEffect(() => {
+    if (farmState.type !== "ready" || !farmState.snapshot.farm.milling) return;
+    const controller = new AbortController();
+    let timer: number;
+    const refresh = () => {
+      void fetchDevelopmentFarm(controller.signal).then(snapshot => {
+        if (!controller.signal.aborted) farmStore.getState().setReady(snapshot);
+      }).catch(() => {
+        if (!controller.signal.aborted) timer = window.setTimeout(refresh, 2_000);
+      });
+    };
+    timer = window.setTimeout(refresh, Math.max(50, Date.parse(farmState.snapshot.farm.milling.completesAt) - Date.now() + 50));
+    return () => { controller.abort(); window.clearTimeout(timer); };
+  }, [farmState]);
+
+  useEffect(() => {
     if (farmState.type !== "ready" || !import.meta.env.DEV) {
       return;
     }
@@ -1753,14 +1813,14 @@ export default function GameCanvas() {
   return (
     <>
       {!marketSceneVisible && <FishingControls />}
-      {!marketSceneVisible && <FetchControls />}
       <FarmLevelDialog />
       {farmLevel >= 7 && <MerchantRequests />}
       <Dialog.Root
         open={isOpenManageDialog && !marketSceneVisible}
         onOpenChange={setIsOpenManageDialog}
       >
-        <div className={styles["canvas"]}>
+        <div ref={setCanvasBoundary} className={styles["canvas"]}>
+          {!marketSceneVisible && <FetchControls boundary={canvasBoundary} />}
           {!marketSceneVisible && !fetchActive && (
             <div className={styles["buttons-container"]}>
               <Dialog.Trigger asChild>
@@ -1798,13 +1858,15 @@ export default function GameCanvas() {
               <Popover.Content
                 className={styles["tile-popover"]}
                 style={{
-                  maxWidth: `min(${TILE_SIZE * 5}px, calc(100vw - 24px))`
+                  maxWidth: `min(${TILE_SIZE * 5}px, calc(100vw - 24px), var(--radix-popover-content-available-width))`
                 }}
                 side={showPopoverBelow ? "bottom" : "top"}
                 align="center"
                 sideOffset={10}
                 collisionPadding={12}
-                avoidCollisions={!showPopoverBelow}
+                collisionBoundary={canvasBoundary}
+                avoidCollisions
+                sticky="always"
                 onInteractOutside={event => {
                   event.preventDefault();
                 }}
@@ -1848,6 +1910,9 @@ export default function GameCanvas() {
                 >
                   Resources
                 </Tabs.Trigger>
+                <Tabs.Trigger className={styles["manage-tabs-trigger"]} value="farmer">
+                  Farmer
+                </Tabs.Trigger>
               </Tabs.List>
 
               <Tabs.Content
@@ -1866,8 +1931,15 @@ export default function GameCanvas() {
                         height={48}
                         draggable={false}
                       />
-                      Granary
+                      {granaryCount > 0 ? "Second granary" : "Granary"}
                     </h3>
+                    <p>
+                      2×2 · 2 minutes · {availableReed}/
+                      {FARM_BUILDING_DEFINITIONS.granary.materials.reed} reed ·{" "}
+                      {availableClay}/
+                      {FARM_BUILDING_DEFINITIONS.granary.materials.clay} clay
+                    </p>
+                    <p>Store and protect up to 15 additional barley.</p>
                     <button
                       disabled={!canBuildGranary}
                       onClick={() => {
@@ -1878,22 +1950,33 @@ export default function GameCanvas() {
                         setIsOpenManageDialog(false);
                       }}
                     >
-                      {farmLevel < 2
-                        ? "Unlock at level 2"
-                        : canBuildGranary
-                          ? "Build granary"
-                          : granaryLimitReached
-                            ? farmLevel < 8
-                              ? "Second granary unlocks at level 8"
-                              : "Granary limit reached (2)"
-                            : "Collect the required materials first"}
+                      {canBuildGranary
+                        ? "Build granary"
+                        : `Unlock at level ${granaryCount > 0 ? 8 : 2}`}
                     </button>
-                    <span>
-                      2×2 · 2 minutes · +15 barley storage · {availableReed}/
-                      {FARM_BUILDING_DEFINITIONS.granary.materials.reed} reed ·{" "}
-                      {availableClay}/
-                      {FARM_BUILDING_DEFINITIONS.granary.materials.clay} clay
-                    </span>
+                  </li>
+                  <li>
+                    <h3 className={styles["building-title"]}><img src={millImage} alt="" width={48} height={48} draggable={false} />Mill</h3>
+                    <p>2×2 · {FARM_BUILDING_DEFINITIONS.mill.constructionDurationMs / 60000} minutes · {availableReed}/{FARM_BUILDING_DEFINITIONS.mill.materials.reed} reed · {availableClay}/{FARM_BUILDING_DEFINITIONS.mill.materials.clay} clay</p>
+                    <p>Produce Flour or Brewer's Groats. The farmer is occupied during milling.</p>
+                    {farmLevel >= 5 && !canBuildMill && (
+                      <p>
+                        {farmState.type === "ready" && farmState.snapshot.farm.milling
+                          ? "Wait for the farmer to finish milling before building."
+                          : carriedItem !== null
+                            ? "Empty the farmer's hands before building."
+                            : "The Mill is unlocked. Collect 2 reed and 4 clay to build it."}
+                      </p>
+                    )}
+                    <button disabled={!canBuildMill}
+                      onClick={() => { clearSelection(); buildingPlacementStore.getState().startPlacement("mill"); setIsOpenManageDialog(false); }}>
+                      {farmLevel < 5
+                        ? "Unlock at level 5"
+                        : availableReed < FARM_BUILDING_DEFINITIONS.mill.materials.reed ||
+                            availableClay < FARM_BUILDING_DEFINITIONS.mill.materials.clay
+                          ? "Gather materials"
+                          : "Build Mill"}
+                    </button>
                   </li>
                   <li>
                     <h3 className={styles["building-title"]}>
@@ -1906,6 +1989,18 @@ export default function GameCanvas() {
                       />
                       Brewery
                     </h3>
+                    <p>
+                      2×2 · {FARM_BUILDING_DEFINITIONS.brewery.constructionDurationMs / 60000} minutes ·{" "}
+                      {availableReed}/{FARM_BUILDING_DEFINITIONS.brewery.materials.reed} reed ·{" "}
+                      {availableClay}/{FARM_BUILDING_DEFINITIONS.brewery.materials.clay} clay ·{" "}
+                      {availableVessels}/{FARM_BUILDING_DEFINITIONS.brewery.materials.brewingVessels} brewing jars
+                    </p>
+                    <p>
+                      Brew beer to trade or give the farmer as a happiness treat.
+                      Buy brewing jars at the NPC market for{" "}
+                      {MARKET_ITEM_DEFINITIONS.brewingVessels.npcMarket.buyPrice} shekels each.
+                      Materials are consumed when construction starts.
+                    </p>
                     <button
                       disabled={!canBuildBrewery}
                       onClick={() => {
@@ -1916,37 +2011,19 @@ export default function GameCanvas() {
                         setIsOpenManageDialog(false);
                       }}
                     >
-                      {farmLevel < 5
-                        ? "Unlock at level 5"
-                        : carriedItem !== null
-                          ? "Empty your hands first"
-                          : canBuildBrewery
-                            ? "Build brewery"
-                            : "Collect the required materials first"}
+                      {canBuildBrewery ? "Build brewery" : "Unlock at level 6"}
                     </button>
-                    <span>
-                      2×2 ·{" "}
-                      {FARM_BUILDING_DEFINITIONS.brewery
-                        .constructionDurationMs / 60000}{" "}
-                      minutes · {availableReed}/
-                      {FARM_BUILDING_DEFINITIONS.brewery.materials.reed} reed ·{" "}
-                      {availableClay}/
-                      {FARM_BUILDING_DEFINITIONS.brewery.materials.clay} clay ·{" "}
-                      {availableVessels}/
-                      {
-                        FARM_BUILDING_DEFINITIONS.brewery.materials
-                          .brewingVessels
-                      }{" "}
-                      brewing jars
-                    </span>
-                    <p>
-                      Buy a brewing jar at the NPC market for{" "}
-                      {
-                        MARKET_ITEM_DEFINITIONS.brewingVessels.npcMarket
-                          .buyPrice
-                      }{" "}
-                      shekels. Materials are consumed when construction starts.
-                    </p>
+                  </li>
+                  <li>
+                    <h3 className={styles["building-title"]}>
+                      <img src={breadOvenImage} alt="" width={48} height={48} draggable={false} />
+                      Bread Oven
+                    </h3>
+                    <p>Tile space, building time and materials to be confirmed.</p>
+                    <p>Turn Flour into bread. Planned for level 6; bread-making is coming soon.</p>
+                    <button disabled>
+                      Unlock at level 6
+                    </button>
                   </li>
                 </ul>
               </Tabs.Content>
@@ -1958,6 +2035,16 @@ export default function GameCanvas() {
                 <h2>Resources</h2>
                 {farmState.type === "ready" ? (
                   <div className={styles["resource-sections"]}>
+                    <section>
+                      <h3 className={styles["resource-title"]}>
+                        <img src={flourBagsImage} alt="" width={32} height={32} draggable={false} />
+                        Processed grain
+                      </h3>
+                      <dl className={styles["resource-list"]}>
+                        <div><dt>Flour</dt><dd>{farmState.snapshot.inventory.find(i => i.itemKey === "flour")?.quantity ?? 0}</dd></div>
+                        <div><dt>Brewer's Groats</dt><dd>{farmState.snapshot.inventory.find(i => i.itemKey === "brewersGroats")?.quantity ?? 0}</dd></div>
+                      </dl>
+                    </section>
                     <section>
                       <dl className={styles["resource-list"]}>
                         <div>
@@ -2090,7 +2177,7 @@ export default function GameCanvas() {
                       </dl>
                     </section>
 
-                    <section>
+                    <section data-locked={farmLevel < 4 ? "true" : undefined}>
                       <h3 className={styles["resource-title"]}>
                         <img
                           src={fishImage}
@@ -2101,6 +2188,7 @@ export default function GameCanvas() {
                         />
                         Fish
                       </h3>
+                      {farmLevel < 4 && <p>Unlocks at farm level 4.</p>}
                       <p>
                         Stored fish:{" "}
                         {farmState.type === "ready"
@@ -2110,7 +2198,7 @@ export default function GameCanvas() {
                           : 0}{" "}
                         / {FISH_CAPACITY}
                       </p>
-                      {(farmState.snapshot.inventory.find(
+                      {farmLevel >= 4 && (farmState.snapshot.inventory.find(
                         item => item.itemKey === "fish"
                       )?.quantity ?? 0) > 0 && (
                         <>
@@ -2191,6 +2279,11 @@ export default function GameCanvas() {
                   <p>Farm resources are loading…</p>
                 )}
               </Tabs.Content>
+              <Tabs.Content className={styles["manage-tabs-content"]} value="farmer">
+                {farmState.type === "ready"
+                  ? <FarmerPanel snapshot={farmState.snapshot} now={storageClock} />
+                  : <p>Farmer information is loading…</p>}
+              </Tabs.Content>
             </Tabs.Root>
             <Dialog.Close asChild>
               <button
@@ -2241,16 +2334,10 @@ export default function GameCanvas() {
                 Trade {marketScope} with the NPC market or buy listings from
                 other players.
               </Dialog.Description>
-              {farmLevel < (marketScope === "barley" ? 3 : 5) && (
+              {farmLevel < (marketScope === "barley" ? 3 : 6) && (
                 <p role="note">
                   This market unlocks at level{" "}
-                  {marketScope === "barley" ? 3 : 5}.
-                </p>
-              )}
-              {marketScope === "beer" && farmLevel >= 5 && farmLevel < 6 && (
-                <p>
-                  Beer trading unlocks at level 6. Brewing supplies are
-                  available now.
+                  {marketScope === "barley" ? 3 : 6}.
                 </p>
               )}
               {farmState.type === "ready" &&

@@ -53,6 +53,17 @@ export const advanceFarmLifecycle = async (
   farm: FarmRecord,
   now: Date
 ): Promise<FarmRecord> => {
+  if (farm.milling && Date.parse(farm.milling.completesAt) <= now.getTime()) {
+    const job = farm.milling;
+    const bags = farm.millGoods.pending[job.buildingId] ?? { flour: 0, brewersGroats: 0 };
+    const [completed] = await transaction.update(farms).set({ milling: null,
+      millGoods: { ...farm.millGoods, pending: { ...farm.millGoods.pending,
+        [job.buildingId]: { ...bags, [job.recipe]: bags[job.recipe] + job.output } } },
+      progressionStats: { ...farm.progressionStats, processedBarley: (farm.progressionStats.processedBarley ?? 0) + job.barley },
+      version: sql`${farms.version} + 1`, updatedAt: now
+    }).where(eq(farms.id, farm.id)).returning();
+    farm = completed!;
+  }
   await transaction
     .delete(farmGroundItems)
     .where(

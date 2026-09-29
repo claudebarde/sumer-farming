@@ -1,11 +1,20 @@
 import { match } from "ts-pattern";
 import type { FarmerCommand } from "../../stores/farmerCommandStore";
+import type { Tile } from "./types";
+
+export const getGroundArrivalMessage = (
+  adjacentTiles: readonly (Tile | undefined)[]
+): string => adjacentTiles.some(tile => tile?.type === "water")
+  ? "Build an irrigation canal here."
+  : "There is nothing here.";
 
 export type FarmerArrivalAlignment = "overlap" | "tile";
 export type CardinalDirection = "up" | "down" | "left" | "right";
 
 export const getFarmerArrivalAlignment = (command: FarmerCommand): FarmerArrivalAlignment =>
   match(command)
+    .with({ type: "store_mill_goods" }, () => "tile" as const)
+    .with({ type: "mill" }, () => "tile" as const)
     .with({ type: "fishing" }, () => "tile" as const)
     .with({ type: "brewery_supply" }, () => "tile" as const)
     .with({ type: "deposit", storage: "granary" }, () => "tile" as const)

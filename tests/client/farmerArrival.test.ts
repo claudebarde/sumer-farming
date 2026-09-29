@@ -1,5 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { getFarmerArrivalAlignment, getFarmerDestination } from "../../src/client/game/phaser/farmerArrival";
+import { getFarmerArrivalAlignment, getFarmerDestination, getGroundArrivalMessage } from "../../src/client/game/phaser/farmerArrival";
+import { gridStore } from "../../src/client/stores/gridStore";
+import type { Tile } from "../../src/client/game/phaser/types";
+
+describe("ground arrival at canvas boundaries", () => {
+  const tile = (column: number, row: number, type: Tile["type"] = "ground"): Tile => ({
+    id: `${column}:${row}`, type,
+    position: { column, row, posX: column * 64, posY: row * 64 }
+  });
+
+  it.each([[0, 0], [0, 1], [0, 2], [1, 0], [2, 0], [2, 1], [2, 2], [1, 2]])(
+    "safely inspects edge tile (%i, %i)", (column, row) => {
+      gridStore.getState().replaceGrid(Array.from({ length: 9 }, (_, i) => {
+        const entry = tile(i % 3, Math.floor(i / 3));
+        return { tile: entry, coordinate: entry.position };
+      }));
+      expect(getGroundArrivalMessage(Object.values(
+        gridStore.getState().findAdjacentTiles({ column, row })
+      ))).toBe("There is nothing here.");
+    }
+  );
+
+  it("finds river water after missing neighbours at the left edge", () => {
+    const water = tile(1, 0, "water");
+    gridStore.getState().replaceGrid([{ tile: water, coordinate: water.position }]);
+    expect(getGroundArrivalMessage(Object.values(
+      gridStore.getState().findAdjacentTiles({ column: 0, row: 0 })
+    ))).toBe("Build an irrigation canal here.");
+  });
+
+  it("handles an empty grid", () => {
+    gridStore.getState().replaceGrid([]);
+    expect(getGroundArrivalMessage(Object.values(
+      gridStore.getState().findAdjacentTiles({ column: 0, row: 0 })
+    ))).toBe("There is nothing here.");
+  });
+});
 
 describe("farmer arrival alignment", () => {
   const target = { column: 5, row: 2, posX: 320, posY: 128 };

@@ -1450,3 +1450,18 @@ Item/action popups must be no wider than five ground tiles, including padding
 and borders. Derive this cap from `TILE_SIZE`, shrink it to fit narrow viewports,
 and wrap descriptions and button labels. Reserve space for the close button when
 titles wrap. This cap does not apply to full dialogs such as markets or farm levels.
+
+## 34. Build drawer convention
+
+List buildings in unlock-level order. Each entry shows its sprite and name,
+then footprint, construction time and required materials, then its description,
+and finally its build button.
+
+Level-locked building buttons use exactly `Unlock at level [level]`, including
+future buildings. Use the relevant upgrade level for additional buildings (for
+example, level 8 for a second granary). Once unlocked, use `Build [building]`,
+even when disabled for missing materials or farmer availability; explain those
+blockers above the button. Do not imply an attained level is still locked.
+Keep material counts and any availability explanations above the button rather
+than substituting them for the standard disabled label. This is a wording rule;
+retain material, farmer-availability and building-limit validation.

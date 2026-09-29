@@ -45,7 +45,7 @@ export default function FarmLevelDialog() {
     } catch (cause) { setMessage(cause instanceof Error ? cause.message : "The level could not be claimed."); }
     finally { setPending(false); setClock(Date.now()); }
   };
-  const offering = progress.offering;
+  const offeringDescription = progress.offerings.map(offering => `${offering.quantity} ${offering.source === "processed_grain" ? "Flour or Brewer's Groats in any combination (Flour used first)" : offering.source === "fish" ? "stored fish" : offering.source === "ground_barley" ? "barley from the ground" : "barley from your granary"}`).join(" and ");
   return <Dialog.Root open={isOpen && location === "farm"} onOpenChange={levelUiStore.getState().setOpen}>
     <Dialog.Portal>
       <Dialog.Overlay className={styles["market-dialog-overlay"]} />
@@ -60,14 +60,23 @@ export default function FarmLevelDialog() {
           <h3>Level {progress.nextLevel} · {LEVEL_NAMES[progress.nextLevel]}</h3>
           <p>Unlocks: {LEVEL_UNLOCKS[progress.nextLevel]}</p>
           {progress.nextLevel === HAPPINESS_MANAGEMENT_LEVEL && <p>From level 4, happiness will decrease normally. Catch fish and feed your farmer to keep him happy; one fish treat is available every 8 hours.</p>}
-          <ul>{progress.requirements.map(r => <li key={r.label}>{r.label}: {r.current} / {r.required}{r.met ? " ✓" : ""}</li>)}</ul>
-          {offering && <p>Claiming this level consumes {offering.quantity} {offering.source === "fish" ? "stored fish" : offering.source === "ground_barley" ? "barley from the ground" : "barley from your granary"}.</p>}
-          {offering && offering.source !== "fish" && <p role={progress.seedSafe ? "note" : "alert"}>
-            {progress.seedSafe
+          <ul>{progress.requirements.map(r => <li key={r.label}>
+            {r.label}: {r.current} / {r.required}{" "}
+            <span className={styles["requirement-status"]} data-met={r.met}
+              role="img" aria-label={r.met ? "Requirement met" : "Requirement not met"}
+              title={r.met ? "Requirement met" : "Requirement not met"}>
+              {r.met ? "✓" : "✗"}
+            </span>
+          </li>)}</ul>
+          {offeringDescription && <p>Claiming this level consumes {offeringDescription}.</p>}
+          {progress.barleyCost > 0 && <p role={progress.seedSafe ? "note" : "alert"}>
+            {progress.level === 3
+              ? "Keep at least 1 unexpired barley on the ground or an already-planted barley field. The 15 barley in the full granary will be consumed; the ground barley or field is kept. Barley in farm storage or the farmer's hands does not meet this requirement."
+              : progress.seedSafe
               ? "You have spare seed or a planted barley field, so this offering is safe."
-              : `This action consumes ${offering.quantity} barley. You need ${offering.quantity + 1} barley in total to leave one to plant, or a barley field already planted. The level cannot be claimed until then.`}
+              : `This action consumes ${progress.barleyCost} barley. You need ${progress.barleyCost + 1} barley in total to leave one to plant, or a barley field already planted. The level cannot be claimed until then.`}
           </p>}
-          {!offering && <p>These are lifetime achievements; previously sold goods and completed deliveries are not charged again.</p>}
+          {progress.offerings.length === 0 && <p>These are lifetime achievements; previously sold goods and completed deliveries are not charged again.</p>}
           {progress.upcoming && <p>Levels 9–10 are upcoming: brewery expansion, then neighbourhood and cooperative systems. They cannot be claimed yet.</p>}
           <button className={styles["level-claim-button"]} disabled={pending || !progress.canClaim} onClick={() => { void claim(); }}>
             {!pending && !progress.canClaim && <LockClosedIcon aria-hidden="true" />}

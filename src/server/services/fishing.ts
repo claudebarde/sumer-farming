@@ -21,6 +21,7 @@ export const fishingAction = (db: Database, input: Input) => Effect.gen(function
       if (!loaded) return fail("The farm could not be found.");
       const now = Date.now();
       const farm = await advanceFarmLifecycle(tx, loaded, new Date(now));
+      if (farm.milling || farm.millGoods.delivery) return fail("The farmer is working in the Mill or delivering processed grain.");
       const [inventory] = await tx.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "fish")));
       const quantity = inventory?.quantity ?? 0;
       const update: Partial<typeof farms.$inferInsert> = {};

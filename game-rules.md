@@ -7,8 +7,10 @@ This is the living, player-facing reference for the game's implemented rules. Us
 ### Optional fetch game
 
 - Available from level 1: click the farm dog, then **Play Fetch** while the farmer is idle.
+- Clicking the dog opens a standard popup anchored to him, with a close button and **Play Fetch** action. It stays within the canvas edges. During a round, the separate gameplay controls show aiming instructions and **Stop playing**.
 - Outside fetch, the dog follows the farmer toward a clear neighbouring tile, keeping roughly one tile away. It goes around buildings, fields, canals, and the river, or waits if no route exists. When the farmer stops (including to plant or harvest), the dog continues catching up before sitting beside him. Normal farm updates never teleport it.
 - Fetch temporarily takes priority over following. If a round needs a different starting point, the dog walks there around obstacles before the run begins. It uses the standing pose while moving and sits when stopped.
+- While sitting, the dog occasionally looks the other way for one second, then returns to its original facing. These glances pause when it moves and have no gameplay effect.
 - The dog runs along a randomly selected clear, straight route. Its stopping distance is hidden; each run lasts 6–8 seconds, with a visible slowdown during the final quarter.
 - Aim the arrow from the farmer with the pointer and click to throw. On touchscreens, drag and release. Arrow keys adjust the aim and Space throws; Escape or **Stop playing** exits.
 - The temporary stick takes 0.65 seconds to land. It must land ahead of the dog, close to its route, and be reached before the dog stops. Behind, sideways, and overly distant throws lose the round. Only one throw is allowed per round; replay is free.
@@ -26,6 +28,8 @@ This is the living, player-facing reference for the game's implemented rules. Us
 
 Click the signpost on the left side of the estate, immediately above the road, to see your current level and the next level's requirements.
 
+The signpost displays the current farm level in gold. The number changes to a large golden **+** when the next level can be claimed, including the spare-seed safety check. After claiming, it shows the new level number (or **+** if the following level is already ready); if requirements are no longer met, it returns to the current level number.
+
 The signpost tile is permanently reserved. No part of a building's footprint may overlap it, and fields or irrigation canals cannot be placed on it.
 
 Leveling up is **manual**, not automatic. Meet every listed requirement, then press **Claim level**. The button stays disabled until the requirements and seed-safety check are satisfied. Required offerings are consumed when you claim the level, not while you are gathering them. Levels must be claimed in order.
@@ -37,13 +41,17 @@ Leveling up is **manual**, not automatic. Meet every listed requirement, then pr
 | 1 — First plot | Starting level | None | Irrigation, barley cultivation, farm storage |
 | 2 — Grain keeper | Harvest at least 5 barley yourself; have 5 usable barley on the ground | 5 ground barley | First granary |
 | 3 — Grain trader | Complete a granary; have 10 barley stored in granaries | 10 granary barley | Market entry and barley trading |
-| 4 — River provider | Sell at least 5 barley; complete at least 50 lifetime crop harvests | None | Fishing, fish storage, and normal happiness management |
-| 5 — Caring household | Have 3 stored fish; have fed the farmer at least 1 fish | 3 stored fish | Brewery construction and brewing supplies |
-| 6 — Brewer | Complete a brewery; produce and collect or serve at least 2 beer | None | Beer trading |
+| 4 — River provider | Sell at least 5 barley; complete at least 50 lifetime crop harvests; have a full granary (15 barley), plus at least 1 unexpired ground barley or an already-planted barley field | 15 barley from the full granary | Fishing, fish storage, and normal happiness management |
+| 5 — Caring household | Have 3 stored fish and 15 barley in completed granaries; have fed the farmer at least 1 fish; retain spare seed or an already-planted barley field | 3 stored fish and 15 granary barley | Mill and barley processing |
+| 6 — Brewer or Baker? | Complete a Mill; harvest 100 crop plantings over your lifetime (double the level-4 target); process 4 barley into either output; hold 2 processed goods in any combination | 2 Flour or Brewer's Groats, combined (Flour used first) | Brewery, brewing supplies and beer trading; Bread Oven upcoming |
 | 7 — Trusted supplier | Produce at least 6 beer; sell at least 2 beer | None | Merchant requests |
 | 8 — Growing estate | Fulfil at least 3 merchant requests | None | Second granary |
 
 Unlocking a building gives permission to construct it; the level claim does not build it or pay its construction materials.
+
+For level 4, the ground barley or planted field is retained. Farm-stored or carried barley does not satisfy this specific safeguard, and a field still being sown does not count yet.
+
+Design rule going forward: every level-up must consume resources. Levels 2–6 currently do; offerings for levels 7–8 still need to be chosen and implemented. Their current costs above remain unchanged until then.
 
 A successful level claim shows a congratulatory toast in the top-left corner with your new level, its name, and the unlocked features. It disappears after 8 seconds or can be dismissed manually.
 
@@ -63,7 +71,8 @@ A barley offering is blocked if it would leave you with no usable barley **and**
 
 - For level 2, exactly 5 ground barley with no other seed and no planted crop is **not enough**. Keep a sixth barley, or plant a field first.
 - For level 3, the same rule applies to the 10-barley offering: keep an eleventh usable barley somewhere outside the offering, or have a planted field.
-- Spare seed can be on the ground, carried by the farmer, stored in the farm, or stored in a completed granary.
+- For levels 2–3, spare seed can be on the ground, carried by the farmer, stored in the farm, or stored in a completed granary.
+- Level 4 specifically requires at least one unexpired ground barley or an already-planted field, in addition to the full granary offering.
 - Expired barley and barley delivered to a brewery do not count as spare seed.
 - An already-planted field may be growing or ready to harvest. A sowing action that has not finished does not count yet.
 
@@ -83,6 +92,7 @@ These future levels cannot be claimed yet, even if their previewed milestones ha
 - Planting requires suitable irrigated ground. Connect canals to the river; an isolated canal does not provide a working water supply.
 - Canal construction and removal each take 5 seconds.
 - Exposed barley on the ground or carried by the farmer perishes after **3 days**. Store it to protect it.
+- When carrying barley, the farm popup shows only the storage action; taking barley out is shown only with empty hands. Storage remains disabled if the farm is full.
 - The farmer can carry up to 2 barley at once.
 - The farm stores 5 barley. Each completed granary adds 15 storage, giving 20 total with one granary and 35 with two.
 - The brewery's barley supply is separate from general storage and cannot be used as a substitute granary.
@@ -94,7 +104,8 @@ Both buildings below occupy a 2 × 2 footprint and require suitable free space.
 | Building | Materials | Construction time | Availability |
 | --- | --- | --- | --- |
 | Granary | 2 reeds + 3 clay | 2 minutes | First at level 2; second at level 8; maximum 2 |
-| Brewery | 4 reeds + 6 clay + 2 brewing jars | 3 minutes | Level 5 |
+| Mill | 2 reeds + 4 clay | 2 minutes | Level 5 |
+| Brewery | 4 reeds + 6 clay + 2 brewing jars | 3 minutes | Level 6 |
 
 Storage bonuses and completed-building milestones apply only after construction finishes. Reeds and clay each take 10 seconds to gather.
 
@@ -128,6 +139,8 @@ Happiness cannot exceed 100 or fall below 0.
 
 Normal decay begins when level 4 unlocks fishing. The happiness clock starts fresh at that claim; time spent in the protected levels does not create a penalty afterward.
 
+Manage estate has a Farmer tab with Happiness and Next meal round meters, mood and meal guidance, and fish/beer treat actions. Fish unlocks at level 4 and beer at level 6. Treats require stock, happiness below 100%, and their independent cooldowns to be complete. The Resources tab keeps its existing treat shortcuts; both use the same inventory and cooldowns.
+
 - Above 50, happiness loses 1 point every **12 minutes**.
 - At or below 50, it loses 1 point every **6 hours**.
 - Without food or treats changing the score, 100 drops to 50 in 10 hours, then to 49 after another 6 hours.
@@ -148,7 +161,7 @@ Normal decay begins when level 4 unlocks fishing. The happiness clock starts fre
 | Treat | Happiness boost | Cooldown after giving it | First available |
 | --- | --- | --- | --- |
 | 1 stored fish | +10 | 8 hours | Level 4 |
-| 1 beer | +15 | 24 hours | Level 5, once beer is available |
+| 1 beer | +15 | 24 hours | Level 6, once beer is available |
 
 - Fish and beer have **independent cooldowns**. Giving one does not delay the other.
 - The first fish treat has no initial waiting period. Its cooldown begins when you actually give a fish.
@@ -160,6 +173,8 @@ Normal decay begins when level 4 unlocks fishing. The happiness clock starts fre
 ## Fishing
 
 - Fishing unlocks at level 4. Click the river with the farmer's hands empty and choose **Go fishing**.
+- Before level 4, the Fish block in Manage estate uses the disabled-button colours and shows its unlock level. It returns to its normal colours when unlocked.
+- The farm popup shows its stored fish count only from level 4 onward.
 - The farmer walks to the river. Aim ahead of the moving fish and click/tap to cast; keyboard controls use arrow keys to aim and Space to cast.
 - The cast lands after 400 milliseconds. There is a 2-second recovery between casts. Missing costs no resources.
 - Fish change direction and speed. Catching is an active minigame, not a guaranteed completion timer.
@@ -168,9 +183,15 @@ Normal decay begins when level 4 unlocks fishing. The happiness clock starts fre
 - The farm holds up to **5 fish**, separately from barley storage.
 - Fishing does not catch fish automatically while you are away. Stored fish currently do not spoil and cannot be sold or withdrawn.
 
+## Milling barley
+
+The Mill unlocks at level 5 and occupies 2×2 tiles. Each milling job consumes 2 barley and produces either 1 Flour or 1 Brewer's Groats after 5 minutes. The farmer visits a completed granary with barley by preference, otherwise the farm if it has barley, then carries the barley to the Mill. This single collection stop represents combined storage even when the granary has only one barley. Barley is deducted only when production starts at the Mill: carried barley first, then completed granaries, then farm storage. Carrying one barley means only one additional barley is taken from storage. If both required barley are already carried and storage is empty, the farmer goes straight to the Mill. Exposed ground barley must be picked up or stored first. Both outputs wait at the Mill until collected and delivered to a granary.
+
+Choose one recipe per job. The farmer walks to the Mill, then works inside it for the entire job. The busy Mill sprite indicates occupied labour: other farmer-dependent tasks, market visits, and fetch are unavailable until completion. Milling persists across reloads and completes while offline. Finished Flour and Brewer's Groats accumulate separately in a shared bag stack at the Mill, with a chip showing the total count. Click the stack and choose **Store**: with empty hands, the farmer collects all bags and delivers them to a completed granary. Only on delivery are the goods added to Resources and available for level offerings. The stack does not occupy arable land, and further batches can be made before collecting. Delivery survives reloads and does not use barley storage capacity. Neither output is currently tradeable. Bread Oven, Flour → Bread, and Brewer's Groats → Beer are future level-6 work.
+
 ## Brewing beer
 
-Brewing unlocks at level 5.
+Brewing unlocks at level 6. The existing barley-based beer recipe remains until the Brewer's Groats recipe is implemented.
 
 **Recipe:** 2 barley + 2 water loads + 2 empty beer jars → 2 filled beer jars in **1 hour**.
 
@@ -183,9 +204,14 @@ Brewing unlocks at level 5.
 
 ## Markets and shekels
 
+The farmer must unload carried items before entering the market scene. This includes
+processed-grain deliveries and barley being carried to the Mill. Clicking the market
+while carrying goods keeps the farmer on the farm and shows “Unload your items before
+going to the market.” in the bottom message bubble. Stored inventory does not block entry.
+
 - Market entry unlocks at **level 3**. Before then, clicking the building keeps you on the farm and shows the unlock message. The ground-barley Sell button is also disabled before level 3.
 - The barley stand handles barley. The beer stand handles beer and NPC brewing supplies.
-- Brewing supplies unlock at level 5; filled-beer trading unlocks at level 6.
+- Brewing supplies and filled-beer trading unlock at level 6.
 
 ### NPC prices
 
@@ -204,7 +230,9 @@ Players can also list barley and filled beer for other players to buy. Listings 
 
 The ground-barley Sell button is currently a placeholder, not a working shortcut. Use the barley market for actual sales after unlocking it.
 
-Market stand dialogs cannot open before their unlock level. The barley stand opens at level 3; the beer stand opens at level 5 for brewing supplies, with beer trading available at level 6. Clicking a locked stand shows its unlock level in the white communication bubble at the bottom of the canvas instead of opening its dialog. The stand's label stays unchanged.
+Market stand dialogs cannot open before their unlock level. The barley stand opens at level 3; the beer stand opens at level 6 for brewing supplies and beer trading. Clicking a locked stand shows its unlock level in the white communication bubble at the bottom of the canvas instead of opening its dialog. The stand's label stays unchanged.
+
+Clicking the estate's market building makes the farmer walk to the road tile beside it before entering the market scene. Clicking the farm building in the market likewise waits for arrival at its adjacent road entrance before returning home. Scene changes are based on arrival, not a fixed timer; a blocked route does not transport the farmer.
 
 ## Traveling merchant requests
 

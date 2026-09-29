@@ -1,4 +1,6 @@
 import { createStore } from "zustand/vanilla";
+import { farmStore } from "./farmStore";
+import type { MillRecipe } from "../../game-data/milling";
 import { match } from "ts-pattern";
 import type {
   Tile,
@@ -12,6 +14,8 @@ import { FARMER_CARRY_CAPACITY } from "../../game-data/storage";
 import type { GatherableResourceKey } from "../../game-data/resources";
 
 export type FarmerCommand =
+  | { readonly id: string; readonly type: "store_mill_goods"; readonly target: TilePosition; readonly millId: string; readonly granaryId: string }
+  | { readonly id: string; readonly type: "mill"; readonly recipe: MillRecipe; readonly target: TilePosition }
   | { readonly id: string; readonly type: "fishing"; readonly action: "start" | "store" | "release"; readonly target: TilePosition }
   | {
       readonly id: string;
@@ -95,6 +99,7 @@ export type CarriedItem = {
 } | null;
 
 export type FarmerStatus =
+  | { readonly type: "milling"; readonly commandId: string }
   | { readonly type: "idle" }
   | { readonly type: "moving"; readonly commandId: string }
   | { readonly type: "building"; readonly commandId: string }
@@ -133,6 +138,9 @@ export const farmerCommandStore = createStore<State>()(set => ({
 
   addCommand: command =>
     set(state => {
+      const farm = farmStore.getState().farm;
+      if (farm.type === "ready" && farm.snapshot.farm.milling) return {};
+      if (farm.type === "ready" && farm.snapshot.farm.millGoods.delivery && command.type !== "store_mill_goods") return {};
       if (state.carriedItem?.itemKey === "fish" && command.type !== "fishing") return {};
       if (command.type === "brewery_supply") {
         if (command.action === "collect_water" && state.carriedItem !== null) return {};

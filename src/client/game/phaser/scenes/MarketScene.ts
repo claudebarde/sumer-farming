@@ -14,6 +14,8 @@ export class MarketScene extends Phaser.Scene {
   create(): void {
     installSceneDomIsolation(this);
     let farmer: Phaser.GameObjects.Image | null = null;
+    let returningHome = false;
+    let returnMovement: Phaser.Tweens.Tween | null = null;
     let bottomDialog: Phaser.GameObjects.DOMElement | null = null;
     let bottomDialogTimer: Phaser.Time.TimerEvent | null = null;
     const clearBottomDialog = () => {
@@ -43,10 +45,14 @@ export class MarketScene extends Phaser.Scene {
       const carriedItem = farmerCommandStore.getState().carriedItem;
       farmer?.setTexture(spriteName(
         carriedItem?.itemKey === "fish" ? "farmerWithFish"
-          : carriedItem !== null ? "farmerHarvest3" : "farmerIdle0"
+          : carriedItem !== null ? "farmerHarvest3" : returningHome ? "farmerWalk0" : "farmerIdle0"
       )).setDisplaySize(TILE_SIZE, TILE_SIZE);
     };
     const draw = () => {
+      const resumeReturn = returningHome;
+      returnMovement?.stop();
+      returnMovement = null;
+      returningHome = false;
       clearBottomDialog();
       this.children.removeAll(true);
       const zoom = Math.min(1, this.scale.width / (10 * TILE_SIZE));
@@ -92,12 +98,28 @@ export class MarketScene extends Phaser.Scene {
         junction.setCrop(side * junction.width / 2, junction.height * 0.35, junction.width / 2, junction.height * 0.3);
       }
       const returnHome = () => {
-        marketUiStore.getState().setLocation("farm");
-        const farm = this.scene.get("main-scene");
-        farm.events.emit("return-from-market");
-        farm.input.enabled = true;
-        this.scene.setVisible(true, "main-scene");
-        this.scene.stop();
+        if (returningHome || !farmer) return;
+        returningHome = true;
+        this.input.enabled = false;
+        showBottomDialog("Going back to the farm...");
+        updateFarmer();
+        // The entrance is on the road directly below the left-hand farm tile.
+        const x = layout.farm.column * TILE_SIZE;
+        const y = (layout.farm.row + 2) * TILE_SIZE;
+        const arrive = () => {
+          returnMovement = null;
+          marketUiStore.getState().setLocation("farm");
+          const farm = this.scene.get("main-scene");
+          farm.events.emit("return-from-market");
+          farm.input.enabled = true;
+          this.scene.setVisible(true, "main-scene");
+          this.scene.stop();
+        };
+        const distance = Math.abs(farmer.x - x) + Math.abs(farmer.y - y);
+        if (distance === 0) { arrive(); return; }
+        farmer.setFlipX(x < farmer.x);
+        returnMovement = this.tweens.add({ targets: farmer, x, y,
+          duration: distance / TILE_SIZE * 180, ease: "Linear", onComplete: arrive });
       };
       this.add.image(0, layout.farm.row * TILE_SIZE, spriteName("farm"))
         .setOrigin(0).setDisplaySize(TILE_SIZE * 2, TILE_SIZE * 2)
@@ -112,7 +134,7 @@ export class MarketScene extends Phaser.Scene {
       }).setOrigin(0.5, 1);
       label(TILE_SIZE, layout.farm.row * TILE_SIZE, "Return to farm");
       layout.stands.forEach(({ column, row }, index) => {
-        const stand = this.add.image(column * TILE_SIZE, row * TILE_SIZE, spriteName("marketStand"))
+        const stand = this.add.image(column * TILE_SIZE, row * TILE_SIZE, spriteName(index === 1 ? "marketBeerStand" : "marketStand"))
           .setOrigin(0).setDisplaySize(TILE_SIZE * 2, TILE_SIZE * 2);
         // The remaining stand is decorative until it receives its own purpose.
         if (index < 2) {
@@ -142,6 +164,7 @@ export class MarketScene extends Phaser.Scene {
         spriteName("farmerIdle0")
       ).setOrigin(0).setDisplaySize(TILE_SIZE, TILE_SIZE);
       updateFarmer();
+      if (resumeReturn) returnHome();
     };
     draw();
     const unsubscribe = farmerCommandStore.subscribe((state, previous) => {
@@ -149,6 +172,9 @@ export class MarketScene extends Phaser.Scene {
     });
     this.scale.on(Phaser.Scale.Events.RESIZE, draw);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      returnMovement?.stop();
+      returnMovement = null;
+      this.input.enabled = true;
       clearBottomDialog();
       this.scale.off(Phaser.Scale.Events.RESIZE, draw);
       unsubscribe();

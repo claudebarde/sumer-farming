@@ -12,7 +12,7 @@ vi.mock("phaser", async () => {
   } };
 });
 
-class TestElement { style = { visibility: "" }; }
+class TestElement { style = { visibility: "", transform: "" }; }
 afterEach(() => vi.unstubAllGlobals());
 
 const setup = () => {
@@ -24,8 +24,9 @@ const setup = () => {
       game: { events: gameEvents }, sys: { settings: { visible: true, active: true } }
     };
     installSceneDomIsolation(scene as unknown as Phaser.Scene);
-    const add = () => {
+    const add = (positioned = true) => {
       const overlay = Object.assign(new Phaser.GameObjects.DOMElement({} as Phaser.Scene), { node: new TestElement() });
+      if (positioned) overlay.node.style.transform = "matrix(1, 0, 0, 1, 640, 6)";
       scene.events.emit("added", overlay);
       return overlay.node;
     };
@@ -35,6 +36,18 @@ const setup = () => {
 };
 
 describe("scene DOM isolation", () => {
+  it("hides a new granary chip until rendering positions it", () => {
+    const { gameEvents, makeScene } = setup();
+    const chip = makeScene().add(false);
+    expect(chip.style.visibility).toBe("hidden");
+    gameEvents.emit("prerender");
+    expect(chip.style.visibility).toBe("hidden");
+    chip.style.transform = "matrix(1, 0, 0, 1, 640, 6)";
+    gameEvents.emit("prerender");
+    expect(chip.style.visibility).toBe("");
+    expect(chip.style.transform).toBe("matrix(1, 0, 0, 1, 640, 6)");
+  });
+
   it("hides only the hidden scene and restores labels when returning", () => {
     const { gameEvents, makeScene } = setup();
     const farm = makeScene();

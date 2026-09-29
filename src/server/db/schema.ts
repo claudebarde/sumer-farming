@@ -209,10 +209,14 @@ export const marketTrades = pgTable("market_trades", {
   check("market_trades_distinct_players", sql`${table.buyerId} <> ${table.sellerId}`)
 ]);
 
+import { emptyMillGoods, type MillGoods, type MillingJob } from "../../game-data/milling";
+
 export const farms = pgTable(
   "farms",
   {
     fishing: jsonb("fishing").$type<FishingSession>(),
+    milling: jsonb("milling").$type<MillingJob>(),
+    millGoods: jsonb("mill_goods").$type<MillGoods>().notNull().default(emptyMillGoods()),
     level: integer("level").default(1).notNull(),
     progressionStats: jsonb("progression_stats").$type<ProgressionStats>().default(INITIAL_PROGRESSION_STATS).notNull(),
     id: uuid("id").defaultRandom().primaryKey(),

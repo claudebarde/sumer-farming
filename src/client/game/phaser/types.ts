@@ -28,10 +28,11 @@ type BasicTile = {
 
 export interface Tile extends BasicTile {
   readonly type: FarmSpriteName;
+  readonly millId?: string;
 }
 
 export type Crop = CropKey;
 
-export type Build = "irrigation" | "granary" | "brewery";
+export type Build = "irrigation" | "granary" | "brewery" | "mill";
 
 export type InteractiveObject = InventoryItemKey;

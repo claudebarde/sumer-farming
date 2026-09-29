@@ -9,10 +9,10 @@ describe("market entry progression", () => {
     expect(canOpenMarketStand("beer", level)).toBe(false);
   });
 
-  it("opens barley at level 3 and brewing supplies at level 5", () => {
+  it("opens barley at level 3 and brewing supplies at level 6", () => {
     expect(canOpenMarketStand("barley", 2)).toBe(false);
     expect(canOpenMarketStand("barley", 3)).toBe(true);
-    expect(canOpenMarketStand("beer", 5)).toBe(true);
+    expect(canOpenMarketStand("beer", 5)).toBe(false);
     expect(canOpenMarketStand("beer", 6)).toBe(true);
     expect(canOpenMarketStand("beer")).toBe(false);
   });

@@ -3,6 +3,7 @@
 import { Effect, Either } from "effect";
 import { eq } from "drizzle-orm";
 import { commandUnlockLevel } from "../game-core/farm/commandUnlock";
+import { startMilling, deliverMillGoods, MillingRuleError, MillingPersistenceError } from "./services/milling";
 import { isProgressionSignpost } from "../game-data/progression";
 import { claimFarmLevel, LevelClaimRuleError, LevelClaimPersistenceError } from "./services/claimFarmLevel";
 import { Hono } from "hono";
@@ -116,6 +117,8 @@ app.use("/api/*", async (c, next) => {
 type GameActionEffect = Effect.Effect<
   FarmSnapshot,
   | BuildIrrigationError
+  | MillingRuleError
+  | MillingPersistenceError
   | LevelClaimRuleError
   | LevelClaimPersistenceError
   | FishingRuleError
@@ -364,6 +367,8 @@ app.post("/api/game/action", async c => {
       Effect.either(
         match(command)
           .returnType<GameActionEffect>()
+          .with({ type: "start_milling" }, command => startMilling(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: "mill_delivery" }, command => deliverMillGoods(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "claim_farm_level" }, command => claimFarmLevel(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: P.union("fishing", "cast_fishing", "cancel_fishing") }, command => fishingAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "brewery_supply" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
@@ -376,9 +381,9 @@ app.post("/api/game/action", async c => {
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
-          .with({ type: P.union("build_granary", "build_brewery") }, command =>
+          .with({ type: P.union("build_granary", "build_brewery", "build_mill") }, command =>
             buildFarmBuilding(database, {
-              building: command.type === "build_brewery" ? "brewery" : "granary",
+              building: command.type === "build_mill" ? "mill" : command.type === "build_brewery" ? "brewery" : "granary",
               playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
@@ -523,6 +528,11 @@ app.post("/api/game/action", async c => {
     }
 
     return match(result.left)
+      .with(P.instanceOf(MillingRuleError), error => c.json({ error: { type: "milling_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(MillingPersistenceError), error => {
+        console.error("Milling failed", error.cause);
+        return c.json({ error: { type: "milling_failed", message: "Milling could not start." } }, 500);
+      })
       .with(P.instanceOf(BrewerySupplyRuleError), error => c.json({ error: { type: error.type, message: error.message } }, 409))
       .with(P.instanceOf(FarmerUnavailableError), error => c.json({ error: { type: "farmer_busy", message: error.message } }, 409))
       .with(P.instanceOf(LevelClaimRuleError), error => c.json({ error: { type: "level_claim_unavailable", message: error.message } }, 409))

@@ -24,29 +24,41 @@ export const claimFarmLevel = (database: Database, input: {
       const now = Date.now();
       const progress = evaluateProgression(snapshot, now);
       if (!progress.canClaim) return new LevelClaimRuleError({ message: !progress.seedSafe
-        ? "Keep one extra barley to plant, or have a planted barley field, before consuming this offering."
+        ? progress.level === 3
+          ? "Keep at least one unexpired barley on the ground, or have an already-planted barley field, before consuming the 15 granary barley."
+          : "Keep one extra barley to plant, or have a planted barley field, before consuming this offering."
         : "Complete all requirements before claiming the next level." });
-      const offering = progress.offering;
-      if (offering?.source === "ground_barley") {
-        let remaining = offering.quantity;
-        for (const item of snapshot.groundItems.filter(i => i.itemKey === "barley" && i.expiresAt !== null && Date.parse(i.expiresAt) > now)) {
-          const take = Math.min(remaining, item.quantity);
-          if (take === 0) break;
-          if (take === item.quantity) await tx.delete(farmGroundItems).where(eq(farmGroundItems.id, item.id));
-          else await tx.update(farmGroundItems).set({ quantity: item.quantity - take }).where(eq(farmGroundItems.id, item.id));
-          remaining -= take;
+      for (const offering of progress.offerings) {
+        if (offering.source === "ground_barley") {
+          let remaining = offering.quantity;
+          for (const item of snapshot.groundItems.filter(i => i.itemKey === "barley" && i.expiresAt !== null && Date.parse(i.expiresAt) > now)) {
+            const take = Math.min(remaining, item.quantity);
+            if (take === 0) break;
+            if (take === item.quantity) await tx.delete(farmGroundItems).where(eq(farmGroundItems.id, item.id));
+            else await tx.update(farmGroundItems).set({ quantity: item.quantity - take }).where(eq(farmGroundItems.id, item.id));
+            remaining -= take;
+          }
+        } else if (offering.source === "granary_barley") {
+          let remaining = offering.quantity;
+          for (const building of snapshot.buildings.filter(b => b.type === "granary" && Date.parse(b.completesAt) <= now &&
+            (progress.level !== 3 || b.storedBarley >= offering.quantity))) {
+            const take = Math.min(remaining, building.storedBarley);
+            if (take > 0) await tx.update(farmBuildings).set({ storedBarley: building.storedBarley - take }).where(eq(farmBuildings.id, building.id));
+            remaining -= take;
+            if (remaining === 0) break;
+          }
+        } else if (offering.source === "processed_grain") {
+          let remaining = offering.quantity;
+          for (const itemKey of ["flour", "brewersGroats"] as const) {
+            const quantity = snapshot.inventory.find(i => i.itemKey === itemKey)?.quantity ?? 0;
+            const take = Math.min(remaining, quantity);
+            if (take > 0) await tx.update(farmInventory).set({ quantity: quantity - take }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, itemKey)));
+            remaining -= take;
+          }
+        } else if (offering.source === "fish") {
+          await tx.update(farmInventory).set({ quantity: sql`${farmInventory.quantity} - ${offering.quantity}` })
+            .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "fish")));
         }
-      } else if (offering?.source === "granary_barley") {
-        let remaining = offering.quantity;
-        for (const building of snapshot.buildings.filter(b => b.type === "granary" && Date.parse(b.completesAt) <= now)) {
-          const take = Math.min(remaining, building.storedBarley);
-          if (take > 0) await tx.update(farmBuildings).set({ storedBarley: building.storedBarley - take }).where(eq(farmBuildings.id, building.id));
-          remaining -= take;
-          if (remaining === 0) break;
-        }
-      } else if (offering?.source === "fish") {
-        await tx.update(farmInventory).set({ quantity: sql`${farmInventory.quantity} - ${offering.quantity}` })
-          .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "fish")));
       }
       const [updated] = await tx.update(farms).set({ level: farm.level + 1,
         ...(farm.level + 1 === HAPPINESS_MANAGEMENT_LEVEL ? { happinessCheckedAt: new Date(now) } : {}),

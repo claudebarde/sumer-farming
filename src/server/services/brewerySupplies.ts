@@ -32,7 +32,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           eq(farmCrops.farmId, farm.id),
           sql`(${gt(farmCrops.plantedAt, now)} OR ${isNotNull(farmCrops.harvestStartedAt)})`
         )).limit(1);
-        if (farm.gatheringItemKey !== null || workingCrop) return new BrewerySupplyRuleError({ type: "farmer_busy", message: "The farmer is busy." });
+        if (farm.milling || farm.millGoods.delivery || farm.gatheringItemKey !== null || workingCrop) return new BrewerySupplyRuleError({ type: "farmer_busy", message: "The farmer is busy." });
         const snapshot = await readFarmSnapshot(transaction, farm, false);
         // Estate gifts do not require a brewery or consume a brewery's ready batch.
         if (input.type === "give_farmer_beer" || input.type === "give_farmer_fish") {

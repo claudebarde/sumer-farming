@@ -1,5 +1,6 @@
 import { z } from "zod";
 export const ProgressionStatsSchema = z.object({
+  processedBarley: z.int().nonnegative().default(0),
   harvestedBarley: z.int().nonnegative(), harvests: z.int().nonnegative(),
   beerProduced: z.int().nonnegative(), fishFed: z.int().nonnegative()
 });
