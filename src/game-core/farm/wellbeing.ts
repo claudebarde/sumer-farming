@@ -1,4 +1,14 @@
 import { HUNGRY_FARMER_MOVEMENT_DURATION_MULTIPLIER } from "../../game-data/household";
+import { BREAD_HAPPINESS_BOOST, BREAD_TREAT_INTERVAL_MS } from "../../game-data/household";
+
+export const breadTreatErrors = {
+  no_bread: "Store or buy bread first.",
+  bread_cooldown: "The farmer can receive one bread every 12 hours.",
+  happiness_full: "The farmer's happiness is already full."
+} as const;
+export const validateBreadTreat = (quantity: number, happiness: number, lastAt: number | null, now: number): keyof typeof breadTreatErrors | null =>
+  lastAt !== null && now < lastAt + BREAD_TREAT_INTERVAL_MS ? "bread_cooldown" : quantity < 1 ? "no_bread" : happiness >= 100 ? "happiness_full" : null;
+export const happinessAfterBread = (happiness: number): number => Math.min(100, happiness + BREAD_HAPPINESS_BOOST);
 import { HAPPINESS_MANAGEMENT_LEVEL, INTRODUCTORY_HAPPINESS_FLOOR } from "../../game-data/household";
 import { HAPPY_DECAY_POINT_MS, CONTENT_DECAY_POINT_MS, BARLEY_CONSUMPTION_INTERVAL_MS } from "../../game-data/household";
 import { BEER_HAPPINESS_BOOST, BEER_TREAT_INTERVAL_MS, FISH_HAPPINESS_BOOST, FISH_TREAT_INTERVAL_MS } from "../../game-data/household";

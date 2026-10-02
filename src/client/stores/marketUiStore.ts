@@ -1,12 +1,18 @@
 import { createStore } from "zustand/vanilla";
 
-export type MarketScope = "barley" | "beer";
+export type MarketScope = "barley" | "beer" | "bread";
+export const MARKET_TITLES: Record<MarketScope, string> = {
+  barley: "Barley market", beer: "Beer market", bread: "Baking market"
+};
 export const marketIncludesItem = (
   scope: MarketScope,
   itemKey: string,
   trade?: { readonly market: "npc" | "player"; readonly action: "buy" | "sell" }
 ): boolean =>
   scope === itemKey ||
+  (scope === "bread" && itemKey === "flour") ||
+  (scope === "beer" && itemKey === "brewersGroats") ||
+  (scope === "bread" && (itemKey === "bakingTools" || itemKey === "donkey") && trade?.market === "npc" && trade.action === "buy") ||
   (scope === "beer" && (itemKey === "emptyBeerJar" || itemKey === "brewingVessels") &&
     trade?.market === "npc" && trade.action === "buy");
 

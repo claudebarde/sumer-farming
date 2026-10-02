@@ -52,7 +52,7 @@ h1 {
   }
 }
 
-button {
+button:not(.nes-btn) {
   background-color: $color-sand;
   border: $container-border;
   border-radius: $container-border-radius;
@@ -98,6 +98,17 @@ button:focus-visible {
   font-style: normal;
   font-size: 0.7rem;
   background-color: white;
+
+  .nes-btn {
+    font: inherit;
+    white-space: normal;
+    max-width: 100%;
+  }
+
+  .nes-btn:focus-visible {
+    outline: 2px solid $color-ink;
+    outline-offset: 6px;
+  }
 }
 
 .farm-inventory-chip {

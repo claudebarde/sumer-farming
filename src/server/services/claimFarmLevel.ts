@@ -61,6 +61,13 @@ export const claimFarmLevel = (database: Database, input: {
         }
       }
       const [updated] = await tx.update(farms).set({ level: farm.level + 1,
+        ...(farm.level === 5 ? { progressionStats: {
+          ...snapshot.farm.progression!.stats,
+          level6Baseline: {
+            produced: snapshot.farm.progression!.stats.beerProduced + (snapshot.farm.progression!.stats.breadProduced ?? 0),
+            sold: snapshot.farm.progression!.beerSold + snapshot.farm.progression!.breadSold
+          }
+        } } : {}),
         ...(farm.level + 1 === HAPPINESS_MANAGEMENT_LEVEL ? { happinessCheckedAt: new Date(now) } : {}),
         version: sql`${farms.version} + 1`, updatedAt: new Date() }).where(eq(farms.id, farm.id)).returning();
       return readFarmSnapshot(tx, updated!, false);

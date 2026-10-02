@@ -11,6 +11,7 @@
 
 ## Later
 
+- [ ] Add production animations so busy buildings are visibly active: chimney smoke from the Bread Oven while baking, the farmer turning the millstone while milling, and a suitable brewing animation for the Brewery. Start and stop animations with the actual production state, including after reloads, and keep idle/completed buildings visually distinct.
 - [ ] Show a small progress bar above each building under construction on the canvas, with the remaining construction time. Keep it updated as construction progresses and remove it when the building is complete.
 - [ ] Start new players without a prebuilt farm building and guide them through collecting reed and clay, then placing and constructing their first farm. Use this opening tutorial to teach material gathering and building before normal farming progression begins; ensure the required resources are accessible without an existing farm.
 - [ ] Generate PNG resource images for shekels, beer (filled beer jars), brewing jars, and empty beer jars, matching the existing art style. Register them in the sprite inventory/manifests and add thumbnails to the Resources panel.

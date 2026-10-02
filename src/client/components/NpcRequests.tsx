@@ -77,8 +77,8 @@ export default function NpcRequests({ onDelivered }: { readonly onDelivered: () 
         return <section key={request.slot} className={styles["market-item"]}>
           <h3>{request.customer}</h3>
           <p>{request.description}</p>
-          {request.barley > 0 && <p>Barley: {board.stock.barley} / {request.barley}</p>}
-          {request.beer > 0 && <p>Beer jars: {board.stock.beer} / {request.beer}</p>}
+          {request.barley > 0 && <p>Deliver {request.barley} barley (you have {board.stock.barley})</p>}
+          {request.beer > 0 && <p>Deliver {request.beer} {request.beer === 1 ? "beer jar" : "beer jars"} (you have {board.stock.beer})</p>}
           <p>Reward: {request.reward} shekels</p>
           {request.completed ? <p>Delivered ✓</p> : <>
             {enough && request.barley > 0 && board.stock.barley - request.barley < 1 && <p role="note">This delivery would leave no barley for the farmer’s next ration.</p>}

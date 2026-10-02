@@ -12,14 +12,15 @@ export const INITIAL_FARM_CONFIG = {
     minimumColumn: 0,
     maximumColumn: 7,
     minimumRow: 0,
-    maximumRow: 7
+    maximumRow: 8
   },
   buildingBounds: {
-    minimumColumn: 3,
-    maximumColumn: 4,
-    minimumRow: 0,
-    maximumRow: 1
+    minimumColumn: 1,
+    maximumColumn: 2,
+    minimumRow: 3,
+    maximumRow: 4
   },
+  farmerSpawn: { column: 1, row: 5 },
   riverRow: 10,
   roadRow: 5,
   objectCount: {

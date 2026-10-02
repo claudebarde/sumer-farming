@@ -246,6 +246,48 @@
       "when": 1790700799761,
       "tag": "0034_mill-output-bags",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790755223142,
+      "tag": "0035_bread-oven-and-production-delivery",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790775757643,
+      "tag": "0036_roads-and-loading-tiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790791337567,
+      "tag": "0037_bread-treat",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790842420241,
+      "tag": "0038_batch-harvest-carry-capacity",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1790850795373,
+      "tag": "0039_level-seven-granary-capacity",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790855527459,
+      "tag": "0040_mill-donkey",
+      "breakpoints": true
     }
   ]
 }

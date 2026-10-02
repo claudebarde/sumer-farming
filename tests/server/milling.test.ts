@@ -54,7 +54,7 @@ describe("persistent single-farmer milling", () => {
     const ready = await f.finish();
     expect(ready.farm.millGoods.pending[f.mill.id]).toEqual({ flour: 1, brewersGroats: 1 });
     const [granary] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "granary", column: 5, row: 0, storedBarley: 15, startedAt: new Date(0), completesAt: new Date(1000) }).returning();
-    const input = { type: "mill_delivery" as const, playerId: f.playerId, millId: f.mill.id, granaryId: granary!.id };
+    const input = { type: "mill_delivery" as const, playerId: f.playerId, millId: f.mill.id };
     const picked = await Effect.runPromise(deliverMillGoods(db, { ...input, action: "pickup", expectedFarmVersion: ready.farm.version }));
     expect(picked.farm.millGoods.pending[f.mill.id]).toBeUndefined();
     expect(picked.inventory.find(i => i.itemKey === "flour")?.quantity ?? 0).toBe(0);
@@ -73,13 +73,16 @@ describe("persistent single-farmer milling", () => {
     expect((await f.read()).inventory.find(i => i.itemKey === "flour")?.quantity).toBe(1);
   });
 
-  it("requires a completed owned granary and leaves bags untouched on failure", async () => {
+  it("stores mill bags at the farm without requiring a granary", async () => {
     const f = await fixture();
     await f.start("flour");
     const ready = await f.finish();
-    const result = await Effect.runPromise(Effect.flip(deliverMillGoods(db, { type: "mill_delivery", action: "pickup", playerId: f.playerId, millId: f.mill.id, granaryId: randomUUID(), expectedFarmVersion: ready.farm.version })));
-    expect(result._tag).toBe("MillingRuleError");
-    expect((await f.read()).farm.millGoods.pending[f.mill.id]?.flour).toBe(1);
+    const input = { type: "mill_delivery" as const, playerId: f.playerId, millId: f.mill.id };
+    const picked = await Effect.runPromise(deliverMillGoods(db, { ...input, action: "pickup", expectedFarmVersion: ready.farm.version }));
+    expect(picked.inventory.find(i => i.itemKey === "flour")).toBeUndefined();
+    const stored = await Effect.runPromise(deliverMillGoods(db, { ...input, action: "store", expectedFarmVersion: picked.farm.version }));
+    expect(stored.inventory.find(i => i.itemKey === "flour")?.quantity).toBe(1);
+    expect(stored.farm.millGoods.delivery).toBeNull();
   });
   it.each(["flour", "brewersGroats"] as const)("visits a stocked granary and combines stocks for %s", async recipe => {
     const f = await fixture(3);
@@ -165,9 +168,8 @@ describe("persistent single-farmer milling", () => {
     await f.start(choice === "mixed" ? "brewersGroats" : choice);
     const pending = await f.finish();
     expect(evaluateProgression(pending, Date.now()).canClaim).toBe(false);
-    const [granary] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "granary", column: 5, row: 0, storedBarley: 15, startedAt: new Date(0), completesAt: new Date(1000) }).returning();
-    const picked = await Effect.runPromise(deliverMillGoods(db, { type: "mill_delivery", action: "pickup", playerId: f.playerId, millId: f.mill.id, granaryId: granary!.id, expectedFarmVersion: pending.farm.version }));
-    const ready = await Effect.runPromise(deliverMillGoods(db, { type: "mill_delivery", action: "store", playerId: f.playerId, millId: f.mill.id, granaryId: granary!.id, expectedFarmVersion: picked.farm.version }));
+    const picked = await Effect.runPromise(deliverMillGoods(db, { type: "mill_delivery", action: "pickup", playerId: f.playerId, millId: f.mill.id, expectedFarmVersion: pending.farm.version }));
+    const ready = await Effect.runPromise(deliverMillGoods(db, { type: "mill_delivery", action: "store", playerId: f.playerId, millId: f.mill.id, expectedFarmVersion: picked.farm.version }));
     const belowTarget = { ...ready, farm: { ...ready.farm, progression: { ...ready.farm.progression!, stats: { ...ready.farm.progression!.stats, harvests: 99 } } } };
     const requirement = evaluateProgression(belowTarget, Date.now()).requirements.find(r => r.label === "Crop plantings harvested");
     expect(requirement).toMatchObject({ current: 99, required: 100, met: false });

@@ -1,0 +1,2 @@
+ALTER TABLE "farms" DROP CONSTRAINT "farms_carried_item_quantity_in_range";--> statement-breakpoint
+ALTER TABLE "farms" ADD CONSTRAINT "farms_carried_item_quantity_in_range" CHECK ("farms"."carried_item_quantity" >= 0 AND "farms"."carried_item_quantity" <= CASE WHEN "farms"."carried_item_key" = 'barley' THEN 8 ELSE 2 END);

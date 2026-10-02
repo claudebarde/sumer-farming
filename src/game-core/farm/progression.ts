@@ -1,4 +1,5 @@
 import { match } from "ts-pattern";
+import { LEVEL_7_REQUIRED_PRODUCTION, LEVEL_7_REQUIRED_SALES, LEVEL_8_REQUIRED_GRANARY_BARLEY, type ProgressionStats } from "../../game-data/progression";
 import { LEVEL_6_PROCESSED_BARLEY, LEVEL_6_PROCESSED_GOODS_OFFERING } from "../../game-data/milling";
 import type { FarmSnapshot } from "../../schemas/farm";
 import { INITIAL_PROGRESSION_STATS, LEVEL_4_REQUIRED_HARVESTS, LEVEL_6_REQUIRED_HARVESTS, LEVEL_4_BARLEY_OFFERING, LEVEL_5_BARLEY_OFFERING, MAX_PLAYABLE_LEVEL } from "../../game-data/progression";
@@ -7,7 +8,12 @@ export type LevelOffering = { readonly source: "ground_barley" | "granary_barley
 export const evaluateProgression = (snapshot: FarmSnapshot, now: number) => {
   const progress = snapshot.farm.progression;
   const level = progress?.level ?? 1;
-  const stats = progress?.stats ?? INITIAL_PROGRESSION_STATS;
+  const stats: ProgressionStats = progress?.stats ?? INITIAL_PROGRESSION_STATS;
+  const produced = stats.beerProduced + (stats.breadProduced ?? 0);
+  const sold = (progress?.beerSold ?? 0) + (progress?.breadSold ?? 0);
+  // Until an old save has a baseline, never treat lifetime totals as level-6 progress.
+  const level6Produced = Math.max(0, produced - (stats.level6Baseline?.produced ?? produced));
+  const level6Sold = Math.max(0, sold - (stats.level6Baseline?.sold ?? sold));
   const completed = snapshot.buildings.filter(b => Date.parse(b.completesAt) <= now);
   const ground = snapshot.groundItems.filter(i => i.itemKey === "barley" && i.expiresAt !== null && Date.parse(i.expiresAt) > now);
   const groundBarley = ground.reduce((sum, i) => sum + i.quantity, 0);
@@ -29,8 +35,10 @@ export const evaluateProgression = (snapshot: FarmSnapshot, now: number) => {
       requirement("Crop plantings harvested", stats.harvests, LEVEL_6_REQUIRED_HARVESTS),
       requirement("Barley processed into Flour or Brewer's Groats", stats.processedBarley ?? 0, LEVEL_6_PROCESSED_BARLEY),
       requirement("Flour or Brewer's Groats (combined offering)", snapshot.inventory.filter(i => i.itemKey === "flour" || i.itemKey === "brewersGroats").reduce((sum, i) => sum + i.quantity, 0), LEVEL_6_PROCESSED_GOODS_OFFERING)])
-    .with(6, () => [requirement("Beer produced", stats.beerProduced, 6), requirement("Beer sold", progress?.beerSold ?? 0, 2)])
-    .with(7, () => [requirement("Merchant requests fulfilled", progress?.requestsDelivered ?? 0, 3)])
+    .with(6, () => [requirement("Bread or beer produced at level 6", level6Produced, LEVEL_7_REQUIRED_PRODUCTION), requirement("Bread or beer sold at level 6", level6Sold, LEVEL_7_REQUIRED_SALES)])
+    .with(7, () => [requirement("Merchant requests fulfilled", progress?.requestsDelivered ?? 0, 3),
+      requirement("Barley stored in the granary", granaryBarley, LEVEL_8_REQUIRED_GRANARY_BARLEY),
+      requirement("Mill donkey purchased", snapshot.inventory.find(i => i.itemKey === "donkey")?.quantity ?? 0, 1)])
     .with(8, () => [requirement("Completed granaries", completed.filter(b => b.type === "granary").length, 2), requirement("Barley harvested", stats.harvestedBarley, 50), requirement("Beer produced", stats.beerProduced, 12)])
     .otherwise(() => []);
   const offerings: readonly LevelOffering[] = match(level)

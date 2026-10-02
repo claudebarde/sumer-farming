@@ -1,9 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { scheduleActionDeadline } from "../../src/client/game/phaser/actionDeadline";
+import { ROAD_CONSTRUCTION_DURATION_MS, roadIsComplete } from "../../src/game-data/roads";
 
 describe("action deadlines after tab suspension", () => {
   beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(0); });
   afterEach(() => vi.useRealTimers());
+  it("keeps a road under construction for exactly five seconds", () => {
+    const road = { column: 0, row: 4, completesAt: Date.now() + ROAD_CONSTRUCTION_DURATION_MS };
+    const finish = vi.fn();
+    scheduleActionDeadline(road.completesAt, finish);
+    vi.advanceTimersByTime(4999);
+    expect(roadIsComplete(road, Date.now())).toBe(false);
+    expect(finish).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(roadIsComplete(road, Date.now())).toBe(true);
+    expect(finish).toHaveBeenCalledTimes(1);
+    expect(roadIsComplete({ column: 0, row: 4 }, 0)).toBe(true);
+  });
 
   it("finishes overdue sowing immediately on return, exactly once", () => {
     const finish = vi.fn();

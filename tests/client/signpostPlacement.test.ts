@@ -12,7 +12,7 @@ describe("reserved level signpost tile", () => {
         availableMaterials: { reed: 100, clay: 100, brewingVessels: 2 } }))
         .toEqual({ type: "footprint_occupied" });
     }
-    expect(validateBuildingPlacement({ building, existingBuildings: [], target: { column: 1, row: 3 },
+    expect(validateBuildingPlacement({ building, existingBuildings: [], target: { column: 3, row: 3 },
       occupiedCoordinates: new Set(), carriedItem: null,
       availableMaterials: { reed: 100, clay: 100, brewingVessels: 2 } })).toEqual({ type: "valid" });
   });
@@ -21,6 +21,6 @@ describe("reserved level signpost tile", () => {
     expect(validateCultivation({ target: PROGRESSION_SIGNPOST, crop: "barley", carriedItem: "barley",
       occupiedCoordinates: [], activeCanals: [] })).toEqual({ type: "outside_arable_plot" });
     expect(validateIrrigationLocation(PROGRESSION_SIGNPOST)).toEqual({ type: "reserved_tile" });
-    expect(validateIrrigationLocation({ column: 1, row: 4 })).toEqual({ type: "valid" });
+    expect(validateIrrigationLocation({ column: 3, row: 4 })).toEqual({ type: "valid" });
   });
 });

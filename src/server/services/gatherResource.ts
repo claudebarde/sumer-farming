@@ -5,7 +5,7 @@ import { match } from "ts-pattern";
 
 import type { FarmCoordinate } from "../../game-core/farm/irrigation";
 import { getBuildingFootprint } from "../../game-core/farm/buildings";
-import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
+import { isGatherableRiverbank } from "../../game-core/farm/worldBounds";
 import {
   RESOURCE_DEFINITIONS,
   type GatherableResourceKey
@@ -69,20 +69,6 @@ type CompleteGatherResourceInput = {
 type DatabaseOutcome =
   | { readonly type: "success"; readonly snapshot: FarmSnapshot }
   | { readonly type: "rule_error"; readonly rule: GatherResourceRule };
-
-const isInsideWorld = ({ column, row }: FarmCoordinate): boolean => {
-  const { worldBounds } = INITIAL_FARM_CONFIG;
-
-  return (
-    column >= worldBounds.minimumColumn &&
-    column <= worldBounds.maximumColumn &&
-    row >= worldBounds.minimumRow &&
-    row <= worldBounds.maximumRow
-  );
-};
-
-const isAdjacentToRiver = ({ row }: FarmCoordinate): boolean =>
-  Math.abs(row - INITIAL_FARM_CONFIG.riverRow) === 1;
 
 const isTileEmpty = async (
   transaction: DatabaseTransaction,
@@ -249,8 +235,7 @@ export const startGatherResource = (
           );
 
           const validLocation =
-            isInsideWorld(input.target) &&
-            isAdjacentToRiver(input.target) &&
+            isGatherableRiverbank(input.target) &&
             (input.itemKey === "reed"
               ? await hasReedSource(transaction, farm.id, input.target)
               : await isTileEmpty(transaction, farm.id, input.target));

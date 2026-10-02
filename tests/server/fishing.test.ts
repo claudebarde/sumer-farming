@@ -81,7 +81,7 @@ describe("fishing", () => {
     expect(await Effect.runPromise(Effect.flip(dropCarriedItem(db, { playerId: f.playerId, expectedFarmVersion: version, target: { column: 1, row: 2 } })))).toMatchObject({ _tag: "FarmerUnavailableError" });
     expect(await Effect.runPromise(Effect.flip(depositCarriedItem(db, { playerId: f.playerId, expectedFarmVersion: version })))).toMatchObject({ _tag: "FarmerUnavailableError" });
     expect(await Effect.runPromise(Effect.flip(fishingAction(db, { ...f, action: "store", expectedFarmVersion: version })))).toMatchObject({ _tag: "FishingRuleError" });
-    const stored = await Effect.runPromise(fishingAction(db, { ...f, action: "store", target: { column: 3, row: 0 }, expectedFarmVersion: version }));
+    const stored = await Effect.runPromise(fishingAction(db, { ...f, action: "store", target: { column: 1, row: 3 }, expectedFarmVersion: version }));
     expect(stored.inventory.find(item => item.itemKey === "fish")?.quantity).toBe(1);
     expect(stored.farm.carriedItem).toBeNull();
     await db.update(farms).set({ carriedItemKey: "fish", carriedItemQuantity: 1 }).where(eq(farms.id, f.farmId));

@@ -1,4 +1,5 @@
 import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
+import { findLoadingTile } from "../../game-core/farm/roads";
 import { granaryLimitForLevel } from "../../game-data/progression";
 import { and, eq, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
@@ -196,6 +197,7 @@ export const buildFarmBuilding = (
               transaction
                 .select({
                   type: farmBuildings.type,
+                  loadingTile: farmBuildings.loadingTile,
                   column: farmBuildings.column,
                   row: farmBuildings.row
                 })
@@ -224,6 +226,7 @@ export const buildFarmBuilding = (
           }
 
           const [vessels] = await transaction.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "brewingVessels"))).for("update");
+          const [bakingTools] = await transaction.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "bakingTools"))).for("update");
           const availableMaterials = groundItems.reduce<
             Partial<Record<InventoryItemKey, number>>
           >(
@@ -232,9 +235,11 @@ export const buildFarmBuilding = (
               [item.itemKey]:
                 (quantities[item.itemKey] ?? 0) + item.quantity
             }),
-            { brewingVessels: vessels?.quantity ?? 0 }
+            { brewingVessels: vessels?.quantity ?? 0, bakingTools: bakingTools?.quantity ?? 0 }
           );
           const placement = validateBuildingPlacement({
+            roads: farm.roads,
+            reservedLoadingTiles: buildings.flatMap(b => b.loadingTile ? [b.loadingTile] : []),
             granaryLimit: granaryLimitForLevel(farm.level),
             existingBuildings: buildings,
             building: buildingType,
@@ -257,6 +262,7 @@ export const buildFarmBuilding = (
             .values({
               farmId: farm.id,
               type: buildingType,
+              loadingTile: findLoadingTile(getBuildingFootprint(buildingType, input.target), farm.roads, buildings.flatMap(b => b.loadingTile ? [b.loadingTile] : []), occupiedCoordinates),
               column: input.target.column,
               row: input.target.row,
               startedAt,
@@ -275,7 +281,7 @@ export const buildFarmBuilding = (
           for (const [itemKey, quantity] of Object.entries(
             FARM_BUILDING_DEFINITIONS[buildingType].materials
           ) as [InventoryItemKey, number][]) {
-            if (itemKey === "brewingVessels") {
+            if (itemKey === "brewingVessels" || itemKey === "bakingTools") {
               await transaction.update(farmInventory).set({ quantity: sql`${farmInventory.quantity} - ${quantity}`, updatedAt: startedAt }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, itemKey)));
               continue;
             }

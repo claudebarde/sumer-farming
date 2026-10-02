@@ -186,6 +186,7 @@ export const plantCrop = (
             ]);
 
           const occupiedCoordinates = [
+            ...farm.roads,
             ...farmBuildingCoordinates(),
             ...groundItems,
             ...objects,

@@ -4,8 +4,9 @@ export const WATER_LOAD_QUANTITY = 1;
 
 export const BEER_RECIPE = {
   barley: 2,
+  groats: 2,
   water: 2,
   emptyJars: 2,
   output: 2,
-  durationMs: 60 * 60 * 1000
+  durationMs: 15 * 60 * 1000
 } as const;

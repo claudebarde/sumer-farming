@@ -3,7 +3,7 @@ import { useStore } from "zustand";
 import { Dialog } from "radix-ui";
 import { Cross2Icon, LockClosedIcon } from "@radix-ui/react-icons";
 import { evaluateProgression } from "../../game-core/farm/progression";
-import { LEVEL_NAMES, LEVEL_UNLOCKS } from "../../game-data/progression";
+import { LEVEL_NAMES, LEVEL_UNLOCKS, LEVEL_UNLOCK_ITEMS } from "../../game-data/progression";
 import { HAPPINESS_MANAGEMENT_LEVEL } from "../../game-data/household";
 import { executeGameCommand } from "../api/gameActions";
 import { farmStore } from "../stores/farmStore";
@@ -58,9 +58,14 @@ export default function FarmLevelDialog() {
           <Dialog.Description>Complete the requirements, then claim your next level at this signpost.</Dialog.Description>
           {message && <p role="status">{message}</p>}
           <h3>Level {progress.nextLevel} · {LEVEL_NAMES[progress.nextLevel]}</h3>
-          <p>Unlocks: {LEVEL_UNLOCKS[progress.nextLevel]}</p>
+          <h4>New features</h4>
+          <ul aria-label="Level unlocks">
+            {LEVEL_UNLOCK_ITEMS[progress.nextLevel]?.map(unlock => <li key={unlock}>{unlock}</li>)}
+          </ul>
           {progress.nextLevel === HAPPINESS_MANAGEMENT_LEVEL && <p>From level 4, happiness will decrease normally. Catch fish and feed your farmer to keep him happy; one fish treat is available every 8 hours.</p>}
-          <ul>{progress.requirements.map(r => <li key={r.label}>
+          <h4>Requirements to reach level {progress.nextLevel}</h4>
+          {progress.level === 6 && <p>Bread and beer count equally. Produce 15 and sell 10 in any combination during level 6.</p>}
+          <ul aria-label="Level requirements">{progress.requirements.map(r => <li key={r.label}>
             {r.label}: {r.current} / {r.required}{" "}
             <span className={styles["requirement-status"]} data-met={r.met}
               role="img" aria-label={r.met ? "Requirement met" : "Requirement not met"}
@@ -76,7 +81,11 @@ export default function FarmLevelDialog() {
               ? "You have spare seed or a planted barley field, so this offering is safe."
               : `This action consumes ${progress.barleyCost} barley. You need ${progress.barleyCost + 1} barley in total to leave one to plant, or a barley field already planted. The level cannot be claimed until then.`}
           </p>}
-          {progress.offerings.length === 0 && <p>These are lifetime achievements; previously sold goods and completed deliveries are not charged again.</p>}
+          {progress.offerings.length === 0 && <p>{progress.level === 6
+            ? "Only production and completed sales during this level count. Claiming level 7 does not consume these goods or charge you again."
+            : progress.level === 7
+            ? "Completed merchant requests count over your lifetime. Have 20 barley stored in a completed granary and own a mill donkey when claiming level 8. The barley and donkey are kept."
+            : "These are lifetime achievements; previously sold goods and completed deliveries are not charged again."}</p>}
           {progress.upcoming && <p>Levels 9–10 are upcoming: brewery expansion, then neighbourhood and cooperative systems. They cannot be claimed yet.</p>}
           <button className={styles["level-claim-button"]} disabled={pending || !progress.canClaim} onClick={() => { void claim(); }}>
             {!pending && !progress.canClaim && <LockClosedIcon aria-hidden="true" />}

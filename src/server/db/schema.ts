@@ -20,11 +20,12 @@ import type { CropKey } from "../../game-data/crops";
 import type { InventoryItemKey } from "../../game-data/inventoryItems";
 import type { GatherableResourceKey } from "../../game-data/resources";
 import { farmBuildingTypes } from "../../game-data/buildings";
-import { FARM_BUILDING_DEFINITIONS } from "../../game-data/buildings";
 import { BREWERY_WATER_CAPACITY, BREWERY_EMPTY_JAR_CAPACITY, BEER_RECIPE } from "../../game-data/brewing";
 import { farmObjectTypes } from "../../game-data/farmObjects";
 import { farmImprovementTypes } from "../../game-data/farmImprovements";
-import { FARMER_CARRY_CAPACITY } from "../../game-data/storage";
+import { FARMER_CARRY_CAPACITY, UPGRADED_GRANARY_CAPACITY } from "../../game-data/storage";
+import { MAX_BATCH_HARVEST_FIELDS } from "../../game-data/batchPlanting";
+import { CROP_DEFINITIONS } from "../../game-data/crops";
 import { shekelTransactionTypes } from "../../game-data/shekelTransactions";
 import type { MarketItemKey } from "../../game-data/marketItems";
 import {
@@ -210,12 +211,15 @@ export const marketTrades = pgTable("market_trades", {
 ]);
 
 import { emptyMillGoods, type MillGoods, type MillingJob } from "../../game-data/milling";
+import { emptyProductionState, type ProductionState } from "../../game-data/production";
 
 export const farms = pgTable(
   "farms",
   {
+    roads: jsonb("roads").$type<readonly import("../../game-data/roads").FarmRoad[]>().notNull().default([]),
     fishing: jsonb("fishing").$type<FishingSession>(),
     milling: jsonb("milling").$type<MillingJob>(),
+    production: jsonb("production").$type<ProductionState>().notNull().default(emptyProductionState()),
     millGoods: jsonb("mill_goods").$type<MillGoods>().notNull().default(emptyMillGoods()),
     level: integer("level").default(1).notNull(),
     progressionStats: jsonb("progression_stats").$type<ProgressionStats>().default(INITIAL_PROGRESSION_STATS).notNull(),
@@ -242,6 +246,7 @@ export const farms = pgTable(
     happiness: integer("happiness").default(70).notNull(),
     happinessCheckedAt: timestamp("happiness_checked_at", { withTimezone: true }).defaultNow().notNull(),
     lastBeerAt: timestamp("last_beer_at", { withTimezone: true }),
+    lastBreadAt: timestamp("last_bread_at", { withTimezone: true }),
     lastFishAt: timestamp("last_fish_at", { withTimezone: true }),
     gatheringItemKey: varchar("gathering_item_key", { length: 50 }).$type<
       GatherableResourceKey
@@ -269,7 +274,7 @@ export const farms = pgTable(
     check("farms_level_valid", sql`${table.level} >= 1 AND ${table.level} <= 10`),
     check(
       "farms_carried_item_quantity_in_range",
-      sql`${table.carriedItemQuantity} >= 0 AND ${table.carriedItemQuantity} <= ${sql.raw(String(FARMER_CARRY_CAPACITY))}`
+      sql`${table.carriedItemQuantity} >= 0 AND ${table.carriedItemQuantity} <= CASE WHEN ${table.carriedItemKey} = 'barley' THEN ${sql.raw(String(MAX_BATCH_HARVEST_FIELDS * CROP_DEFINITIONS.barley.harvestYield))} ELSE ${sql.raw(String(FARMER_CARRY_CAPACITY))} END`
     ),
     check(
       "farms_carried_item_key_matches_quantity",
@@ -413,6 +418,7 @@ export const farmInventory = pgTable(
       columns: [table.farmId, table.itemKey]
     }),
     check("farm_inventory_quantity_nonnegative", sql`${table.quantity} >= 0`),
+    check("farm_inventory_donkey_capacity", sql`${table.itemKey} <> 'donkey' OR ${table.quantity} <= 1`),
     check("farm_inventory_fish_capacity", sql`${table.itemKey} <> 'fish' OR ${table.quantity} <= 5`)
   ]
 );
@@ -420,6 +426,7 @@ export const farmInventory = pgTable(
 export const farmBuildings = pgTable(
   "farm_buildings",
   {
+    loadingTile: jsonb("loading_tile").$type<{ column: number; row: number }>(),
     id: uuid("id").defaultRandom().primaryKey(),
     farmId: uuid("farm_id")
       .notNull()
@@ -452,7 +459,7 @@ export const farmBuildings = pgTable(
     ),
     check(
       "farm_buildings_stored_barley_in_range",
-      sql`${table.storedBarley} >= 0 AND ${table.storedBarley} <= ${sql.raw(String(FARM_BUILDING_DEFINITIONS.granary.barleyStorageBonus))}`
+      sql`${table.storedBarley} >= 0 AND ${table.storedBarley} <= ${sql.raw(String(UPGRADED_GRANARY_CAPACITY))}`
     ),
     check("farm_buildings_brewing_supplies_valid", sql`${table.brewingBarley} >= 0 AND ${table.brewingWater} >= 0 AND ${table.brewingWater} <= ${sql.raw(String(BREWERY_WATER_CAPACITY))} AND (${table.type} = 'brewery' OR (${table.brewingBarley} = 0 AND ${table.brewingWater} = 0))`)
   ]

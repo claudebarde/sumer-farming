@@ -8,10 +8,10 @@ import { getBuildingFootprint } from "../../game-core/farm/buildings";
 import type { FarmCoordinate } from "../../game-core/farm/irrigation";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import type { InventoryItemKey } from "../../game-data/inventoryItems";
-import { FARM_BUILDING_DEFINITIONS } from "../../game-data/buildings";
 import { EXPOSED_BARLEY_LIFETIME_MS } from "../../game-data/household";
 import {
   FARMER_CARRY_CAPACITY,
+  granaryCapacityForLevel,
   FARM_STORAGE_CAPACITY
 } from "../../game-data/storage";
 import type { FarmSnapshot } from "../../schemas/farm";
@@ -348,7 +348,7 @@ const executeFarmItemAction = (
                 };
               }
 
-              if (!isInsideArablePlot(input.target)) {
+              if (!isInsideArablePlot(input.target) || farm.roads.some(r => r.column === input.target.column && r.row === input.target.row)) {
                 return {
                   type: "rule_error",
                   rule: { type: "outside_arable_plot" }
@@ -556,7 +556,7 @@ const executeFarmItemAction = (
               }
 
               const capacity =
-                FARM_BUILDING_DEFINITIONS.granary.barleyStorageBonus;
+                granaryCapacityForLevel(farm.level);
               const availableCapacity = Math.max(
                 0,
                 capacity - granary.storedBarley
@@ -690,7 +690,7 @@ const executeFarmItemAction = (
             })
             .with({ type: "withdraw" }, async ({ input }) => {
               // Filled beer jars stay in estate inventory until sold or used.
-              if (input.itemKey === "beer" || input.itemKey === "fish") {
+              if (input.itemKey === "beer" || input.itemKey === "fish" || input.itemKey === "bread" || input.itemKey === "donkey") {
                 return { type: "rule_error", rule: { type: "incompatible_carried_item" } };
               }
               if (

@@ -1,5 +1,15 @@
 @use "./variables" as *;
 
+.farmer-busy-popover {
+  z-index: 1100;
+  padding: 0.5rem 0.75rem;
+  border: 2px solid $color-sand;
+  border-radius: 6px;
+  background: $color-parchment-light;
+  color: $color-ink;
+  max-width: calc(100vw - 24px);
+}
+
 .requirement-status {
   display: inline-block;
   font-weight: 700;
@@ -145,6 +155,51 @@
   &::-webkit-progress-bar { background-color: $color-parchment; }
   &::-webkit-progress-value { background-color: $color-leaf; border-radius: 999px; }
   &::-moz-progress-bar { background-color: $color-leaf; border-radius: 999px; }
+}
+
+.mill-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.mill-recipe-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+  caption { text-align: left; padding-bottom: 0.25rem; }
+  th, td {
+    padding: 0.25rem 0.35rem;
+    text-align: center;
+    border-bottom: 1px solid $color-sand;
+  }
+  th:first-child { text-align: left; }
+  thead { background: $color-parchment; }
+}
+
+.mill-select-content {
+  z-index: 1100;
+  min-width: var(--radix-select-trigger-width);
+  max-width: calc(100vw - 24px);
+  max-height: var(--radix-select-content-available-height);
+  overflow-y: auto;
+  padding: 0.25rem;
+  border: 2px solid $color-sand;
+  border-radius: 6px;
+  background: $color-parchment-light;
+  color: $color-ink;
+  box-shadow: 0 4px 12px rgba($color-ink, 0.2);
+}
+
+.mill-select-item {
+  padding: 0.65rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+  &[data-highlighted] { background: $color-parchment; }
+  &[data-disabled] { opacity: 0.5; cursor: not-allowed; }
 }
 
 .tile-popover-close {
@@ -356,6 +411,17 @@
   }
 }
 
+.batch-planting-controls {
+  position: absolute;
+  bottom: 4%;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: min(560px, calc(100% - 32px));
+  p { margin: 0 0 8px; }
+  > div { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+}
+
 .resource-total {
   padding-bottom: 6px;
   border-bottom: $container-border;
@@ -476,6 +542,10 @@
   border: $container-border;
   border-radius: $container-border-radius;
   background-color: $color-parchment;
+
+  h3 img {
+    margin-right: 0.5rem;
+  }
 
   h3,
   p {

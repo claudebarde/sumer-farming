@@ -1,0 +1,2 @@
+ALTER TABLE "farms" ALTER COLUMN "progression_stats" SET DEFAULT '{"harvestedBarley":0,"harvests":0,"beerProduced":0,"breadProduced":0,"fishFed":0,"processedBarley":0}'::jsonb;--> statement-breakpoint
+ALTER TABLE "farms" ADD COLUMN "last_bread_at" timestamp with time zone;

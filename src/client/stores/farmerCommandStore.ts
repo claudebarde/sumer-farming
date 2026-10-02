@@ -1,5 +1,7 @@
+import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { createStore } from "zustand/vanilla";
 import { farmStore } from "./farmStore";
+import { batchPlantingStore } from "./batchPlantingStore";
 import type { MillRecipe } from "../../game-data/milling";
 import { match } from "ts-pattern";
 import type {
@@ -14,8 +16,9 @@ import { FARMER_CARRY_CAPACITY } from "../../game-data/storage";
 import type { GatherableResourceKey } from "../../game-data/resources";
 
 export type FarmerCommand =
-  | { readonly id: string; readonly type: "store_mill_goods"; readonly target: TilePosition; readonly millId: string; readonly granaryId: string }
-  | { readonly id: string; readonly type: "mill"; readonly recipe: MillRecipe; readonly target: TilePosition }
+  | { readonly id: string; readonly type: "production"; readonly action: "bake" | "store"; readonly target: TilePosition; readonly buildingId: string }
+  | { readonly id: string; readonly type: "store_mill_goods"; readonly target: TilePosition; readonly millId: string }
+  | { readonly id: string; readonly type: "mill"; readonly recipe: MillRecipe; readonly worker?: "farmer" | "donkey"; readonly target: TilePosition }
   | { readonly id: string; readonly type: "fishing"; readonly action: "start" | "store" | "release"; readonly target: TilePosition }
   | {
       readonly id: string;
@@ -99,6 +102,7 @@ export type CarriedItem = {
 } | null;
 
 export type FarmerStatus =
+  | { readonly type: "baking"; readonly commandId: string }
   | { readonly type: "milling"; readonly commandId: string }
   | { readonly type: "idle" }
   | { readonly type: "moving"; readonly commandId: string }
@@ -139,7 +143,10 @@ export const farmerCommandStore = createStore<State>()(set => ({
   addCommand: command =>
     set(state => {
       const farm = farmStore.getState().farm;
-      if (farm.type === "ready" && farm.snapshot.farm.milling) return {};
+      if (batchPlantingStore.getState().active) return {};
+      if (farm.type === "ready" && farm.snapshot.farm.production.planting) return {};
+      if (farm.type === "ready" && farmerProductionJob(farm.snapshot.farm)) return {};
+      if (farm.type === "ready" && farm.snapshot.farm.production.delivery && !(command.type === "production" && command.action === "store")) return {};
       if (farm.type === "ready" && farm.snapshot.farm.millGoods.delivery && command.type !== "store_mill_goods") return {};
       if (state.carriedItem?.itemKey === "fish" && command.type !== "fishing") return {};
       if (command.type === "brewery_supply") {

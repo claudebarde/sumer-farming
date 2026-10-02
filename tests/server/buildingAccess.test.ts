@@ -10,7 +10,7 @@ describe("building access", () => {
   });
 
   it("rejects enclosing a two-tile pocket against the top boundary", () => {
-    expect(preservesBuildingAccess({ buildings: [building(0, 0), building(1, 2)] })).toBe(false);
+    expect(preservesBuildingAccess({ buildings: [building(3, 0), building(6, 0), building(4, 2)] })).toBe(false);
   });
 
   it("rejects sealing access to the farm building even without an empty pocket", () => {
@@ -24,6 +24,6 @@ describe("building access", () => {
   });
 
   it("applies the same rule to breweries", () => {
-    expect(preservesBuildingAccess({ buildings: [building(0, 0), { type: "brewery", column: 1, row: 2 }] })).toBe(false);
+    expect(preservesBuildingAccess({ buildings: [building(3, 0), building(6, 0), { type: "brewery", column: 4, row: 2 }] })).toBe(false);
   });
 });

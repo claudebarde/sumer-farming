@@ -4,6 +4,7 @@ import { spriteName } from "../../../assets/farmSprites";
 import { merchantUiStore } from "../../stores/merchantUiStore";
 import { getMerchantVisit } from "./merchantVisit";
 import { TILE_SIZE } from "./config";
+import { MERCHANT_CHARIOT_WIDTH_TILES } from "./merchantChariotLayout";
 
 export const installMerchantChariot = (
   scene: Phaser.Scene,
@@ -11,7 +12,7 @@ export const installMerchantChariot = (
   onMovingClick: () => void,
   onStoppedClick: () => void
 ): void => {
-  const width = TILE_SIZE * 3;
+  const width = TILE_SIZE * MERCHANT_CHARIOT_WIDTH_TILES;
   const height = TILE_SIZE * 1.5;
   const halfWidth = width / 2;
   const chariot = scene.add.image(0, (INITIAL_FARM_CONFIG.roadRow + 0.6) * TILE_SIZE,

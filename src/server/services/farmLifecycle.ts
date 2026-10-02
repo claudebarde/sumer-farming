@@ -1,12 +1,15 @@
 import { and, asc, eq, lte, sql } from "drizzle-orm";
 
 import { BARLEY_CONSUMPTION_INTERVAL_MS } from "../../game-data/household";
+import { BEER_RECIPE } from "../../game-data/brewing";
 import { advanceHappiness } from "../../game-core/farm/wellbeing";
+import { advanceBatchPlanting } from "./batchPlantingLifecycle";
 import type { DatabaseTransaction } from "../db/client";
 import {
   farmBuildings,
   farmGroundItems,
   farmInventory,
+  shekelTransactions,
   farms
 } from "../db/schema";
 
@@ -53,6 +56,42 @@ export const advanceFarmLifecycle = async (
   farm: FarmRecord,
   now: Date
 ): Promise<FarmRecord> => {
+  farm = await advanceBatchPlanting(transaction, farm, now);
+  // Old saves lack a level-entry baseline. Start tracking once, under the farm
+  // row lock, before processing newly completed jobs or actions.
+  if (farm.level === 6 && !farm.progressionStats.level6Baseline) {
+    const [sales] = await transaction.select({ quantity: sql<number>`coalesce(sum(${shekelTransactions.itemQuantity}), 0)::int` })
+      .from(shekelTransactions).where(and(eq(shekelTransactions.playerId, farm.playerId),
+        eq(shekelTransactions.type, "market_sale"), sql`${shekelTransactions.itemKey} in ('bread', 'beer')`));
+    const progressionStats = { ...farm.progressionStats, level6Baseline: {
+      produced: farm.progressionStats.beerProduced + (farm.progressionStats.breadProduced ?? 0),
+      sold: sales?.quantity ?? 0
+    } };
+    await transaction.update(farms).set({ progressionStats }).where(eq(farms.id, farm.id));
+    farm = { ...farm, progressionStats };
+  }
+  const readyBreweries = await transaction.select().from(farmBuildings).where(and(
+    eq(farmBuildings.farmId, farm.id), eq(farmBuildings.type, "brewery"), lte(farmBuildings.beerReadyAt, now)
+  ));
+  const readyBakes = Object.entries(farm.production.baking).filter(([, job]) => Date.parse(job.completesAt) <= now.getTime());
+  if (readyBreweries.length > 0 || readyBakes.length > 0) {
+    const pending = { ...farm.production.pending };
+    let beerProduced = 0;
+    for (const brewery of readyBreweries) {
+      const quantity = Math.max(0, BEER_RECIPE.output - brewery.beerServed);
+      if (quantity > 0) pending[brewery.id] = { itemKey: "beer", quantity: (pending[brewery.id]?.quantity ?? 0) + quantity };
+      beerProduced += quantity;
+      await transaction.update(farmBuildings).set({ beerReadyAt: null, beerServed: 0 }).where(eq(farmBuildings.id, brewery.id));
+    }
+    for (const [id, job] of readyBakes) pending[id] = { itemKey: "bread", quantity: (pending[id]?.quantity ?? 0) + job.output };
+    const [updated] = await transaction.update(farms).set({
+      production: { ...farm.production, pending, baking: Object.fromEntries(Object.entries(farm.production.baking).filter(([, job]) => Date.parse(job.completesAt) > now.getTime())) },
+      progressionStats: { ...farm.progressionStats, beerProduced: farm.progressionStats.beerProduced + beerProduced,
+        breadProduced: (farm.progressionStats.breadProduced ?? 0) + readyBakes.reduce((sum, [, job]) => sum + job.output, 0) },
+      version: sql`${farms.version} + 1`, updatedAt: now
+    }).where(eq(farms.id, farm.id)).returning();
+    farm = updated!;
+  }
   if (farm.milling && Date.parse(farm.milling.completesAt) <= now.getTime()) {
     const job = farm.milling;
     const bags = farm.millGoods.pending[job.buildingId] ?? { flour: 0, brewersGroats: 0 };

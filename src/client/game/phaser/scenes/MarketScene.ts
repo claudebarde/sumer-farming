@@ -1,12 +1,14 @@
 import Phaser from "phaser";
 import { spriteName } from "../../../../assets/farmSprites";
-import { marketUiStore } from "../../../stores/marketUiStore";
+import { MARKET_TITLES, marketUiStore, type MarketScope } from "../../../stores/marketUiStore";
+import type { RoadCoordinate } from "../../../../game-core/farm/roads";
 import { farmStore } from "../../../stores/farmStore";
 import { canOpenMarketStand, marketStandUnlockLevel } from "../../../../game-data/progression";
 import { farmerCommandStore } from "../../../stores/farmerCommandStore";
 import { TILE_SIZE } from "../config";
-import { marketSceneLayout } from "../marketSceneLayout";
+import { marketSceneLayout, marketSceneZoom, marketStandStop, marketWalkingPath } from "../marketSceneLayout";
 import { installSceneDomIsolation } from "../sceneDomIsolation";
+import { createDonkey } from "../donkey";
 
 export class MarketScene extends Phaser.Scene {
   constructor() { super("market-scene"); }
@@ -15,7 +17,19 @@ export class MarketScene extends Phaser.Scene {
     installSceneDomIsolation(this);
     let farmer: Phaser.GameObjects.Image | null = null;
     let returningHome = false;
-    let returnMovement: Phaser.Tweens.Tween | null = null;
+    let movement: Phaser.Tweens.Tween | null = null;
+    let destination: MarketScope | "farm" | null = null;
+    let farmerTile: RoadCoordinate | null = null;
+    let previousLeft: number | null = null;
+    let walking = false;
+    let donkey: ReturnType<typeof createDonkey> | null = null;
+    let donkeyFollowing = false;
+    const syncDonkey = () => {
+      if (!donkeyFollowing || !farmer || donkey) return;
+      donkey = createDonkey(this);
+      donkey.image.setPosition(farmer.x + TILE_SIZE, farmer.y).setVisible(true);
+    };
+    const scopes = ["barley", "beer", "bread"] as const;
     let bottomDialog: Phaser.GameObjects.DOMElement | null = null;
     let bottomDialogTimer: Phaser.Time.TimerEvent | null = null;
     const clearBottomDialog = () => {
@@ -45,22 +59,33 @@ export class MarketScene extends Phaser.Scene {
       const carriedItem = farmerCommandStore.getState().carriedItem;
       farmer?.setTexture(spriteName(
         carriedItem?.itemKey === "fish" ? "farmerWithFish"
-          : carriedItem !== null ? "farmerHarvest3" : returningHome ? "farmerWalk0" : "farmerIdle0"
+          : carriedItem !== null ? "farmerHarvest3" : walking
+            ? (["farmerWalk0", "farmerWalk1", "farmerWalk2", "farmerWalk3"] as const)[Math.floor(this.time.now / 100) % 4]!
+            : "farmerIdle0"
       )).setDisplaySize(TILE_SIZE, TILE_SIZE);
     };
     const draw = () => {
-      const resumeReturn = returningHome;
-      returnMovement?.stop();
-      returnMovement = null;
-      returningHome = false;
+      donkey?.destroy();
+      donkey = null;
+      movement?.stop();
+      movement = null;
+      walking = false;
       clearBottomDialog();
       this.children.removeAll(true);
-      const zoom = Math.min(1, this.scale.width / (10 * TILE_SIZE));
+      const zoom = marketSceneZoom(this.scale.width, this.scale.height, TILE_SIZE);
       const width = this.scale.width / zoom;
       const height = this.scale.height / zoom;
       this.cameras.main.setZoom(zoom).setScroll(0, 0).setOrigin(0, 0);
       const columns = Math.ceil(width / TILE_SIZE);
       const layout = marketSceneLayout(columns);
+      // Preserve the last reached road tile when the responsive layout moves.
+      farmerTile = farmerTile === null ? layout.farmer : {
+        column: previousLeft !== null && farmerTile.column >= previousLeft
+          ? farmerTile.column + layout.left - previousLeft
+          : Math.min(farmerTile.column, layout.left),
+        row: farmerTile.row
+      };
+      previousLeft = layout.left;
       const tile = (column: number, row: number, name: "ground" | "groundPathHorizontal", angle = 0) =>
         this.add.image((column + 0.5) * TILE_SIZE, (row + 0.5) * TILE_SIZE, spriteName(name))
           .setDisplaySize(TILE_SIZE, TILE_SIZE).setAngle(angle);
@@ -97,29 +122,63 @@ export class MarketScene extends Phaser.Scene {
         const junction = tile(column, layout.roadRow, "groundPathHorizontal");
         junction.setCrop(side * junction.width / 2, junction.height * 0.35, junction.width / 2, junction.height * 0.3);
       }
-      const returnHome = () => {
-        if (returningHome || !farmer) return;
-        returningHome = true;
-        this.input.enabled = false;
-        showBottomDialog("Going back to the farm...");
+      const walkToDestination = (): void => {
+        if (!farmer || !farmerTile || !destination || movement) return;
+        const target = destination === "farm"
+          ? { column: layout.farm.column, row: layout.roadRow }
+          : marketStandStop(columns, scopes.indexOf(destination));
+        const path = marketWalkingPath(columns, farmerTile, target);
+        if (!path) {
+          destination = null;
+          returningHome = false;
+          walking = false;
+          updateFarmer();
+          showBottomDialog("There is no road to this stand.");
+          return;
+        }
+        const next = path[1];
+        if (next) {
+          walking = true;
+          donkey?.move({ x: farmer.x, y: farmer.y }, 180);
+          if (next.column !== farmerTile.column) farmer.setFlipX(next.column < farmerTile.column);
+          updateFarmer();
+          movement = this.tweens.add({
+            targets: farmer, x: (next.column + 0.5) * TILE_SIZE, y: (next.row + 0.5) * TILE_SIZE,
+            duration: 180, ease: "Linear", onUpdate: updateFarmer,
+            onComplete: () => {
+              movement = null;
+              farmerTile = next;
+              walkToDestination();
+            }
+          });
+          return;
+        }
+        const arrivedAt = destination;
+        destination = null;
+        walking = false;
         updateFarmer();
-        // The entrance is on the road directly below the left-hand farm tile.
-        const x = layout.farm.column * TILE_SIZE;
-        const y = (layout.farm.row + 2) * TILE_SIZE;
-        const arrive = () => {
-          returnMovement = null;
+        clearBottomDialog();
+        if (arrivedAt === "farm") {
           marketUiStore.getState().setLocation("farm");
           const farm = this.scene.get("main-scene");
           farm.events.emit("return-from-market");
           farm.input.enabled = true;
           this.scene.setVisible(true, "main-scene");
           this.scene.stop();
-        };
-        const distance = Math.abs(farmer.x - x) + Math.abs(farmer.y - y);
-        if (distance === 0) { arrive(); return; }
-        farmer.setFlipX(x < farmer.x);
-        returnMovement = this.tweens.add({ targets: farmer, x, y,
-          duration: distance / TILE_SIZE * 180, ease: "Linear", onComplete: arrive });
+        } else {
+          const stand = layout.stands[scopes.indexOf(arrivedAt)]!;
+          farmer.setFlipX(stand.column + 1 < farmerTile.column + 0.5);
+          const farm = farmStore.getState().farm;
+          const level = farm.type === "ready" ? farm.snapshot.farm.progression?.level : 1;
+          if (canOpenMarketStand(arrivedAt, level)) marketUiStore.getState().openMarket(arrivedAt);
+        }
+      };
+      const returnHome = () => {
+        if (returningHome || !farmer) return;
+        returningHome = true;
+        destination = "farm";
+        showBottomDialog("Going back to the farm...");
+        walkToDestination();
       };
       this.add.image(0, layout.farm.row * TILE_SIZE, spriteName("farm"))
         .setOrigin(0).setDisplaySize(TILE_SIZE * 2, TILE_SIZE * 2)
@@ -134,50 +193,63 @@ export class MarketScene extends Phaser.Scene {
       }).setOrigin(0.5, 1);
       label(TILE_SIZE, layout.farm.row * TILE_SIZE, "Return to farm");
       layout.stands.forEach(({ column, row }, index) => {
-        const stand = this.add.image(column * TILE_SIZE, row * TILE_SIZE, spriteName(index === 1 ? "marketBeerStand" : "marketStand"))
+        const definition = ([
+          { scope: "barley", sprite: "marketStand" },
+          { scope: "beer", sprite: "marketBeerStand" },
+          { scope: "bread", sprite: "marketBreadStand" }
+        ] as const)[index];
+        if (!definition) return;
+        const { scope, sprite } = definition;
+        const marketLabel = MARKET_TITLES[scope];
+        const stand = this.add.image(column * TILE_SIZE, row * TILE_SIZE, spriteName(sprite))
           .setOrigin(0).setDisplaySize(TILE_SIZE * 2, TILE_SIZE * 2);
-        // The remaining stand is decorative until it receives its own purpose.
-        if (index < 2) {
-          stand.setInteractive({ useHandCursor: true })
-            .on(Phaser.Input.Events.POINTER_UP, () => {
-              const scope = index === 0 ? "barley" : "beer";
-              const farm = farmStore.getState().farm;
-              const level = farm.type === "ready" ? farm.snapshot.farm.progression?.level : 1;
-              if (!canOpenMarketStand(scope, level)) {
-                showBottomDialog(`${marketLabel} unlocks at level ${marketStandUnlockLevel(scope)}.`);
-                return;
-              }
-              clearBottomDialog();
-              marketUiStore.getState().openMarket(scope);
-            });
-        }
-        const marketLabel = ["Barley market", "Beer market"][index];
-        if (marketLabel !== undefined) {
-          label((column + 1) * TILE_SIZE, row * TILE_SIZE, marketLabel);
-        }
+        stand.setInteractive({ useHandCursor: true })
+          .on(Phaser.Input.Events.POINTER_UP, () => {
+            if (returningHome) return;
+            const farm = farmStore.getState().farm;
+            const level = farm.type === "ready" ? farm.snapshot.farm.progression?.level : 1;
+            if (!canOpenMarketStand(scope, level)) {
+              showBottomDialog(`${marketLabel} unlocks at level ${marketStandUnlockLevel(scope)}.`);
+              return;
+            }
+            destination = scope;
+            showBottomDialog(`Walking to the ${marketLabel.toLowerCase()}...`);
+            walkToDestination();
+          });
+        label((column + 1) * TILE_SIZE, row * TILE_SIZE, marketLabel);
       });
       // A scene-local representation of the same farmer; no inventory mutation
       // or second actor simulation. Keep the return-home building unobstructed.
       farmer = this.add.image(
-        layout.farmer.column * TILE_SIZE,
-        layout.farmer.row * TILE_SIZE,
+        (farmerTile.column + 0.5) * TILE_SIZE,
+        (farmerTile.row + 0.5) * TILE_SIZE,
         spriteName("farmerIdle0")
-      ).setOrigin(0).setDisplaySize(TILE_SIZE, TILE_SIZE);
+      ).setOrigin(0.5, 1).setDisplaySize(TILE_SIZE, TILE_SIZE);
       updateFarmer();
-      if (resumeReturn) returnHome();
+      syncDonkey();
+      walkToDestination();
     };
     draw();
     const unsubscribe = farmerCommandStore.subscribe((state, previous) => {
       if (state.carriedItem !== previous.carriedItem) updateFarmer();
     });
+    const unsubscribeFarm = farmStore.subscribe((state, previous) => {
+      const owns = state.farm.type === "ready" && state.farm.snapshot.inventory.some(i => i.itemKey === "donkey" && i.quantity > 0);
+      const owned = previous.farm.type === "ready" && previous.farm.snapshot.inventory.some(i => i.itemKey === "donkey" && i.quantity > 0);
+      if (owns && !owned) { donkeyFollowing = true; syncDonkey(); }
+    });
     this.scale.on(Phaser.Scale.Events.RESIZE, draw);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      returnMovement?.stop();
-      returnMovement = null;
+      movement?.stop();
+      movement = null;
+      destination = null;
       this.input.enabled = true;
       clearBottomDialog();
       this.scale.off(Phaser.Scale.Events.RESIZE, draw);
       unsubscribe();
+      unsubscribeFarm();
+      donkey?.destroy();
+      donkey = null;
       farmer = null;
     });
   }

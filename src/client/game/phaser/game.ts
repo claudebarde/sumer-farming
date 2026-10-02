@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { batchPlantingStore } from "../../stores/batchPlantingStore";
 import { match } from "ts-pattern";
 import { createGameConfig, GAME_CONTAINER_ID, TILE_SIZE } from "./config";
 import type { Tile } from "./types";
@@ -16,6 +17,11 @@ export const handlePointerUp = (
   tile: Tile,
   selectionHighlight: Phaser.GameObjects.Rectangle
 ) => {
+  if (batchPlantingStore.getState().active) {
+    selectionHighlight.setVisible(false);
+    batchPlantingStore.getState().toggle(tile.position);
+    return;
+  }
   if (buildingPlacementStore.getState().placement.type !== "idle") {
     return;
   }
@@ -78,7 +84,7 @@ export const handlePointerUp = (
         .setSize(TILE_SIZE * 2, TILE_SIZE * 2)
         .setVisible(visibility);
     })
-    .with("granary", "brewery", "mill", () => {
+    .with("granary", "brewery", "mill", "breadOven", () => {
       selectionHighlight
         .setPosition(
           tile.position.column * TILE_SIZE,

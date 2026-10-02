@@ -1,3 +1,4 @@
+import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { and, eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { CAST_COOLDOWN_MS, CAST_DELAY_MS, FISH_CAPACITY } from "../../game-data/fishing";
@@ -21,7 +22,8 @@ export const fishingAction = (db: Database, input: Input) => Effect.gen(function
       if (!loaded) return fail("The farm could not be found.");
       const now = Date.now();
       const farm = await advanceFarmLifecycle(tx, loaded, new Date(now));
-      if (farm.milling || farm.millGoods.delivery) return fail("The farmer is working in the Mill or delivering processed grain.");
+      if (farm.roads.some(r => (r.completesAt ?? 0) > now)) return fail("Finish building the road first.");
+      if (farm.production.planting || farmerProductionJob(farm) || farm.millGoods.delivery || farm.production.delivery) return fail("The farmer is working or delivering goods.");
       const [inventory] = await tx.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "fish")));
       const quantity = inventory?.quantity ?? 0;
       const update: Partial<typeof farms.$inferInsert> = {};

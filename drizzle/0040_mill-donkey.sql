@@ -1,0 +1,1 @@
+ALTER TABLE "farm_inventory" ADD CONSTRAINT "farm_inventory_donkey_capacity" CHECK ("farm_inventory"."item_key" <> 'donkey' OR "farm_inventory"."quantity" <= 1);

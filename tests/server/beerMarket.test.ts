@@ -31,37 +31,50 @@ const fixture = async (beer = 4) => {
     { farmId: farm!.id, itemKey: "emptyBeerJar", quantity: 3 }
   ]);
   return { playerId, farmId: farm!.id, itemKey: "beer" as const, quantity: 2,
-    expectedUnitPrice: 5, expectedFarmVersion: 1, idempotencyKey: randomUUID() };
+    expectedUnitPrice: 8, expectedFarmVersion: 1, idempotencyKey: randomUUID() };
 };
 
 describe("beer markets", () => {
-  it("offers NPC sales only and player listings with a five-shekel initial suggestion", () => {
+  it("offers NPC purchases and sales and player listings at eight shekels", () => {
     const beer = buildMarketQuotes([], "player").items.find(item => item.itemKey === "beer");
     expect(beer).toMatchObject({
       storageType: "estate_inventory",
-      npcMarket: { canBuy: false, canSell: true, sellPrice: 5 },
-      playerMarket: { canCreateSellOrder: true, suggestedSellPrice: 5 }
+      npcMarket: { canBuy: true, canSell: true, buyPrice: 8, sellPrice: 8 },
+      playerMarket: { canCreateSellOrder: true, suggestedSellPrice: 8 }
     });
   });
 
-  it("sells filled jars for five shekels each and does not pay a retry twice", async () => {
+  it("sells filled jars for eight shekels each and does not pay a retry twice", async () => {
     const input = await fixture();
     const sold = await Effect.runPromise(sellToNpcMarket(db, input));
     const retry = await Effect.runPromise(sellToNpcMarket(db, input));
-    expect(sold.player.shekelBalance).toBe(30);
-    expect(retry.player.shekelBalance).toBe(30);
+    expect(sold.player.shekelBalance).toBe(36);
+    expect(retry.player.shekelBalance).toBe(36);
     expect(retry.inventory).toEqual(expect.arrayContaining([
       { itemKey: "beer", quantity: 2 }, { itemKey: "emptyBeerJar", quantity: 3 }, { itemKey: "barley", quantity: 5 }
     ]));
     const ledger = await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, input.playerId));
     expect(ledger).toHaveLength(1);
-    expect(ledger[0]).toMatchObject({ itemKey: "beer", delta: 10, itemQuantity: 2, source: "npc" });
+    expect(ledger[0]).toMatchObject({ itemKey: "beer", delta: 16, itemQuantity: 2, source: "npc" });
   });
 
-  it("rejects NPC purchases, insufficient stock and stale prices without changing inventory", async () => {
+  it("buys filled jars at eight shekels without consuming storage, empty jars, or charging retries twice", async () => {
+    const input = await fixture(0);
+    const bought = await Effect.runPromise(buyFromNpcMarket(db, input));
+    const retry = await Effect.runPromise(buyFromNpcMarket(db, input));
+    expect(bought.player.shekelBalance).toBe(4);
+    expect(retry.player.shekelBalance).toBe(4);
+    expect(retry.inventory).toEqual(expect.arrayContaining([
+      { itemKey: "beer", quantity: 2 }, { itemKey: "barley", quantity: 5 }, { itemKey: "emptyBeerJar", quantity: 3 }
+    ]));
+    expect(retry.farm.progression?.stats.beerProduced).toBe(0);
+    const ledger = await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, input.playerId));
+    expect(ledger).toHaveLength(1);
+    expect(ledger[0]).toMatchObject({ type: "market_purchase", itemKey: "beer", delta: -16, itemQuantity: 2, source: "npc" });
+  });
+
+  it("rejects insufficient stock and stale prices without changing inventory", async () => {
     const input = await fixture(1);
-    await expect(Effect.runPromise(Effect.flip(buyFromNpcMarket(db, input))))
-      .resolves.toMatchObject({ rule: { type: "trade_unavailable" } });
     await expect(Effect.runPromise(Effect.flip(sellToNpcMarket(db, input))))
       .resolves.toMatchObject({ rule: { type: "insufficient_stored_item" } });
     await expect(Effect.runPromise(Effect.flip(sellToNpcMarket(db, { ...input, quantity: 1, expectedUnitPrice: 6 }))))

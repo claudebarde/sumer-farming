@@ -1,0 +1,2 @@
+ALTER TABLE "farm_buildings" DROP CONSTRAINT "farm_buildings_stored_barley_in_range";--> statement-breakpoint
+ALTER TABLE "farm_buildings" ADD CONSTRAINT "farm_buildings_stored_barley_in_range" CHECK ("farm_buildings"."stored_barley" >= 0 AND "farm_buildings"."stored_barley" <= 20);

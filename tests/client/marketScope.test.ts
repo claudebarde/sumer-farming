@@ -12,8 +12,10 @@ describe("market entry progression", () => {
   it("opens barley at level 3 and brewing supplies at level 6", () => {
     expect(canOpenMarketStand("barley", 2)).toBe(false);
     expect(canOpenMarketStand("barley", 3)).toBe(true);
-    expect(canOpenMarketStand("beer", 5)).toBe(false);
+    expect(canOpenMarketStand("beer", 5)).toBe(true);
     expect(canOpenMarketStand("beer", 6)).toBe(true);
+    expect(canOpenMarketStand("bread", 5)).toBe(true);
+    expect(canOpenMarketStand("bread", 6)).toBe(true);
     expect(canOpenMarketStand("beer")).toBe(false);
   });
   it.each([undefined, 1, 2])("blocks entry at level %s", level => {
@@ -31,7 +33,7 @@ describe("market entry progression", () => {
 });
 
 describe("stand-specific markets", () => {
-  const items = ["barley", "beer", "brewingVessels", "emptyBeerJar"];
+  const items = ["barley", "beer", "bread", "brewingVessels", "emptyBeerJar"];
 
   it("offers empty jars only in the beer stand's NPC Buy tab", () => {
     expect(marketIncludesItem("beer", "emptyBeerJar", { market: "npc", action: "buy" })).toBe(true);
@@ -44,7 +46,7 @@ describe("stand-specific markets", () => {
     expect(marketIncludesItem("beer", "brewingVessels", { market: "player", action: "buy" })).toBe(false);
   });
 
-  it.each(["barley", "beer"] as const)("restricts %s market to its product", scope => {
+  it.each(["barley", "beer", "bread"] as const)("restricts %s market to its product", scope => {
     marketUiStore.getState().openMarket(scope);
     expect(marketUiStore.getState().isOpen).toBe(true);
     expect(marketUiStore.getState().scope).toBe(scope);

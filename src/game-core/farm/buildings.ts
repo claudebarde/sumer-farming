@@ -1,4 +1,5 @@
 import { match } from "ts-pattern";
+import { findLoadingTile, isRoad, type RoadCoordinate } from "./roads";
 
 import {
   FARM_BUILDING_DEFINITIONS,
@@ -18,9 +19,10 @@ export type BuildingPlacementRule =
   | { readonly type: "building_limit"; readonly limit: number }
   | { readonly type: "valid" }
   | { readonly type: "outside_arable_plot" }
-  | { readonly type: "footprint_occupied" }
+  | { readonly type: "footprint_occupied"; readonly occupant?: "farm" }
   | { readonly type: "hands_not_empty" }
   | { readonly type: "access_blocked" }
+  | { readonly type: "road_access_required" }
   | {
       readonly type: "missing_material";
       readonly itemKey: InventoryItemKey;
@@ -40,7 +42,7 @@ export const getBuildingFootprint = (
   }));
 };
 
-const isInsideArablePlot = ({
+export const isInsideBuildingPlot = ({
   column,
   row
 }: BuildingCoordinate): boolean => {
@@ -66,6 +68,8 @@ export const validateBuildingPlacement = (context: {
   readonly occupiedCoordinates: ReadonlySet<string>;
   readonly carriedItem: InventoryItemKey | null;
   readonly availableMaterials: Readonly<Partial<Record<InventoryItemKey, number>>>;
+  readonly roads?: readonly RoadCoordinate[];
+  readonly reservedLoadingTiles?: readonly RoadCoordinate[];
 }): BuildingPlacementRule => {
   const limit = context.building === "granary" ? (context.granaryLimit ?? FARM_BUILDING_LIMITS.granary) : FARM_BUILDING_LIMITS[context.building];
   if (limit !== undefined && context.existingBuildings.filter(building => building.type === context.building).length >= limit) {
@@ -77,13 +81,19 @@ export const validateBuildingPlacement = (context: {
     return { type: "footprint_occupied" };
   }
 
-  if (!footprint.every(isInsideArablePlot)) {
+  if (!footprint.every(isInsideBuildingPlot)) {
     return { type: "outside_arable_plot" };
+  }
+
+  const farm = INITIAL_FARM_CONFIG.buildingBounds;
+  if (footprint.some(p => p.column >= farm.minimumColumn && p.column <= farm.maximumColumn &&
+    p.row >= farm.minimumRow && p.row <= farm.maximumRow)) {
+    return { type: "footprint_occupied", occupant: "farm" };
   }
 
   if (
     footprint.some(coordinate =>
-      context.occupiedCoordinates.has(coordinateKey(coordinate))
+      context.occupiedCoordinates.has(coordinateKey(coordinate)) || isRoad(coordinate, context.roads ?? []) || context.roads?.some(r => coordinateKey(r) === coordinateKey(coordinate))
     )
   ) {
     return { type: "footprint_occupied" };
@@ -91,6 +101,10 @@ export const validateBuildingPlacement = (context: {
 
   if (context.carriedItem !== null) {
     return { type: "hands_not_empty" };
+  }
+
+  if (!findLoadingTile(footprint, context.roads ?? [], context.reservedLoadingTiles ?? [], context.occupiedCoordinates)) {
+    return { type: "road_access_required" };
   }
 
   const materials = FARM_BUILDING_DEFINITIONS[context.building].materials;
@@ -115,13 +129,16 @@ export const describeBuildingPlacementRule = (
   match(rule)
     .with({ type: "building_limit" }, ({ limit }) => `Building limit reached (${limit}), including buildings under construction.`)
     .with({ type: "access_blocked" }, () => "Keep a clear path for the farmer and access to every building.")
+    .with({ type: "road_access_required" }, () => "Build beside a connected road, with a free road tile for this building's loading point.")
     .with(
       { type: "outside_arable_plot" },
-      () => "The building must fit entirely inside the 8×8 arable plot."
+      () => "The building must fit entirely inside the 8×9 arable plot."
     )
     .with(
       { type: "footprint_occupied" },
-      () => "All four arable tiles must be empty."
+      rule => rule.occupant === "farm"
+        ? "This placement overlaps the Farm's 2×2 footprint. Move the building to four empty arable tiles."
+        : "All four arable tiles must be empty."
     )
     .with(
       { type: "hands_not_empty" },
@@ -130,6 +147,6 @@ export const describeBuildingPlacementRule = (
     .with(
       { type: "missing_material" },
       ({ itemKey, required, available }) =>
-        `The building needs ${required} ${itemKey === "brewingVessels" ? (required === 1 ? "brewing jar" : "brewing jars") : itemKey}; only ${available} available.`
+        `The building needs ${required} ${itemKey === "bakingTools" ? "baking tools" : itemKey === "brewingVessels" ? (required === 1 ? "brewing jar" : "brewing jars") : itemKey}; only ${available} available.`
     )
     .exhaustive();

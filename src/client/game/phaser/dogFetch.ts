@@ -10,7 +10,7 @@ import { gridStore } from "../../stores/gridStore";
 import { marketUiStore } from "../../stores/marketUiStore";
 import { interactionStore } from "../../stores/interactionStore";
 import { TILE_SIZE } from "./config";
-import { advanceDogGlance, type DogGlance } from "./dogGlance";
+import { dogFacingMouse } from "./dogFacing";
 
 export const installDogFetch = (
   scene: Phaser.Scene,
@@ -36,23 +36,15 @@ export const installDogFetch = (
   let outcome: ReturnType<typeof evaluateFetchThrow> | null = null;
   let placed = false;
   let nextFollowCheck = 0;
-  const glanceDelay = () => 5_000 + Math.random() * 7_000;
-  let glance: DogGlance = { type: "waiting", nextAt: scene.time.now + glanceDelay() };
-  const resetGlance = () => {
-    if (glance.type === "looking") dog.setFlipX(glance.originalFlip);
-    glance = { type: "waiting", nextAt: scene.time.now + glanceDelay() };
-  };
   let walk: { readonly points: readonly FetchPoint[]; readonly done: () => void; readonly kind: "follow" | "other"; index: number } | null = null;
   const sit = () => dog.setTexture(spriteName("dogSitting")).setDisplaySize(48, 48);
   const walkTo = (points: readonly FetchPoint[], done: () => void, kind: "follow" | "other" = "other") => {
     if (points.length === 0) { done(); return; }
-    resetGlance();
     walk = { points, done, kind, index: 0 };
     dog.setTexture(spriteName("dogStanding")).setDisplaySize(48, 48);
   };
 
   const clear = () => {
-    resetGlance();
     walk = null;
     run = null; thrownAt = null; landing = null; landed = false; outcome = null;
     input.setVisible(false);
@@ -220,10 +212,11 @@ export const installDogFetch = (
       return;
     }
     if (!run || phase === "idle" || phase === "menu" || phase === "result") {
-      const next = advanceDogGlance(glance, scene.time.now,
-        dog.visible && dog.texture.key === spriteName("dogSitting"), dog.flipX, glanceDelay());
-      glance = next.state;
-      dog.setFlipX(next.flipX);
+      const mouse = scene.input.mousePointer;
+      if (dog.visible && dog.texture.key === spriteName("dogSitting") && mouse?.event && !scene.input.activePointer.wasTouch) {
+        mouse.updateWorldPoint(scene.cameras.main);
+        dog.setFlipX(dogFacingMouse(dog.x, mouse.worldX, dog.flipX));
+      }
       return;
     }
     const elapsed = scene.time.now - startedAt;
@@ -269,7 +262,7 @@ export const installDogFetch = (
     if (state.phase === "idle") clear();
   });
   const unsubscribeLocation = marketUiStore.subscribe((state, previous) => {
-    if (state.location !== previous.location) { resetGlance(); fetchStore.getState().set("idle"); }
+    if (state.location !== previous.location) fetchStore.getState().set("idle");
   });
   const unsubscribeGrid = gridStore.subscribe(() => {
     if (run && fetchStore.getState().phase !== "idle") {

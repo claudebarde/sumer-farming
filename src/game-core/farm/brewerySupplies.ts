@@ -1,4 +1,4 @@
-import { BREWERY_WATER_CAPACITY, BREWERY_EMPTY_JAR_CAPACITY, BEER_RECIPE } from "../../game-data/brewing";
+import { BREWERY_WATER_CAPACITY, BREWERY_EMPTY_JAR_CAPACITY } from "../../game-data/brewing";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import { getBuildingFootprint, type BuildingCoordinate } from "./buildings";
 import type { FarmBuildingType } from "../../game-data/buildings";
@@ -12,7 +12,7 @@ export const brewerySupplyErrors = {
   not_at_river: "Collect water from the river.",
   not_carrying_water: "The farmer is not carrying water.",
   invalid_pour_target: "Pour water onto ground, an irrigation canal, or the river.",
-  wrong_supply: "Bring barley or water to the brewery.",
+  wrong_supply: "Bring water to the brewery. Brewer's Groats are taken from estate inventory when brewing starts.",
   brewery_full: "The brewery has no space for this delivery.",
   outside_world: "That tile is outside the farm world."
 } as const;
@@ -60,7 +60,7 @@ export const validateBrewerySupply = (context: {
     if (brewery.emptyBeerJars >= BREWERY_EMPTY_JAR_CAPACITY) return "brewery_full";
     return (context.inventory?.find(item => item.itemKey === "emptyBeerJar")?.quantity ?? 0) > 0 ? null : "no_empty_jars";
   }
-  if (carriedItem === null || (carriedItem.itemKey !== "barley" && carriedItem.itemKey !== "water")) return "wrong_supply";
-  const space = carriedItem.itemKey === "water" ? BREWERY_WATER_CAPACITY - brewery.brewingWater : BEER_RECIPE.barley - brewery.brewingBarley;
+  if (carriedItem === null || carriedItem.itemKey !== "water") return "wrong_supply";
+  const space = BREWERY_WATER_CAPACITY - brewery.brewingWater;
   return carriedItem.quantity > space ? "brewery_full" : null;
 };

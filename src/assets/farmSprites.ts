@@ -1,5 +1,11 @@
 import groundUrl from "./sprite_assets/pngs/ground.png";
+import donkeyUrl from "./sprite_assets/pngs/donkey-1.png";
+import millDonkeyUrl from "./sprite_assets/pngs/donkey-mill.png";
 import millUrl from "./sprite_assets/pngs/empty-mill.png";
+import breadOvenUrl from "./sprite_assets/pngs/bread-oven-idle.png";
+import breadOvenBusyUrl from "./sprite_assets/pngs/bread-oven-busy.png";
+import beerJarsUrl from "./sprite_assets/pngs/beer-jars.png";
+import breadBasketUrl from "./sprite_assets/pngs/bread-basket.png";
 import millBagsUrl from "./sprite_assets/pngs/flour-bags.png";
 import millBusyUrl from "./sprite_assets/pngs/busy-mill.png";
 import dogStandingUrl from "./sprite_assets/pngs/dog-on-four.png";
@@ -17,8 +23,9 @@ import canalTJunctionUrl from "./sprite_assets/pngs/canal-intersection-b.png";
 import waterUrl from "./sprite_assets/pngs/water.png";
 import groundPathHorizontalUrl from "./sprite_assets/pngs/mud-road-horizontal.png";
 import roadCornerUrl from "./sprite_assets/pngs/mud-road-90-deg.png";
-import marketStandUrl from "./sprite_assets/pngs/market-stand.png";
+import marketStandUrl from "./sprite_assets/pngs/market-barley-stand.png";
 import marketBeerStandUrl from "./sprite_assets/pngs/market-beer-stand.png";
+import marketBreadStandUrl from "./sprite_assets/pngs/market-bread-stand.png";
 import merchantChariotUrl from "./sprite_assets/pngs/merchant-chariot.png";
 import groundFenceUrl from "./sprite_assets/pngs/ground-fence-tile.png";
 import barleySeededUrl from "./sprite_assets/pngs/field-plowed.png";
@@ -59,6 +66,12 @@ import breweryUrl from "./sprite_assets/pngs/brewery.png";
 // Keep gameplay names stable; only the artwork URLs change.
 // The generated assets use "wheat" filenames for our existing barley artwork.
 export const FARM_SPRITES = {
+  donkey: donkeyUrl,
+  millDonkey: millDonkeyUrl,
+  breadOven: breadOvenUrl,
+  breadOvenBusy: breadOvenBusyUrl,
+  beerJars: beerJarsUrl,
+  breadBasket: breadBasketUrl,
   millBags: millBagsUrl,
   dogStanding: dogStandingUrl,
   dogSitting: dogSittingUrl,
@@ -78,6 +91,7 @@ export const FARM_SPRITES = {
   roadCorner: roadCornerUrl,
   marketStand: marketStandUrl,
   marketBeerStand: marketBeerStandUrl,
+  marketBreadStand: marketBreadStandUrl,
   merchantChariot: merchantChariotUrl,
   groundFence: groundFenceUrl,
   barleySeeded: barleySeededUrl,

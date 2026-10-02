@@ -1,11 +1,10 @@
 import { and, asc, eq, lte } from "drizzle-orm";
 import { match } from "ts-pattern";
 
-import { FARM_BUILDING_DEFINITIONS } from "../../game-data/buildings";
 import type { MarketItemKey } from "../../game-data/marketItems";
-import { FARM_STORAGE_CAPACITY } from "../../game-data/storage";
+import { FARM_STORAGE_CAPACITY, granaryCapacityForLevel } from "../../game-data/storage";
 import type { DatabaseTransaction } from "../db/client";
-import { farmBuildings, farmInventory } from "../db/schema";
+import { farmBuildings, farmInventory, farms } from "../db/schema";
 
 type CompletedGranary = {
   readonly id: string;
@@ -21,6 +20,7 @@ export type MarketItemStorage = {
   readonly storedQuantity: number;
   readonly totalCapacity: number;
   readonly availableCapacity: number;
+  readonly granaryCapacity: number;
 };
 
 const updateFarmInventory = async (
@@ -64,6 +64,8 @@ const loadBarleyStorage = async (
   farmId: string,
   now: Date
 ): Promise<MarketItemStorage> => {
+  const [farm] = await transaction.select({ level: farms.level }).from(farms).where(eq(farms.id, farmId));
+  const granaryCapacity = granaryCapacityForLevel(farm?.level ?? 1);
   const farmQuantity = (
     await transaction
       .select({ quantity: farmInventory.quantity })
@@ -100,7 +102,7 @@ const loadBarleyStorage = async (
     );
   const totalCapacity =
     FARM_STORAGE_CAPACITY +
-    granaries.length * FARM_BUILDING_DEFINITIONS.granary.barleyStorageBonus;
+    granaries.length * granaryCapacity;
 
   return {
     type: "barley_storage",
@@ -108,6 +110,7 @@ const loadBarleyStorage = async (
     farmId,
     farmQuantity,
     granaries,
+    granaryCapacity,
     storedQuantity,
     totalCapacity,
     availableCapacity: totalCapacity - storedQuantity
@@ -123,10 +126,11 @@ export const loadMarketItemStorage = (
   match(itemKey)
     .returnType<Promise<MarketItemStorage>>()
     .with("barley", () => loadBarleyStorage(transaction, farmId, now))
-    .with("brewingVessels", "emptyBeerJar", "beer", async () => {
+    .with("brewingVessels", "bakingTools", "emptyBeerJar", "beer", "bread", "flour", "brewersGroats", "donkey", async () => {
       const [entry] = await transaction.select().from(farmInventory).where(and(eq(farmInventory.farmId, farmId), eq(farmInventory.itemKey, itemKey))).for("update");
       const quantity = entry?.quantity ?? 0;
-      return { type: "estate_inventory", itemKey, farmId, farmQuantity: quantity, granaries: [], storedQuantity: quantity, totalCapacity: 2147483647, availableCapacity: 2147483647 - quantity };
+      const capacity = itemKey === "donkey" ? 1 : 2147483647;
+      return { type: "estate_inventory", itemKey, farmId, farmQuantity: quantity, granaries: [], granaryCapacity: 0, storedQuantity: quantity, totalCapacity: capacity, availableCapacity: capacity - quantity };
     })
     .exhaustive();
 
@@ -185,8 +189,7 @@ export const addToMarketItemStorage = async (
   );
 
   let remaining = quantity - addedToFarm;
-  const granaryCapacity =
-    FARM_BUILDING_DEFINITIONS.granary.barleyStorageBonus;
+  const granaryCapacity = storage.granaryCapacity;
 
   for (const granary of storage.granaries) {
     if (remaining === 0) {

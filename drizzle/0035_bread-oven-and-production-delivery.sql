@@ -1,0 +1,2 @@
+ALTER TYPE "public"."farm_building_type" ADD VALUE 'breadOven';--> statement-breakpoint
+ALTER TABLE "farms" ADD COLUMN "production" jsonb DEFAULT '{"pending":{},"delivery":null,"baking":{}}'::jsonb NOT NULL;

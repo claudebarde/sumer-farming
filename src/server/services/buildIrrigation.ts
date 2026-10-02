@@ -9,6 +9,7 @@ import {
   type FarmCoordinate
 } from "../../game-core/farm/irrigation";
 import { getBuildingFootprint } from "../../game-core/farm/buildings";
+import { isRoadIntersection } from "../../game-core/farm/roads";
 import { FARM_IMPROVEMENT_DEFINITIONS } from "../../game-data/farmImprovements";
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { Database } from "../db/client";
@@ -139,6 +140,8 @@ export const buildIrrigation = (
           const location = validateIrrigationLocation(input.target);
 
           if (location.type === "reserved_tile") return { type: "occupied" };
+          if (isRoadIntersection(input.target, farm.roads)) return { type: "occupied" };
+          if (farm.roads.some(r => r.column === input.target.column && r.row === input.target.row)) return { type: "occupied" };
 
           if (location.type !== "valid") {
             return { type: "invalid_location", reason: location.type };
@@ -214,6 +217,7 @@ export const buildIrrigation = (
               transaction
                 .select({
                   type: farmBuildings.type,
+                  loadingTile: farmBuildings.loadingTile,
                   column: farmBuildings.column,
                   row: farmBuildings.row
                 })
@@ -226,6 +230,7 @@ export const buildIrrigation = (
           }
 
           if (
+            buildings.some(b => b.loadingTile?.column === input.target.column && b.loadingTile.row === input.target.row) ||
             occupyingObject.length > 0 ||
             occupyingGroundItem.length > 0 ||
             occupyingCrop.length > 0 ||

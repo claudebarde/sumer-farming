@@ -22,7 +22,7 @@ export const areCardinallyAdjacent = (
 export const validateIrrigationLocation = (
   coordinate: FarmCoordinate
 ): IrrigationLocationValidation => {
-  const { worldBounds, riverRow } = INITIAL_FARM_CONFIG;
+  const { worldBounds, riverRow, buildingBounds, farmerSpawn } = INITIAL_FARM_CONFIG;
   const isInsideWorld =
     coordinate.column >= worldBounds.minimumColumn &&
     coordinate.column <= worldBounds.maximumColumn &&
@@ -37,7 +37,9 @@ export const validateIrrigationLocation = (
     return { type: "river" };
   }
 
-  if (isProgressionSignpost(coordinate)) {
+  if (isProgressionSignpost(coordinate) ||
+    (coordinate.column >= buildingBounds.minimumColumn && coordinate.column <= buildingBounds.maximumColumn && coordinate.row >= buildingBounds.minimumRow && coordinate.row <= buildingBounds.maximumRow) ||
+    (coordinate.column === farmerSpawn.column && coordinate.row === farmerSpawn.row)) {
     return { type: "reserved_tile" };
   }
 

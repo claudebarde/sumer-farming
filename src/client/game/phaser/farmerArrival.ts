@@ -11,8 +11,14 @@ export const getGroundArrivalMessage = (
 export type FarmerArrivalAlignment = "overlap" | "tile";
 export type CardinalDirection = "up" | "down" | "left" | "right";
 
+// Sprites use a top-left origin: lift them half a tile so their feet meet the road center.
+export const getFarmerRoadOffset = (onRoad: boolean, tileSize: number): number =>
+  onRoad ? -tileSize / 2 : 0;
+
 export const getFarmerArrivalAlignment = (command: FarmerCommand): FarmerArrivalAlignment =>
   match(command)
+    .with({ type: "move" }, () => "tile" as const)
+    .with({ type: "production" }, () => "tile" as const)
     .with({ type: "store_mill_goods" }, () => "tile" as const)
     .with({ type: "mill" }, () => "tile" as const)
     .with({ type: "fishing" }, () => "tile" as const)

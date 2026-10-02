@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { Client } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -25,7 +25,7 @@ const fixture = async (vessels = 2) => {
   const playerId = randomUUID();
   ids.add(playerId);
   await db.insert(players).values({ id: playerId, displayName: "Brewery test", shekelBalance: 20 });
-  const [farm] = await db.insert(farms).values({ playerId, level: 8 }).returning();
+  const [farm] = await db.insert(farms).values({ playerId, level: 8, roads: [{ column: 5, row: 4 }, { column: 0, row: 4 }, { column: 2, row: 4 }] }).returning();
   await db.insert(farmGroundItems).values([
     { farmId: farm!.id, itemKey: "reed", quantity: 4, column: 0, row: 0 },
     { farmId: farm!.id, itemKey: "clay", quantity: 6, column: 1, row: 0 }
@@ -43,7 +43,7 @@ describe("brewery construction and equipment", () => {
     const first = await Effect.runPromise(buildFarmBuilding(db, { ...input, building: "granary" }));
     expect(first.buildings.filter(building => building.type === "granary")).toHaveLength(1);
     const second = await Effect.runPromise(buildFarmBuilding(db, {
-      ...input, building: "granary", target: { column: 0, row: 2 }, expectedFarmVersion: first.farm.version
+      ...input, building: "granary", target: { column: 0, row: 6 }, expectedFarmVersion: first.farm.version
     }));
     expect(second.buildings.filter(building => building.type === "granary")).toHaveLength(2);
     expect(second.buildings.every(building => Date.parse(building.completesAt) > Date.now())).toBe(true);
@@ -56,18 +56,19 @@ describe("brewery construction and equipment", () => {
   it("rejects a trapping layout on the server without spending materials or changing the farm version", async () => {
     const input = await fixture();
     await db.update(farmGroundItems).set({ row: 6 }).where(eq(farmGroundItems.farmId, input.farmId));
-    await db.insert(farmBuildings).values({
-      farmId: input.farmId, type: "granary", column: 0, row: 0,
+    await db.update(farms).set({ roads: [{ column: 4, row: 4 }] }).where(eq(farms.id, input.farmId));
+    await db.insert(farmBuildings).values([3, 6].map(column => ({
+      farmId: input.farmId, type: "granary" as const, column, row: 0,
       startedAt: new Date(), completesAt: new Date(Date.now() + 120000)
-    });
+    })));
     const before = await db.select().from(farmGroundItems).where(eq(farmGroundItems.farmId, input.farmId));
     const inventory = await db.select().from(farmInventory).where(eq(farmInventory.farmId, input.farmId));
     await expect(Effect.runPromise(Effect.flip(buildFarmBuilding(db, {
-      ...input, target: { column: 1, row: 2 }
+      ...input, target: { column: 4, row: 2 }
     })))).resolves.toMatchObject({ rule: { type: "access_blocked" } });
     expect(await db.select().from(farmGroundItems).where(eq(farmGroundItems.farmId, input.farmId))).toEqual(before);
     expect(await db.select().from(farmInventory).where(eq(farmInventory.farmId, input.farmId))).toEqual(inventory);
-    expect(await db.select().from(farmBuildings).where(eq(farmBuildings.farmId, input.farmId))).toHaveLength(1);
+    expect(await db.select().from(farmBuildings).where(eq(farmBuildings.farmId, input.farmId))).toHaveLength(2);
     expect((await db.select().from(farms).where(eq(farms.id, input.farmId)))[0]?.version).toBe(1);
   });
 
@@ -141,14 +142,15 @@ describe("brewery construction and equipment", () => {
     expect(await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, input.playerId))).toHaveLength(1);
   });
 
-  it("consumes 4 reed, 6 clay and two brewing jars and persists a 3-minute building", async () => {
-    const input = await fixture();
+  it.each(["brewery", "breadOven"] as const)("consumes 4 reed, 6 clay and two brewing jars and persists a 3-minute %s", async buildingType => {
+    const input = { ...await fixture(), building: buildingType };
+    if (buildingType === "breadOven") await db.update(farmInventory).set({ itemKey: "bakingTools" }).where(and(eq(farmInventory.farmId, input.farmId), eq(farmInventory.itemKey, "brewingVessels")));
     const snapshot = await Effect.runPromise(buildFarmBuilding(db, input));
     expect(snapshot.groundItems).toHaveLength(0);
-    expect(snapshot.inventory.find(item => item.itemKey === "brewingVessels")?.quantity).toBe(0);
+    expect(snapshot.inventory.find(item => item.itemKey === (buildingType === "breadOven" ? "bakingTools" : "brewingVessels"))?.quantity).toBe(0);
     expect(snapshot.buildings).toHaveLength(1);
     const building = snapshot.buildings[0]!;
-    expect(building.type).toBe("brewery");
+    expect(building.type).toBe(buildingType);
     expect(Date.parse(building.completesAt) - Date.parse(building.startedAt)).toBe(180000);
     expect(calculateFarmStorageCapacity(snapshot.buildings, Date.parse(building.completesAt))).toBe(5);
     await expect(Effect.runPromise(Effect.flip(buildFarmBuilding(db, input)))).resolves.toMatchObject({ rule: { type: "version_conflict" } });
@@ -158,7 +160,7 @@ describe("brewery construction and equipment", () => {
   it.each([
     ["outside_arable_plot", { column: 7, row: 7 }],
     ["footprint_occupied", { column: 0, row: 3 }],
-    ["footprint_occupied", { column: 3, row: 0 }],
+    ["footprint_occupied", { column: 1, row: 3 }],
     ["footprint_occupied", { column: 0, row: 0 }]
   ] as const)("rejects %s without consuming materials", async (reason, target) => {
     const input = await fixture();

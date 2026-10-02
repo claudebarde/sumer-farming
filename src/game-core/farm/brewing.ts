@@ -16,7 +16,7 @@ export const getBrewingState = (readyAt: string | null, now: number): BrewingSta
 
 export const brewingErrors = {
   batch_active: "Collect the current batch before starting another.",
-  missing_ingredients: "Brewing requires 2 barley, 2 water loads and 2 empty beer jars.",
+  missing_ingredients: "Brewing requires 2 stored Brewer's Groats, 2 water loads and 2 empty beer jars.",
   beer_not_ready: "The beer is not ready to collect.",
   no_batch: "There is no beer to collect.",
   beer_inventory_full: "The estate cannot hold more beer."
@@ -27,10 +27,10 @@ export const validateBrewing = (action: "start_brewing" | "collect_beer", buildi
   readonly brewingBarley: number;
   readonly brewingWater: number;
   readonly emptyBeerJars: number;
-}, now: number): keyof typeof brewingErrors | null =>
+}, now: number, storedGroats = 0): keyof typeof brewingErrors | null =>
   match(getBrewingState(building.beerReadyAt, now))
     .with({ type: "idle" }, () => action === "collect_beer" ? "no_batch" as const :
-      building.brewingBarley < BEER_RECIPE.barley ||
+      storedGroats < BEER_RECIPE.groats ||
       building.brewingWater < BEER_RECIPE.water ||
       building.emptyBeerJars < BEER_RECIPE.emptyJars ? "missing_ingredients" as const : null)
     .with({ type: "brewing" }, () => action === "start_brewing" ? "batch_active" as const : "beer_not_ready" as const)

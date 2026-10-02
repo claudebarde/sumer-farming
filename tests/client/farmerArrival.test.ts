@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getFarmerArrivalAlignment, getFarmerDestination, getGroundArrivalMessage } from "../../src/client/game/phaser/farmerArrival";
+import { getFarmerArrivalAlignment, getFarmerDestination, getFarmerRoadOffset, getGroundArrivalMessage } from "../../src/client/game/phaser/farmerArrival";
 import { gridStore } from "../../src/client/stores/gridStore";
 import type { Tile } from "../../src/client/game/phaser/types";
 
@@ -38,7 +38,18 @@ describe("ground arrival at canvas boundaries", () => {
 });
 
 describe("farmer arrival alignment", () => {
+  it.each([32, 64, 128])("places the farmer's feet at the road center for tile size %i", tileSize => {
+    const roadTop = 5 * tileSize;
+    expect(roadTop + getFarmerRoadOffset(true, tileSize) + tileSize).toBe(roadTop + tileSize / 2);
+    expect(getFarmerRoadOffset(false, tileSize)).toBe(0);
+  });
   const target = { column: 5, row: 2, posX: 320, posY: 128 };
+
+  it.each(["up", "down", "left", "right"] as const)("walks onto the selected tile when approaching from %s", direction => {
+    const alignment = getFarmerArrivalAlignment({ id: "walk", type: "move", target });
+    expect(alignment).toBe("tile");
+    expect(getFarmerDestination(target, direction, 64, alignment)).toEqual({ x: 320, y: 128 });
+  });
 
   it.each(["collect_water", "pour_water", "deliver"] as const)("aligns %s actions with the bank or building edge", action => {
     expect(getFarmerArrivalAlignment({ id: "supplies", type: "brewery_supply", action, target })).toBe("tile");

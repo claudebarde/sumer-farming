@@ -3,18 +3,47 @@ import { z } from "zod";
 import type { InventoryItemKey } from "./inventoryItems";
 
 export const marketItemKeys = [
-  "barley", "brewingVessels", "emptyBeerJar", "beer"
+  "barley", "brewingVessels", "bakingTools", "emptyBeerJar", "beer", "bread", "flour", "brewersGroats", "donkey"
 ] as const satisfies readonly InventoryItemKey[];
 
 export const MarketItemKeySchema = z.enum(marketItemKeys);
 
 export type MarketItemKey = z.infer<typeof MarketItemKeySchema>;
 
+const PROCESSED_FOOD_PRICE = 5;
+
 export const MARKET_ITEM_DEFINITIONS = {
+  donkey: {
+    label: "Mill donkey", storage: { type: "estate_inventory" },
+    npcMarket: { canBuy: true, canSell: false, buyPrice: 30, sellPrice: 1 },
+    playerMarket: { canCreateSellOrder: false }
+  },
+  flour: {
+    label: "Flour", storage: { type: "estate_inventory" },
+    npcMarket: { canBuy: true, canSell: true, buyPrice: 4, sellPrice: 3 },
+    playerMarket: { canCreateSellOrder: true }
+  },
+  brewersGroats: {
+    label: "Brewer's Groats", storage: { type: "estate_inventory" },
+    npcMarket: { canBuy: true, canSell: true, buyPrice: 4, sellPrice: 3 },
+    playerMarket: { canCreateSellOrder: true }
+  },
+  bakingTools: {
+    label: "Baking tools",
+    storage: { type: "estate_inventory" },
+    npcMarket: { canBuy: true, canSell: false, buyPrice: 6, sellPrice: 1 },
+    playerMarket: { canCreateSellOrder: false }
+  },
+  bread: {
+    label: "Bread",
+    storage: { type: "estate_inventory" },
+    npcMarket: { canBuy: true, canSell: true, buyPrice: PROCESSED_FOOD_PRICE, sellPrice: PROCESSED_FOOD_PRICE },
+    playerMarket: { canCreateSellOrder: true }
+  },
   beer: {
     label: "Beer jar",
     storage: { type: "estate_inventory" },
-    npcMarket: { canBuy: false, canSell: true, buyPrice: 5, sellPrice: 5 },
+    npcMarket: { canBuy: true, canSell: true, buyPrice: 8, sellPrice: 8 },
     playerMarket: { canCreateSellOrder: true }
   },
   emptyBeerJar: {

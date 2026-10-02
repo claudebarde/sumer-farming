@@ -106,6 +106,7 @@ export const readFarmSnapshot = async (
   const buildings = await transaction
     .select({
       id: farmBuildings.id,
+      loadingTile: farmBuildings.loadingTile,
       type: farmBuildings.type,
       column: farmBuildings.column,
       row: farmBuildings.row,
@@ -123,6 +124,7 @@ export const readFarmSnapshot = async (
     .orderBy(asc(farmBuildings.row), asc(farmBuildings.column));
 
   const [achievements] = await transaction.select({
+    breadSold: sql<number>`coalesce(sum(case when ${shekelTransactions.type} = 'market_sale' and ${shekelTransactions.itemKey} = 'bread' then ${shekelTransactions.itemQuantity} else 0 end), 0)::int`,
     barleySold: sql<number>`coalesce(sum(case when ${shekelTransactions.type} = 'market_sale' and ${shekelTransactions.itemKey} = 'barley' then ${shekelTransactions.itemQuantity} else 0 end), 0)::int`,
     beerSold: sql<number>`coalesce(sum(case when ${shekelTransactions.type} = 'market_sale' and ${shekelTransactions.itemKey} = 'beer' then ${shekelTransactions.itemQuantity} else 0 end), 0)::int`,
     requestsDelivered: sql<number>`count(*) filter (where ${shekelTransactions.type} = 'request_reward')::int`
@@ -131,7 +133,9 @@ export const readFarmSnapshot = async (
     created,
     player,
     farm: {
+      roads: [...currentFarm.roads],
       milling: currentFarm.milling,
+      production: currentFarm.production,
       millGoods: currentFarm.millGoods,
       progression: { level: currentFarm.level, stats: currentFarm.progressionStats, ...achievements! },
       id: currentFarm.id,
@@ -145,6 +149,7 @@ export const readFarmSnapshot = async (
         hungrySince: currentFarm.hungrySince?.toISOString() ?? null,
         happiness: currentFarm.happiness,
         lastBeerAt: currentFarm.lastBeerAt?.toISOString() ?? null,
+        lastBreadAt: currentFarm.lastBreadAt?.toISOString() ?? null,
         lastFishAt: currentFarm.lastFishAt?.toISOString() ?? null
       },
       fishing: currentFarm.fishing === null ? null : { ...currentFarm.fishing, serverNow: Date.now() },

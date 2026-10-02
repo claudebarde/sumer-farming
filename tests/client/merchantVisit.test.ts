@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { getMerchantVisit } from "../../src/client/game/phaser/merchantVisit";
+import { merchantStopColumn, MERCHANT_CHARIOT_WIDTH_TILES } from "../../src/client/game/phaser/merchantChariotLayout";
+import { INITIAL_FARM_CONFIG } from "../../src/game-data/initialFarm";
 import { MERCHANT_TRAVEL_MS, REQUEST_CYCLE_MS, REQUEST_OPEN_MS } from "../../src/game-data/npcRequests";
 
 const anchor = 100_000;
 const board = { cycle: 0, closesAt: new Date(anchor + REQUEST_OPEN_MS).toISOString() };
 describe("merchant visit", () => {
+  it.each([0, 2, 8])("parks entirely outside the plot at farm offset %i", farmColumn => {
+    const leftEdge = merchantStopColumn(farmColumn) - MERCHANT_CHARIOT_WIDTH_TILES / 2;
+    expect(leftEdge).toBe(farmColumn + INITIAL_FARM_CONFIG.plotBounds.maximumColumn + 1);
+  });
   it("arrives during the 15 seconds before opening", () => {
     expect(getMerchantVisit(board, anchor - MERCHANT_TRAVEL_MS - 1)).toEqual({ phase: "away" });
     expect(getMerchantVisit(board, anchor - MERCHANT_TRAVEL_MS)).toEqual({ phase: "arriving", progress: 0 });

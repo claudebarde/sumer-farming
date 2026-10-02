@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ProductionStateSchema, emptyProductionState } from "../game-data/production";
 import { MillingJobSchema, MillGoodsSchema, emptyMillGoods } from "../game-data/milling";
 import { ProgressionSchema } from "./progression";
 
@@ -15,6 +16,8 @@ export const FarmSnapshotSchema = z.object({
     shekelBalance: z.int().nonnegative()
   }),
   farm: z.object({
+    roads: z.array(z.object({ column: z.int(), row: z.int(), completesAt: z.number().optional() })).default([]),
+    production: ProductionStateSchema.default(emptyProductionState),
     milling: MillingJobSchema.nullable().default(null),
     millGoods: MillGoodsSchema.default(emptyMillGoods),
     progression: ProgressionSchema.optional(),
@@ -31,6 +34,7 @@ export const FarmSnapshotSchema = z.object({
       hungrySince: z.iso.datetime().nullable(),
       happiness: z.int().min(0).max(100),
       lastBeerAt: z.iso.datetime().nullable(),
+      lastBreadAt: z.iso.datetime().nullable().default(null),
       lastFishAt: z.iso.datetime().nullable().default(null)
     }),
     carriedItem: z
@@ -103,6 +107,7 @@ export const FarmSnapshotSchema = z.object({
   ),
   buildings: z.array(
     z.object({
+      loadingTile: z.object({ column: z.int(), row: z.int() }).nullable().default(null),
       id: z.uuid(),
       type: FarmBuildingTypeSchema,
       column: z.int(),

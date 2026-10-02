@@ -1,3 +1,4 @@
+import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { and, eq, gt, isNotNull, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { validateBrewerySupply, brewerySupplyErrors, type BrewerySupplyRule } from "../../game-core/farm/brewerySupplies";
@@ -11,14 +12,15 @@ import type { Database } from "../db/client";
 import { farmBuildings, farmCrops, farmInventory, farms } from "../db/schema";
 import { advanceFarmLifecycle } from "./farmLifecycle";
 import { readFarmSnapshot } from "./farmSnapshot";
+import { breadTreatErrors, validateBreadTreat, happinessAfterBread } from "../../game-core/farm/wellbeing";
 
 export class BrewerySupplyRuleError extends Data.TaggedError("BrewerySupplyRuleError")<{
-  readonly type: BrewerySupplyRule | keyof typeof brewingErrors | keyof typeof fishTreatErrors | "farm_not_found" | "farm_version_conflict" | "farmer_busy";
+  readonly type: BrewerySupplyRule | keyof typeof brewingErrors | keyof typeof fishTreatErrors | keyof typeof breadTreatErrors | "farm_not_found" | "farm_version_conflict" | "farmer_busy";
   readonly message: string;
 }> {}
 export class BrewerySupplyPersistenceError extends Data.TaggedError("BrewerySupplyPersistenceError")<{ readonly cause: unknown }> {}
 
-export const supplyBrewery = (database: Database, input: Extract<GameCommand, { type: "brewery_supply" | "give_farmer_beer" | "give_farmer_fish" }> & { readonly playerId: string }) =>
+export const supplyBrewery = (database: Database, input: Extract<GameCommand, { type: "brewery_supply" | "give_farmer_beer" | "give_farmer_fish" | "give_farmer_bread" }> & { readonly playerId: string }) =>
   Effect.gen(function* () {
     const now = new Date(yield* Clock.currentTimeMillis);
     const result = yield* Effect.tryPromise({
@@ -32,20 +34,21 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           eq(farmCrops.farmId, farm.id),
           sql`(${gt(farmCrops.plantedAt, now)} OR ${isNotNull(farmCrops.harvestStartedAt)})`
         )).limit(1);
-        if (farm.milling || farm.millGoods.delivery || farm.gatheringItemKey !== null || workingCrop) return new BrewerySupplyRuleError({ type: "farmer_busy", message: "The farmer is busy." });
+        if (farm.production.planting || farmerProductionJob(farm) || farm.millGoods.delivery || farm.production.delivery || farm.gatheringItemKey !== null || workingCrop) return new BrewerySupplyRuleError({ type: "farmer_busy", message: "The farmer is busy." });
         const snapshot = await readFarmSnapshot(transaction, farm, false);
         // Estate gifts do not require a brewery or consume a brewery's ready batch.
-        if (input.type === "give_farmer_beer" || input.type === "give_farmer_fish") {
-          const itemKey = input.type === "give_farmer_fish" ? "fish" : "beer";
+        if (input.type === "give_farmer_beer" || input.type === "give_farmer_fish" || input.type === "give_farmer_bread") {
+          const itemKey = input.type === "give_farmer_fish" ? "fish" : input.type === "give_farmer_bread" ? "bread" : "beer";
           const quantity = snapshot.inventory.find(item => item.itemKey === itemKey)?.quantity ?? 0;
-          const validate = itemKey === "fish" ? validateFishTreat : validateBeerTreat;
-          const lastTreatAt = itemKey === "fish" ? farm.lastFishAt : farm.lastBeerAt;
+          const validate = itemKey === "fish" ? validateFishTreat : itemKey === "bread" ? validateBreadTreat : validateBeerTreat;
+          const lastTreatAt = itemKey === "fish" ? farm.lastFishAt : itemKey === "bread" ? farm.lastBreadAt : farm.lastBeerAt;
           const rule = validate(quantity, farm.happiness, lastTreatAt?.getTime() ?? null, now.getTime());
-          if (rule !== null) return new BrewerySupplyRuleError({ type: rule, message: fishTreatErrors[rule] });
+          if (rule !== null) return new BrewerySupplyRuleError({ type: rule, message: { ...fishTreatErrors, ...breadTreatErrors }[rule] });
           await transaction.update(farmInventory).set({ quantity: quantity - 1, updatedAt: now })
             .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, itemKey)));
           const [updated] = await transaction.update(farms).set({
-            happiness: itemKey === "fish" ? happinessAfterFish(farm.happiness) : happinessAfterBeer(farm.happiness),
+            happiness: itemKey === "fish" ? happinessAfterFish(farm.happiness) : itemKey === "bread" ? happinessAfterBread(farm.happiness) : happinessAfterBeer(farm.happiness),
+            lastBreadAt: itemKey === "bread" ? now : farm.lastBreadAt,
             lastBeerAt: itemKey === "beer" ? now : farm.lastBeerAt,
             lastFishAt: itemKey === "fish" ? now : farm.lastFishAt,
             progressionStats: { ...farm.progressionStats, fishFed: farm.progressionStats.fishFed + (itemKey === "fish" ? 1 : 0) },
@@ -56,7 +59,8 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
         }
         const rule = validateBrewerySupply({ ...snapshot, ...input, carriedItem: snapshot.farm.carriedItem, now: now.getTime() });
         if (rule !== null) return new BrewerySupplyRuleError({ type: rule, message: brewerySupplyErrors[rule] });
-        const brewingAction = input.action === "start_brewing" || input.action === "collect_beer" || input.action === "give_beer";
+        if (input.action === "collect_beer") return new BrewerySupplyRuleError({ type: "beer_not_ready", message: "Click the beer jars beside the brewery and choose Store to deliver them to the farm." });
+        const brewingAction = input.action === "start_brewing" || input.action === "give_beer";
         let beerProduced = 0;
         if (input.action === "give_beer") {
           const brewery = snapshot.buildings.find(building => building.type === "brewery" &&
@@ -76,34 +80,20 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
               .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "beer")));
           }
         }
-        if (input.action === "start_brewing" || input.action === "collect_beer") {
+        if (input.action === "start_brewing") {
           const brewery = snapshot.buildings.find(building => building.type === "brewery" &&
             building.column === input.target.column && building.row === input.target.row)!;
-          const brewingRule = validateBrewing(input.action, brewery, now.getTime());
+          const groats = snapshot.inventory.find(item => item.itemKey === "brewersGroats")?.quantity ?? 0;
+          const brewingRule = validateBrewing(input.action, brewery, now.getTime(), groats);
           if (brewingRule !== null) return new BrewerySupplyRuleError({ type: brewingRule, message: brewingErrors[brewingRule] });
-          if (input.action === "start_brewing") {
+          await transaction.update(farmInventory).set({ quantity: groats - BEER_RECIPE.groats, updatedAt: now })
+            .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "brewersGroats")));
             await transaction.update(farmBuildings).set({
-              brewingBarley: brewery.brewingBarley - BEER_RECIPE.barley,
               brewingWater: brewery.brewingWater - BEER_RECIPE.water,
               emptyBeerJars: brewery.emptyBeerJars - BEER_RECIPE.emptyJars,
               beerReadyAt: new Date(now.getTime() + BEER_RECIPE.durationMs),
               beerServed: 0
             }).where(eq(farmBuildings.id, brewery.id));
-          } else {
-            const storedBeer = snapshot.inventory.find(item => item.itemKey === "beer")?.quantity ?? 0;
-            const quantity = readyBeerQuantity(brewery, now.getTime());
-            beerProduced = quantity;
-            if (storedBeer > 2147483647 - quantity) {
-              return new BrewerySupplyRuleError({ type: "beer_inventory_full", message: brewingErrors.beer_inventory_full });
-            }
-            await transaction.insert(farmInventory).values({
-              farmId: farm.id, itemKey: "beer", quantity, updatedAt: now
-            }).onConflictDoUpdate({
-              target: [farmInventory.farmId, farmInventory.itemKey],
-              set: { quantity: sql`${farmInventory.quantity} + ${quantity}`, updatedAt: now }
-            });
-            await transaction.update(farmBuildings).set({ beerReadyAt: null, beerServed: 0 }).where(eq(farmBuildings.id, brewery.id));
-          }
         }
         if (input.action === "stock_jars") {
           const brewery = snapshot.buildings.find(building => building.type === "brewery" && building.column === input.target.column && building.row === input.target.row)!;

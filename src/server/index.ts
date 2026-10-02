@@ -4,6 +4,9 @@ import { Effect, Either } from "effect";
 import { eq } from "drizzle-orm";
 import { commandUnlockLevel } from "../game-core/farm/commandUnlock";
 import { startMilling, deliverMillGoods, MillingRuleError, MillingPersistenceError } from "./services/milling";
+import { productionAction, ProductionRuleError, ProductionPersistenceError } from "./services/production";
+import { batchPlantingAction, BatchPlantingError, BatchPlantingPersistenceError } from "./services/batchPlanting";
+import { buildRoad, RoadRuleError, RoadPersistenceError } from "./services/buildRoad";
 import { isProgressionSignpost } from "../game-data/progression";
 import { claimFarmLevel, LevelClaimRuleError, LevelClaimPersistenceError } from "./services/claimFarmLevel";
 import { Hono } from "hono";
@@ -118,6 +121,12 @@ type GameActionEffect = Effect.Effect<
   FarmSnapshot,
   | BuildIrrigationError
   | MillingRuleError
+  | ProductionRuleError
+  | BatchPlantingError
+  | BatchPlantingPersistenceError
+  | RoadRuleError
+  | RoadPersistenceError
+  | ProductionPersistenceError
   | MillingPersistenceError
   | LevelClaimRuleError
   | LevelClaimPersistenceError
@@ -355,7 +364,8 @@ app.post("/api/game/action", async c => {
 
     const database = createDatabase(client);
     const command = parsedCommand.data;
-    const [progressFarm] = await database.select({ level: farms.level }).from(farms).where(eq(farms.playerId, c.get("developmentPlayer").id));
+    const [progressFarm] = await database.select({ level: farms.level, production: farms.production }).from(farms).where(eq(farms.playerId, c.get("developmentPlayer").id));
+    if (progressFarm?.production.planting && command.type !== "advance_batch_planting") return c.json({ error: { type: "farmer_busy", message: "Finish or stop planting or harvesting the selected fields first." } }, 409);
     const order = command.type === "buy_market_sell_order"
       ? (await database.select({ itemKey: marketOrders.itemKey }).from(marketOrders).where(eq(marketOrders.id, command.orderId)))[0]
       : undefined;
@@ -367,6 +377,8 @@ app.post("/api/game/action", async c => {
       Effect.either(
         match(command)
           .returnType<GameActionEffect>()
+          .with({ type: P.union("start_batch_planting", "start_batch_harvesting", "advance_batch_planting") }, command => batchPlantingAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: "build_road" }, command => buildRoad(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "start_milling" }, command => startMilling(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "mill_delivery" }, command => deliverMillGoods(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "claim_farm_level" }, command => claimFarmLevel(database, { ...command, playerId: c.get("developmentPlayer").id }))
@@ -374,6 +386,7 @@ app.post("/api/game/action", async c => {
           .with({ type: "brewery_supply" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "give_farmer_beer" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "give_farmer_fish" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: "give_farmer_bread" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "build_irrigation" }, command =>
             buildIrrigation(database, {
               playerId: c.get("developmentPlayer").id,
@@ -381,9 +394,10 @@ app.post("/api/game/action", async c => {
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
-          .with({ type: P.union("build_granary", "build_brewery", "build_mill") }, command =>
+          .with({ type: P.union("start_baking", "production_delivery") }, command => productionAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: P.union("build_granary", "build_brewery", "build_mill", "build_bread_oven") }, command =>
             buildFarmBuilding(database, {
-              building: command.type === "build_mill" ? "mill" : command.type === "build_brewery" ? "brewery" : "granary",
+              building: command.type === "build_bread_oven" ? "breadOven" : command.type === "build_mill" ? "mill" : command.type === "build_brewery" ? "brewery" : "granary",
               playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
@@ -529,6 +543,12 @@ app.post("/api/game/action", async c => {
 
     return match(result.left)
       .with(P.instanceOf(MillingRuleError), error => c.json({ error: { type: "milling_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(ProductionRuleError), error => c.json({ error: { type: "production_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(BatchPlantingError), error => c.json({ error: { type: "batch_planting_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(BatchPlantingPersistenceError), () => c.json({ error: { type: "batch_planting_failed", message: "Planting could not be updated." } }, 500))
+      .with(P.instanceOf(RoadRuleError), error => c.json({ error: { type: "road_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(RoadPersistenceError), () => c.json({ error: { type: "road_failed", message: "The road could not be saved." } }, 500))
+      .with(P.instanceOf(ProductionPersistenceError), () => c.json({ error: { type: "production_failed", message: "Production could not be updated." } }, 500))
       .with(P.instanceOf(MillingPersistenceError), error => {
         console.error("Milling failed", error.cause);
         return c.json({ error: { type: "milling_failed", message: "Milling could not start." } }, 500);
@@ -684,6 +704,7 @@ app.post("/api/game/action", async c => {
             { type: "footprint_occupied" },
             { type: "building_limit" },
             { type: "access_blocked" },
+            { type: "road_access_required" },
             { type: "hands_not_empty" },
             { type: "missing_material" },
             rule =>
