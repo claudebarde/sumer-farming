@@ -45,7 +45,7 @@ export default function FarmLevelDialog() {
     } catch (cause) { setMessage(cause instanceof Error ? cause.message : "The level could not be claimed."); }
     finally { setPending(false); setClock(Date.now()); }
   };
-  const offeringDescription = progress.offerings.map(offering => `${offering.quantity} ${offering.source === "processed_grain" ? "Flour or Brewer's Groats in any combination (Flour used first)" : offering.source === "fish" ? "stored fish" : offering.source === "ground_barley" ? "barley from the ground" : "barley from your granary"}`).join(" and ");
+  const offeringDescription = progress.offerings.map(offering => `${offering.quantity} ${offering.source === "processed_grain" ? "Flour or Brewer's Groats in any combination (Flour used first)" : offering.source === "ground_barley" ? "barley from the ground" : offering.source === "granary_barley" ? "barley from your granary" : `stored ${offering.source}`}`).join(" and ");
   return <Dialog.Root open={isOpen && location === "farm"} onOpenChange={levelUiStore.getState().setOpen}>
     <Dialog.Portal>
       <Dialog.Overlay className={styles["market-dialog-overlay"]} />
@@ -73,7 +73,10 @@ export default function FarmLevelDialog() {
               {r.met ? "✓" : "✗"}
             </span>
           </li>)}</ul>
-          {offeringDescription && <p>Claiming this level consumes {offeringDescription}.</p>}
+          {progress.level === 8
+            ? <p>During level 8, harvest 100 barley and produce 30 bread and beer combined. Claiming consumes 10 stored bread, or 10 stored beer if you have fewer than 10 bread. Mixed stocks do not qualify.</p>
+            : offeringDescription && <p>Claiming this level consumes {offeringDescription}.</p>}
+          {progress.level === 7 && <p>Completed merchant requests count over your lifetime. Your mill donkey is kept.</p>}
           {progress.barleyCost > 0 && <p role={progress.seedSafe ? "note" : "alert"}>
             {progress.level === 3
               ? "Keep at least 1 unexpired barley on the ground or an already-planted barley field. The 15 barley in the full granary will be consumed; the ground barley or field is kept. Barley in farm storage or the farmer's hands does not meet this requirement."
@@ -83,10 +86,8 @@ export default function FarmLevelDialog() {
           </p>}
           {progress.offerings.length === 0 && <p>{progress.level === 6
             ? "Only production and completed sales during this level count. Claiming level 7 does not consume these goods or charge you again."
-            : progress.level === 7
-            ? "Completed merchant requests count over your lifetime. Have 20 barley stored in a completed granary and own a mill donkey when claiming level 8. The barley and donkey are kept."
             : "These are lifetime achievements; previously sold goods and completed deliveries are not charged again."}</p>}
-          {progress.upcoming && <p>Levels 9–10 are upcoming: brewery expansion, then neighbourhood and cooperative systems. They cannot be claimed yet.</p>}
+          {progress.upcoming && <p>Levels 10–11 are upcoming. Their progression requirements are not implemented and they cannot be claimed yet.</p>}
           <button className={styles["level-claim-button"]} disabled={pending || !progress.canClaim} onClick={() => { void claim(); }}>
             {!pending && !progress.canClaim && <LockClosedIcon aria-hidden="true" />}
             {pending ? "Claiming level…" : progress.upcoming ? "Upcoming level" : `Claim level ${progress.nextLevel}`}

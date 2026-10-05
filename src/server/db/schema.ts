@@ -119,10 +119,11 @@ export const shekelTransactions = pgTable(
     ),
     check("shekel_transactions_reward_or_trade", sql`
       (${table.type}::text = 'request_reward' AND ${table.requestCustomer} IS NOT NULL AND ${table.itemKey} IS NULL AND ${table.itemQuantity} IS NULL AND ${table.unitPrice} IS NULL)
-      OR (${table.type}::text <> 'request_reward' AND ${table.requestCustomer} IS NULL AND ${table.itemKey} IS NOT NULL AND ${table.itemQuantity} IS NOT NULL AND ${table.unitPrice} IS NOT NULL)`),
+      OR (${table.type}::text IN ('porter_hire', 'building_upgrade') AND ${table.requestCustomer} IS NULL AND ${table.itemKey} IS NULL AND ${table.itemQuantity} IS NULL AND ${table.unitPrice} IS NULL)
+      OR (${table.type}::text NOT IN ('request_reward', 'porter_hire', 'building_upgrade') AND ${table.requestCustomer} IS NULL AND ${table.itemKey} IS NOT NULL AND ${table.itemQuantity} IS NOT NULL AND ${table.unitPrice} IS NOT NULL)`),
     check(
       "shekel_transactions_direction_matches_type",
-      sql`(${table.type}::text IN ('market_sale', 'request_reward') AND ${table.delta} > 0) OR (${table.type} = 'market_purchase' AND ${table.delta} < 0)`
+      sql`(${table.type}::text IN ('market_sale', 'request_reward') AND ${table.delta} > 0) OR (${table.type}::text IN ('market_purchase', 'porter_hire', 'building_upgrade') AND ${table.delta} < 0)`
     )
   ]
 );
@@ -271,7 +272,7 @@ export const farms = pgTable(
       "farms_happiness_in_range",
       sql`${table.happiness} >= 0 AND ${table.happiness} <= 100`
     ),
-    check("farms_level_valid", sql`${table.level} >= 1 AND ${table.level} <= 10`),
+    check("farms_level_valid", sql`${table.level} >= 1 AND ${table.level} <= 11`),
     check(
       "farms_carried_item_quantity_in_range",
       sql`${table.carriedItemQuantity} >= 0 AND ${table.carriedItemQuantity} <= CASE WHEN ${table.carriedItemKey} = 'barley' THEN ${sql.raw(String(MAX_BATCH_HARVEST_FIELDS * CROP_DEFINITIONS.barley.harvestYield))} ELSE ${sql.raw(String(FARMER_CARRY_CAPACITY))} END`

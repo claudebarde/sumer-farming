@@ -137,8 +137,8 @@ export const describeBuildingPlacementRule = (
     .with(
       { type: "footprint_occupied" },
       rule => rule.occupant === "farm"
-        ? "This placement overlaps the Farm's 2×2 footprint. Move the building to four empty arable tiles."
-        : "All four arable tiles must be empty."
+        ? "This placement overlaps the Farm's 2×2 footprint. Move the building to empty arable tiles."
+        : "All arable tiles in the building footprint must be empty."
     )
     .with(
       { type: "hands_not_empty" },

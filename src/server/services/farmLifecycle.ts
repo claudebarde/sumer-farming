@@ -1,7 +1,8 @@
-import { and, asc, eq, lte, sql } from "drizzle-orm";
+import { and, asc, eq, lte, sql, inArray } from "drizzle-orm";
 
 import { BARLEY_CONSUMPTION_INTERVAL_MS } from "../../game-data/household";
 import { BEER_RECIPE } from "../../game-data/brewing";
+import { advancePorterLifecycle } from "./porterLifecycle";
 import { advanceHappiness } from "../../game-core/farm/wellbeing";
 import { advanceBatchPlanting } from "./batchPlantingLifecycle";
 import type { DatabaseTransaction } from "../db/client";
@@ -56,6 +57,24 @@ export const advanceFarmLifecycle = async (
   farm: FarmRecord,
   now: Date
 ): Promise<FarmRecord> => {
+  // Upgrade legacy second granaries in place: preserve coordinates, construction
+  // timestamps, loading tile and stored barley. No goods are discarded.
+  const storageBuildings = await transaction.select().from(farmBuildings)
+    .where(and(eq(farmBuildings.farmId, farm.id), inArray(farmBuildings.type, ["granary", "warehouse"])))
+    .orderBy(asc(farmBuildings.startedAt), asc(farmBuildings.id));
+  if (!storageBuildings.some(b => b.type === "warehouse")) {
+    const secondGranary = storageBuildings.filter(b => b.type === "granary")[1];
+    if (secondGranary) await transaction.update(farmBuildings).set({ type: "warehouse" }).where(eq(farmBuildings.id, secondGranary.id));
+  }
+  if (farm.level === 8 && farm.progressionStats.level8Baseline?.produced === undefined) {
+    const progressionStats = { ...farm.progressionStats,
+      level8Baseline: {
+        harvestedBarley: farm.progressionStats.level8Baseline?.harvestedBarley ?? farm.progressionStats.harvestedBarley,
+        produced: farm.progressionStats.beerProduced + (farm.progressionStats.breadProduced ?? 0)
+      } };
+    await transaction.update(farms).set({ progressionStats }).where(eq(farms.id, farm.id));
+    farm = { ...farm, progressionStats };
+  }
   farm = await advanceBatchPlanting(transaction, farm, now);
   // Old saves lack a level-entry baseline. Start tracking once, under the farm
   // row lock, before processing newly completed jobs or actions.
@@ -74,6 +93,11 @@ export const advanceFarmLifecycle = async (
     eq(farmBuildings.farmId, farm.id), eq(farmBuildings.type, "brewery"), lte(farmBuildings.beerReadyAt, now)
   ));
   const readyBakes = Object.entries(farm.production.baking).filter(([, job]) => Date.parse(job.completesAt) <= now.getTime());
+  const porterReadyAt = Object.fromEntries([
+    ...readyBreweries.map(b => [b.id, b.beerReadyAt!.getTime()] as const),
+    ...readyBakes.map(([id, job]) => [id, Date.parse(job.completesAt)] as const),
+    ...(farm.milling && Date.parse(farm.milling.completesAt) <= now.getTime() ? [[farm.milling.buildingId, Date.parse(farm.milling.completesAt)] as const] : [])
+  ]);
   if (readyBreweries.length > 0 || readyBakes.length > 0) {
     const pending = { ...farm.production.pending };
     let beerProduced = 0;
@@ -103,6 +127,7 @@ export const advanceFarmLifecycle = async (
     }).where(eq(farms.id, farm.id)).returning();
     farm = completed!;
   }
+  farm = await advancePorterLifecycle(transaction, farm, now, porterReadyAt);
   await transaction
     .delete(farmGroundItems)
     .where(
@@ -154,7 +179,7 @@ export const advanceFarmLifecycle = async (
       .where(
         and(
           eq(farmBuildings.farmId, farm.id),
-          eq(farmBuildings.type, "granary"),
+          inArray(farmBuildings.type, ["granary", "warehouse"]),
           lte(farmBuildings.completesAt, now)
         )
       )
@@ -213,7 +238,8 @@ export const advanceFarmLifecycle = async (
     farm.hungrySince === null ? nextConsumptionAt?.getTime() ?? now.getTime() : now.getTime(),
     consumedRations,
     hungrySince !== null && farm.hungrySince === null ? hungrySince.getTime() : null,
-    farm.level
+    farm.level,
+    farm.production.shrineBlessing
   );
   const happiness = wellbeing.happiness;
   const farmChanged =

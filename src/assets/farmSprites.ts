@@ -1,9 +1,14 @@
 import groundUrl from "./sprite_assets/pngs/ground.png";
+import porterIdleUrl from "./sprite_assets/pngs/porter-idle.png";
+import porterBusyUrl from "./sprite_assets/pngs/porter-busy.png";
 import donkeyUrl from "./sprite_assets/pngs/donkey-1.png";
 import millDonkeyUrl from "./sprite_assets/pngs/donkey-mill.png";
 import millUrl from "./sprite_assets/pngs/empty-mill.png";
 import breadOvenUrl from "./sprite_assets/pngs/bread-oven-idle.png";
 import breadOvenBusyUrl from "./sprite_assets/pngs/bread-oven-busy.png";
+import smallShrineUrl from "./sprite_assets/pngs/small-shrine.png";
+import warehouseUrl from "./sprite_assets/pngs/warehouse.png";
+import smallShrineWithOfferingsUrl from "./sprite_assets/pngs/small-shrine-with-offerings.png";
 import beerJarsUrl from "./sprite_assets/pngs/beer-jars.png";
 import breadBasketUrl from "./sprite_assets/pngs/bread-basket.png";
 import millBagsUrl from "./sprite_assets/pngs/flour-bags.png";
@@ -66,10 +71,15 @@ import breweryUrl from "./sprite_assets/pngs/brewery.png";
 // Keep gameplay names stable; only the artwork URLs change.
 // The generated assets use "wheat" filenames for our existing barley artwork.
 export const FARM_SPRITES = {
+  porterIdle: porterIdleUrl,
+  porterBusy: porterBusyUrl,
   donkey: donkeyUrl,
   millDonkey: millDonkeyUrl,
   breadOven: breadOvenUrl,
   breadOvenBusy: breadOvenBusyUrl,
+  smallShrine: smallShrineUrl,
+  warehouse: warehouseUrl,
+  smallShrineWithOfferings: smallShrineWithOfferingsUrl,
   beerJars: beerJarsUrl,
   breadBasket: breadBasketUrl,
   millBags: millBagsUrl,

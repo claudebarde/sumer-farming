@@ -56,7 +56,7 @@ export const handlePointerUp = (
         .setSize(TILE_SIZE, TILE_SIZE)
         .setVisible(visibility);
     })
-    .with("reedBundle", "brickPile", "reeds", () => {
+    .with("reedBundle", "brickPile", "reeds", "millBags", "breadBasket", "beerJars", () => {
       selectionHighlight
         .setPosition(
           tile.position.column * TILE_SIZE,
@@ -84,7 +84,7 @@ export const handlePointerUp = (
         .setSize(TILE_SIZE * 2, TILE_SIZE * 2)
         .setVisible(visibility);
     })
-    .with("granary", "brewery", "mill", "breadOven", () => {
+    .with("granary", "brewery", "mill", "breadOven", "warehouse", () => {
       selectionHighlight
         .setPosition(
           tile.position.column * TILE_SIZE,
@@ -93,7 +93,7 @@ export const handlePointerUp = (
         .setSize(TILE_SIZE * 2, TILE_SIZE * 2)
         .setVisible(visibility);
     })
-    .with("water", "groundPathHorizontal", () => {
+    .with("water", "groundPathHorizontal", "smallShrine", () => {
       selectionHighlight
         .setPosition(
           tile.position.column * TILE_SIZE,

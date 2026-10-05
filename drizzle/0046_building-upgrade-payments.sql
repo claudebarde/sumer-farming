@@ -1,0 +1,7 @@
+ALTER TABLE "shekel_transactions" DROP CONSTRAINT "shekel_transactions_reward_or_trade";--> statement-breakpoint
+ALTER TABLE "shekel_transactions" DROP CONSTRAINT "shekel_transactions_direction_matches_type";--> statement-breakpoint
+ALTER TABLE "shekel_transactions" ADD CONSTRAINT "shekel_transactions_reward_or_trade" CHECK (
+      ("shekel_transactions"."type"::text = 'request_reward' AND "shekel_transactions"."request_customer" IS NOT NULL AND "shekel_transactions"."item_key" IS NULL AND "shekel_transactions"."item_quantity" IS NULL AND "shekel_transactions"."unit_price" IS NULL)
+      OR ("shekel_transactions"."type"::text IN ('porter_hire', 'building_upgrade') AND "shekel_transactions"."request_customer" IS NULL AND "shekel_transactions"."item_key" IS NULL AND "shekel_transactions"."item_quantity" IS NULL AND "shekel_transactions"."unit_price" IS NULL)
+      OR ("shekel_transactions"."type"::text NOT IN ('request_reward', 'porter_hire', 'building_upgrade') AND "shekel_transactions"."request_customer" IS NULL AND "shekel_transactions"."item_key" IS NOT NULL AND "shekel_transactions"."item_quantity" IS NOT NULL AND "shekel_transactions"."unit_price" IS NOT NULL));--> statement-breakpoint
+ALTER TABLE "shekel_transactions" ADD CONSTRAINT "shekel_transactions_direction_matches_type" CHECK (("shekel_transactions"."type"::text IN ('market_sale', 'request_reward') AND "shekel_transactions"."delta" > 0) OR ("shekel_transactions"."type"::text IN ('market_purchase', 'porter_hire', 'building_upgrade') AND "shekel_transactions"."delta" < 0));

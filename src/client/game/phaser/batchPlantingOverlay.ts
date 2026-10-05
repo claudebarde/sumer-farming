@@ -1,10 +1,10 @@
 import type Phaser from "phaser";
 import { batchPlantingStore } from "../../stores/batchPlantingStore";
 import { farmStore } from "../../stores/farmStore";
-import { fieldKey, plantableFields, harvestableFields, availablePlantingBarley } from "../../../game-core/farm/batchPlanting";
+import { fieldKey, plantableFields, harvestableFields, plantingSelectionLimit } from "../../../game-core/farm/batchPlanting";
 import type { FarmCoordinate } from "../../../game-core/farm/irrigation";
 import { TILE_SIZE } from "./config";
-import { MAX_BATCH_HARVEST_FIELDS } from "../../../game-data/batchPlanting";
+import { harvestFieldLimit } from "../../../game-core/farm/harvestCapacity";
 
 export const installBatchPlantingOverlay = (scene: Phaser.Scene, origin: () => FarmCoordinate) => {
   const graphics = scene.add.graphics().setDepth(3.8);
@@ -18,7 +18,7 @@ export const installBatchPlantingOverlay = (scene: Phaser.Scene, origin: () => F
     const batch = farm.snapshot.farm.production.planting;
     if (!state.active && !batch) return;
     const selected = new Set(state.selected.map(fieldKey));
-    const selectionLimit = state.mode === "harvest" ? MAX_BATCH_HARVEST_FIELDS : availablePlantingBarley(farm.snapshot, Date.now());
+    const selectionLimit = state.mode === "harvest" ? harvestFieldLimit(farm.snapshot.farm.household.happiness) : plantingSelectionLimit(farm.snapshot, Date.now());
     const limitReached = state.selected.length >= selectionLimit;
     const tiles = batch ? batch.remaining : (state.mode === "harvest" ? harvestableFields : plantableFields)(farm.snapshot, Date.now());
     for (const tile of tiles) {

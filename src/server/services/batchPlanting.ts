@@ -11,7 +11,8 @@ import { loadMarketItemStorage, removeFromMarketItemStorage, addToMarketItemStor
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import { CROP_DEFINITIONS } from "../../game-data/crops";
 import { BARLEY_CONSUMPTION_INTERVAL_MS, EXPOSED_BARLEY_LIFETIME_MS } from "../../game-data/household";
-import { MAX_BATCH_HARVEST_FIELDS, type BatchPlanting } from "../../game-data/batchPlanting";
+import type { BatchPlanting } from "../../game-data/batchPlanting";
+import { harvestFieldLimit, lockedHarvestFieldLimit } from "../../game-core/farm/harvestCapacity";
 import { plantingTravelMs } from "../../game-core/farm/batchPlantingTravel";
 
 export class BatchPlantingError extends Data.TaggedError("BatchPlantingError")<{ readonly message: string }> {}
@@ -43,12 +44,13 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
         snapshot.crops.some(c => Date.parse(c.plantedAt) > now.getTime() || c.harvestStartedAt !== null) ||
         snapshot.buildings.some(b => Date.parse(b.completesAt) > now.getTime()) ||
         snapshot.improvements.some(i => Date.parse(i.completesAt) > now.getTime() || i.destroyStartedAt !== null)) return fail("Finish the current task and empty your hands first.");
-      if (harvesting && (input.targets.length < 1 || input.targets.length > MAX_BATCH_HARVEST_FIELDS)) return fail("Select up to 4 fields to harvest.");
+      const limit = harvestFieldLimit(farm.happiness);
+      if (input.targets.length < 1 || input.targets.length > limit) return fail(`Select up to ${limit} fields to ${harvesting ? "harvest" : "plant"} at ${farm.happiness}% happiness.`);
       const eligible = new Set((harvesting ? harvestableFields : plantableFields)(snapshot, now.getTime()).map(fieldKey));
       if (new Set(input.targets.map(fieldKey)).size !== input.targets.length || input.targets.some(p => !eligible.has(fieldKey(p)))) return fail(harvesting ? "Select distinct ripe barley fields." : "Select distinct empty, irrigated arable fields.");
       if (harvesting) {
         const source = { type: "farm" as const, column: INITIAL_FARM_CONFIG.buildingBounds.minimumColumn, row: INITIAL_FARM_CONFIG.buildingBounds.minimumRow };
-        planting = { id: crypto.randomUUID(), mode: "harvest", total: input.targets.length, remaining: [...orderPlantingFields(input.targets, input.targets[0]!)], source, stopRequested: false, phase: { type: "ready" } };
+        planting = { id: crypto.randomUUID(), mode: "harvest", harvestFieldLimit: limit, total: input.targets.length, remaining: [...orderPlantingFields(input.targets, input.targets[0]!)], source, stopRequested: false, phase: { type: "ready" } };
         let position: { column: number; row: number } = INITIAL_FARM_CONFIG.farmerSpawn;
         const travelMs = planting.remaining.map(target => {
           const duration = plantingTravelMs(snapshot, position, target, now.getTime());
@@ -61,7 +63,7 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
       const carried = Math.min(farm.carriedItemQuantity, input.targets.length);
       const stored = input.targets.length - carried;
       if (storage.storedQuantity < stored) return fail("Not enough carried or stored barley for these fields.");
-      const granary = snapshot.buildings.find(b => b.type === "granary" && b.storedBarley > 0 && Date.parse(b.completesAt) <= now.getTime());
+      const granary = snapshot.buildings.find(b => (b.type === "granary" || b.type === "warehouse") && b.storedBarley > 0 && Date.parse(b.completesAt) <= now.getTime());
       const source = granary ? { type: "granary" as const, column: granary.column, row: granary.row }
         : { type: "farm" as const, column: INITIAL_FARM_CONFIG.buildingBounds.minimumColumn, row: INITIAL_FARM_CONFIG.buildingBounds.minimumRow };
       if (stored > 0) await removeFromMarketItemStorage(tx, storage, stored, now);
@@ -111,7 +113,7 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
           const crop = snapshot.crops.find(c => fieldKey(c) === fieldKey(target));
           if (!crop || crop.harvestCompletesAt === null || Date.parse(crop.harvestCompletesAt) > now.getTime()) return fail("This field is still being harvested.");
           const quantity = farm.carriedItemQuantity + CROP_DEFINITIONS.barley.harvestYield;
-          if ((farm.carriedItemKey && farm.carriedItemKey !== "barley") || quantity > MAX_BATCH_HARVEST_FIELDS * CROP_DEFINITIONS.barley.harvestYield) return fail("The farmer cannot carry more barley.");
+          if ((farm.carriedItemKey && farm.carriedItemKey !== "barley") || quantity > lockedHarvestFieldLimit(planting) * CROP_DEFINITIONS.barley.harvestYield) return fail("The farmer cannot carry more barley.");
           await tx.delete(farmCrops).where(eq(farmCrops.id, crop.id));
           harvestUpdate = { carriedItemKey: "barley", carriedItemQuantity: quantity,
             carriedItemExpiresAt: farm.carriedItemExpiresAt ?? new Date(now.getTime() + EXPOSED_BARLEY_LIFETIME_MS),

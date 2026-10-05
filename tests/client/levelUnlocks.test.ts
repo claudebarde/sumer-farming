@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { LEVEL_NAMES, LEVEL_UNLOCK_ITEMS, LEVEL_UNLOCKS } from "../../src/game-data/progression";
 
 describe("level unlock lists", () => {
-  it("lists the planned small shrine separately from the playable second granary", () => {
-    expect(LEVEL_UNLOCK_ITEMS[8]).toEqual(["Second granary", "Small shrine (coming soon)"]);
+  it("lists the small shrine separately from the warehouse", () => {
+    expect(LEVEL_UNLOCK_ITEMS[8]).toEqual(["Warehouse", "Small shrine", "Mill upgrade to building level 2"]);
   });
   it("separates level-seven unlocks into individual items", () => {
     expect(LEVEL_UNLOCK_ITEMS[7]).toEqual([

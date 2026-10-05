@@ -32,6 +32,26 @@ export const validateRoadPlacement = (target: RoadCoordinate, roads: readonly Ro
 
 // A permanent, exclusive loading point prevents workshops competing for output space.
 export const findLoadingTile = (footprint: readonly RoadCoordinate[], roads: readonly RoadCoordinate[], reserved: readonly RoadCoordinate[], occupied: ReadonlySet<string>): RoadCoordinate | null => {
+  // Only completed branches connected to the main road provide building access.
+  // Do not accept isolated roads from old saves or links through unfinished roads.
+  const now = Date.now();
+  const completed = roads.filter(r => roadIsComplete(r, now));
+  const available = new Map(completed.map(r => [roadKey(r), r]));
+  const connected = new Set<string>();
+  const queue = completed.filter(r => Math.abs(r.row - INITIAL_FARM_CONFIG.roadRow) <= 1);
+  for (const road of queue) connected.add(roadKey(road));
+  for (let index = 0; index < queue.length; index++) {
+    for (const neighbor of roadNeighbors(queue[index]!)) {
+      const key = roadKey(neighbor);
+      const road = available.get(key);
+      if (road && !connected.has(key)) {
+        connected.add(key);
+        queue.push(road);
+      }
+    }
+  }
   const blocked = new Set([...footprint, ...reserved, INITIAL_FARM_CONFIG.farmerSpawn].map(roadKey));
-  return footprint.flatMap(roadNeighbors).find(p => isRoad(p, roads) && !blocked.has(roadKey(p)) && !occupied.has(roadKey(p))) ?? null;
+  return footprint.flatMap(roadNeighbors).find(p =>
+    (p.row === INITIAL_FARM_CONFIG.roadRow || connected.has(roadKey(p))) &&
+    !blocked.has(roadKey(p)) && !occupied.has(roadKey(p))) ?? null;
 };

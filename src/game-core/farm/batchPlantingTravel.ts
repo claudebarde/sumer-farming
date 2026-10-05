@@ -6,7 +6,8 @@ import { findRoadPreferredPath } from "./roadPath";
 import { roadIsComplete } from "../../game-data/roads";
 import { farmerMovementDurationMultiplier } from "./wellbeing";
 
-export const FARMER_MOVE_DURATION_PER_TILE = 180;
+export { WORKER_MOVE_DURATION_PER_TILE as FARMER_MOVE_DURATION_PER_TILE } from "../../game-data/movement";
+import { WORKER_MOVE_DURATION_PER_TILE as FARMER_MOVE_DURATION_PER_TILE } from "../../game-data/movement";
 
 /** Farm-local routing, independent of viewport size and animation frames. */
 export const plantingTravelMs = (snapshot: FarmSnapshot, from: FarmCoordinate, to: FarmCoordinate, now: number): number => {

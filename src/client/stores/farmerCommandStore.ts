@@ -16,7 +16,7 @@ import { FARMER_CARRY_CAPACITY } from "../../game-data/storage";
 import type { GatherableResourceKey } from "../../game-data/resources";
 
 export type FarmerCommand =
-  | { readonly id: string; readonly type: "production"; readonly action: "bake" | "store"; readonly target: TilePosition; readonly buildingId: string }
+  | { readonly id: string; readonly type: "production"; readonly action: "bake" | "store" | "offerBread" | "offerBeer"; readonly target: TilePosition; readonly buildingId: string }
   | { readonly id: string; readonly type: "store_mill_goods"; readonly target: TilePosition; readonly millId: string }
   | { readonly id: string; readonly type: "mill"; readonly recipe: MillRecipe; readonly worker?: "farmer" | "donkey"; readonly target: TilePosition }
   | { readonly id: string; readonly type: "fishing"; readonly action: "start" | "store" | "release"; readonly target: TilePosition }
@@ -143,6 +143,8 @@ export const farmerCommandStore = createStore<State>()(set => ({
   addCommand: command =>
     set(state => {
       const farm = farmStore.getState().farm;
+      if (command.type === "drop" && (state.carriedItem?.itemKey === "reed" || state.carriedItem?.itemKey === "clay")) return {};
+      if (farm.type === "ready" && farm.snapshot.farm.production.materialDelivery && command.type !== "deposit" && command.type !== "drop") return {};
       if (batchPlantingStore.getState().active) return {};
       if (farm.type === "ready" && farm.snapshot.farm.production.planting) return {};
       if (farm.type === "ready" && farmerProductionJob(farm.snapshot.farm)) return {};

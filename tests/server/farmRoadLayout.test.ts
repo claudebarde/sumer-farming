@@ -21,7 +21,7 @@ describe("roadside farm layout", () => {
     const blocked = validateBuildingPlacement({ ...context, target: { column: 0, row: 2 } });
     expect(blocked).toEqual({ type: "footprint_occupied", occupant: "farm" });
     if (blocked.type !== "valid") expect(describeBuildingPlacementRule(blocked)).toContain("Farm's 2×2 footprint");
-    expect(validateBuildingPlacement({ ...context, roads: [{ column: -1, row: 1 }], target: { column: 0, row: 1 } }).type).toBe("valid");
+    expect(validateBuildingPlacement({ ...context, roads: [1, 2, 3, 4].map(row => ({ column: -1, row })), target: { column: 0, row: 1 } }).type).toBe("valid");
   });
   it("places the farm immediately right of the signpost, above the road", () => {
     const { buildingBounds: b, roadRow, farmerSpawn } = INITIAL_FARM_CONFIG;

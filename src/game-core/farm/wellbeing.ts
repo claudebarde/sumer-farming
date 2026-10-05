@@ -1,4 +1,5 @@
 import { HUNGRY_FARMER_MOVEMENT_DURATION_MULTIPLIER } from "../../game-data/household";
+import { SHRINE_DECAY_RATE, type ShrineBlessing } from "../../game-data/shrine";
 import { BREAD_HAPPINESS_BOOST, BREAD_TREAT_INTERVAL_MS } from "../../game-data/household";
 
 export const breadTreatErrors = {
@@ -35,8 +36,25 @@ export const CONTENT_HAPPINESS = 50;
 export type HappinessClock = { readonly happiness: number; readonly checkedAt: number };
 
 /** Keep partial intervals, so repeated polling cannot delay the next lost point. */
-export const decayHappiness = (state: HappinessClock, now: number): HappinessClock => {
-  const elapsed = Math.max(0, now - state.checkedAt);
+export const happinessDecayElapsed = (from: number, to: number, blessing?: ShrineBlessing | null): number => {
+  const overlap = blessing ? Math.max(0, Math.min(to, Date.parse(blessing.expiresAt)) - Math.max(from, Date.parse(blessing.startedAt))) : 0;
+  return Math.max(0, to - from) - overlap * (1 - SHRINE_DECAY_RATE);
+};
+
+/** Convert consumed decay-time back into a wall-clock deadline, retaining partial points. */
+const decayDeadline = (from: number, elapsed: number, blessing?: ShrineBlessing | null): number => {
+  if (!blessing) return from + elapsed;
+  const start = Date.parse(blessing.startedAt);
+  const end = Date.parse(blessing.expiresAt);
+  const before = Math.max(0, start - from);
+  if (elapsed <= before) return from + elapsed;
+  const during = Math.max(0, end - Math.max(from, start)) * SHRINE_DECAY_RATE;
+  if (elapsed <= before + during) return Math.max(from, start) + (elapsed - before) / SHRINE_DECAY_RATE;
+  return Math.max(from, end) + elapsed - before - during;
+};
+
+export const decayHappiness = (state: HappinessClock, now: number, blessing?: ShrineBlessing | null): HappinessClock => {
+  const elapsed = happinessDecayElapsed(state.checkedAt, now, blessing);
   const fastPoints = Math.min(Math.max(0, state.happiness - CONTENT_HAPPINESS), Math.floor(elapsed / HAPPY_DECAY_POINT_MS));
   const afterFast = state.happiness - fastPoints;
   const fastTime = fastPoints * HAPPY_DECAY_POINT_MS;
@@ -44,14 +62,14 @@ export const decayHappiness = (state: HappinessClock, now: number): HappinessClo
     ? Math.min(afterFast, Math.floor((elapsed - fastTime) / CONTENT_DECAY_POINT_MS)) : 0;
   const happiness = afterFast - slowPoints;
   return { happiness, checkedAt: happiness === 0 ? Math.max(now, state.checkedAt)
-    : state.checkedAt + fastTime + slowPoints * CONTENT_DECAY_POINT_MS };
+    : decayDeadline(state.checkedAt, fastTime + slowPoints * CONTENT_DECAY_POINT_MS, blessing) };
 };
 
 /** Replay rations at their actual deadlines, not all at login time. */
-export const advanceHappiness = (initial: HappinessClock, now: number, firstRationAt: number, consumed: number, shortageAt: number | null, level = HAPPINESS_MANAGEMENT_LEVEL): HappinessClock => {
+export const advanceHappiness = (initial: HappinessClock, now: number, firstRationAt: number, consumed: number, shortageAt: number | null, level = HAPPINESS_MANAGEMENT_LEVEL, blessing?: ShrineBlessing | null): HappinessClock => {
   const protectedLevel = level < HAPPINESS_MANAGEMENT_LEVEL;
   const decay = (clock: HappinessClock, at: number): HappinessClock => {
-    const decayed = decayHappiness(clock, at);
+    const decayed = decayHappiness(clock, at, blessing);
     // Discard elapsed time at the floor so it cannot become a later decay debt.
     return protectedLevel && decayed.happiness <= INTRODUCTORY_HAPPINESS_FLOOR
       ? { happiness: INTRODUCTORY_HAPPINESS_FLOOR, checkedAt: Math.max(at, decayed.checkedAt) }
@@ -62,7 +80,7 @@ export const advanceHappiness = (initial: HappinessClock, now: number, firstRati
     const at = Math.max(state.checkedAt, firstRationAt + index * BARLEY_CONSUMPTION_INTERVAL_MS);
     const next = { happiness: happinessAfterFeeding(decay(state, at).happiness, false, true), checkedAt: at };
     // Once daily feeding reaches equilibrium, skip identical full-day cycles.
-    if (index > 0 && next.happiness === state.happiness) {
+    if (index > 0 && next.happiness === state.happiness && (!blessing || state.checkedAt >= Date.parse(blessing.expiresAt))) {
       state = { ...next, checkedAt: at + (consumed - index - 1) * BARLEY_CONSUMPTION_INTERVAL_MS };
       break;
     }
@@ -70,7 +88,7 @@ export const advanceHappiness = (initial: HappinessClock, now: number, firstRati
   }
   if (shortageAt !== null && !protectedLevel) {
     const at = Math.max(state.checkedAt, shortageAt);
-    state = { happiness: happinessAfterFeeding(decayHappiness(state, at).happiness, true, false), checkedAt: at };
+    state = { happiness: happinessAfterFeeding(decayHappiness(state, at, blessing).happiness, true, false), checkedAt: at };
   }
   return decay(state, now);
 };

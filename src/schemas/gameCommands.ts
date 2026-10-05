@@ -13,15 +13,20 @@ const FarmCoordinateSchema = z.object({
 });
 
 export const GameCommandSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("start_batch_planting"), targets: z.array(FarmCoordinateSchema).min(1).max(72), expectedFarmVersion: z.int().positive() }),
+  z.object({ type: z.literal("start_batch_planting"), targets: z.array(FarmCoordinateSchema).min(1).max(MAX_BATCH_HARVEST_FIELDS), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("start_batch_harvesting"), targets: z.array(FarmCoordinateSchema).min(1).max(MAX_BATCH_HARVEST_FIELDS), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("advance_batch_planting"), batchId: z.uuid(), action: z.enum(["collect", "plant", "harvest", "finish", "stop"]), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("build_road"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("start_milling"), recipe: MillRecipeSchema, worker: MillWorkerSchema.optional(), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
+  z.object({ type: z.literal("hire_porter"), idempotencyKey: z.uuid(), expectedFarmVersion: z.int().positive() }),
+  z.object({ type: z.literal("upgrade_building"), buildingId: z.uuid(), targetLevel: z.int().min(2), idempotencyKey: z.uuid(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("mill_delivery"), action: z.enum(["pickup", "store"]), millId: z.uuid(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("build_mill"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("build_bread_oven"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("start_baking"), buildingId: z.uuid(), expectedFarmVersion: z.int().positive() }),
+  z.object({ type: z.literal("shrine_offering"), buildingId: z.uuid(), item: z.enum(["bread", "beer"]), expectedFarmVersion: z.int().positive() }),
+  z.object({ type: z.literal("build_small_shrine"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
+  z.object({ type: z.literal("build_warehouse"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("production_delivery"), action: z.enum(["pickup", "store"]), buildingId: z.uuid(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("destroy_ground_material"), groundItemId: z.uuid(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("claim_farm_level"), expectedLevel: z.int().min(1).max(10), expectedFarmVersion: z.int().positive() }),

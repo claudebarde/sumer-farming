@@ -17,6 +17,21 @@ export const marketSceneLayout = (columns: number) => {
     ] } as const;
 };
 
+/** Fixed scenery, anchored to the responsive square; never randomized per player. */
+export const marketDecorations = (columns: number) => {
+  const { left, right } = marketSceneLayout(columns);
+  return [
+    { sprite: "palmTree", column: left - 2, row: 0.4, size: 1.6 },
+    { sprite: "palmTree", column: right + 1.1, row: 0.9, size: 1.6 },
+    { sprite: "palmTree", column: left - 2, row: 7.7, size: 1.6 },
+    { sprite: "palmTree", column: right + 1.1, row: 6.4, size: 1.6 },
+    { sprite: "bush", column: left - 0.85, row: 3.7, size: 0.65 },
+    { sprite: "bush", column: right + 1.1, row: 3.6, size: 0.75 },
+    { sprite: "bush", column: left + 1.1, row: 6.1, size: 0.7 },
+    { sprite: "bush", column: left + 3.1, row: 8.8, size: 0.7 }
+  ] as const;
+};
+
 export const marketRoadTiles = (columns: number): readonly RoadCoordinate[] => {
   const { left, right, top, bottom, roadRow } = marketSceneLayout(columns);
   return Array.from({ length: columns * (bottom + 1) }, (_, index) => ({

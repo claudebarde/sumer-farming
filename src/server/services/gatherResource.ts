@@ -23,8 +23,11 @@ import {
 import { removeCompletedImprovementDestructions } from "./farmImprovementLifecycle";
 import { readFarmSnapshot } from "./farmSnapshot";
 import { advanceFarmLifecycle } from "./farmLifecycle";
+import { estateResourceCapacity } from "../../game-data/storage";
+import { farmInventory } from "../db/schema";
 
 type GatherResourceRule =
+  | { readonly type: "storage_full" }
   | { readonly type: "farm_not_found" }
   | {
       readonly type: "version_conflict";
@@ -252,6 +255,12 @@ export const startGatherResource = (
             };
           }
 
+          const storageBuildings = await transaction.select().from(farmBuildings).where(eq(farmBuildings.farmId, farm.id));
+          const [stored] = await transaction.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, input.itemKey)));
+          const reserved = farm.production.materialReservation === input.itemKey ? 1 : 0;
+          if ((stored?.quantity ?? 0) + reserved >= estateResourceCapacity(input.itemKey, storageBuildings, currentTimeMillis)) {
+            return { type: "rule_error", rule: { type: "storage_full" } };
+          }
           const completesAt = new Date(
             currentTimeMillis +
               RESOURCE_DEFINITIONS[input.itemKey].gatheringDurationMs
@@ -260,6 +269,7 @@ export const startGatherResource = (
             .update(farms)
             .set({
               gatheringItemKey: input.itemKey,
+              production: { ...farm.production, materialReservation: input.itemKey },
               gatheringColumn: input.target.column,
               gatheringRow: input.target.row,
               gatheringStartedAt: now,
@@ -362,6 +372,7 @@ export const completeGatherResource = (
             .update(farms)
             .set({
               carriedItemKey: farm.gatheringItemKey,
+              production: { ...farm.production, materialDelivery: true },
               carriedItemQuantity: 1,
               carriedItemExpiresAt: null,
               gatheringItemKey: null,

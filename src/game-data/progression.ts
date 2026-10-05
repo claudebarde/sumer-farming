@@ -7,12 +7,16 @@ export const INITIAL_PROGRESSION_STATS = {
   processedBarley: 0
 };
 export type ProgressionStats = typeof INITIAL_PROGRESSION_STATS & {
+  readonly level8Baseline?: { readonly harvestedBarley: number; readonly produced?: number };
   readonly level6Baseline?: {
     readonly produced: number;
     readonly sold: number;
   };
 };
-export const MAX_PLAYABLE_LEVEL = 8;
+export const MAX_PLAYABLE_LEVEL = 9;
+export const LEVEL_9_REQUIRED_BARLEY = 100;
+export const LEVEL_9_REQUIRED_PRODUCTION = 30;
+export const LEVEL_9_FOOD_OFFERING = 10;
 export const LEVEL_4_REQUIRED_HARVESTS = 50;
 export const LEVEL_6_REQUIRED_HARVESTS = LEVEL_4_REQUIRED_HARVESTS * 2;
 export const LEVEL_7_REQUIRED_PRODUCTION = 15;
@@ -31,7 +35,8 @@ export const LEVEL_NAMES = [
   "Trusted supplier",
   "Growing estate",
   "Established producer",
-  "Community member"
+  "Community member",
+  "Level 11 (upcoming)"
 ] as const;
 export const LEVEL_UNLOCK_ITEMS = [
   [],
@@ -39,7 +44,7 @@ export const LEVEL_UNLOCK_ITEMS = [
   ["First granary"],
   ["Barley market"],
   ["Fishing", "Fish storage"],
-  ["Mill", "Barley processing"],
+  ["Mill", "Barley processing", "Hire a porter (20 shekels for 24 hours)"],
   [
     "Brewery",
     "Bread Oven",
@@ -53,9 +58,10 @@ export const LEVEL_UNLOCK_ITEMS = [
     "Increased granary capacity (20 barley per granary)",
     "Mill donkey (30 shekels at the Baking market)"
   ],
-  ["Second granary", "Small shrine"],
-  ["Brewery expansion (upcoming)"],
-  ["Neighbourhood and cooperative projects (upcoming)"]
+  ["Warehouse", "Small shrine", "Mill upgrade to building level 2"],
+  ["Bread oven and brewery upgrades to building level 2"],
+  ["Mill upgrade to building level 3", "Neighbourhood and cooperative projects (upcoming)"],
+  ["Bread oven and brewery upgrades to building level 3"]
 ] as const;
 // Notifications use the same unlock definitions in a compact sentence.
 export const LEVEL_UNLOCKS = LEVEL_UNLOCK_ITEMS.map(items => items.join(", "));
@@ -88,4 +94,4 @@ export const canOpenMarketStand = (
   level: number = 1
 ) => level >= marketStandUnlockLevel(scope);
 export const granaryLimitForLevel = (level: number) =>
-  level < 2 ? 0 : level < 8 ? 1 : 2;
+  level < 2 ? 0 : 1;

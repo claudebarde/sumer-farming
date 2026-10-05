@@ -15,7 +15,9 @@ export const createGameConfig = (
     createContainer: true
   },
   input: {
-    windowEvents: false
+    windowEvents: false,
+    mouse: { preventDefaultWheel: false },
+    touch: { capture: false }
   },
   scale: {
     parent,

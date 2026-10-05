@@ -4,7 +4,8 @@ import { roadIsComplete, type FarmRoad } from "../../game-data/roads";
 export class FarmerUnavailableError extends Data.TaggedError("FarmerUnavailableError")<{ readonly message: string }> {}
 
 /** Called under the farm row lock before starting any other physical action. */
-export const assertFarmerAvailable = (farm: { readonly roads?: readonly FarmRoad[]; readonly fishing: unknown; readonly carriedItemKey: string | null; readonly milling?: { readonly worker?: "farmer" | "donkey" } | null; readonly millGoods?: { readonly delivery: unknown }; readonly production?: { readonly planting?: unknown; readonly delivery: unknown; readonly baking?: Readonly<Record<string, unknown>> } }) => {
+export const assertFarmerAvailable = (farm: { readonly roads?: readonly FarmRoad[]; readonly fishing: unknown; readonly carriedItemKey: string | null; readonly milling?: { readonly worker?: "farmer" | "donkey" } | null; readonly millGoods?: { readonly delivery: unknown }; readonly production?: { readonly materialDelivery?: boolean; readonly planting?: unknown; readonly delivery: unknown; readonly baking?: Readonly<Record<string, unknown>> } }) => {
+  if (farm.production?.materialDelivery) throw new FarmerUnavailableError({ message: "The farmer is carrying building materials to the farm." });
   if (farm.production?.planting) throw new FarmerUnavailableError({ message: "Finish or stop planting or harvesting the selected fields first." });
   if (Object.keys(farm.production?.baking ?? {}).length > 0) throw new FarmerUnavailableError({ message: "The farmer is baking in the Bread Oven. Wait for baking to finish." });
   if (farm.roads?.some(r => !roadIsComplete(r, Date.now()))) throw new FarmerUnavailableError({ message: "The farmer is building a road. Wait for construction to finish." });

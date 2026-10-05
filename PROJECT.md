@@ -1459,9 +1459,18 @@ and finally its build button.
 
 Level-locked building buttons use exactly `Unlock at level [level]`, including
 future buildings. Use the relevant upgrade level for additional buildings (for
-example, level 8 for a second granary). Once unlocked, use `Build [building]`,
+example, level 8 for the warehouse). Once unlocked, use `Build [building]`,
 even when disabled for missing materials or farmer availability; explain those
 blockers above the button. Do not imply an attained level is still locked.
 Keep material counts and any availability explanations above the button rather
 than substituting them for the standard disabled label. This is a wording rule;
 retain material, farmer-availability and building-limit validation.
+
+## 35. Building road access
+
+Every player-built building requires cardinal adjacency to an existing, completed
+road connected to the main road, with a free loading tile. Apply this by default
+to future buildings too; exceptions require an explicit user decision. Share the
+rule between placement previews and authoritative server validation. An invalid
+placement must show a red footprint and sprite, including when road access is
+missing even though the ground tiles are empty.

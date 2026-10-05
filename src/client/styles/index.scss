@@ -52,6 +52,10 @@ h1 {
   }
 }
 
+.nes-btn {
+  border-image-repeat: stretch;
+}
+
 button:not(.nes-btn) {
   background-color: $color-sand;
   border: $container-border;

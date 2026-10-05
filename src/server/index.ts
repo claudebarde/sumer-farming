@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 import { commandUnlockLevel } from "../game-core/farm/commandUnlock";
 import { startMilling, deliverMillGoods, MillingRuleError, MillingPersistenceError } from "./services/milling";
 import { productionAction, ProductionRuleError, ProductionPersistenceError } from "./services/production";
+import { hirePorter, PorterRuleError, PorterPersistenceError } from "./services/porter";
+import { upgradeBuilding, BuildingUpgradeRuleError, BuildingUpgradePersistenceError } from "./services/buildingUpgrades";
 import { batchPlantingAction, BatchPlantingError, BatchPlantingPersistenceError } from "./services/batchPlanting";
 import { buildRoad, RoadRuleError, RoadPersistenceError } from "./services/buildRoad";
 import { isProgressionSignpost } from "../game-data/progression";
@@ -121,6 +123,10 @@ type GameActionEffect = Effect.Effect<
   FarmSnapshot,
   | BuildIrrigationError
   | MillingRuleError
+  | PorterRuleError
+  | BuildingUpgradeRuleError
+  | BuildingUpgradePersistenceError
+  | PorterPersistenceError
   | ProductionRuleError
   | BatchPlantingError
   | BatchPlantingPersistenceError
@@ -394,10 +400,12 @@ app.post("/api/game/action", async c => {
               expectedFarmVersion: command.expectedFarmVersion
             })
           )
-          .with({ type: P.union("start_baking", "production_delivery") }, command => productionAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
-          .with({ type: P.union("build_granary", "build_brewery", "build_mill", "build_bread_oven") }, command =>
+          .with({ type: "hire_porter" }, command => hirePorter(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: "upgrade_building" }, command => upgradeBuilding(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: P.union("start_baking", "production_delivery", "shrine_offering") }, command => productionAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: P.union("build_granary", "build_brewery", "build_mill", "build_bread_oven", "build_small_shrine", "build_warehouse") }, command =>
             buildFarmBuilding(database, {
-              building: command.type === "build_bread_oven" ? "breadOven" : command.type === "build_mill" ? "mill" : command.type === "build_brewery" ? "brewery" : "granary",
+              building: command.type === "build_warehouse" ? "warehouse" : command.type === "build_small_shrine" ? "smallShrine" : command.type === "build_bread_oven" ? "breadOven" : command.type === "build_mill" ? "mill" : command.type === "build_brewery" ? "brewery" : "granary",
               playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
@@ -543,6 +551,16 @@ app.post("/api/game/action", async c => {
 
     return match(result.left)
       .with(P.instanceOf(MillingRuleError), error => c.json({ error: { type: "milling_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(BuildingUpgradeRuleError), error => c.json({ error: { type: "building_upgrade_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(BuildingUpgradePersistenceError), error => {
+        console.error("Building upgrade failed", error.cause);
+        return c.json({ error: { type: "building_upgrade_failed", message: "Could not upgrade the building. Please try again." } }, 500);
+      })
+      .with(P.instanceOf(PorterPersistenceError), error => {
+        console.error("Porter operation failed", error.cause);
+        return c.json({ error: { type: "porter_failed", message: "Could not hire the porter. Please try again." } }, 500);
+      })
+      .with(P.instanceOf(PorterRuleError), error => c.json({ error: { type: "porter_unavailable", message: error.message } }, 409))
       .with(P.instanceOf(ProductionRuleError), error => c.json({ error: { type: "production_unavailable", message: error.message } }, 409))
       .with(P.instanceOf(BatchPlantingError), error => c.json({ error: { type: "batch_planting_unavailable", message: error.message } }, 409))
       .with(P.instanceOf(BatchPlantingPersistenceError), () => c.json({ error: { type: "batch_planting_failed", message: "Planting could not be updated." } }, 500))
@@ -827,6 +845,7 @@ app.post("/api/game/action", async c => {
               409
             )
           )
+          .with({ type: "materials_cannot_be_dropped" }, () => c.json({ error: { type: "materials_cannot_be_dropped", message: "Reed and clay must be delivered to the farm, not dropped on the ground." } }, 409))
           .with({ type: "incompatible_carried_item" }, () =>
             c.json(
               {
@@ -987,6 +1006,7 @@ app.post("/api/game/action", async c => {
       })
       .with(P.instanceOf(GatherResourceRuleError), error =>
         match(error.rule)
+          .with({ type: "storage_full" }, () => c.json({ error: { type: "storage_full", message: "Material storage is full. Use some materials before gathering more." } }, 409))
           .with({ type: "farm_not_found" }, () =>
             c.json(
               {

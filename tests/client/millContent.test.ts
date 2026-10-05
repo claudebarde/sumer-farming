@@ -43,7 +43,7 @@ describe("donkey mill popup", () => {
   it("keeps the farmer-only view until a donkey is purchased", () => {
     expect(render(false)).not.toContain("Choose who produces it");
     expect(render(false)).not.toContain('<th scope="row">Donkey</th>');
-    expect(render(true)).toContain("Choose who produces it");
+    expect(render(true)).toContain("Choose who does the work");
   });
   it("groups worker choices into two recipe selects", () => {
     expect(render(false)).not.toContain("Use donkey");

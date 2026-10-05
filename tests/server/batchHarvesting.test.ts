@@ -21,7 +21,7 @@ const targets = [0, 1, 2, 3, 4].map(column => ({ column, row: 8 }));
 const fixture = async () => {
   const playerId = randomUUID(); ids.add(playerId);
   await db.insert(players).values({ id: playerId, displayName: "Batch harvest test" });
-  const [farm] = await db.insert(farms).values({ playerId }).returning();
+  const [farm] = await db.insert(farms).values({ playerId, level: 4, happiness: 50, happinessCheckedAt: new Date() }).returning();
   await db.insert(farmCrops).values(targets.map(p => ({ ...p, farmId: farm!.id, cropKey: "barley" as const, sowingStartedAt: new Date(0), plantedAt: new Date(10000), growthCompletesAt: new Date(1810000) })));
   const read = async () => (await db.select().from(farms).where(eq(farms.id, farm!.id)))[0]!;
   const start = (fields = targets.slice(0, 4), version = 1) => batchPlantingAction(db, { type: "start_batch_harvesting", playerId, targets: fields, expectedFarmVersion: version });
@@ -50,6 +50,23 @@ const catchUp = (farmId: string, now: number) => db.transaction(async tx => {
 });
 
 describe("four-field batch harvesting", () => {
+  it.each([[50, 4], [51, 6], [90, 6], [91, 8], [100, 8]])("locks %i happiness to %i fields and completes after happiness drops", async (happiness, limit) => {
+    const f = await fixture();
+    const fields = Array.from({ length: 9 }, (_, i) => ({ column: i % 8, row: 8 + Math.floor(i / 8) }));
+    await db.delete(farmCrops).where(eq(farmCrops.farmId, f.farmId));
+    await db.insert(farmCrops).values(fields.map(p => ({ ...p, farmId: f.farmId, cropKey: "barley" as const,
+      sowingStartedAt: new Date(0), plantedAt: new Date(10000), growthCompletesAt: new Date(1810000) })));
+    await db.update(farms).set({ happiness, happinessCheckedAt: new Date() }).where(eq(farms.id, f.farmId));
+    await expect(Effect.runPromise(Effect.flip(f.start(fields.slice(0, limit + 1))))).resolves.toMatchObject({ _tag: "BatchPlantingError" });
+    const started = await Effect.runPromise(f.start(fields.slice(0, limit)));
+    expect(started.farm.production.planting?.harvestFieldLimit).toBe(limit);
+    await db.update(farms).set({ happiness: 0 }).where(eq(farms.id, f.farmId));
+    const done = await catchUp(f.farmId, Date.now() + 300000);
+    expect(done.production.planting).toBeNull();
+    expect(done.carriedItemQuantity).toBe(limit * 2);
+    expect(done.progressionStats.harvests).toBe(limit);
+    expect((await catchUp(f.farmId, Date.now() + 400000)).carriedItemQuantity).toBe(limit * 2);
+  });
   it("finishes all four fields after leaving during the first harvest, exactly once", async () => {
     const f = await fixture(); await Effect.runPromise(f.start());
     const started = await f.advance("harvest");
@@ -150,7 +167,7 @@ describe("four-field batch harvesting", () => {
   });
   it("rejects five fields, duplicates, unripe crops, occupied hands and cross-mode commands", async () => {
     const f = await fixture();
-    expect(GameCommandSchema.safeParse({ type: "start_batch_harvesting", targets, expectedFarmVersion: 1 }).success).toBe(false);
+    expect(GameCommandSchema.safeParse({ type: "start_batch_harvesting", targets, expectedFarmVersion: 1 }).success).toBe(true);
     for (const fields of [targets, [targets[0]!, targets[0]!], [{ column: 7, row: 0 }]])
       await expect(Effect.runPromise(Effect.flip(f.start(fields)))).resolves.toMatchObject({ _tag: "BatchPlantingError" });
     await db.update(farmCrops).set({ growthCompletesAt: new Date(Date.now() + 60000) }).where(and(eq(farmCrops.farmId, f.farmId), eq(farmCrops.column, 0)));

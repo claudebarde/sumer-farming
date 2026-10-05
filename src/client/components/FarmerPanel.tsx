@@ -1,4 +1,5 @@
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
+import { shrineBlessingActive } from "../../game-data/shrine";
 import { useRef, useState } from "react";
 import { Popover } from "radix-ui";
 import { useStore } from "zustand";
@@ -24,12 +25,15 @@ export default function FarmerPanel({ snapshot, now }: {
   const status = useStore(farmerCommandStore, state => state.status.type);
   const busy = (status !== "idle" && status !== "failed") || !!(
     farmerProductionJob(snapshot.farm) || snapshot.farm.production.planting ||
-    snapshot.farm.production.delivery || snapshot.farm.millGoods.delivery ||
+    snapshot.farm.production.materialDelivery || snapshot.farm.production.delivery || snapshot.farm.millGoods.delivery ||
     snapshot.farm.fishing || snapshot.farm.gathering ||
     snapshot.farm.carriedItem?.itemKey === "fish" ||
     snapshot.crops.some(crop => crop.harvestStartedAt !== null || Date.parse(crop.plantedAt) > now)
   );
   const household = snapshot.farm.household;
+  const blessing = snapshot.farm.production.shrineBlessing;
+  const blessed = shrineBlessingActive(blessing, now);
+  const blessingMinutes = blessed ? Math.ceil((Date.parse(blessing!.expiresAt) - now) / 60000) : 0;
   const mood = getFarmerMood(household.happiness);
   const moodSmiley = { happy: "😄", content: "🙂", unhappy: "🙁" }[mood];
   const level = snapshot.farm.progression?.level ?? 1;
@@ -68,6 +72,7 @@ export default function FarmerPanel({ snapshot, now }: {
       ? "Your farmer is hungry. Store barley in the farm or a completed granary so he can eat."
       : "Meals use stored barley automatically. Keep barley in the farm or a completed granary."}</p>
     {level < 4 && <p>Happiness is protected during the first three levels. Fish treats unlock at level 4.</p>}
+    {blessed && <p>Shrine blessing: 25% slower happiness decay · {Math.floor(blessingMinutes / 60)}h {blessingMinutes % 60}m remaining.</p>}
     <div className={styles["resource-sections"]}>
       {(["fish", "bread", "beer"] as const).map(item => {
         const quantity = snapshot.inventory.find(entry => entry.itemKey === item)?.quantity ?? 0;

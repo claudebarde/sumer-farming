@@ -1,7 +1,8 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { DatabaseTransaction } from "../db/client";
 import { farmCrops, farms } from "../db/schema";
-import { MAX_BATCH_HARVEST_FIELDS, type BatchPlanting } from "../../game-data/batchPlanting";
+import type { BatchPlanting } from "../../game-data/batchPlanting";
+import { lockedHarvestFieldLimit } from "../../game-core/farm/harvestCapacity";
 import { CROP_DEFINITIONS } from "../../game-data/crops";
 import { BARLEY_CONSUMPTION_INTERVAL_MS, EXPOSED_BARLEY_LIFETIME_MS } from "../../game-data/household";
 import { addToMarketItemStorage, loadMarketItemStorage } from "./marketItemStorage";
@@ -46,7 +47,7 @@ export const advanceBatchPlanting = async (tx: DatabaseTransaction, farm: typeof
       if (!crop || crop.cropKey !== "barley" || !crop.harvestCompletesAt ||
         crop.harvestCompletesAt.getTime() > deadline ||
         (farm.carriedItemKey && farm.carriedItemKey !== "barley") ||
-        carriedQuantity + CROP_DEFINITIONS.barley.harvestYield > MAX_BATCH_HARVEST_FIELDS * CROP_DEFINITIONS.barley.harvestYield) break;
+        carriedQuantity + CROP_DEFINITIONS.barley.harvestYield > lockedHarvestFieldLimit(batch) * CROP_DEFINITIONS.barley.harvestYield) break;
       await tx.delete(farmCrops).where(eq(farmCrops.id, crop.id));
       carriedQuantity += CROP_DEFINITIONS.barley.harvestYield;
       carriedExpiresAt ??= new Date(deadline + EXPOSED_BARLEY_LIFETIME_MS);

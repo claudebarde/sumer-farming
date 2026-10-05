@@ -1,4 +1,5 @@
 import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
+import { porterReserved } from "../../game-data/porter";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
@@ -11,6 +12,7 @@ import type { InventoryItemKey } from "../../game-data/inventoryItems";
 import { EXPOSED_BARLEY_LIFETIME_MS } from "../../game-data/household";
 import {
   FARMER_CARRY_CAPACITY,
+  estateResourceCapacity,
   granaryCapacityForLevel,
   FARM_STORAGE_CAPACITY
 } from "../../game-data/storage";
@@ -30,6 +32,7 @@ import { readFarmSnapshot } from "./farmSnapshot";
 import { advanceFarmLifecycle } from "./farmLifecycle";
 
 type FarmItemRule =
+  | { readonly type: "materials_cannot_be_dropped" }
   | { readonly type: "farm_not_found" }
   | {
       readonly type: "version_conflict";
@@ -218,7 +221,7 @@ const executeFarmItemAction = (
             loadedFarm,
             now
           );
-          assertFarmerAvailable(farm);
+          assertFarmerAvailable(action.type === "deposit" || action.type === "drop" ? { ...farm, production: { ...farm.production, materialDelivery: false } } : farm);
 
           if (farm.version !== action.input.expectedFarmVersion) {
             return {
@@ -338,6 +341,9 @@ const executeFarmItemAction = (
                   };
             })
             .with({ type: "drop" }, async ({ input }) => {
+              if (farm.carriedItemKey === "reed" || farm.carriedItemKey === "clay") {
+                return { type: "rule_error", rule: { type: "materials_cannot_be_dropped" } };
+              }
               if (
                 farm.carriedItemKey === null ||
                 farm.carriedItemQuantity === 0
@@ -398,6 +404,7 @@ const executeFarmItemAction = (
               const [updatedFarm] = await transaction
                 .update(farms)
                 .set({
+                  production: { ...farm.production, materialDelivery: false },
                   carriedItemKey:
                     remainingQuantity === 0 ? null : farm.carriedItemKey,
                   carriedItemQuantity: remainingQuantity,
@@ -439,16 +446,19 @@ const executeFarmItemAction = (
                 .where(
                   and(
                     eq(farmInventory.farmId, farm.id),
-                    eq(farmInventory.itemKey, "barley")
+                    eq(farmInventory.itemKey, farm.carriedItemKey)
                   )
                 );
               const storedQuantity = inventory.reduce(
                 (total, item) => total + item.quantity,
                 0
               );
+              const storageBuildings = await transaction.select().from(farmBuildings).where(eq(farmBuildings.farmId, farm.id));
+              const reserved = farm.production.materialReservation === farm.carriedItemKey ? 1 : 0;
+              const deliveringReservation = reserved > 0 && farm.production.materialDelivery === true;
               const availableCapacity = Math.max(
                 0,
-                FARM_STORAGE_CAPACITY - storedQuantity
+                (farm.carriedItemKey === "barley" ? FARM_STORAGE_CAPACITY : estateResourceCapacity(farm.carriedItemKey, storageBuildings, now.getTime())) - storedQuantity - (deliveringReservation ? 0 : reserved) - porterReserved(farm.production.porter, farm.carriedItemKey)
               );
 
               if (availableCapacity === 0) {
@@ -484,6 +494,8 @@ const executeFarmItemAction = (
               const [updatedFarm] = await transaction
                 .update(farms)
                 .set({
+                  production: { ...farm.production, materialDelivery: false,
+                    materialReservation: deliveringReservation ? null : farm.production.materialReservation },
                   carriedItemKey:
                     remainingQuantity === 0 ? null : farm.carriedItemKey,
                   carriedItemQuantity: remainingQuantity,
@@ -533,7 +545,7 @@ const executeFarmItemAction = (
                   .where(
                     and(
                       eq(farmBuildings.farmId, farm.id),
-                      eq(farmBuildings.type, "granary"),
+                      inArray(farmBuildings.type, ["granary", "warehouse"]),
                       eq(farmBuildings.column, input.target.column),
                       eq(farmBuildings.row, input.target.row)
                     )
@@ -627,7 +639,7 @@ const executeFarmItemAction = (
                   .where(
                     and(
                       eq(farmBuildings.farmId, farm.id),
-                      eq(farmBuildings.type, "granary"),
+                      inArray(farmBuildings.type, ["granary", "warehouse"]),
                       eq(farmBuildings.column, input.target.column),
                       eq(farmBuildings.row, input.target.row)
                     )

@@ -8,10 +8,12 @@ import {
   fieldKey,
   plantableFields,
   harvestableFields,
-  availablePlantingBarley
+  availablePlantingBarley,
+  plantingSelectionLimit
 } from "../../game-core/farm/batchPlanting";
-import { MAX_BATCH_HARVEST_FIELDS } from "../../game-data/batchPlanting";
+import { harvestFieldLimit, lockedHarvestFieldLimit } from "../../game-core/farm/harvestCapacity";
 import styles from "../styles/GameCanvas.module.scss";
+import HarvestInfoDialog from "./HarvestInfoDialog";
 
 export default function BatchPlantingControls({
   now
@@ -31,8 +33,8 @@ export default function BatchPlantingControls({
     : selection.mode === "harvest";
   const verb = harvesting ? "harvesting" : "planting";
   const available = harvesting
-    ? MAX_BATCH_HARVEST_FIELDS
-    : availablePlantingBarley(farm.snapshot, now);
+    ? (batch ? lockedHarvestFieldLimit(batch) : harvestFieldLimit(farm.snapshot.farm.household.happiness))
+    : plantingSelectionLimit(farm.snapshot, now);
   const eligible = new Set(
     (harvesting ? harvestableFields : plantableFields)(farm.snapshot, now).map(
       fieldKey
@@ -89,14 +91,12 @@ export default function BatchPlantingControls({
             ? `Collecting ${batch.remaining.length - (batch.carriedSeeds?.quantity ?? 0)} barley seeds…`
             : `${harvesting ? "Harvesting" : "Planting"} ${Math.min(batch.total, batch.total - batch.remaining.length + (batch.phase.type === "sowing" || batch.phase.type === "harvesting" ? 0 : 1))} of ${batch.total} fields`
           : harvesting
-            ? `${selection.selected.length} / ${MAX_BATCH_HARVEST_FIELDS} fields selected \n ${selection.selected.length * 10}s harvesting + travel`
-            : `${selection.selected.length} fields selected · ${selection.selected.length} / ${available} barley · ${selection.selected.length * 10}s planting + travel`}
+            ? `${selection.selected.length} / ${available} fields selected \n ${selection.selected.length * 10}s harvesting + travel`
+            : `${selection.selected.length} / ${available} fields selected · ${selection.selected.length} / ${availablePlantingBarley(farm.snapshot, now)} barley · ${selection.selected.length * 10}s planting + travel`}
       </p>
-      {selection.active && (
+      {selection.active && !harvesting && (
         <p>
-          {harvesting
-            ? "Tap yellow fields to select up to 4; tap green fields to deselect."
-            : "Tap yellow fields to select them; tap selected fields to deselect. Red means no seeds left."}
+          Tap yellow fields to select them; tap selected fields to deselect. Red means the happiness limit is reached or no seeds are left.
         </p>
       )}
       {error && <p role="alert">{error}</p>}
@@ -141,6 +141,7 @@ export default function BatchPlantingControls({
             Cancel
           </button>
         )}
+        {harvesting && <HarvestInfoDialog limit={available} happiness={farm.snapshot.farm.household.happiness} started={!!batch} />}
       </div>
     </section>
   );

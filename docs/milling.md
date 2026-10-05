@@ -12,11 +12,19 @@ The existing farmer-availability check rejects physical work during milling. Fis
 
 `advanceFarmLifecycle` adds output to `farm.millGoods.pending[millId]`, updates lifetime `processedBarley`, clears the job and advances the version under the same farm row lock. Repeated reads cannot grant output twice. The client refreshes at the persisted deadline and retries on network failures; it never awards output locally. While waiting for confirmation it retains the busy state. The Mill uses `empty-mill.png` / `busy-mill.png` through the existing asset registry.
 
+## Building upgrades
+
+Mill building levels 2/3 unlock at estate levels 8/10; Bread Oven and Brewery levels 2/3 at estate levels 9/11. Building level 2 costs 100 shekels and takes five minutes; level 3 costs another 200 shekels and takes ten minutes. Production takes 100%/85%/70% of its base duration at levels 1/2/3, for both mill recipes and both workers, and for baking/brewing. Inputs and outputs do not change. Estate progression remains capped at 8 pending future requirements.
+
+`game-data/buildingUpgrades.ts` contains the building-keyed upgrade configuration, per-tier estate gates, and pure level/deadline helpers. Optional `production.buildingUpgrades` history is keyed by building ID; legacy saves default to level 1. Completed deadlines determine the effective level without a background worker. Gates apply only when purchasing upgrades, preserving already purchased levels. Storage buildings are not enabled yet. `BuildingUpgradeContent` provides reusable popup controls and progress for the oven and brewery. Migration `0047_production-upgrade-levels.sql` permits future level-11 snapshots in persistence without enabling progression claims.
+
+The `upgrade_building` service locks the farm and player, validates ownership, version, sequential target level, availability and balance, and atomically records the payment and upgrade history. Idempotency keys prevent duplicate charges. The mill cannot start an upgrade during production or start production during an upgrade. Finished goods remain collectible and the farmer remains available. The popup shows the current level, next cost/benefit, and upgrade progress/countdown. Apply migrations `0045_building-upgrades.sql` and `0046_building-upgrade-payments.sql` before using the feature against another database.
+
 ## Finished bags and delivery
 
-Each Mill accumulates separate Flour and Brewer's Groats counts in one full-tile stack on a free surrounding tile, drawn with `flour-bags.png`. Placement prefers the front of the Mill, excludes occupied tiles and the river, and searches farther out if immediate neighbours are full. The chip above the bag shows the sum; the standard item popup shows each count and a **Store** button. The farmer walks onto the bag tile for pickup. Stored and pending goods are distinct: pending bags cannot be offered to level up or spent from Resources. Further milling can continue without collecting earlier batches.
+Each Mill accumulates separate Flour and Brewer's Groats counts in one full-tile stack on the bottom-left tile inside its footprint, drawn with `flour-bags.png` above the building sprite. Bread baskets and beer jars use the same placement. The chip above the bag shows the sum; the standard item popup shows each count and a **Store** button. Rendering position is independent from pickup: the farmer uses the building's road loading tile (or the existing adjacent-access fallback for legacy buildings), never the product tile inside the building. Surrounding roads remain clear. Stored and pending goods are distinct: pending bags cannot be offered to level up or spent from Resources. Further milling can continue without collecting earlier batches.
 
-Store sends the farmer to the Mill. On arrival, `mill_delivery/pickup` atomically moves the whole stack into a persisted delivery containing both counts and the chosen completed granary ID. The bag disappears and the farmer walks to the granary. On arrival, `mill_delivery/store` credits both inventory entries and clears the delivery atomically. This does not consume granary barley capacity. Normal hands must be empty before pickup. Other physical work is blocked during delivery; reload resumes the trip, and clicking a granary offers Store to retry an interrupted delivery. Version checks and the persisted delivery prevent duplicate credits. Existing inventory remains untouched by migration `0034_mill-output-bags.sql`.
+Store sends the farmer to the Mill. On arrival, `mill_delivery/pickup` moves only the quantities that fit each resource's independent estate capacity into a persisted delivery. Remaining bags stay visible at the Mill. The farmer walks to the farm; `mill_delivery/store` credits inventory and clears delivery atomically. If storage fills in transit, excess is restored to pending stock. Flour and groats each hold 10 before the warehouse and 20 with a completed warehouse; neither uses barley capacity. Normal hands must be empty before pickup. Other physical work is blocked during delivery and reload resumes the trip. Version checks and persisted delivery prevent duplicate credits. Legacy inventory is never truncated.
 
 ## Progression and compatibility
 
@@ -36,7 +44,7 @@ Migration `0033_mill-production.sql` adds a building enum value and nullable job
 - Client: `src/client/components/{MillContent,Canvas,FarmerPanel,FarmLevelDialog}.tsx`, `src/client/stores/farmerCommandStore.ts`, `src/client/game/phaser/{types,game,farmerArrival}.ts`, `src/client/game/phaser/scenes/MainScene.ts`
 - Assets: `src/assets/farmSprites.ts`, `src/assets/sprite_assets/{manifest.json,manifest.csv,inventory.md}`; uses the two supplied Mill PNGs
 - Tests: `tests/server/{milling,progression}.test.ts`, `tests/client/{farmerPanel,marketScope}.test.ts`
-- Documentation: `game-rules.md`, `docs/progression.md`, `docs/milling.md`, `TODOS.md`
+- Documentation: `game-rules.md`, `docs/progression.md`, `docs/milling.md`; follow-up tasks are tracked in [Sumer Farm Tracker](https://app.todoist.com/app/project/6hgM5pCFx353hh8f).
 
 ## Manual checks
 

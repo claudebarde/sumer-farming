@@ -1,8 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { marketRoadTiles, marketSceneLayout, marketSceneZoom, marketStandStop, marketWalkingPath } from "../../src/client/game/phaser/marketSceneLayout";
+import { marketDecorations, marketRoadTiles, marketSceneLayout, marketSceneZoom, marketStandStop, marketWalkingPath } from "../../src/client/game/phaser/marketSceneLayout";
 import { marketUiStore } from "../../src/client/stores/marketUiStore";
 
 describe("market scene", () => {
+  it.each([10, 12, 16, 24])("keeps fixed greenery clear of roads and buildings (%i columns)", columns => {
+    const decorations = marketDecorations(columns);
+    const layout = marketSceneLayout(columns);
+    expect(decorations).toEqual(marketDecorations(columns));
+    expect(decorations.filter(d => d.sprite === "palmTree")).toHaveLength(4);
+    expect(decorations.filter(d => d.sprite === "bush")).toHaveLength(4);
+    const obstacles = [
+      ...marketRoadTiles(columns).map(p => ({ ...p, size: 1 })),
+      ...[layout.farm, ...layout.stands].map(p => ({ ...p, size: 2 }))
+    ];
+    for (const d of decorations) {
+      expect(d.column).toBeGreaterThanOrEqual(0);
+      expect(d.row).toBeGreaterThanOrEqual(0);
+      expect(d.column + d.size).toBeLessThanOrEqual(columns);
+      expect(d.row + d.size).toBeLessThanOrEqual(10);
+      for (const o of obstacles) {
+        expect(d.column < o.column + o.size && d.column + d.size > o.column &&
+          d.row < o.row + o.size && d.row + d.size > o.row).toBe(false);
+      }
+    }
+  });
   it.each([10, 12, 16, 24])("walks between every stand and home using only connected roads (%i columns)", columns => {
     const layout = marketSceneLayout(columns);
     const roads = new Set(marketRoadTiles(columns).map(p => `${p.column}:${p.row}`));

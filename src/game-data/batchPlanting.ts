@@ -1,12 +1,15 @@
 import { z } from "zod";
 
 export const FieldCoordinateSchema = z.object({ column: z.int(), row: z.int() });
-export const MAX_BATCH_HARVEST_FIELDS = 4;
+export const MAX_BATCH_HARVEST_FIELDS = 8;
+export const LEGACY_BATCH_HARVEST_FIELDS = 4;
 // Kept in the original planting JSON slot for backwards-compatible saved jobs.
 export const BatchPlantingSchema = z.object({
   mode: z.enum(["plant", "harvest"]).optional(),
   id: z.uuid(),
   total: z.int().positive(),
+  // Captured by the server at start; later happiness changes never shrink a job.
+  harvestFieldLimit: z.union([z.literal(4), z.literal(6), z.literal(8)]).optional(),
   remaining: z.array(FieldCoordinateSchema),
   carriedSeeds: z.object({ quantity: z.int().nonnegative(), expiresAt: z.iso.datetime().nullable() }).optional(),
   // Server deadlines keep the queue progressing when rendering is suspended.

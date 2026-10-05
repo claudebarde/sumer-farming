@@ -1,4 +1,7 @@
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
+import TileActionButton from "./TileActionButton";
+import ProductionStoreButton from "./ProductionStoreButton";
+import { TileActionsBusy } from "./tileActionsBusy";
 import { FARM_SPRITES } from "../../assets/farmSprites";
 import {
   plantableFields,
@@ -6,10 +9,15 @@ import {
 } from "../../game-core/farm/batchPlanting";
 import { batchPlantingStore } from "../stores/batchPlantingStore";
 import BatchPlantingControls from "./BatchPlantingControls";
-import { useEffect, useState } from "react";
+import BuildingStorageTables from "./BuildingStorageTables";
+import { useEffect, useRef, useState } from "react";
 import granaryImage from "../../assets/sprite_assets/pngs/granary.png";
 import breweryImage from "../../assets/sprite_assets/pngs/brewery.png";
 import breadOvenImage from "../../assets/sprite_assets/pngs/bread-oven-idle.png";
+import smallShrineImage from "../../assets/sprite_assets/pngs/small-shrine.png";
+import warehouseImage from "../../assets/sprite_assets/pngs/warehouse.png";
+import { estateResourceCapacity } from "../../game-data/storage";
+import ShrineContent from "./ShrineContent";
 import bakingToolsImage from "../../assets/sprite_assets/pngs/wooden-baking-tools.png";
 import barleyImage from "../../assets/sprite_assets/pngs/wheat-sheaf.png";
 import flourBagsImage from "../../assets/sprite_assets/pngs/flour-bags.png";
@@ -21,6 +29,9 @@ import HappinessMeter from "./HappinessMeter";
 import RationMeter from "./RationMeter";
 import FarmerPanel from "./FarmerPanel";
 import MillContent from "./MillContent";
+import BuildingUpgradeContent, { BuildingLevelSign } from "./BuildingUpgradeContent";
+import { durationLabel } from "./durationLabel";
+import { buildingLevel, buildingProductionMultiplier } from "../../game-data/buildingUpgrades";
 import BreadOvenContent from "./BreadOvenContent";
 import beerJarsImage from "../../assets/sprite_assets/pngs/beer-jars.png";
 import breadBasketImage from "../../assets/sprite_assets/pngs/bread-basket.png";
@@ -33,6 +44,7 @@ import {
 } from "@radix-ui/react-icons";
 import { match } from "ts-pattern";
 import styles from "../styles/GameCanvas.module.scss";
+import { farmWorldToCanvasY, farmScrollContentHeight } from "../game/phaser/farmViewport";
 import { GAME_CONTAINER_ID, TILE_SIZE } from "../game/phaser/config";
 import { createGame } from "../game/phaser/game";
 import { MainScene } from "../game/phaser/scenes/MainScene";
@@ -75,6 +87,7 @@ import FetchControls from "./FetchControls";
 import { fetchStore } from "../stores/fetchStore";
 import { FISH_CAPACITY } from "../../game-data/fishing";
 import { fetchDevelopmentFarm } from "../api/developmentPlayer";
+import PorterPanel from "./PorterPanel";
 import type { MarketQuotes } from "../../schemas/market";
 import {
   MARKET_ITEM_DEFINITIONS,
@@ -142,6 +155,9 @@ const formatShekels = (quantity: number): string =>
 
 export default function GameCanvas() {
   const [isOpenManageDialog, setIsOpenManageDialog] = useState(false);
+  const gameRef = useRef<ReturnType<typeof createGame> | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [farmScrollTop, setFarmScrollTop] = useState(0);
   const [canvasBoundary, setCanvasBoundary] = useState<HTMLDivElement | null>(
     null
   );
@@ -166,7 +182,17 @@ export default function GameCanvas() {
 
   const selectedTile = useStore(interactionStore, state => state.selectedTile);
   const carriedItem = useStore(farmerCommandStore, state => state.carriedItem);
+  const farmerStatus = useStore(farmerCommandStore, state => state.status.type);
   const farmState = useStore(farmStore, state => state.farm);
+  const tileActionsBusy = (farmerStatus !== "idle" && farmerStatus !== "failed") || (farmState.type === "ready" && !!(
+    farmerProductionJob(farmState.snapshot.farm) || farmState.snapshot.farm.production.planting ||
+    farmState.snapshot.farm.production.materialDelivery || farmState.snapshot.farm.production.delivery ||
+    farmState.snapshot.farm.millGoods.delivery || farmState.snapshot.farm.gathering || farmState.snapshot.farm.fishing ||
+    farmState.snapshot.crops.some(c => c.harvestStartedAt !== null || Date.parse(c.plantedAt) > storageClock) ||
+    farmState.snapshot.buildings.some(b => Date.parse(b.completesAt) > storageClock) ||
+    farmState.snapshot.improvements.some(i => Date.parse(i.completesAt) > storageClock || i.destroyStartedAt !== null) ||
+    farmState.snapshot.farm.roads.some(r => (r.completesAt ?? 0) > storageClock)
+  ));
   const fetchActive = useStore(fetchStore, state => state.phase !== "idle");
   const farmLevel =
     farmState.type === "ready"
@@ -181,6 +207,10 @@ export default function GameCanvas() {
     marketUiStore,
     state => state.location === "market"
   );
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    gameRef.current?.scale.updateBounds();
+  }, [marketSceneVisible]);
   const setMarketDialogOpen = useStore(marketUiStore, state => state.setOpen);
   const storedBarley =
     farmState.type === "ready"
@@ -189,13 +219,13 @@ export default function GameCanvas() {
       : 0;
   const availableReed =
     farmState.type === "ready"
-      ? farmState.snapshot.groundItems
+      ? [...farmState.snapshot.groundItems, ...farmState.snapshot.inventory]
           .filter(item => item.itemKey === "reed")
           .reduce((quantity, item) => quantity + item.quantity, 0)
       : 0;
   const availableClay =
     farmState.type === "ready"
-      ? farmState.snapshot.groundItems
+      ? [...farmState.snapshot.groundItems, ...farmState.snapshot.inventory]
           .filter(item => item.itemKey === "clay")
           .reduce((quantity, item) => quantity + item.quantity, 0)
       : 0;
@@ -204,38 +234,22 @@ export default function GameCanvas() {
       ? farmState.snapshot.buildings
           .filter(
             building =>
-              building.type === "granary" &&
+              (building.type === "granary" || building.type === "warehouse") &&
               Date.parse(building.completesAt) <= storageClock
           )
           .reduce((quantity, building) => quantity + building.storedBarley, 0)
       : 0;
-  const carriedBarley =
-    carriedItem?.itemKey === "barley" ? carriedItem.quantity : 0;
-  const exposedBarley =
-    farmState.type === "ready"
-      ? farmState.snapshot.groundItems
-          .filter(item => item.itemKey === "barley")
-          .reduce((quantity, item) => quantity + item.quantity, 0)
-      : 0;
-  const breweryBarley =
-    farmState.type === "ready"
-      ? farmState.snapshot.buildings.reduce(
-          (total, building) => total + building.brewingBarley,
-          0
-        )
-      : 0;
-  const totalBarley =
-    storedBarley +
-    granaryBarley +
-    carriedBarley +
-    exposedBarley +
-    breweryBarley;
-  const carriedReed =
-    carriedItem?.itemKey === "reed" ? carriedItem.quantity : 0;
-  const carriedClay =
-    carriedItem?.itemKey === "clay" ? carriedItem.quantity : 0;
-  const totalReed = availableReed + carriedReed;
-  const totalClay = availableClay + carriedClay;
+  const totalBarley = storedBarley + granaryBarley;
+  const barleyStorageFull = storedBarley >= FARM_STORAGE_CAPACITY && !(farmState.type === "ready" && farmState.snapshot.buildings.some(building =>
+    (building.type === "granary" || building.type === "warehouse") && Date.parse(building.completesAt) <= storageClock &&
+    building.storedBarley < (building.type === "warehouse" ? 20 : granaryCapacityForLevel(farmState.snapshot.farm.progression?.level ?? 1))));
+  const warehouseComplete =
+    farmState.type === "ready" &&
+    farmState.snapshot.buildings.some(
+      building =>
+        building.type === "warehouse" &&
+        Date.parse(building.completesAt) <= storageClock
+    );
   const availableVessels =
     farmState.type === "ready"
       ? (farmState.snapshot.inventory.find(
@@ -258,7 +272,8 @@ export default function GameCanvas() {
           FARM_BUILDING_DEFINITIONS.brewery.materials.brewingVessels -
             availableVessels
         );
-  const hasMill = farmState.type === "ready" &&
+  const hasMill =
+    farmState.type === "ready" &&
     farmState.snapshot.buildings.some(building => building.type === "mill");
   const canBuildMill =
     !hasMill &&
@@ -269,7 +284,8 @@ export default function GameCanvas() {
     ) &&
     availableReed >= FARM_BUILDING_DEFINITIONS.mill.materials.reed &&
     availableClay >= FARM_BUILDING_DEFINITIONS.mill.materials.clay;
-  const hasBrewery = farmState.type === "ready" &&
+  const hasBrewery =
+    farmState.type === "ready" &&
     farmState.snapshot.buildings.some(building => building.type === "brewery");
   const canBuildBrewery =
     !hasBrewery &&
@@ -288,8 +304,39 @@ export default function GameCanvas() {
           item => item.itemKey === "bakingTools"
         )?.quantity ?? 0)
       : 0;
-  const hasBreadOven = farmState.type === "ready" &&
-    farmState.snapshot.buildings.some(building => building.type === "breadOven");
+  const hasBreadOven =
+    farmState.type === "ready" &&
+    farmState.snapshot.buildings.some(
+      building => building.type === "breadOven"
+    );
+  const hasShrine =
+    farmState.type === "ready" &&
+    farmState.snapshot.buildings.some(b => b.type === "smallShrine");
+  const hasWarehouse =
+    farmState.type === "ready" &&
+    farmState.snapshot.buildings.some(b => b.type === "warehouse");
+  const warehouseDefinition = FARM_BUILDING_DEFINITIONS.warehouse;
+  const canBuildWarehouse =
+    farmState.type === "ready" &&
+    farmLevel >= 8 &&
+    !hasWarehouse &&
+    carriedItem === null &&
+    !farmerProductionJob(farmState.snapshot.farm) &&
+    availableReed >= warehouseDefinition.materials.reed &&
+    availableClay >= warehouseDefinition.materials.clay;
+  const shrineDefinition = FARM_BUILDING_DEFINITIONS.smallShrine;
+  const canBuildShrine =
+    !hasShrine &&
+    farmLevel >= 8 &&
+    carriedItem === null &&
+    (farmerStatus === "idle" || farmerStatus === "failed") &&
+    farmState.type === "ready" &&
+    !farmerProductionJob(farmState.snapshot.farm) &&
+    !farmState.snapshot.farm.production.planting &&
+    !farmState.snapshot.farm.production.delivery &&
+    !farmState.snapshot.farm.millGoods.delivery &&
+    availableReed >= shrineDefinition.materials.reed &&
+    availableClay >= shrineDefinition.materials.clay;
   const canBuildBreadOven =
     !hasBreadOven &&
     !(
@@ -323,11 +370,11 @@ export default function GameCanvas() {
     .find(tile => tile?.type === "farm");
   const selectedGranary =
     farmState.type === "ready" &&
-    selectedTile?.type === "granary" &&
+    (selectedTile?.type === "granary" || selectedTile?.type === "warehouse") &&
     farmBuildingTile !== undefined
       ? farmState.snapshot.buildings.find(
           building =>
-            building.type === "granary" &&
+            (building.type === "granary" || building.type === "warehouse") &&
             building.column ===
               selectedTile.position.column -
                 (farmBuildingTile.position.column -
@@ -352,7 +399,7 @@ export default function GameCanvas() {
 
     const granary = farmState.snapshot.buildings.find(
       building =>
-        building.type === "granary" &&
+        (building.type === "granary" || building.type === "warehouse") &&
         building.storedBarley > 0 &&
         Date.parse(building.completesAt) <= storageClock
     );
@@ -372,7 +419,7 @@ export default function GameCanvas() {
       .grid.flat()
       .find(
         candidate =>
-          candidate?.type === "granary" &&
+          (candidate?.type === "granary" || candidate?.type === "warehouse") &&
           candidate.position.column === granary.column + farmColumnOffset &&
           candidate.position.row === granary.row + farmRowOffset
       );
@@ -409,6 +456,7 @@ export default function GameCanvas() {
   const selectedTileSize =
     selectedTile?.type === "farm" ||
     selectedTile?.type === "granary" ||
+    selectedTile?.type === "warehouse" ||
     selectedTile?.type === "brewery" ||
     selectedTile?.type === "mill" ||
     selectedTile?.type === "breadOven"
@@ -426,7 +474,8 @@ export default function GameCanvas() {
   const tilePopoverY =
     selectedTile === null
       ? 0
-      : selectedTile.position.posY + (showPopoverBelow ? selectedTileSize : 0);
+      : selectedTile.position.posY + (showPopoverBelow ? selectedTileSize : 0) +
+        (marketSceneVisible ? 0 : farmWorldToCanvasY(0, TILE_SIZE) - farmScrollTop);
 
   const addCommand = (command: FarmerCommandInput): void => {
     farmerCommandStore.getState().addCommand(command);
@@ -623,7 +672,7 @@ export default function GameCanvas() {
     };
     if (isRoadIntersection(local, farmState.snapshot.farm.roads)) return null;
     return (
-      <button
+      <TileActionButton
         onClick={() =>
           addCommand({
             type: "build",
@@ -633,7 +682,7 @@ export default function GameCanvas() {
         }
       >
         Build Irrigation
-      </button>
+      </TileActionButton>
     );
   };
 
@@ -655,27 +704,36 @@ export default function GameCanvas() {
       farmState.snapshot.farm.roads,
       new Set()
     ) === null ? (
-      <button
+      <TileActionButton
         onClick={() =>
           addCommand({ type: "build", build: "road", target: tile.position })
         }
       >
         Build road
-      </button>
+      </TileActionButton>
     ) : null;
   };
 
   const displayPopoverContent = (tile: typeof selectedTile) => {
     if (
-      farmState.type === "ready" &&
-      farmState.snapshot.farm.production.planting
-    )
+      tile?.type === "smallShrine" &&
+      tile.buildingId &&
+      farmState.type === "ready"
+    ) {
       return (
-        <p>
-          The farmer is working on the selected fields. Finish the job or use
-          “Stop after this field” before starting another task.
-        </p>
+        <ShrineContent
+          snapshot={farmState.snapshot}
+          buildingId={tile.buildingId}
+          target={tile.position}
+          now={storageClock}
+          busy={
+            !!farmState.snapshot.farm.production.planting ||
+            (farmerStatus !== "idle" && farmerStatus !== "failed")
+          }
+          addCommand={addCommand}
+        />
       );
+    }
     if (
       tile?.type === "breadOven" &&
       tile.buildingId &&
@@ -722,11 +780,14 @@ export default function GameCanvas() {
               {stack?.quantity ?? 0} {stack?.itemKey ?? "items"} ready to store.
             </p>
             <p>
-              The farmer will collect these goods and bring them to the farm.
-              Resources update only on delivery.
+              The farmer delivers what fits to storage. Remaining goods stay
+              here.
             </p>
             {busy && <p>Finish the current task and empty your hands first.</p>}
-            <button
+            <ProductionStoreButton
+              snapshot={snapshot}
+              item={stack?.itemKey}
+              now={storageClock}
               disabled={!stack || !buildingId || !!busy}
               onClick={() => {
                 if (buildingId)
@@ -737,9 +798,7 @@ export default function GameCanvas() {
                     target: tile.position
                   });
               }}
-            >
-              Store
-            </button>
+            />
           </div>
         </div>
       );
@@ -760,7 +819,7 @@ export default function GameCanvas() {
               Carrying {delivery.bags.flour} Flour and{" "}
               {delivery.bags.brewersGroats} Brewer's Groats bags.
             </p>
-            <button
+            <TileActionButton
               onClick={() =>
                 addCommand({
                   type: "store_mill_goods",
@@ -770,7 +829,7 @@ export default function GameCanvas() {
               }
             >
               Store
-            </button>
+            </TileActionButton>
           </div>
         </div>
       );
@@ -786,14 +845,14 @@ export default function GameCanvas() {
           <div className={styles["tile-popover-content-body"]}>
             <p>Flour bags: {bags?.flour ?? 0}</p>
             <p>Brewer's Groats bags: {bags?.brewersGroats ?? 0}</p>
-            <p>
-              The farmer will carry all these bags to the farm to add them to
-              Resources.
-            </p>
             {carriedItem && <p>Empty the farmer's hands first.</p>}
-            <button
+            <ProductionStoreButton
+              snapshot={snapshot}
+              items={(["flour", "brewersGroats"] as const).filter(item => (bags?.[item] ?? 0) > 0)}
+              now={storageClock}
               disabled={
                 !bags ||
+                (bags.flour + bags.brewersGroats === 0) ||
                 !!carriedItem ||
                 !!farmerProductionJob(snapshot.farm) ||
                 !!snapshot.farm.millGoods.delivery
@@ -806,9 +865,7 @@ export default function GameCanvas() {
                     millId: tile.millId
                   });
               }}
-            >
-              Store
-            </button>
+            />
           </div>
         </div>
       );
@@ -816,36 +873,16 @@ export default function GameCanvas() {
     if (tile?.type === "mill" && farmState.type === "ready")
       return (
         <MillContent
+          key={tile.buildingId}
+          buildingId={tile.buildingId}
           snapshot={farmState.snapshot}
           target={tile.position}
           now={storageClock}
           addCommand={addCommand}
         />
       );
-    if (
-      farmState.type === "ready" &&
-      farmerProductionJob(farmState.snapshot.farm)
-    )
-      return (
-        <div className={styles["tile-popover-content"]}>
-          <div className={styles["tile-popover-content-header"]}>
-            Farmer busy
-          </div>
-          <p>
-            The farmer is busy milling or baking. <br />
-            Wait for production to finish before starting another task.
-          </p>
-        </div>
-      );
     if (!tile) return <span>No tile selected</span>;
-    if (farmState.type === "ready" && farmState.snapshot.farm.fishing)
-      return (
-        <p>
-          Fishing in progress. Cast in the highlighted river or choose Stop
-          fishing.
-        </p>
-      );
-    if (carriedItem?.itemKey === "fish") {
+    if (!tileActionsBusy && carriedItem?.itemKey === "fish") {
       const stored =
         farmState.type === "ready"
           ? (farmState.snapshot.inventory.find(item => item.itemKey === "fish")
@@ -866,7 +903,7 @@ export default function GameCanvas() {
                 Fish: {stored} / {FISH_CAPACITY}
               </p>
               {stored < FISH_CAPACITY ? (
-                <button
+                <TileActionButton
                   onClick={() =>
                     addCommand({
                       type: "fishing",
@@ -876,7 +913,7 @@ export default function GameCanvas() {
                   }
                 >
                   Store fish
-                </button>
+                </TileActionButton>
               ) : (
                 <p role="alert">
                   Fish storage is full. Release the fish at the river.
@@ -884,7 +921,7 @@ export default function GameCanvas() {
               )}
             </>
           ) : tile.type === "water" ? (
-            <button
+            <TileActionButton
               onClick={() =>
                 addCommand({
                   type: "fishing",
@@ -894,7 +931,7 @@ export default function GameCanvas() {
               }
             >
               Release fish
-            </button>
+            </TileActionButton>
           ) : (
             <p>Bring the fish to the farm or release it at the river.</p>
           )}
@@ -902,7 +939,7 @@ export default function GameCanvas() {
       );
     }
 
-    if (carriedItem?.itemKey === "water" && tile.type !== "brewery") {
+    if (!tileActionsBusy && carriedItem?.itemKey === "water" && tile.type !== "brewery") {
       const canPour = [
         "ground",
         "groundVariant",
@@ -921,7 +958,7 @@ export default function GameCanvas() {
           </div>
           <div className={styles["tile-popover-content-body"]}>
             {canPour ? (
-              <button
+              <TileActionButton
                 onClick={() =>
                   addCommand({
                     type: "brewery_supply",
@@ -931,7 +968,7 @@ export default function GameCanvas() {
                 }
               >
                 Pour out water
-              </button>
+              </TileActionButton>
             ) : (
               "No available actions."
             )}
@@ -949,13 +986,13 @@ export default function GameCanvas() {
           </div>
           <div className={styles["tile-popover-content-body"]}>
             <span>A road connecting buildings and their loading points.</span>
-            <button
+            <TileActionButton
               onClick={() =>
                 addCommand({ type: "move", target: tile.position })
               }
             >
               Walk
-            </button>
+            </TileActionButton>
             {carriedItem === null &&
               tile.position.row === INITIAL_FARM_CONFIG.roadRow &&
               isNextToIrrigationSource(tile) &&
@@ -977,6 +1014,18 @@ export default function GameCanvas() {
             </div>
           );
         const isRiverBank = isNextToRiver(tile);
+        const clayStorageFull =
+          farmState.type === "ready" &&
+          (farmState.snapshot.inventory.find(item => item.itemKey === "clay")
+            ?.quantity ?? 0) +
+            (farmState.snapshot.farm.production.materialReservation === "clay"
+              ? 1
+              : 0) >=
+            estateResourceCapacity(
+              "clay",
+              farmState.snapshot.buildings,
+              storageClock
+            );
         const canBuildIrrigation =
           carriedItem === null && isNextToIrrigationSource(tile);
 
@@ -989,8 +1038,8 @@ export default function GameCanvas() {
             <div className={styles["tile-popover-content-body"]}>
               Dry soil, nothing can grow here
               {isRiverBank && (
-                <button
-                  disabled={carriedItem !== null}
+                <TileActionButton
+                  disabled={clayStorageFull || carriedItem !== null}
                   onClick={() =>
                     addCommand({
                       type: "gather",
@@ -999,14 +1048,16 @@ export default function GameCanvas() {
                     })
                   }
                 >
-                  {carriedItem === null
-                    ? "Collect Clay"
-                    : "Empty your hands first"}
-                </button>
+                  {clayStorageFull
+                    ? "Clay storage is full"
+                    : carriedItem === null
+                      ? "Collect Clay"
+                      : "Empty your hands first"}
+                </TileActionButton>
               )}
               {canBuildIrrigation && buildIrrigationButton(tile)}
               {carriedItem === null && !isRiverBank && !canBuildIrrigation && (
-                <button
+                <TileActionButton
                   onClick={() =>
                     addCommand({
                       type: "inspect",
@@ -1015,7 +1066,7 @@ export default function GameCanvas() {
                   }
                 >
                   Inspect
-                </button>
+                </TileActionButton>
               )}
               {buildRoadButton(tile)}
             </div>
@@ -1031,7 +1082,10 @@ export default function GameCanvas() {
           carriedItem === null &&
           barleyWithdrawalSource !== null &&
           isIrrigated;
-        const canDropCarriedItem = carriedItem !== null;
+        const canDropCarriedItem =
+          carriedItem !== null &&
+          carriedItem.itemKey !== "reed" &&
+          carriedItem.itemKey !== "clay";
         const hasTileAction =
           isIrrigated || canBuildIrrigation || canDropCarriedItem;
 
@@ -1049,12 +1103,13 @@ export default function GameCanvas() {
                   the river to grow barley here.
                 </span>
               )}
-              {farmState.type === "ready" &&
+              {isIrrigated && farmState.type === "ready" &&
                 plantableFields(farmState.snapshot, storageClock).length >=
                   2 && (
-                  <button
+                  <TileActionButton
                     disabled={
-                      (carriedItem !== null && carriedItem.itemKey !== "barley") ||
+                      (carriedItem !== null &&
+                        carriedItem.itemKey !== "barley") ||
                       farmerCommandStore.getState().status.type !== "idle" ||
                       !!farmState.snapshot.farm.production.planting
                     }
@@ -1064,10 +1119,10 @@ export default function GameCanvas() {
                     }}
                   >
                     Plant multiple fields
-                  </button>
+                  </TileActionButton>
                 )}
               {canPlantBarley && (
-                <button
+                <TileActionButton
                   onClick={() =>
                     addCommand({
                       type: "plant",
@@ -1077,10 +1132,10 @@ export default function GameCanvas() {
                   }
                 >
                   Plant Barley
-                </button>
+                </TileActionButton>
               )}
               {canRetrieveBarley && (
-                <button
+                <TileActionButton
                   onClick={() =>
                     addCommand({
                       type: "withdraw",
@@ -1091,21 +1146,21 @@ export default function GameCanvas() {
                   }
                 >
                   Get barley from the {barleyWithdrawalSource.storage}
-                </button>
+                </TileActionButton>
               )}
               {isIrrigated &&
                 carriedItem === null &&
                 barleyWithdrawalSource === null && (
-                  <button disabled>No stored barley available</button>
+                  <TileActionButton disabled>No stored barley available</TileActionButton>
                 )}
               {isIrrigated &&
                 carriedItem !== null &&
                 carriedItem.itemKey !== "barley" &&
                 carriedItem.itemKey !== "reed" && (
-                  <button disabled>Empty your hands before planting</button>
+                  <TileActionButton disabled>Empty your hands before planting</TileActionButton>
                 )}
               {canDropCarriedItem && (
-                <button
+                <TileActionButton
                   onClick={() =>
                     addCommand({
                       type: "drop",
@@ -1114,12 +1169,12 @@ export default function GameCanvas() {
                   }
                 >
                   Drop 1 {carriedItem.itemKey}
-                </button>
+                </TileActionButton>
               )}
               {canBuildIrrigation && buildIrrigationButton(tile)}
               {buildRoadButton(tile)}
               {!hasTileAction && (
-                <button
+                <TileActionButton
                   onClick={() =>
                     addCommand({
                       type: "inspect",
@@ -1128,7 +1183,7 @@ export default function GameCanvas() {
                   }
                 >
                   Inspect
-                </button>
+                </TileActionButton>
               )}
             </div>
           </div>
@@ -1143,7 +1198,7 @@ export default function GameCanvas() {
           <div className={styles["tile-popover-content-body"]}>
             What would you like to do?
             <span>Unstored barley perishes after 3 days.</span>
-            <button
+            <TileActionButton
               disabled={
                 carriedItem !== null &&
                 (carriedItem.itemKey !== "barley" ||
@@ -1162,7 +1217,7 @@ export default function GameCanvas() {
                 carriedItem.quantity < FARMER_CARRY_CAPACITY)
                 ? "Pick Up"
                 : "Cannot carry more"}
-            </button>
+            </TileActionButton>
           </div>
         </div>
       ))
@@ -1234,7 +1289,7 @@ export default function GameCanvas() {
                 destroyMaterialError && (
                   <span role="alert">{destroyMaterialError.message}</span>
                 )}
-              <button
+              <TileActionButton
                 disabled={carriedItem !== null || destroyMaterialPending}
                 onClick={() =>
                   addCommand({
@@ -1245,43 +1300,59 @@ export default function GameCanvas() {
                 }
               >
                 {carriedItem === null ? "Pick Up" : "Empty your hands first"}
-              </button>
-              <button
+              </TileActionButton>
+              <TileActionButton
                 disabled={destroyMaterialPending || !groundItem}
                 onClick={() => {
                   void destroy();
                 }}
               >
                 {destroyMaterialPending ? "Destroying…" : "Destroy"}
-              </button>
+              </TileActionButton>
             </div>
           </div>
         );
       })
-      .with("reeds", () => (
-        <div className={styles["tile-popover-content"]}>
-          <div className={styles["tile-popover-content-header"]}>
-            <span>River reeds</span>
+      .with("reeds", () => {
+        const reedStorageFull =
+          farmState.type === "ready" &&
+          (farmState.snapshot.inventory.find(item => item.itemKey === "reed")
+            ?.quantity ?? 0) +
+            (farmState.snapshot.farm.production.materialReservation === "reed"
+              ? 1
+              : 0) >=
+            estateResourceCapacity(
+              "reed",
+              farmState.snapshot.buildings,
+              storageClock
+            );
+        return (
+          <div className={styles["tile-popover-content"]}>
+            <div className={styles["tile-popover-content-header"]}>
+              <span>River reeds</span>
+            </div>
+            <div className={styles["tile-popover-content-body"]}>
+              Reeds suitable for construction
+              <TileActionButton
+                disabled={reedStorageFull || carriedItem !== null}
+                onClick={() =>
+                  addCommand({
+                    type: "gather",
+                    target: tile.position,
+                    item: "reed"
+                  })
+                }
+              >
+                {reedStorageFull
+                  ? "Reed storage is full"
+                  : carriedItem === null
+                    ? "Collect Reeds"
+                    : "Empty your hands first"}
+              </TileActionButton>
+            </div>
           </div>
-          <div className={styles["tile-popover-content-body"]}>
-            Reeds suitable for construction
-            <button
-              disabled={carriedItem !== null}
-              onClick={() =>
-                addCommand({
-                  type: "gather",
-                  target: tile.position,
-                  item: "reed"
-                })
-              }
-            >
-              {carriedItem === null
-                ? "Collect Reeds"
-                : "Empty your hands first"}
-            </button>
-          </div>
-        </div>
-      ))
+        );
+      })
       .with("barleySeeded", () => (
         <div className={styles["tile-popover-content"]}>
           <div className={styles["tile-popover-content-header"]}>
@@ -1348,7 +1419,7 @@ export default function GameCanvas() {
           </div>
           <div className={styles["tile-popover-content-body"]}>
             The barley is ready to harvest
-            <button
+            <TileActionButton
               disabled={carriedItem !== null}
               onClick={() =>
                 addCommand({
@@ -1360,11 +1431,11 @@ export default function GameCanvas() {
               {carriedItem === null
                 ? "Harvest Barley"
                 : "Empty your hands first"}
-            </button>
+            </TileActionButton>
             {farmState.type === "ready" &&
               harvestableFields(farmState.snapshot, storageClock).length >=
                 2 && (
-                <button
+                <TileActionButton
                   disabled={
                     carriedItem !== null ||
                     farmerCommandStore.getState().status.type !== "idle"
@@ -1375,7 +1446,7 @@ export default function GameCanvas() {
                   }}
                 >
                   Harvest multiple fields
-                </button>
+                </TileActionButton>
               )}
           </div>
         </div>
@@ -1387,24 +1458,19 @@ export default function GameCanvas() {
             <span>Farm</span>
           </div>
           <div className={styles["tile-popover-content-body"]}>
-            A building used for agricultural activities
-            <span>
-              Stored barley: {storedBarley} / {FARM_STORAGE_CAPACITY}
-            </span>
-            {farmLevel >= 4 && (
-              <span>
-                Stored fish:{" "}
-                {farmState.type === "ready"
-                  ? (farmState.snapshot.inventory.find(
-                      item => item.itemKey === "fish"
-                    )?.quantity ?? 0)
-                  : 0}{" "}
-                / {FISH_CAPACITY}
-              </span>
+            A building used for agricultural activities and storage
+            {farmState.type === "ready" && (
+              <BuildingStorageTables
+                location="farm"
+                inventory={farmState.snapshot.inventory}
+                barley={storedBarley}
+                warehouseComplete={warehouseComplete}
+                showFish={farmLevel >= 4}
+              />
             )}
-            {carriedItem?.itemKey === "barley" && (
-              <button
-                disabled={storedBarley >= FARM_STORAGE_CAPACITY}
+            {(carriedItem?.itemKey === "reed" ||
+              carriedItem?.itemKey === "clay") && (
+              <TileActionButton
                 onClick={() =>
                   addCommand({
                     type: "deposit",
@@ -1413,25 +1479,24 @@ export default function GameCanvas() {
                   })
                 }
               >
-                {storedBarley >= FARM_STORAGE_CAPACITY
-                  ? "Farm storage is full"
-                  : "Store Barley"}
-              </button>
+                Store {carriedItem.itemKey}
+              </TileActionButton>
             )}
-            {carriedItem === null && (
-              <button
-                disabled={storedBarley === 0}
+            {carriedItem?.itemKey === "barley" && (
+              <TileActionButton
+                disabled={barleyStorageFull}
                 onClick={() =>
                   addCommand({
-                    type: "withdraw",
+                    type: "deposit",
                     target: tile.position,
-                    item: "barley",
                     storage: "farm"
                   })
                 }
               >
-                {storedBarley === 0 ? "Farm storage is empty" : "Take 1 Barley"}
-              </button>
+                {barleyStorageFull
+                  ? "Barley storage is full"
+                  : "Store Barley"}
+              </TileActionButton>
             )}
           </div>
         </div>
@@ -1498,7 +1563,7 @@ export default function GameCanvas() {
           carriedItem.itemKey === "water" &&
           brewery.brewingWater + carriedItem.quantity > BREWERY_WATER_CAPACITY;
         const deliveryButton = canDeliver && (
-          <button
+          <TileActionButton
             disabled={full}
             onClick={() =>
               addCommand({
@@ -1511,19 +1576,20 @@ export default function GameCanvas() {
             {full
               ? "Brewery water supply is full"
               : `Deliver ${carriedItem.itemKey}`}
-          </button>
+          </TileActionButton>
         );
         return (
           <div className={styles["tile-popover-content"]}>
             <div className={styles["tile-popover-content-header"]}>
               <span className="cuneiforms">𒂍𒋆</span>
               <span>Brewery</span>
+              {brewery && farmState.type === "ready" && <BuildingLevelSign snapshot={farmState.snapshot} buildingId={brewery.id} now={storageClock} />}
             </div>
             <div className={styles["tile-popover-content-body"]}>
-              {!complete ? (
+              {!complete || farmState.type !== "ready" ? (
                 "Under construction"
               ) : (
-                <>
+                <BuildingUpgradeContent key={brewery.id} snapshot={farmState.snapshot} buildingId={brewery.id} now={storageClock}>
                   <span>
                     Water: {brewery.brewingWater} / {BREWERY_WATER_CAPACITY}{" "}
                     loads
@@ -1538,8 +1604,8 @@ export default function GameCanvas() {
                     / {BEER_RECIPE.groats}
                   </span>
                   <span>
-                    2 groats + 2 water loads + 2 empty jars → 2 beer · 15
-                    minutes. Groats are consumed from estate inventory when
+                    2 groats + 2 water loads + 2 empty jars → 2 beer · {durationLabel(BEER_RECIPE.durationMs * buildingProductionMultiplier("brewery", buildingLevel(farmState.snapshot.farm.production.buildingUpgrades, brewery.id, storageClock)))}.
+                    Groats are consumed from estate inventory when
                     brewing starts.
                   </span>
                   <span>
@@ -1573,7 +1639,7 @@ export default function GameCanvas() {
                     .exhaustive()}
                   {carriedItem?.itemKey === "water" && deliveryButton}
                   {treatRule === null ? (
-                    <button
+                    <TileActionButton
                       onClick={() =>
                         addCommand({
                           type: "brewery_supply",
@@ -1583,13 +1649,13 @@ export default function GameCanvas() {
                       }
                     >
                       Give 1 beer to the farmer (+15 happiness)
-                    </button>
+                    </TileActionButton>
                   ) : null}
                   {match(brewing)
                     .with({ type: "idle" }, () => (
                       <>
                         {brewRule === null ? (
-                          <button
+                          <TileActionButton
                             onClick={() =>
                               addCommand({
                                 type: "brewery_supply",
@@ -1599,7 +1665,7 @@ export default function GameCanvas() {
                             }
                           >
                             Start brewing
-                          </button>
+                          </TileActionButton>
                         ) : null}
                       </>
                     ))
@@ -1609,7 +1675,7 @@ export default function GameCanvas() {
                   {carriedItem === null &&
                   availableEmptyBeerJars === 0 &&
                   brewery.emptyBeerJars < BREWERY_EMPTY_JAR_CAPACITY ? (
-                    <button
+                    <TileActionButton
                       type="button"
                       onClick={() => {
                         clearSelection();
@@ -1625,10 +1691,10 @@ export default function GameCanvas() {
                           verticalAlign: "middle"
                         }}
                       />
-                    </button>
+                    </TileActionButton>
                   ) : (
                     carriedItem === null && (
-                      <button
+                      <TileActionButton
                         disabled={
                           brewery.emptyBeerJars >= BREWERY_EMPTY_JAR_CAPACITY
                         }
@@ -1643,16 +1709,35 @@ export default function GameCanvas() {
                         {brewery.emptyBeerJars >= BREWERY_EMPTY_JAR_CAPACITY
                           ? "Beer jar storage is full"
                           : `Transfer ${Math.min(availableEmptyBeerJars, BREWERY_EMPTY_JAR_CAPACITY - brewery.emptyBeerJars)} empty beer jars from estate inventory`}
-                      </button>
+                      </TileActionButton>
                     )
                   )}
                   {carriedItem?.itemKey !== "water" && deliveryButton}
-                </>
+                </BuildingUpgradeContent>
               )}
             </div>
           </div>
         );
       })
+      .with("warehouse", () => (
+        <div className={styles["tile-popover-content"]}>
+          <div className={styles["tile-popover-content-header"]}>
+            <span className="cuneiforms">𒉌𒁾</span>
+            <span>Warehouse</span>
+          </div>
+          <div className={styles["tile-popover-content-body"]}>
+            A building used for storage
+            {farmState.type === "ready" && selectedGranary !== undefined && (
+              <BuildingStorageTables
+                location="warehouse"
+                inventory={farmState.snapshot.inventory}
+                barley={selectedGranary.storedBarley}
+                warehouseComplete={warehouseComplete}
+              />
+            )}
+          </div>
+        </div>
+      ))
       .with("granary", () => (
         <div className={styles["tile-popover-content"]}>
           <div className={styles["tile-popover-content-header"]}>
@@ -1669,11 +1754,8 @@ export default function GameCanvas() {
                     {granaryCapacityForLevel(farmLevel)}
                   </span>
                   {carriedItem?.itemKey === "barley" && (
-                    <button
-                      disabled={
-                        selectedGranary.storedBarley >=
-                        granaryCapacityForLevel(farmLevel)
-                      }
+                    <TileActionButton
+                      disabled={barleyStorageFull}
                       onClick={() =>
                         addCommand({
                           type: "deposit",
@@ -1682,11 +1764,10 @@ export default function GameCanvas() {
                         })
                       }
                     >
-                      {selectedGranary.storedBarley >=
-                      granaryCapacityForLevel(farmLevel)
-                        ? "Granary is full"
+                      {barleyStorageFull
+                        ? "Barley storage is full"
                         : "Store Barley"}
-                    </button>
+                    </TileActionButton>
                   )}
                   {selectedGranary.storedBarley === 0 &&
                     carriedItem?.itemKey !== "barley" && (
@@ -1698,7 +1779,7 @@ export default function GameCanvas() {
                       </p>
                     )}
                   {carriedItem === null && selectedGranary.storedBarley > 0 && (
-                    <button
+                    <TileActionButton
                       onClick={() =>
                         addCommand({
                           type: "withdraw",
@@ -1709,7 +1790,7 @@ export default function GameCanvas() {
                       }
                     >
                       Take 1 Barley
-                    </button>
+                    </TileActionButton>
                   )}
                 </>
               )}
@@ -1731,7 +1812,7 @@ export default function GameCanvas() {
               ((farmState.snapshot.inventory.find(
                 item => item.itemKey === "fish"
               )?.quantity ?? 0) < FISH_CAPACITY ? (
-                <button
+                <TileActionButton
                   onClick={() =>
                     addCommand({
                       type: "fishing",
@@ -1741,7 +1822,7 @@ export default function GameCanvas() {
                   }
                 >
                   Go fishing
-                </button>
+                </TileActionButton>
               ) : (
                 <p role="alert">Fish storage is full</p>
               ))}
@@ -1752,7 +1833,7 @@ export default function GameCanvas() {
                   building.type === "brewery" &&
                   Date.parse(building.completesAt) <= storageClock
               ) && (
-                <button
+                <TileActionButton
                   onClick={() =>
                     addCommand({
                       type: "brewery_supply",
@@ -1762,7 +1843,7 @@ export default function GameCanvas() {
                   }
                 >
                   Collect water
-                </button>
+                </TileActionButton>
               )}
           </div>
         </div>
@@ -1782,7 +1863,7 @@ export default function GameCanvas() {
             </div>
             <div className={styles["tile-popover-content-body"]}>
               A canal carrying water toward the fields
-              <button
+              <TileActionButton
                 onClick={() =>
                   addCommand({
                     type: "destroy",
@@ -1792,7 +1873,7 @@ export default function GameCanvas() {
                 }
               >
                 Destroy
-              </button>
+              </TileActionButton>
             </div>
           </div>
         )
@@ -2092,6 +2173,7 @@ export default function GameCanvas() {
           .getState()
           .setCarriedItem(farmSnapshot.farm.carriedItem);
         game = createGame(new MainScene(farmSnapshot));
+        gameRef.current = game;
       }
     };
 
@@ -2107,6 +2189,7 @@ export default function GameCanvas() {
     return () => {
       disposed = true;
       game?.destroy(true);
+      gameRef.current = null;
     };
   }, []);
 
@@ -2130,7 +2213,21 @@ export default function GameCanvas() {
               </Dialog.Trigger>
             </div>
           )}
-          <div id={GAME_CONTAINER_ID} className={styles["game-container"]} />
+          <div
+            ref={scrollRef}
+            data-farm-viewport
+            className={styles["game-viewport"]}
+            aria-label="Farm view"
+            tabIndex={0}
+            onScroll={event => {
+              setFarmScrollTop(event.currentTarget.scrollTop);
+              clearSelection();
+              gameRef.current?.scale.updateBounds();
+            }}
+          >
+            <div id={GAME_CONTAINER_ID} className={styles["game-container"]}
+              style={{ minHeight: marketSceneVisible ? 0 : farmScrollContentHeight(INITIAL_FARM_CONFIG.riverRow, TILE_SIZE) }} />
+          </div>
           {!marketSceneVisible && <BatchPlantingControls now={storageClock} />}
           <Popover.Root
             key={selectedTile?.id ?? "no-selection"}
@@ -2172,7 +2269,9 @@ export default function GameCanvas() {
                   event.preventDefault();
                 }}
               >
-                {displayPopoverContent(selectedTile)}
+                <TileActionsBusy.Provider value={tileActionsBusy}>
+                  {displayPopoverContent(selectedTile)}
+                </TileActionsBusy.Provider>
                 <Popover.Close
                   className={styles["tile-popover-close"]}
                   aria-label="Close"
@@ -2242,7 +2341,7 @@ export default function GameCanvas() {
                         height={48}
                         draggable={false}
                       />
-                      {granaryCount > 0 ? "Second granary" : "Granary"}
+                      Granary
                     </h3>
                     <p>
                       2×2 · 2 minutes · {availableReed}/
@@ -2254,6 +2353,16 @@ export default function GameCanvas() {
                       Store and protect up to{" "}
                       {granaryCapacityForLevel(farmLevel)} additional barley.
                     </p>
+                    {granaryCount < 1 && farmLevel >= 2 && !canBuildGranary && (
+                      <p>
+                        {availableReed <
+                          FARM_BUILDING_DEFINITIONS.granary.materials.reed ||
+                        availableClay <
+                          FARM_BUILDING_DEFINITIONS.granary.materials.clay
+                          ? "Gather the required reeds and clay to build this granary."
+                          : "Finish the farmer’s current task before building."}
+                      </p>
+                    )}
                     <button
                       disabled={!canBuildGranary}
                       onClick={() => {
@@ -2264,9 +2373,11 @@ export default function GameCanvas() {
                         setIsOpenManageDialog(false);
                       }}
                     >
-                      {canBuildGranary
-                        ? "Build granary"
-                        : `Unlock at level ${granaryCount > 0 ? 8 : 2}`}
+                      {granaryCount >= 1
+                        ? "Already built"
+                        : farmLevel < 2
+                          ? "Unlock at level 2"
+                          : "Build granary"}
                     </button>
                   </li>
                   <li>
@@ -2316,13 +2427,13 @@ export default function GameCanvas() {
                       {hasMill
                         ? "Already built"
                         : farmLevel < 5
-                        ? "Unlock at level 5"
-                        : availableReed <
-                              FARM_BUILDING_DEFINITIONS.mill.materials.reed ||
-                            availableClay <
-                              FARM_BUILDING_DEFINITIONS.mill.materials.clay
-                          ? "Gather materials"
-                          : "Build Mill"}
+                          ? "Unlock at level 5"
+                          : availableReed <
+                                FARM_BUILDING_DEFINITIONS.mill.materials.reed ||
+                              availableClay <
+                                FARM_BUILDING_DEFINITIONS.mill.materials.clay
+                            ? "Gather materials"
+                            : "Build Mill"}
                     </button>
                   </li>
                   <li>
@@ -2373,7 +2484,9 @@ export default function GameCanvas() {
                     >
                       {hasBrewery
                         ? "Already built"
-                        : farmLevel < 6 ? "Unlock at level 6" : "Build brewery"}
+                        : farmLevel < 6
+                          ? "Unlock at level 6"
+                          : "Build brewery"}
                     </button>
                   </li>
                   <li>
@@ -2399,7 +2512,7 @@ export default function GameCanvas() {
                     </p>
                     <p>
                       Turn Flour into bread. Collect finished baskets and
-                      deliver them to the farm. Buy baking tools at the NPC
+                      deliver them to storage. Buy baking tools at the NPC
                       Baking market for{" "}
                       {MARKET_ITEM_DEFINITIONS.bakingTools.npcMarket.buyPrice}{" "}
                       shekels each.
@@ -2422,7 +2535,96 @@ export default function GameCanvas() {
                     >
                       {hasBreadOven
                         ? "Already built"
-                        : farmLevel < 6 ? "Unlock at level 6" : "Build Bread Oven"}
+                        : farmLevel < 6
+                          ? "Unlock at level 6"
+                          : "Build Bread Oven"}
+                    </button>
+                  </li>
+                  <li>
+                    <h3 className={styles["building-title"]}>
+                      <img
+                        src={warehouseImage}
+                        alt=""
+                        width={48}
+                        height={48}
+                        draggable={false}
+                      />
+                      Warehouse
+                    </h3>
+                    <p>
+                      2×2 · 3 minutes · {availableReed}/
+                      {warehouseDefinition.materials.reed} reed ·{" "}
+                      {availableClay}/{warehouseDefinition.materials.clay} clay
+                    </p>
+                    <p>
+                      Stores 20 barley. Adds 10 storage each for bread, beer,
+                      flour, groats, reed and clay.
+                    </p>
+                    {!hasWarehouse && farmLevel >= 8 && !canBuildWarehouse && (
+                      <p>
+                        Gather the required materials and finish the farmer’s
+                        current task with empty hands.
+                      </p>
+                    )}
+                    <button
+                      disabled={!canBuildWarehouse}
+                      onClick={() => {
+                        clearSelection();
+                        buildingPlacementStore
+                          .getState()
+                          .startPlacement("warehouse");
+                        setIsOpenManageDialog(false);
+                      }}
+                    >
+                      {hasWarehouse
+                        ? "Already built"
+                        : farmLevel < 8
+                          ? "Unlock at level 8"
+                          : "Build Warehouse"}
+                    </button>
+                  </li>
+                  <li>
+                    <h3 className={styles["building-title"]}>
+                      <img
+                        src={smallShrineImage}
+                        alt=""
+                        width={48}
+                        height={48}
+                        draggable={false}
+                      />
+                      Small shrine
+                    </h3>
+                    <p>
+                      1×1 · {shrineDefinition.constructionDurationMs / 60000}{" "}
+                      minutes · {availableReed}/
+                      {shrineDefinition.materials.reed} reed · {availableClay}/
+                      {shrineDefinition.materials.clay} clay
+                    </p>
+                    <p>
+                      Offer 2 bread or 2 beer to slow happiness decay by 25% for
+                      12 hours. One shrine per farm.
+                    </p>
+                    {!hasShrine && farmLevel >= 8 && !canBuildShrine && (
+                      <p>
+                        Gather the required materials and finish the farmer’s
+                        current task.
+                      </p>
+                    )}
+                    <button
+                      disabled={!canBuildShrine}
+                      onClick={() => {
+                        clearSelection();
+                        buildingPlacementStore
+                          .getState()
+                          .startPlacement("smallShrine");
+                        setIsOpenManageDialog(false);
+                      }}
+                    >
+                      {hasShrine
+                        ? "Already built"
+                        : farmLevel < 8
+                          ? "Unlock at level 8"
+                          : "Build Small shrine"}
                     </button>
                   </li>
                 </ul>
@@ -2499,49 +2701,62 @@ export default function GameCanvas() {
                           <dt>Total</dt>
                           <dd>{totalBarley}</dd>
                         </div>
-                        <div>
-                          <dt>Farm storage</dt>
-                          <dd>{storedBarley}</dd>
-                        </div>
-                        <div>
-                          <dt>Granary storage</dt>
-                          <dd>{granaryBarley}</dd>
-                        </div>
-                        <div>
-                          <dt>Other</dt>
-                          <dd>{carriedBarley + exposedBarley}</dd>
-                        </div>
-                        <div>
-                          <dt>Reserved for brewing</dt>
-                          <dd>{breweryBarley}</dd>
-                        </div>
                       </dl>
                     </section>
 
                     <section>
                       <h3>Food and drink</h3>
                       <dl className={styles["resource-list"]}>
-                        {([
-                          { key: "bread", label: "Bread", image: breadBasketImage },
-                          { key: "beer", label: "Filled beer jars", image: beerJarsImage },
-                          { key: "fish", label: "Fish", image: fishImage }
-                        ] as const).map(item => <div key={item.key}>
-                          <dt className={styles["resource-title"]}>
-                            <img src={item.image} alt="" width={32} height={32} draggable={false} />
-                            {item.label}
-                          </dt>
-                          <dd>{farmState.snapshot.inventory.find(entry => entry.itemKey === item.key)?.quantity ?? 0}
-                            {item.key === "fish" && ` / ${FISH_CAPACITY}`}
-                          </dd>
-                        </div>)}
+                        {(
+                          [
+                            {
+                              key: "bread",
+                              label: "Bread",
+                              image: breadBasketImage
+                            },
+                            {
+                              key: "beer",
+                              label: "Filled beer jars",
+                              image: beerJarsImage
+                            },
+                            { key: "fish", label: "Fish", image: fishImage }
+                          ] as const
+                        ).map(item => (
+                          <div key={item.key}>
+                            <dt className={styles["resource-title"]}>
+                              <img
+                                src={item.image}
+                                alt=""
+                                width={32}
+                                height={32}
+                                draggable={false}
+                              />
+                              {item.label}
+                            </dt>
+                            <dd>
+                              {farmState.snapshot.inventory.find(
+                                entry => entry.itemKey === item.key
+                              )?.quantity ?? 0}
+                            </dd>
+                          </div>
+                        ))}
                       </dl>
                     </section>
                     <section>
                       <h3>Equipment</h3>
                       <dl className={styles["resource-list"]}>
-                        <div><dt>Brewing jars</dt><dd>{availableVessels}</dd></div>
-                        <div><dt>Empty beer jars</dt><dd>{availableEmptyBeerJars}</dd></div>
-                        <div><dt>Baking tools</dt><dd>{availableBakingTools}</dd></div>
+                        <div>
+                          <dt>Brewing jars</dt>
+                          <dd>{availableVessels}</dd>
+                        </div>
+                        <div>
+                          <dt>Empty beer jars</dt>
+                          <dd>{availableEmptyBeerJars}</dd>
+                        </div>
+                        <div>
+                          <dt>Baking tools</dt>
+                          <dd>{availableBakingTools}</dd>
+                        </div>
                       </dl>
                     </section>
                     <section>
@@ -2549,10 +2764,20 @@ export default function GameCanvas() {
                       <dl className={styles["resource-list"]}>
                         <div>
                           <dt className={styles["resource-title"]}>
-                            <img src={FARM_SPRITES.donkey} alt="" width={32} height={32} draggable={false} />
+                            <img
+                              src={FARM_SPRITES.donkey}
+                              alt=""
+                              width={32}
+                              height={32}
+                              draggable={false}
+                            />
                             Mill donkey
                           </dt>
-                          <dd>{farmState.snapshot.inventory.find(item => item.itemKey === "donkey")?.quantity ?? 0}</dd>
+                          <dd>
+                            {farmState.snapshot.inventory.find(
+                              item => item.itemKey === "donkey"
+                            )?.quantity ?? 0}
+                          </dd>
                         </div>
                       </dl>
                     </section>
@@ -2570,7 +2795,11 @@ export default function GameCanvas() {
                             />
                             Reed
                           </dt>
-                          <dd>{totalReed}</dd>
+                          <dd>
+                            {farmState.snapshot.inventory.find(
+                              i => i.itemKey === "reed"
+                            )?.quantity ?? 0}
+                          </dd>
                         </div>
                         <div>
                           <dt className={styles["resource-title"]}>
@@ -2581,9 +2810,13 @@ export default function GameCanvas() {
                               height={32}
                               draggable={false}
                             />
-                            Clay bricks
+                            Clay
                           </dt>
-                          <dd>{totalClay}</dd>
+                          <dd>
+                            {farmState.snapshot.inventory.find(
+                              i => i.itemKey === "clay"
+                            )?.quantity ?? 0}
+                          </dd>
                         </div>
                       </dl>
                     </section>
@@ -2597,10 +2830,10 @@ export default function GameCanvas() {
                 value="farmer"
               >
                 {farmState.type === "ready" ? (
-                  <FarmerPanel
+                  <><FarmerPanel
                     snapshot={farmState.snapshot}
                     now={storageClock}
-                  />
+                  /><PorterPanel snapshot={farmState.snapshot} now={storageClock} /></>
                 ) : (
                   <p>Farmer information is loading…</p>
                 )}
@@ -2797,15 +3030,20 @@ export default function GameCanvas() {
                                 )
                                 .map(item => {
                                   const quantityKey = `${market}:${action}:${item.itemKey}`;
-                                  const quantityLimit = item.itemKey === "donkey" ? 1 :
-                                    action === "buy" &&
-                                    item.itemKey === "brewingVessels"
-                                      ? missingBrewingJars
-                                      : undefined;
-                                  const marketQuantity = item.itemKey === "donkey" ? 1 : Math.min(
-                                    marketQuantities[quantityKey] ?? 1,
-                                    quantityLimit ?? Infinity
-                                  );
+                                  const quantityLimit =
+                                    item.itemKey === "donkey"
+                                      ? 1
+                                      : action === "buy" &&
+                                          item.itemKey === "brewingVessels"
+                                        ? missingBrewingJars
+                                        : undefined;
+                                  const marketQuantity =
+                                    item.itemKey === "donkey"
+                                      ? 1
+                                      : Math.min(
+                                          marketQuantities[quantityKey] ?? 1,
+                                          quantityLimit ?? Infinity
+                                        );
                                   const storedQuantity = match(item.itemKey)
                                     .with("barley", () => storedHouseholdBarley)
                                     .with(
@@ -2840,9 +3078,15 @@ export default function GameCanvas() {
                                       "barley_storage",
                                       () => availableBarleyStorage
                                     )
-                                    .with(
-                                      "estate_inventory",
-                                      () => (item.itemKey === "donkey" ? 1 : 2147483647) - storedQuantity
+                                    .with("estate_inventory", () =>
+                                      Math.max(
+                                        0,
+                                        estateResourceCapacity(
+                                          item.itemKey,
+                                          farmState.snapshot.buildings,
+                                          storageClock
+                                        ) - storedQuantity
+                                      )
                                     )
                                     .exhaustive();
                                   const purchaseCost =
@@ -2877,7 +3121,14 @@ export default function GameCanvas() {
                                       key={item.itemKey}
                                     >
                                       <h3>
-                                        {item.itemKey === "donkey" && <img src={FARM_SPRITES.donkey} alt="" width={48} height={48} />}
+                                        {item.itemKey === "donkey" && (
+                                          <img
+                                            src={FARM_SPRITES.donkey}
+                                            alt=""
+                                            width={48}
+                                            height={48}
+                                          />
+                                        )}
                                         {item.itemKey === "beer" && (
                                           <img
                                             src={beerJarsImage}
@@ -2942,45 +3193,49 @@ export default function GameCanvas() {
                                             <>
                                               {" "}
                                               · Owned: {storedQuantity}. <br />
-                                              {item.itemKey === "donkey" ? "One donkey per farm. Processes 6 barley into 3 Flour or Brewer's Groats in 15 minutes, leaving the farmer free." : "Kept in estate inventory; does not use barley storage."}
+                                              {item.itemKey === "donkey"
+                                                ? "One donkey per farm. Processes 6 barley into 3 Flour or Brewer's Groats in 15 minutes, leaving the farmer free."
+                                                : "Kept in estate inventory; does not use barley storage."}
                                             </>
                                           )}
                                         </p>
                                       )}
-                                      {item.itemKey !== "donkey" && <label
-                                        className={styles["market-quantity"]}
-                                      >
-                                        {action === "buy"
-                                          ? "Quantity to buy"
-                                          : action === "sell"
-                                            ? "Quantity to sell"
-                                            : "Quantity"}
-                                        <input
-                                          type="number"
-                                          min="1"
-                                          max={quantityLimit}
-                                          step="1"
-                                          value={marketQuantity}
-                                          disabled={marketTradePending}
-                                          onChange={event => {
-                                            const quantity = Number.parseInt(
-                                              event.currentTarget.value,
-                                              10
-                                            );
-                                            setMarketQuantities(current => ({
-                                              ...current,
-                                              [quantityKey]: Number.isNaN(
-                                                quantity
-                                              )
-                                                ? 1
-                                                : Math.min(
-                                                    quantityLimit ?? Infinity,
-                                                    Math.max(1, quantity)
-                                                  )
-                                            }));
-                                          }}
-                                        />
-                                      </label>}
+                                      {item.itemKey !== "donkey" && (
+                                        <label
+                                          className={styles["market-quantity"]}
+                                        >
+                                          {action === "buy"
+                                            ? "Quantity to buy"
+                                            : action === "sell"
+                                              ? "Quantity to sell"
+                                              : "Quantity"}
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            max={quantityLimit}
+                                            step="1"
+                                            value={marketQuantity}
+                                            disabled={marketTradePending}
+                                            onChange={event => {
+                                              const quantity = Number.parseInt(
+                                                event.currentTarget.value,
+                                                10
+                                              );
+                                              setMarketQuantities(current => ({
+                                                ...current,
+                                                [quantityKey]: Number.isNaN(
+                                                  quantity
+                                                )
+                                                  ? 1
+                                                  : Math.min(
+                                                      quantityLimit ?? Infinity,
+                                                      Math.max(1, quantity)
+                                                    )
+                                              }));
+                                            }}
+                                          />
+                                        </label>
+                                      )}
                                       {market === "npc" && (
                                         <div
                                           className={styles["market-actions"]}
@@ -3009,7 +3264,9 @@ export default function GameCanvas() {
                                                 ? "Buying unavailable"
                                                 : availableStorage <
                                                     marketQuantity
-                                                  ? item.itemKey === "donkey" ? "Already owned" : "Not enough storage"
+                                                  ? item.itemKey === "donkey"
+                                                    ? "Already owned"
+                                                    : "Not enough storage"
                                                   : farmState.snapshot.player
                                                         .shekelBalance <
                                                       purchaseCost

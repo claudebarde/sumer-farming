@@ -6,7 +6,7 @@ import { farmStore } from "../../../stores/farmStore";
 import { canOpenMarketStand, marketStandUnlockLevel } from "../../../../game-data/progression";
 import { farmerCommandStore } from "../../../stores/farmerCommandStore";
 import { TILE_SIZE } from "../config";
-import { marketSceneLayout, marketSceneZoom, marketStandStop, marketWalkingPath } from "../marketSceneLayout";
+import { marketDecorations, marketSceneLayout, marketSceneZoom, marketStandStop, marketWalkingPath } from "../marketSceneLayout";
 import { installSceneDomIsolation } from "../sceneDomIsolation";
 import { createDonkey } from "../donkey";
 
@@ -121,6 +121,12 @@ export class MarketScene extends Phaser.Scene {
       for (const [column, side] of [[layout.left, 0], [layout.right, 1]] as const) {
         const junction = tile(column, layout.roadRow, "groundPathHorizontal");
         junction.setCrop(side * junction.width / 2, junction.height * 0.35, junction.width / 2, junction.height * 0.3);
+      }
+      // Decorative only: no input handlers or pathfinding obstacles. Buildings
+      // and actors are drawn afterwards so their interactions stay unobstructed.
+      for (const decoration of marketDecorations(columns)) {
+        this.add.image(decoration.column * TILE_SIZE, decoration.row * TILE_SIZE, spriteName(decoration.sprite))
+          .setOrigin(0).setDisplaySize(decoration.size * TILE_SIZE, decoration.size * TILE_SIZE);
       }
       const walkToDestination = (): void => {
         if (!farmer || !farmerTile || !destination || movement) return;

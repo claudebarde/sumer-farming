@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { productionProgress } from "../../src/client/game/phaser/productionProgress";
+import { FARM_BUILDING_DEFINITIONS, farmBuildingTypes } from "../../src/game-data/buildings";
 
 describe("building production bars", () => {
+  it.each(farmBuildingTypes)("shows elapsed construction progress for %s and hides on completion", type => {
+    const duration = FARM_BUILDING_DEFINITIONS[type].constructionDurationMs;
+    const construction = { startedAt: new Date(1000).toISOString(), completesAt: new Date(1000 + duration).toISOString() };
+    expect(productionProgress(construction, 1000)).toBe(0);
+    expect(productionProgress(construction, 1000 + duration / 2)).toBe(0.5);
+    expect(productionProgress(construction, 1000 + duration)).toBeNull();
+  });
   const job = { startedAt: new Date(1000).toISOString(), completesAt: new Date(301000).toISOString() };
   it("uses persisted times to resume progress after reload", () => {
     expect(productionProgress(job, 1000)).toBe(0);

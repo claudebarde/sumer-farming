@@ -44,6 +44,25 @@ const catchUp = (farmId: string, now: number) => db.transaction(async tx => {
 });
 
 describe("batch barley planting", () => {
+  it.each([[50, 4], [51, 6], [90, 6], [91, 8]])("enforces %i happiness's %i-field planting limit before reserving seeds", async (happiness, limit) => {
+    const f = await fixture(0);
+    await db.update(farms).set({ level: 4, happiness, happinessCheckedAt: new Date(),
+      carriedItemKey: "barley", carriedItemQuantity: 8, carriedItemExpiresAt: new Date(Date.now() + 86400000)
+    }).where(eq(farms.id, f.farmId));
+    await db.insert(farmImprovements).values([3, 4, 5, 6, 7].map(row => ({ farmId: f.farmId, type: "irrigation" as const, column: 5, row, startedAt: new Date(0), completesAt: new Date(1000) })));
+    const fields = [3, 4, 6, 7].flatMap(row => [4, 6].map(column => ({ column, row })));
+    const tooMany = [...fields, { column: 7, row: 9 }].slice(0, limit + 1);
+    expect(await Effect.runPromise(Effect.flip(f.start(tooMany)))).toMatchObject({ _tag: "BatchPlantingError" });
+    const [unchanged] = await db.select().from(farms).where(eq(farms.id, f.farmId));
+    expect(unchanged!.carriedItemQuantity).toBe(8);
+    expect(unchanged!.production.planting ?? null).toBeNull();
+    const accepted = await Effect.runPromise(f.start(fields.slice(0, limit)));
+    expect(accepted.farm.production.planting?.total).toBe(limit);
+    await db.update(farms).set({ happiness: 0 }).where(eq(farms.id, f.farmId));
+    const finished = await catchUp(f.farmId, Date.now() + 3600000);
+    expect(finished.production.planting).toBeNull();
+    expect(await db.select().from(farmCrops).where(eq(farmCrops.farmId, f.farmId))).toHaveLength(limit);
+  });
   it("returns caught-up progress to a delayed animation callback without planting twice", async () => {
     const f = await fixture();
     const started = await Effect.runPromise(f.start());

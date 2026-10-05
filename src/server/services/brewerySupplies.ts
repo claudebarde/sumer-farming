@@ -4,6 +4,7 @@ import { Clock, Data, Effect } from "effect";
 import { validateBrewerySupply, brewerySupplyErrors, type BrewerySupplyRule } from "../../game-core/farm/brewerySupplies";
 import { WATER_LOAD_QUANTITY, BREWERY_EMPTY_JAR_CAPACITY } from "../../game-data/brewing";
 import { BEER_RECIPE } from "../../game-data/brewing";
+import { activeBuildingUpgrade, buildingLevel, buildingProductionMultiplier } from "../../game-data/buildingUpgrades";
 import { brewingErrors, validateBrewing, readyBeerQuantity } from "../../game-core/farm/brewing";
 import { beerTreatErrors, validateBeerTreat, happinessAfterBeer, fishTreatErrors, validateFishTreat, happinessAfterFish } from "../../game-core/farm/wellbeing";
 import type { GameCommand } from "../../schemas/gameCommands";
@@ -34,7 +35,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           eq(farmCrops.farmId, farm.id),
           sql`(${gt(farmCrops.plantedAt, now)} OR ${isNotNull(farmCrops.harvestStartedAt)})`
         )).limit(1);
-        if (farm.production.planting || farmerProductionJob(farm) || farm.millGoods.delivery || farm.production.delivery || farm.gatheringItemKey !== null || workingCrop) return new BrewerySupplyRuleError({ type: "farmer_busy", message: "The farmer is busy." });
+        if (farm.production.materialDelivery || farm.production.planting || farmerProductionJob(farm) || farm.millGoods.delivery || farm.production.delivery || farm.gatheringItemKey !== null || workingCrop) return new BrewerySupplyRuleError({ type: "farmer_busy", message: "The farmer is busy." });
         const snapshot = await readFarmSnapshot(transaction, farm, false);
         // Estate gifts do not require a brewery or consume a brewery's ready batch.
         if (input.type === "give_farmer_beer" || input.type === "give_farmer_fish" || input.type === "give_farmer_bread") {
@@ -84,6 +85,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           const brewery = snapshot.buildings.find(building => building.type === "brewery" &&
             building.column === input.target.column && building.row === input.target.row)!;
           const groats = snapshot.inventory.find(item => item.itemKey === "brewersGroats")?.quantity ?? 0;
+          if (activeBuildingUpgrade(farm.production.buildingUpgrades, brewery.id, now.getTime())) return new BrewerySupplyRuleError({ type: "brewery_unavailable", message: "The Brewery is upgrading." });
           const brewingRule = validateBrewing(input.action, brewery, now.getTime(), groats);
           if (brewingRule !== null) return new BrewerySupplyRuleError({ type: brewingRule, message: brewingErrors[brewingRule] });
           await transaction.update(farmInventory).set({ quantity: groats - BEER_RECIPE.groats, updatedAt: now })
@@ -91,7 +93,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
             await transaction.update(farmBuildings).set({
               brewingWater: brewery.brewingWater - BEER_RECIPE.water,
               emptyBeerJars: brewery.emptyBeerJars - BEER_RECIPE.emptyJars,
-              beerReadyAt: new Date(now.getTime() + BEER_RECIPE.durationMs),
+              beerReadyAt: new Date(now.getTime() + Math.round(BEER_RECIPE.durationMs * buildingProductionMultiplier("brewery", buildingLevel(farm.production.buildingUpgrades, brewery.id, now.getTime())))),
               beerServed: 0
             }).where(eq(farmBuildings.id, brewery.id));
         }

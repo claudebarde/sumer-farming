@@ -1,13 +1,17 @@
 import { farmerProductionJob } from "./farmerProduction";
 import { millRecipe, type MillRecipe, type MillWorker } from "../../game-data/milling";
 import type { FarmSnapshot } from "../../schemas/farm";
+import { activeBuildingUpgrade } from "../../game-data/buildingUpgrades";
 
 export const millingBarleyAvailable = (snapshot: FarmSnapshot, now: number): number =>
   (snapshot.inventory.find(i => i.itemKey === "barley")?.quantity ?? 0) +
-  snapshot.buildings.filter(b => b.type === "granary" && Date.parse(b.completesAt) <= now).reduce((sum, b) => sum + b.storedBarley, 0) +
+  snapshot.buildings.filter(b => (b.type === "granary" || b.type === "warehouse") && Date.parse(b.completesAt) <= now).reduce((sum, b) => sum + b.storedBarley, 0) +
   (snapshot.farm.carriedItem?.itemKey === "barley" && snapshot.farm.carriedItem.expiresAt !== null && Date.parse(snapshot.farm.carriedItem.expiresAt) > now ? snapshot.farm.carriedItem.quantity : 0);
 
-export const millingUnavailableReason = (snapshot: FarmSnapshot, recipe: MillRecipe, now: number, worker: MillWorker = "farmer"): string | null => {
+export const millingUnavailableReason = (snapshot: FarmSnapshot, recipe: MillRecipe, now: number, worker: MillWorker = "farmer", buildingId?: string): string | null => {
+  const mills = snapshot.buildings.filter(b => b.type === "mill");
+  const id = buildingId ?? (mills.length === 1 ? mills[0]!.id : undefined);
+  if (id && activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, id, now)) return "The Mill is upgrading. Wait for the upgrade to finish.";
   if (worker === "donkey" && (snapshot.farm.progression?.level ?? 1) < 7) return "Donkey milling unlocks at level 7.";
   if (worker === "donkey" && !snapshot.inventory.some(i => i.itemKey === "donkey" && i.quantity > 0)) return "Buy a donkey from the Baking market first.";
   if (snapshot.farm.production.planting) return "Finish or stop planting or harvesting the selected fields first.";
@@ -30,7 +34,7 @@ export const millSprite = (buildingId: string, job: FarmSnapshot["farm"]["millin
 
 // The collection trip is visual; inventory is committed only at the Mill.
 export const millingCollectionSource = (snapshot: FarmSnapshot, now: number) => {
-  const granary = snapshot.buildings.find(b => b.type === "granary" &&
+  const granary = snapshot.buildings.find(b => (b.type === "granary" || b.type === "warehouse") &&
     b.storedBarley > 0 && Date.parse(b.completesAt) <= now);
   if (granary) return { type: "granary" as const, column: granary.column, row: granary.row };
   return (snapshot.inventory.find(i => i.itemKey === "barley")?.quantity ?? 0) > 0

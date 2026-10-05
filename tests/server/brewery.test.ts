@@ -38,20 +38,15 @@ const fixture = async (vessels = 2) => {
 };
 
 describe("brewery construction and equipment", () => {
-  it("allows two granaries but rejects a third even while both are under construction", async () => {
+  it("allows one granary and rejects a second even during construction", async () => {
     const input = await fixture();
     const first = await Effect.runPromise(buildFarmBuilding(db, { ...input, building: "granary" }));
     expect(first.buildings.filter(building => building.type === "granary")).toHaveLength(1);
-    const second = await Effect.runPromise(buildFarmBuilding(db, {
-      ...input, building: "granary", target: { column: 0, row: 6 }, expectedFarmVersion: first.farm.version
-    }));
-    expect(second.buildings.filter(building => building.type === "granary")).toHaveLength(2);
-    expect(second.buildings.every(building => Date.parse(building.completesAt) > Date.now())).toBe(true);
     await expect(Effect.runPromise(Effect.flip(buildFarmBuilding(db, {
-      ...input, building: "granary", target: { column: 2, row: 6 }, expectedFarmVersion: second.farm.version
-    })))).resolves.toMatchObject({ rule: { type: "building_limit", limit: 2 } });
-    expect((await db.select().from(farmBuildings).where(eq(farmBuildings.farmId, input.farmId)))).toHaveLength(2);
-    expect((await db.select().from(farms).where(eq(farms.id, input.farmId)))[0]?.version).toBe(second.farm.version);
+      ...input, building: "granary", target: { column: 2, row: 6 }, expectedFarmVersion: first.farm.version
+    })))).resolves.toMatchObject({ rule: { type: "building_limit", limit: 1 } });
+    expect((await db.select().from(farmBuildings).where(eq(farmBuildings.farmId, input.farmId)))).toHaveLength(1);
+    expect((await db.select().from(farms).where(eq(farms.id, input.farmId)))[0]?.version).toBe(first.farm.version);
   });
   it("rejects a trapping layout on the server without spending materials or changing the farm version", async () => {
     const input = await fixture();

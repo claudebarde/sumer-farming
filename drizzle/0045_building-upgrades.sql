@@ -1,0 +1,1 @@
+ALTER TYPE "public"."shekel_transaction_type" ADD VALUE 'building_upgrade';

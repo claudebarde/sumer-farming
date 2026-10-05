@@ -1,8 +1,9 @@
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, lte, inArray } from "drizzle-orm";
 import { match } from "ts-pattern";
+import { porterReserved } from "../../game-data/porter";
 
 import type { MarketItemKey } from "../../game-data/marketItems";
-import { FARM_STORAGE_CAPACITY, granaryCapacityForLevel } from "../../game-data/storage";
+import { FARM_STORAGE_CAPACITY, granaryCapacityForLevel, estateResourceCapacity } from "../../game-data/storage";
 import type { DatabaseTransaction } from "../db/client";
 import { farmBuildings, farmInventory, farms } from "../db/schema";
 
@@ -88,7 +89,7 @@ const loadBarleyStorage = async (
     .where(
       and(
         eq(farmBuildings.farmId, farmId),
-        eq(farmBuildings.type, "granary"),
+        inArray(farmBuildings.type, ["granary", "warehouse"]),
         lte(farmBuildings.completesAt, now)
       )
     )
@@ -113,7 +114,7 @@ const loadBarleyStorage = async (
     granaryCapacity,
     storedQuantity,
     totalCapacity,
-    availableCapacity: totalCapacity - storedQuantity
+    availableCapacity: Math.max(0, totalCapacity - storedQuantity)
   };
 };
 
@@ -129,8 +130,10 @@ export const loadMarketItemStorage = (
     .with("brewingVessels", "bakingTools", "emptyBeerJar", "beer", "bread", "flour", "brewersGroats", "donkey", async () => {
       const [entry] = await transaction.select().from(farmInventory).where(and(eq(farmInventory.farmId, farmId), eq(farmInventory.itemKey, itemKey))).for("update");
       const quantity = entry?.quantity ?? 0;
-      const capacity = itemKey === "donkey" ? 1 : 2147483647;
-      return { type: "estate_inventory", itemKey, farmId, farmQuantity: quantity, granaries: [], granaryCapacity: 0, storedQuantity: quantity, totalCapacity: capacity, availableCapacity: capacity - quantity };
+      const buildings = await transaction.select().from(farmBuildings).where(eq(farmBuildings.farmId, farmId));
+      const capacity = estateResourceCapacity(itemKey, buildings, now.getTime());
+      const [farm] = await transaction.select({ production: farms.production }).from(farms).where(eq(farms.id, farmId));
+      return { type: "estate_inventory", itemKey, farmId, farmQuantity: quantity, granaries: [], granaryCapacity: 0, storedQuantity: quantity, totalCapacity: capacity, availableCapacity: Math.max(0, capacity - quantity - porterReserved(farm?.production.porter, itemKey)) };
     })
     .exhaustive();
 
@@ -178,7 +181,7 @@ export const addToMarketItemStorage = async (
     return;
   }
   const addedToFarm = Math.min(
-    FARM_STORAGE_CAPACITY - storage.farmQuantity,
+    Math.max(0, FARM_STORAGE_CAPACITY - storage.farmQuantity),
     quantity
   );
   await updateFarmInventory(

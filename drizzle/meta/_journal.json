@@ -288,6 +288,55 @@
       "when": 1790855527459,
       "tag": "0040_mill-donkey",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790930818054,
+      "tag": "0041_small-shrine",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1791028194262,
+      "tag": "0042_happiness-harvest-capacity",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1791034540574,
+      "tag": "0043_warehouse",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1791049875424,
+      "tag": "0044_porter-hire",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1791100941177,
+      "tag": "0045_building-upgrades",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1791101217311,
+      "tag": "0046_building-upgrade-payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1791132953399,
+      "tag": "0047_production-upgrade-levels",
+      "breakpoints": true
     }
   ]
 }

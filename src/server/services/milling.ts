@@ -1,4 +1,6 @@
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
+import { sharedDeliveryStop } from "../../game-core/farm/storageDelivery";
+import { porterReserved } from "../../game-data/porter";
 import { and, eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { millRecipe, type MillGoods } from "../../game-data/milling";
@@ -7,6 +9,8 @@ import type { GameCommand } from "../../schemas/gameCommands";
 import type { Database } from "../db/client";
 import { farmBuildings, farmInventory, farms } from "../db/schema";
 import { readFarmSnapshot } from "./farmSnapshot";
+import { estateResourceCapacity } from "../../game-data/storage";
+import { activeBuildingUpgrade, buildingLevel } from "../../game-data/buildingUpgrades";
 
 export class MillingRuleError extends Data.TaggedError("MillingRuleError")<{ readonly message: string }> {}
 export class MillingPersistenceError extends Data.TaggedError("MillingPersistenceError")<{ readonly cause: unknown }> {}
@@ -32,17 +36,32 @@ export const deliverMillGoods = (database: Database, input: Extract<GameCommand,
         }
         const bags = goods.pending[input.millId];
         if (!bags || bags.flour + bags.brewersGroats === 0) return new MillingRuleError({ message: "There are no bags to collect." });
-        next = { pending: Object.fromEntries(Object.entries(goods.pending).filter(([id]) => id !== input.millId)),
-          delivery: { millId: input.millId, bags } };
+        const collect = (item: "flour" | "brewersGroats") => Math.min(bags[item], Math.max(0, estateResourceCapacity(item, snapshot.buildings, now) - (snapshot.inventory.find(i => i.itemKey === item)?.quantity ?? 0) - porterReserved(snapshot.farm.production.porter, item)));
+        const picked = { flour: collect("flour"), brewersGroats: collect("brewersGroats") };
+        if (picked.flour + picked.brewersGroats === 0) return new MillingRuleError({ message: "Storage is full. Use or sell some goods first." });
+        const remaining = { flour: bags.flour - picked.flour, brewersGroats: bags.brewersGroats - picked.brewersGroats };
+        const pending = Object.fromEntries(Object.entries(goods.pending).filter(([id]) => id !== input.millId));
+        next = { pending: remaining.flour + remaining.brewersGroats > 0 ? { ...pending, [input.millId]: remaining } : pending,
+          delivery: { millId: input.millId, bags: picked } };
       } else {
         const delivery = goods.delivery;
         if (!delivery || delivery.millId !== input.millId) return new MillingRuleError({ message: "No matching bag delivery is in progress." });
+        const returned = { flour: 0, brewersGroats: 0 };
+        const warehouseComplete = snapshot.buildings.some(b => b.type === "warehouse" && Date.parse(b.completesAt) <= now);
+        const stopFor = (item: "flour" | "brewersGroats") => sharedDeliveryStop(item, (snapshot.inventory.find(i => i.itemKey === item)?.quantity ?? 0) + porterReserved(snapshot.farm.production.porter, item), warehouseComplete);
+        const warehouseStop = (["flour", "brewersGroats"] as const).some(item => delivery.bags[item] > 0 && stopFor(item).location === "warehouse");
         for (const itemKey of ["flour", "brewersGroats"] as const) {
-          const quantity = delivery.bags[itemKey];
+          const stop = stopFor(itemKey);
+          const quantity = Math.min(delivery.bags[itemKey], warehouseStop && stop.location !== "warehouse" ? 0 : stop.room);
+          returned[itemKey] = delivery.bags[itemKey] - quantity;
           if (quantity > 0) await tx.insert(farmInventory).values({ farmId: farm.id, itemKey, quantity })
             .onConflictDoUpdate({ target: [farmInventory.farmId, farmInventory.itemKey], set: { quantity: sql`${farmInventory.quantity} + ${quantity}`, updatedAt: new Date(now) } });
         }
-        next = { ...goods, delivery: null };
+        const previous = goods.pending[delivery.millId];
+        const remaining = returned.flour + returned.brewersGroats > 0;
+        next = warehouseStop && remaining
+          ? { ...goods, delivery: { ...delivery, bags: returned } }
+          : { ...goods, delivery: null, pending: remaining ? { ...goods.pending, [delivery.millId]: { flour: (previous?.flour ?? 0) + returned.flour, brewersGroats: (previous?.brewersGroats ?? 0) + returned.brewersGroats } } : goods.pending };
       }
       const [updated] = await tx.update(farms).set({ millGoods: next, version: sql`${farms.version} + 1`, updatedAt: new Date(now) }).where(eq(farms.id, farm.id)).returning();
       return readFarmSnapshot(tx, updated!, false);
@@ -64,13 +83,14 @@ export const startMilling = (database: Database, input: Extract<GameCommand, { t
       if (reason) return new MillingRuleError({ message: reason });
       const mill = snapshot.buildings.find(b => b.type === "mill" && b.column === input.target.column && b.row === input.target.row && Date.parse(b.completesAt) <= now);
       if (!mill) return new MillingRuleError({ message: "Choose a completed Mill." });
-      const recipe = millRecipe(input.recipe, input.worker);
+      if (activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, mill.id, now)) return new MillingRuleError({ message: "The Mill is upgrading. Wait for the upgrade to finish." });
+      const recipe = millRecipe(input.recipe, input.worker, buildingLevel(snapshot.farm.production.buildingUpgrades, mill.id, now));
       let remaining = recipe.barley;
       const carried = snapshot.farm.carriedItem;
       const fromHands = carried?.itemKey === "barley" ? Math.min(remaining, carried.quantity) : 0;
       remaining -= fromHands;
       const stored = snapshot.inventory.find(i => i.itemKey === "barley")?.quantity ?? 0;
-      for (const granary of snapshot.buildings.filter(b => b.type === "granary" && Date.parse(b.completesAt) <= now)) {
+      for (const granary of snapshot.buildings.filter(b => (b.type === "granary" || b.type === "warehouse") && Date.parse(b.completesAt) <= now)) {
         const take = Math.min(remaining, granary.storedBarley);
         if (take > 0) await tx.update(farmBuildings).set({ storedBarley: granary.storedBarley - take }).where(eq(farmBuildings.id, granary.id));
         remaining -= take;

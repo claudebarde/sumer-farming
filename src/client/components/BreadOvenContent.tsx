@@ -1,9 +1,13 @@
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import type { FarmSnapshot } from "../../schemas/farm";
+import TileActionButton from "./TileActionButton";
 import { BREAD_RECIPE } from "../../game-data/production";
 import type { TilePosition } from "../game/phaser/types";
 import type { FarmerCommandInput } from "../stores/farmerCommandStore";
 import styles from "../styles/GameCanvas.module.scss";
+import BuildingUpgradeContent, { BuildingLevelSign } from "./BuildingUpgradeContent";
+import { durationLabel } from "./durationLabel";
+import { buildingLevel, buildingProductionMultiplier } from "../../game-data/buildingUpgrades";
 
 export default function BreadOvenContent({
   snapshot,
@@ -20,6 +24,7 @@ export default function BreadOvenContent({
 }) {
   const oven = snapshot.buildings.find(b => b.id === buildingId);
   const job = snapshot.farm.production.baking[buildingId];
+  const duration = BREAD_RECIPE.durationMs * buildingProductionMultiplier("breadOven", buildingLevel(snapshot.farm.production.buildingUpgrades, buildingId, now));
   const flour =
     snapshot.inventory.find(i => i.itemKey === "flour")?.quantity ?? 0;
   const constructionRemaining = oven
@@ -61,14 +66,16 @@ export default function BreadOvenContent({
       <div className={styles["tile-popover-content-header"]}>
         <span className="cuneiforms">𒌅𒊒𒈾</span>
         Bread Oven
+        <BuildingLevelSign snapshot={snapshot} buildingId={buildingId} now={now} />
       </div>
       <div className={styles["tile-popover-content-body"]}>
+        <BuildingUpgradeContent key={buildingId} snapshot={snapshot} buildingId={buildingId} now={now}>
         <p>
           {BREAD_RECIPE.flour} Flour → {BREAD_RECIPE.output} Bread ·{" "}
-          {BREAD_RECIPE.durationMs / 60000} minutes
+          {durationLabel(duration)}
         </p>
         <p>Stored Flour: {flour}.</p>
-        <p>The farmer collects flour from the farm, then works at the oven for the full 5 minutes.</p>
+        <p>The farmer collects flour, then works at the oven until baking finishes.</p>
         <p>
           Finished bread waits in a basket beside the oven until delivered to
           the farm.
@@ -90,11 +97,7 @@ export default function BreadOvenContent({
         {job && (
           <>
             <p>
-              {Math.max(
-                0,
-                Math.ceil((Date.parse(job.completesAt) - now) / 1000)
-              )}{" "}
-              seconds remaining.
+              {durationLabel(Date.parse(job.completesAt) - now)} remaining.
             </p>
             <progress
               aria-label="Baking progress"
@@ -112,7 +115,7 @@ export default function BreadOvenContent({
           </>
         )}
         {unavailable && constructionRemaining === 0 && <p>{unavailable}</p>}
-        <button
+        <TileActionButton
           disabled={unavailable !== null}
           onClick={() =>
             addCommand({
@@ -124,7 +127,8 @@ export default function BreadOvenContent({
           }
         >
           Bake bread
-        </button>
+        </TileActionButton>
+        </BuildingUpgradeContent>
       </div>
     </div>
   );

@@ -227,6 +227,7 @@ export const buildFarmBuilding = (
 
           const [vessels] = await transaction.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "brewingVessels"))).for("update");
           const [bakingTools] = await transaction.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "bakingTools"))).for("update");
+          const storedMaterials = await transaction.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id)).for("update");
           const availableMaterials = groundItems.reduce<
             Partial<Record<InventoryItemKey, number>>
           >(
@@ -235,7 +236,9 @@ export const buildFarmBuilding = (
               [item.itemKey]:
                 (quantities[item.itemKey] ?? 0) + item.quantity
             }),
-            { brewingVessels: vessels?.quantity ?? 0, bakingTools: bakingTools?.quantity ?? 0 }
+            { reed: storedMaterials.find(i => i.itemKey === "reed")?.quantity ?? 0,
+              clay: storedMaterials.find(i => i.itemKey === "clay")?.quantity ?? 0,
+              brewingVessels: vessels?.quantity ?? 0, bakingTools: bakingTools?.quantity ?? 0 }
           );
           const placement = validateBuildingPlacement({
             roads: farm.roads,
@@ -289,8 +292,10 @@ export const buildFarmBuilding = (
               transaction,
               groundItems,
               itemKey,
-              quantity
+              Math.max(0, quantity - (storedMaterials.find(i => i.itemKey === itemKey)?.quantity ?? 0))
             );
+            const fromStorage = Math.min(quantity, storedMaterials.find(i => i.itemKey === itemKey)?.quantity ?? 0);
+            if (fromStorage > 0) await transaction.update(farmInventory).set({ quantity: sql`${farmInventory.quantity} - ${fromStorage}`, updatedAt: startedAt }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, itemKey)));
           }
 
           const [updatedFarm] = await transaction

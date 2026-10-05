@@ -30,13 +30,73 @@ const fixture = async (quantity = 5) => {
   return { farmId: farm!.id, input, snapshot };
 };
 describe("manual farm levels", () => {
+  it("adds legacy production tracking once while preserving harvest progress", async () => {
+    const f = await fixture();
+    await db.update(farms).set({ level: 8, progressionStats: { ...INITIAL_PROGRESSION_STATS,
+      harvestedBarley: 550, level8Baseline: { harvestedBarley: 500 }, breadProduced: 80, beerProduced: 20
+    } }).where(eq(farms.id, f.farmId));
+    const first = await f.snapshot();
+    expect(first.farm.progression?.stats.level8Baseline).toEqual({ harvestedBarley: 500, produced: 100 });
+    expect(evaluateProgression(first, Date.now()).requirements.map(r => r.current)).toEqual([0, 50, 0, 0]);
+    await db.update(farms).set({ progressionStats: { ...first.farm.progression!.stats, breadProduced: 90, beerProduced: 40 } }).where(eq(farms.id, f.farmId));
+    const next = await f.snapshot();
+    expect(next.farm.progression?.stats.level8Baseline).toEqual({ harvestedBarley: 500, produced: 100 });
+    expect(evaluateProgression(next, Date.now()).requirements[2]).toMatchObject({ current: 30, required: 30, met: true });
+  });
+  it.each([
+    { barley: 100, produced: 30, bread: 10, beer: 10, complete: true, succeeds: true },
+    { barley: 100, produced: 30, bread: 3, beer: 12, complete: true, succeeds: true },
+    { barley: 99, produced: 30, bread: 10, beer: 0, complete: true, succeeds: false },
+    { barley: 100, produced: 29, bread: 10, beer: 0, complete: true, succeeds: false },
+    { barley: 100, produced: 30, bread: 9, beer: 9, complete: true, succeeds: false },
+    { barley: 100, produced: 30, bread: 10, beer: 0, complete: false, succeeds: false }
+  ])("validates level 9 and consumes only one kind of food once: %j", async scenario => {
+    const f = await fixture();
+    await db.update(farms).set({ level: 8, progressionStats: { ...INITIAL_PROGRESSION_STATS,
+      harvestedBarley: 500 + scenario.barley, level8Baseline: { harvestedBarley: 500, produced: 100 },
+      breadProduced: 65, beerProduced: 50 + scenario.produced - 15
+    } }).where(eq(farms.id, f.farmId));
+    await db.insert(farmBuildings).values({ farmId: f.farmId, type: "warehouse", column: 5, row: 0,
+      startedAt: new Date(0), completesAt: new Date(scenario.complete ? 1000 : Date.now() + 60000) });
+    await db.insert(farmInventory).values([
+      { farmId: f.farmId, itemKey: "bread", quantity: scenario.bread },
+      { farmId: f.farmId, itemKey: "beer", quantity: scenario.beer }
+    ]);
+    const snapshot = await f.snapshot();
+    const progress = evaluateProgression(snapshot, Date.now());
+    expect(progress.requirements.map(r => [r.current, r.required])).toEqual([
+      [scenario.complete ? 1 : 0, 1], [scenario.barley, 100], [scenario.produced, 30], [Math.max(scenario.bread, scenario.beer), 10]
+    ]);
+    expect(progress.canClaim).toBe(scenario.succeeds);
+    const input = { ...f.input, expectedLevel: 8, expectedFarmVersion: snapshot.farm.version };
+    if (scenario.succeeds) {
+      expect((await Effect.runPromise(claimFarmLevel(db, input))).farm.progression?.level).toBe(9);
+      expect((await Effect.runPromise(claimFarmLevel(db, input))).farm.progression?.level).toBe(9);
+    } else {
+      expect(await Effect.runPromise(Effect.flip(claimFarmLevel(db, input)))).toMatchObject({ _tag: "LevelClaimRuleError" });
+    }
+    const after = await f.snapshot();
+    expect(after.inventory.find(i => i.itemKey === "bread")?.quantity).toBe(scenario.bread - (scenario.succeeds && scenario.bread >= 10 ? 10 : 0));
+    expect(after.inventory.find(i => i.itemKey === "beer")?.quantity).toBe(scenario.beer - (scenario.succeeds && scenario.bread < 10 ? 10 : 0));
+  });
+  it("initializes legacy level-8 harvest tracking once without counting lifetime barley", async () => {
+    const f = await fixture();
+    await db.update(farms).set({ level: 8, progressionStats: { ...INITIAL_PROGRESSION_STATS, harvestedBarley: 500 } }).where(eq(farms.id, f.farmId));
+    const first = await f.snapshot();
+    expect(first.farm.progression?.stats.level8Baseline).toEqual({ harvestedBarley: 500, produced: 0 });
+    expect(evaluateProgression(first, Date.now()).requirements[1]?.current).toBe(0);
+    await db.update(farms).set({ progressionStats: { ...first.farm.progression!.stats, harvestedBarley: 502 } }).where(eq(farms.id, f.farmId));
+    const second = await f.snapshot();
+    expect(second.farm.progression?.stats.level8Baseline).toEqual({ harvestedBarley: 500, produced: 0 });
+    expect(evaluateProgression(second, Date.now()).requirements[1]?.current).toBe(2);
+  });
   it.each([
     { barley: 19, donkey: 1, requests: 3, complete: true, succeeds: false },
     { barley: 20, donkey: 0, requests: 3, complete: true, succeeds: false },
     { barley: 20, donkey: 1, requests: 2, complete: true, succeeds: false },
     { barley: 20, donkey: 1, requests: 3, complete: false, succeeds: false },
     { barley: 20, donkey: 1, requests: 3, complete: true, succeeds: true }
-  ])("checks all level-8 requirements without consuming stock: %j", async scenario => {
+  ])("consumes the level-8 barley offering once, only when all requirements pass: %j", async scenario => {
     const f = await fixture();
     await db.update(farms).set({ level: 7 }).where(eq(farms.id, f.farmId));
     await db.insert(farmBuildings).values({ farmId: f.farmId, type: "granary", column: 5, row: 0,
@@ -55,17 +115,19 @@ describe("manual farm levels", () => {
       [scenario.requests, 3], [scenario.complete ? scenario.barley : 0, 20], [scenario.donkey, 1]
     ]);
     expect(progress.canClaim).toBe(scenario.succeeds);
-    expect(progress.offerings).toEqual([]);
+    expect(progress.offerings).toEqual([{ source: "granary_barley", quantity: 20 }]);
     const input = { ...f.input, expectedLevel: 7, expectedFarmVersion: snapshot.farm.version };
     if (scenario.succeeds) {
       const claimed = await Effect.runPromise(claimFarmLevel(db, input));
       expect(claimed.farm.progression?.level).toBe(8);
+      expect(claimed.farm.progression?.stats.level8Baseline).toEqual({ harvestedBarley: 6, produced: 0 });
       expect((await Effect.runPromise(claimFarmLevel(db, input))).farm.progression?.level).toBe(8);
     } else {
       expect(await Effect.runPromise(Effect.flip(claimFarmLevel(db, input)))).toMatchObject({ _tag: "LevelClaimRuleError" });
     }
     const reloaded = await f.snapshot();
-    expect(reloaded.buildings[0]?.storedBarley).toBe(scenario.barley);
+    expect(reloaded.buildings[0]?.storedBarley).toBe(scenario.succeeds ? scenario.barley - 20 : scenario.barley);
+    expect(reloaded.inventory.find(i => i.itemKey === "barley")?.quantity).toBe(5);
     expect(reloaded.inventory.find(i => i.itemKey === "donkey")?.quantity).toBe(scenario.donkey);
     expect(reloaded.farm.progression?.level).toBe(scenario.succeeds ? 8 : 7);
   });
@@ -281,6 +343,12 @@ describe("manual farm levels", () => {
     await db.update(farmBuildings).set({ storedBarley: 20 }).where(and(eq(farmBuildings.farmId, f.farmId), eq(farmBuildings.type, "granary")));
     await db.insert(farmInventory).values({ farmId: f.farmId, itemKey: "donkey", quantity: 1 });
     snapshot = await claim(); expect(snapshot.farm.progression?.level).toBe(8);
+    expect(evaluateProgression(snapshot, Date.now())).toMatchObject({ upcoming: false, canClaim: false });
+    await db.insert(farmBuildings).values({ farmId: f.farmId, type: "warehouse", column: 8, row: 0, startedAt: new Date(0), completesAt: new Date(1000) });
+    await db.insert(farmInventory).values({ farmId: f.farmId, itemKey: "bread", quantity: 10 });
+    expect(snapshot.farm.progression?.stats.level8Baseline).toEqual({ harvestedBarley: 6, produced: 21 });
+    await db.update(farms).set({ progressionStats: { ...snapshot.farm.progression!.stats, harvestedBarley: 106, breadProduced: 30 } }).where(eq(farms.id, f.farmId));
+    snapshot = await claim(); expect(snapshot.farm.progression?.level).toBe(9);
     expect(evaluateProgression(snapshot, Date.now())).toMatchObject({ upcoming: true, canClaim: false });
     expect((await db.select().from(farmGroundItems).where(and(eq(farmGroundItems.farmId, f.farmId), eq(farmGroundItems.itemKey, "barley"))))[0]?.quantity).toBe(1);
   });

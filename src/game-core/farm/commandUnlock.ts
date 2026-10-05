@@ -3,9 +3,10 @@ import type { GameCommand } from "../../schemas/gameCommands";
 import { BREAD_OVEN_UNLOCK_LEVEL, BREWERY_UNLOCK_LEVEL, marketUnlockLevel } from "../../game-data/progression";
 
 export const commandUnlockLevel = (command: GameCommand, orderItem?: string): number => match(command)
+  .with({ type: P.union("build_small_shrine", "build_warehouse", "shrine_offering", "upgrade_building") }, () => 8)
   .with({ type: "build_granary" }, () => 2)
   .with({ type: "start_milling", worker: "donkey" }, () => 7)
-  .with({ type: P.union("build_mill", "start_milling", "mill_delivery") }, () => 5)
+  .with({ type: P.union("build_mill", "start_milling", "mill_delivery", "hire_porter") }, () => 5)
   .with({ type: "build_brewery" }, () => BREWERY_UNLOCK_LEVEL)
   .with({ type: P.union("build_bread_oven", "start_baking") }, () => BREAD_OVEN_UNLOCK_LEVEL)
   .with({ type: "production_delivery" }, () => 6)

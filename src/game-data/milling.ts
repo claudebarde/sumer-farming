@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { buildingProductionMultiplier } from "./buildingUpgrades";
 
 export const MillRecipeSchema = z.enum(["flour", "brewersGroats"]);
 export type MillRecipe = z.infer<typeof MillRecipeSchema>;
@@ -9,10 +10,10 @@ export const MILL_RECIPES = {
   flour: { label: "Flour", barley: 2, output: 1, durationMs: 5 * 60_000 },
   brewersGroats: { label: "Brewer's Groats", barley: 2, output: 1, durationMs: 5 * 60_000 }
 } as const;
-export const millRecipe = (recipe: MillRecipe, worker: MillWorker = "farmer") => {
+export const millRecipe = (recipe: MillRecipe, worker: MillWorker = "farmer", level = 1) => {
   const base = MILL_RECIPES[recipe];
   const multiplier = worker === "donkey" ? 3 : 1;
-  return { ...base, barley: base.barley * multiplier, output: base.output * multiplier, durationMs: base.durationMs * multiplier };
+  return { ...base, barley: base.barley * multiplier, output: base.output * multiplier, durationMs: Math.round(base.durationMs * multiplier * buildingProductionMultiplier("mill", level)) };
 };
 export const MillingJobSchema = z.object({
   worker: MillWorkerSchema.optional(),

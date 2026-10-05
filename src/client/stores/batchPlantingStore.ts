@@ -1,7 +1,7 @@
 import { createStore } from "zustand/vanilla";
 import type { FarmCoordinate } from "../../game-core/farm/irrigation";
-import { plantableFields, harvestableFields, availablePlantingBarley, togglePlantingField } from "../../game-core/farm/batchPlanting";
-import { MAX_BATCH_HARVEST_FIELDS } from "../../game-data/batchPlanting";
+import { plantableFields, harvestableFields, plantingSelectionLimit, togglePlantingField } from "../../game-core/farm/batchPlanting";
+import { harvestFieldLimit } from "../../game-core/farm/harvestCapacity";
 import { farmStore } from "./farmStore";
 
 export const batchPlantingStore = createStore<{
@@ -17,6 +17,6 @@ export const batchPlantingStore = createStore<{
     const target = { column: world.column - state.origin.column, row: world.row - state.origin.row };
     return { selected: togglePlantingField(state.selected, target,
       (state.mode === "harvest" ? harvestableFields : plantableFields)(farm.snapshot, Date.now()),
-      state.mode === "harvest" ? MAX_BATCH_HARVEST_FIELDS : availablePlantingBarley(farm.snapshot, Date.now())) };
+      state.mode === "harvest" ? harvestFieldLimit(farm.snapshot.farm.household.happiness) : plantingSelectionLimit(farm.snapshot, Date.now())) };
   })
 }));

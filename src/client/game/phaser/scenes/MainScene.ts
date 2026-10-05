@@ -1,14 +1,20 @@
 import Phaser from "phaser";
+import { installPorter } from "../porter";
+import { createWorkerAvoidance, type YieldingWorker } from "../workerAvoidance";
+import { porterReserved } from "../../../../game-data/porter";
+import { barleyDeliveryBuilding, sharedDeliveryStop } from "../../../../game-core/farm/storageDelivery";
 import { batchPlantingCarriedBarley } from "../../../../game-core/farm/batchPlanting";
 import { FARMER_MOVE_DURATION_PER_TILE } from "../../../../game-core/farm/batchPlantingTravel";
 import { installBatchPlantingOverlay } from "../batchPlantingOverlay";
 import { batchPlantingStore } from "../../../stores/batchPlantingStore";
 import { fetchDevelopmentFarm } from "../../../api/developmentPlayer";
 import { farmerProductionJob, breadOvenSprite } from "../../../../game-core/farm/farmerProduction";
+import { shrineSprite, SHRINE_OFFERING_QUANTITY } from "../../../../game-data/shrine";
 import { match, P } from "ts-pattern";
 import { colors } from "../../../styles/colorPalette";
 import { FARM_SPRITES, spriteName } from "../../../../assets/farmSprites";
 import { TILE_SIZE } from "../config";
+import { FARM_TOP_SCENERY_ROWS, farmWorldToCanvasY, isFarmSceneryRow } from "../farmViewport";
 import {
   CARRY_BUBBLE_RADIUS,
   getCarryBubblePosition
@@ -17,7 +23,7 @@ import { CAST_COOLDOWN_MS, CAST_DELAY_MS } from "../../../../game-data/fishing";
 import { fishPosition } from "../../../../game-core/farm/fishing";
 import { blendFishPosition, riverFishY } from "../riverFishMotion";
 import { findCentralFarmerTile } from "../farmerSpawn";
-import { findMillBagTile } from "../millBagPlacement";
+import { buildingOutputTile } from "../buildingOutputPlacement";
 import { isCarryingForMarket, MARKET_UNLOAD_MESSAGE } from "../marketEntry";
 import { getMarketPosition, MARKET_SIZE } from "../marketPlacement";
 import { preservesBuildingAccess } from "../../../../game-core/farm/buildingAccess";
@@ -133,7 +139,7 @@ type PixelPosition = {
 type InspectCommand = Extract<FarmerCommand, { readonly type: "inspect" }>;
 type BuildCommand = Extract<FarmerCommand, { readonly type: "build" }>;
 type BuildingBuildCommand = BuildCommand & {
-  readonly build: "granary" | "brewery" | "mill" | "breadOven";
+  readonly build: "granary" | "brewery" | "mill" | "breadOven" | "smallShrine" | "warehouse";
 };
 type DestroyCommand = Extract<FarmerCommand, { readonly type: "destroy" }>;
 type PlantCommand = Extract<FarmerCommand, { readonly type: "plant" }>;
@@ -418,6 +424,8 @@ export class MainScene extends Phaser.Scene {
     installSceneDomIsolation(this);
     marketUiStore.getState().setLocation("farm");
     this.cameras.main.setBackgroundColor(colors.soil);
+    // Reveal scenery above row zero without changing saved tiles or road offsets.
+    this.cameras.main.setScroll(0, -farmWorldToCanvasY(0, TILE_SIZE));
 
     // CREATES THE SELECTION HIGHLIGHT
     const selectionHighlight = this.add
@@ -438,7 +446,7 @@ export class MainScene extends Phaser.Scene {
       const rows = Math.ceil(this.scale.height / TILE_SIZE);
       const nextGroundTileData: Tile[] = [];
 
-      for (let row = 0; row < rows; row++) {
+      for (let row = -FARM_TOP_SCENERY_ROWS; row < rows; row++) {
         for (let column = 0; column < columns; column++) {
           const ground = this.add
             .image(
@@ -452,8 +460,11 @@ export class MainScene extends Phaser.Scene {
             )
             .setOrigin(0)
             .setDisplaySize(TILE_SIZE, TILE_SIZE)
-            .setDepth(GROUND_DEPTH)
-            .setInteractive();
+            .setDepth(GROUND_DEPTH);
+          groundTiles.add(ground);
+          // This margin is scenery, not a pathfinding or interaction tile.
+          if (isFarmSceneryRow(row, INITIAL_FARM_CONFIG.riverRow)) continue;
+          ground.setInteractive();
           // sets interaction with ground tiles
           const tile = createTile(
             {
@@ -471,7 +482,6 @@ export class MainScene extends Phaser.Scene {
           });
 
           nextGroundTileData.push(tile);
-          groundTiles.add(ground);
         }
       }
 
@@ -846,7 +856,6 @@ export class MainScene extends Phaser.Scene {
         image.on(Phaser.Input.Events.POINTER_UP, () => {
           handlePointerUp(tile, selectionHighlight);
         });
-
         groundItemTiles.add(image);
         nextGroundItemTileData.push(tile);
       });
@@ -1041,53 +1050,6 @@ export class MainScene extends Phaser.Scene {
       const currentTime = Date.now();
       const nextBuildingTileData: Tile[] = [];
       const nextBagTiles: Tile[] = [];
-      const occupied = new Set<string>();
-      const block = (coordinate: GridCoordinate) =>
-        occupied.add(toCoordinateKey(coordinate));
-      [
-        ...this.farmSnapshot.groundItems,
-        ...this.farmSnapshot.crops,
-        ...this.farmSnapshot.objects,
-        ...this.farmSnapshot.improvements.filter(i =>
-          isIrrigationVisible(i, currentTime)
-        ),
-        ...this.farmSnapshot.buildings.flatMap(b =>
-          getBuildingFootprint(b.type, b)
-        ),
-        PROGRESSION_SIGNPOST
-      ].forEach(p =>
-        block({
-          column: farmPosition.column + p.column,
-          row: farmPosition.row + p.row
-        })
-      );
-      const farmTile = getFarmBuildingTile();
-      for (let row = 0; row < FARM_BUILDING_SIZE.rows; row++) {
-        for (let column = 0; column < FARM_BUILDING_SIZE.columns; column++) {
-          block({
-            column: farmTile.position.column + column,
-            row: farmTile.position.row + row
-          });
-        }
-      }
-      for (
-        let row = Math.floor(marketBuilding.y / TILE_SIZE);
-        row <
-        Math.ceil(
-          (marketBuilding.y + marketBuilding.displayHeight) / TILE_SIZE
-        );
-        row++
-      ) {
-        for (
-          let column = Math.floor(marketBuilding.x / TILE_SIZE);
-          column <
-          Math.ceil(
-            (marketBuilding.x + marketBuilding.displayWidth) / TILE_SIZE
-          );
-          column++
-        )
-          block({ column, row });
-      }
 
       this.farmSnapshot.buildings.forEach(building => {
         const position = translateTilePosition(farmPosition, building);
@@ -1105,11 +1067,12 @@ export class MainScene extends Phaser.Scene {
               building.type === "mill"
                 ? millSprite(building.id, this.farmSnapshot.farm.milling)
                 : building.type === "breadOven" ? breadOvenSprite(building.id, this.farmSnapshot.farm.production)
+                : building.type === "smallShrine" ? shrineSprite(building.id, this.farmSnapshot.farm.production.shrineBlessing, currentTime)
                 : building.type
             )
           )
           .setOrigin(0)
-          .setDisplaySize(TILE_SIZE * 2, TILE_SIZE * 2)
+          .setDisplaySize(TILE_SIZE * FARM_BUILDING_DEFINITIONS[building.type].footprint.columns, TILE_SIZE * FARM_BUILDING_DEFINITIONS[building.type].footprint.rows)
           .setDepth(BUILDING_DEPTH)
           .setAlpha(isComplete ? 1 : 0.55)
           .setInteractive();
@@ -1117,6 +1080,13 @@ export class MainScene extends Phaser.Scene {
         image.on(Phaser.Input.Events.POINTER_UP, () => {
           handlePointerUp(tile, selectionHighlight);
         });
+
+        if (building.type === "smallShrine") {
+          buildingCountdownTimers.push(window.setInterval(() => {
+            image.setTexture(spriteName(shrineSprite(building.id, this.farmSnapshot.farm.production.shrineBlessing, Date.now())))
+              .setDisplaySize(TILE_SIZE, TILE_SIZE);
+          }, 1000));
+        }
 
         const inventoryChipElement = document.createElement("div");
         inventoryChipElement.className = "farm-inventory-chip";
@@ -1141,7 +1111,7 @@ export class MainScene extends Phaser.Scene {
           .setOrigin(0.5, 0)
           .setDepth(ACTOR_DEPTH + 1)
           .setVisible(
-            building.type === "granary" &&
+            (building.type === "granary" || building.type === "warehouse") &&
               isComplete &&
               building.storedBarley > 0
           )
@@ -1193,13 +1163,15 @@ export class MainScene extends Phaser.Scene {
         }
 
         buildingTiles.addMultiple([image, inventoryChip]);
-        const productionJob = building.type === "mill"
+        const productionJob = !isComplete ? building : building.type === "mill"
           ? (this.farmSnapshot.farm.milling?.buildingId === building.id ? this.farmSnapshot.farm.milling : null)
           : building.type === "breadOven" ? this.farmSnapshot.farm.production.baking[building.id] : null;
-        if (isComplete && productionProgress(productionJob, currentTime) !== null) {
+        if (productionProgress(productionJob, currentTime) !== null) {
+          const footprint = FARM_BUILDING_DEFINITIONS[building.type].footprint;
           const bar = createBuildingProductionBar(this,
-            position.posX + TILE_SIZE, position.posY + TILE_SIZE * 1.82,
-            TILE_SIZE * 1.2, ACTOR_DEPTH);
+            position.posX + TILE_SIZE * footprint.columns / 2,
+            position.posY + TILE_SIZE * (footprint.rows - 0.18),
+            TILE_SIZE * Math.min(1.2, footprint.columns * 0.8), ACTOR_DEPTH);
           const updateProgress = () => bar.update(productionProgress(productionJob, Date.now()));
           updateProgress();
           buildingTiles.add(bar.graphic);
@@ -1210,72 +1182,50 @@ export class MainScene extends Phaser.Scene {
         const quantity =
           output?.quantity ?? (bags ? bags.flour + bags.brewersGroats : 0);
         if (quantity > 0) {
-          const freePosition = building.loadingTile
-            ? translateTilePosition(farmPosition, building.loadingTile)
-            : findMillBagTile(
-                position,
-                {
-                  columns: Math.floor(this.scale.width / TILE_SIZE),
-                  rows: Math.min(
-                    Math.floor(this.scale.height / TILE_SIZE),
-                    riverRow
-                  )
-                },
-                p =>
-                  !occupied.has(toCoordinateKey(p)) &&
-                  !this.farmSnapshot.buildings.some(
-                    b =>
-                      b.loadingTile &&
-                      toCoordinateKey(
-                        translateTilePosition(farmPosition, b.loadingTile)
-                      ) === toCoordinateKey(p)
-                  )
-              );
-          if (freePosition) {
-            block(freePosition);
-            const bagPosition = toTilePosition(freePosition);
-            const outputSprite = output
-              ? output.itemKey === "beer"
-                ? "beerJars"
-                : "breadBasket"
-              : "millBags";
-            const bagTile: Tile = {
-              ...createTile(bagPosition, outputSprite),
-              millId: building.id,
-              buildingId: building.id
-            };
-            nextBagTiles.push(bagTile);
-            const bag = this.add
-              .image(
-                bagPosition.posX + TILE_SIZE / 2,
-                bagPosition.posY + TILE_SIZE / 2,
-                spriteName(outputSprite)
-              )
-              .setDisplaySize(TILE_SIZE, TILE_SIZE)
-              .setDepth(BUILDING_DEPTH + 0.25)
-              .setInteractive();
-            bag.on(Phaser.Input.Events.POINTER_UP, () =>
-              interactionStore.getState().selectTile(bagTile)
-            );
-            const chipElement = document.createElement("div");
-            chipElement.className = "farm-inventory-chip";
-            chipElement.textContent = output
-              ? `${quantity} ${output.itemKey}`
-              : `${quantity} ${quantity === 1 ? "bag" : "bags"}`;
-            chipElement.title = output
-              ? `${quantity} ${output.itemKey} ready to store`
-              : `${bags!.flour} Flour, ${bags!.brewersGroats} Brewer's Groats`;
-            const chip = this.add
-              .dom(
-                bagPosition.posX + TILE_SIZE / 2,
-                bagPosition.posY,
-                chipElement
-              )
-              .setOrigin(0.5, 1)
-              .setDepth(ACTOR_DEPTH + 1)
-              .updateSize();
-            buildingTiles.addMultiple([bag, chip]);
-          }
+          const bagPosition = toTilePosition(buildingOutputTile(
+            position, FARM_BUILDING_DEFINITIONS[building.type].footprint
+          ));
+          const outputSprite = output
+            ? output.itemKey === "beer"
+              ? "beerJars"
+              : "breadBasket"
+            : "millBags";
+          const bagTile: Tile = {
+            ...createTile(bagPosition, outputSprite),
+            millId: building.id,
+            buildingId: building.id
+          };
+          nextBagTiles.push(bagTile);
+          const bag = this.add
+            .image(
+              bagPosition.posX + TILE_SIZE / 2,
+              bagPosition.posY + TILE_SIZE / 2,
+              spriteName(outputSprite)
+            )
+            .setDisplaySize(TILE_SIZE, TILE_SIZE)
+            .setDepth(BUILDING_DEPTH + 0.25)
+            .setInteractive();
+          bag.on(Phaser.Input.Events.POINTER_UP, () =>
+            handlePointerUp(bagTile, selectionHighlight)
+          );
+          const chipElement = document.createElement("div");
+          chipElement.className = "farm-inventory-chip";
+          chipElement.textContent = output
+            ? `${quantity} ${output.itemKey}`
+            : `${quantity} ${quantity === 1 ? "bag" : "bags"}`;
+          chipElement.title = output
+            ? `${quantity} ${output.itemKey} ready to store`
+            : `${bags!.flour} Flour, ${bags!.brewersGroats} Brewer's Groats`;
+          const chip = this.add
+            .dom(
+              bagPosition.posX + TILE_SIZE / 2,
+              bagPosition.posY,
+              chipElement
+            )
+            .setOrigin(0.5, 1)
+            .setDepth(ACTOR_DEPTH + 1)
+            .updateSize();
+          buildingTiles.addMultiple([bag, chip]);
         }
         nextBuildingTileData.push(tile);
         interactionStore.getState().refreshSelectedTile(tile);
@@ -1415,6 +1365,20 @@ export class MainScene extends Phaser.Scene {
       .getState()
       .setCarriedItem(this.farmSnapshot.farm.carriedItem);
     const actorLayer = this.add.layer().setDepth(ACTOR_DEPTH);
+    const farmerRoadOffset = (position: GridCoordinate): number =>
+      getFarmerRoadOffset(
+        roadTileData.some(
+          tile =>
+            tile.position.column === position.column &&
+            tile.position.row === position.row
+        ),
+        TILE_SIZE
+      );
+    const porterActor = installPorter(this, () => farmPosition, () => toTilePosition({
+      column: Math.max(0, Math.min(Math.floor((this.scale.width - TILE_SIZE) / TILE_SIZE), Math.floor((marketBuilding.x + TILE_SIZE) / TILE_SIZE))),
+      row: INITIAL_FARM_CONFIG.roadRow
+    }), farmerRoadOffset, ACTOR_DEPTH + 0.1);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, porterActor.dispose);
     const farmer = this.add
       .image(
         0,
@@ -1437,9 +1401,10 @@ export class MainScene extends Phaser.Scene {
     let farmerVisualOffset: PixelPosition = { x: 0, y: 0 };
     let farmerHasMoved = this.farmSnapshot.farm.fishing !== null;
     let activeFarmerMovement: Phaser.Tweens.TweenChain | null = null;
+    let farmerYield: Phaser.Tweens.Tween | null = null;
     let visitingMarket = false;
     let activeMovementCommand: MovementCommand | null = null;
-    let bakingTrip: { readonly commandId: string; readonly phase: "collecting" | "delivering" } | null = null;
+    let bakingTrip: { readonly commandId: string; readonly phase: "collecting" | "delivering"; readonly itemKey: "flour" | "bread" | "beer" } | null = null;
     let millingTrip: {
       readonly commandId: string;
       readonly source: ReturnType<typeof millingCollectionSource>;
@@ -1544,7 +1509,7 @@ export class MainScene extends Phaser.Scene {
       const carriedItem =
         (this.farmSnapshot.farm.production.planting && batchBarley > 0
           ? { itemKey: "barley", quantity: batchBarley } : null) ??
-        (bakingTrip?.phase === "delivering" ? { itemKey: "flour", quantity: BREAD_RECIPE.flour } : null) ??
+        (bakingTrip?.phase === "delivering" ? { itemKey: bakingTrip.itemKey, quantity: bakingTrip.itemKey === "flour" ? BREAD_RECIPE.flour : SHRINE_OFFERING_QUANTITY } : null) ??
         this.farmSnapshot.farm.production.delivery ??
         (delivery
           ? {
@@ -1555,12 +1520,12 @@ export class MainScene extends Phaser.Scene {
             ? { itemKey: "barley", quantity: millingTrip.worker === "donkey" ? 6 : 2 }
             : farmerCommandStore.getState().carriedItem);
       const isCarrying = carriedItem !== null;
-      const cargo = bakingTrip?.phase === "delivering" ? { itemKey: "flour" } : this.farmSnapshot.farm.production.delivery;
+      const cargo = bakingTrip?.phase === "delivering" ? { itemKey: bakingTrip.itemKey } : this.farmSnapshot.farm.production.delivery;
       productionCargo.setVisible(cargo !== null && !workingInside);
       if (cargo)
         productionCargo.setTexture(
           spriteName(cargo.itemKey === "flour" ? "millBags" : cargo.itemKey === "beer" ? "beerJars" : "breadBasket")
-        );
+        ).setDisplaySize(TILE_SIZE * 0.45, TILE_SIZE * 0.45);
       farmer
         .setTexture(
           spriteName(
@@ -1778,16 +1743,6 @@ export class MainScene extends Phaser.Scene {
       window.removeEventListener("keydown", fishingKey);
     });
 
-    const farmerRoadOffset = (position: GridCoordinate): number =>
-      getFarmerRoadOffset(
-        roadTileData.some(
-          tile =>
-            tile.position.column === position.column &&
-            tile.position.row === position.row
-        ),
-        TILE_SIZE
-      );
-
     const donkey = createDonkey(this);
     actorLayer.add(donkey.image);
     let donkeyTile: GridCoordinate | null = null;
@@ -1857,6 +1812,7 @@ export class MainScene extends Phaser.Scene {
       positionFarmer();
     };
     const positionFarmer = (): void => {
+      if (farmerYield) return;
       farmer.setPosition(
         farmerPosition.column * TILE_SIZE + farmerVisualOffset.x,
         farmerPosition.row * TILE_SIZE +
@@ -1870,7 +1826,30 @@ export class MainScene extends Phaser.Scene {
     avoidStandingOnGoods();
     updateFarmerCarryVisual();
 
+    const farmerWorker: YieldingWorker = {
+      read: () => ({ position: { x: farmer.x, y: farmer.y },
+        moving: activeFarmerMovement !== null, yielding: farmerYield !== null, visible: farmer.visible }),
+      yieldTo: point => {
+        if (activeFarmerMovement || farmerYield) return false;
+        const status = farmerCommandStore.getState().status.type;
+        if (status !== "idle" && status !== "failed") return false;
+        if (this.farmSnapshot.farm.fishing || this.farmSnapshot.farm.production.planting) return false;
+        const tile = roadTileData.find(t => t.position.posX === point.x && t.position.posY + farmerRoadOffset(t.position) === point.y);
+        if (!tile) return false;
+        farmerPosition = tile.position;
+        farmerVisualOffset = { x: 0, y: point.y - tile.position.posY - farmerRoadOffset(tile.position) };
+        farmerYield = this.tweens.add({ targets: farmer, x: point.x, y: point.y,
+          duration: Math.hypot(point.x - farmer.x, point.y - farmer.y) / TILE_SIZE * FARMER_MOVE_DURATION_PER_TILE,
+          ease: "Linear", onComplete: () => { farmerYield = null; updateFarmerCarryBubblePosition(); } });
+        return true;
+      }
+    };
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => farmerYield?.stop());
+    const separateIdleWorkers = createWorkerAvoidance();
     const handleSceneUpdate = (): void => {
+      separateIdleWorkers([farmerWorker, porterActor.worker], roadTileData.map(t => ({
+        x: t.position.posX, y: t.position.posY + farmerRoadOffset(t.position)
+      })), TILE_SIZE);
       updateDonkey();
       updateFarmerCarryBubblePosition();
       if (Date.now() >= nextLevelReadyCheck) updateLevelReadyMark();
@@ -1960,7 +1939,7 @@ export class MainScene extends Phaser.Scene {
 
       for (const buildingTile of buildingTileData) {
         for (const coordinate of getBuildingFootprint(
-          buildingTile.type === "breadOven"
+          buildingTile.type === "warehouse" ? "warehouse" : buildingTile.type === "smallShrine" ? "smallShrine" : buildingTile.type === "breadOven"
             ? "breadOven"
             : buildingTile.type === "mill"
               ? "mill"
@@ -2029,6 +2008,9 @@ export class MainScene extends Phaser.Scene {
 
       activeFarmerMovement?.stop();
       activeFarmerMovement = null;
+
+      farmerYield?.stop();
+      farmerYield = null;
 
       const farmBuildingTile = getFarmBuildingTile();
       updateFarmerCarryVisual();
@@ -2372,6 +2354,11 @@ export class MainScene extends Phaser.Scene {
       activeMovementCommand = null;
     };
 
+    const viewport = this.game.canvas.closest<HTMLElement>("[data-farm-viewport]");
+    const bottomDialogY = () => (viewport?.scrollTop ?? 0) + (viewport?.clientHeight ?? this.scale.height) * 0.96;
+    const positionBottomDialog = () => activeBottomDialog?.setPosition(this.scale.width / 2, bottomDialogY());
+    viewport?.addEventListener("scroll", positionBottomDialog, { passive: true });
+
     const showBottomDialog = (message: string): void => {
       if (marketUiStore.getState().location !== "farm") return;
       activeBottomDialogTimer?.remove(false);
@@ -2385,7 +2372,7 @@ export class MainScene extends Phaser.Scene {
       element.style.maxWidth = `${Math.max(0, Math.min(560, this.scale.width - 32))}px`;
 
       const bottomDialog = this.add
-        .dom(this.scale.width / 2, this.scale.height * 0.96, element)
+        .dom(this.scale.width / 2, bottomDialogY(), element)
         .setOrigin(0.5, 1)
         .setScrollFactor(0);
 
@@ -2433,6 +2420,7 @@ export class MainScene extends Phaser.Scene {
         !farmerProductionJob(this.farmSnapshot.farm) &&
         !this.farmSnapshot.farm.millGoods.delivery &&
         !this.farmSnapshot.farm.production.delivery &&
+        !this.farmSnapshot.farm.production.materialDelivery &&
         this.farmSnapshot.farm.fishing === null,
       showBottomDialog
     );
@@ -2529,7 +2517,7 @@ export class MainScene extends Phaser.Scene {
       [
         ...this.farmSnapshot.groundItems,
         ...this.farmSnapshot.inventory.filter(
-          item => item.itemKey === "brewingVessels" || item.itemKey === "bakingTools"
+          item => item.itemKey === "brewingVessels" || item.itemKey === "bakingTools" || item.itemKey === "reed" || item.itemKey === "clay"
         )
       ].reduce<Partial<Record<InventoryItemKey, number>>>(
         (quantities, item) => ({
@@ -2608,8 +2596,9 @@ export class MainScene extends Phaser.Scene {
       }
       placementRule = rule;
       const occupied = getOccupiedFarmCoordinates();
+      footprintPreviews.forEach(preview => preview.setVisible(false));
       getBuildingFootprint(placement.building, localCoordinate).forEach((coordinate, index) => {
-        const blocked = !isInsideBuildingPlot(coordinate) || occupied.has(toCoordinateKey(coordinate)) ||
+        const blocked = rule.type !== "valid" || !isInsideBuildingPlot(coordinate) || occupied.has(toCoordinateKey(coordinate)) ||
           isProgressionSignpost(coordinate) ||
           coordinate.row === INITIAL_FARM_CONFIG.roadRow ||
           this.farmSnapshot.farm.roads.some(road => road.column === coordinate.column && road.row === coordinate.row);
@@ -2621,7 +2610,7 @@ export class MainScene extends Phaser.Scene {
       });
       buildingPlacementPreview
         .setTexture(placement.building)
-        .setDisplaySize(TILE_SIZE * 2, TILE_SIZE * 2)
+        .setDisplaySize(TILE_SIZE * FARM_BUILDING_DEFINITIONS[placement.building].footprint.columns, TILE_SIZE * FARM_BUILDING_DEFINITIONS[placement.building].footprint.rows)
         .setPosition(
           globalCoordinate.column * TILE_SIZE,
           globalCoordinate.row * TILE_SIZE
@@ -2768,6 +2757,7 @@ export class MainScene extends Phaser.Scene {
             tile?.type !== "brewery" &&
             tile?.type !== "mill" &&
             tile?.type !== "breadOven" &&
+            tile?.type !== "smallShrine" && tile?.type !== "warehouse" &&
             tile?.type !== "water"
           );
         })
@@ -2782,26 +2772,45 @@ export class MainScene extends Phaser.Scene {
       return toTilePosition(nearestAvailable ?? candidates[0]);
     };
 
+    // Output artwork occupies the building, but collection must stay on its access road.
+    const getProductionPickupTarget = (buildingId: string, fallback: TilePosition): TilePosition => {
+      const building = this.farmSnapshot.buildings.find(b => b.id === buildingId);
+      return building
+        ? getBuildingInteractionTarget(translateTilePosition(farmPosition, building), building.type)
+        : fallback;
+    };
+
+    const deliveryBuilding = (items: readonly { itemKey: string; quantity: number }[]) => {
+      const snapshot = this.farmSnapshot;
+      const completed = snapshot.buildings.filter(b => Date.parse(b.completesAt) <= Date.now());
+      if (items.some(i => i.itemKey === "barley" && i.quantity > 0)) {
+        return barleyDeliveryBuilding(completed, snapshot.farm.progression?.level ?? 1, Date.now());
+      }
+      const warehouse = completed.find(b => b.type === "warehouse");
+      return items.some(i => i.quantity > 0 && sharedDeliveryStop(i.itemKey, (snapshot.inventory.find(s => s.itemKey === i.itemKey)?.quantity ?? 0) + porterReserved(snapshot.farm.production.porter, i.itemKey), !!warehouse).location === "warehouse") ? warehouse : undefined;
+    };
+    const deliveryTarget = (items: readonly { itemKey: string; quantity: number }[]) => {
+      const building = deliveryBuilding(items);
+      return building ? getBuildingInteractionTarget(translateTilePosition(farmPosition, building), building.type) : getFarmDepositTarget();
+    };
+    const carriedDeliveryItems = () => this.farmSnapshot.farm.carriedItem ? [this.farmSnapshot.farm.carriedItem] : [];
+
     const getMovementTarget = (command: MovementCommand): TilePosition =>
       match(command)
         .with({ type: "move" }, ({ target }) => target)
         .with({ type: "production" }, command => {
-          if (command.action === "bake" && bakingTrip?.commandId === command.id && bakingTrip.phase === "collecting") return getFarmDepositTarget();
+          if (command.action !== "store" && bakingTrip?.commandId === command.id && bakingTrip.phase === "collecting") return getFarmDepositTarget();
           if (command.action === "store")
             return this.farmSnapshot.farm.production.delivery
-              ? getFarmDepositTarget()
-              : (millBagTiles.find(t => t.buildingId === command.buildingId)
-                  ?.position ?? command.target);
-          return getBuildingInteractionTarget(command.target, "breadOven");
+              ? deliveryTarget([this.farmSnapshot.farm.production.delivery])
+              : getProductionPickupTarget(command.buildingId, command.target);
+          return getBuildingInteractionTarget(command.target, command.action === "offerBread" || command.action === "offerBeer" ? "smallShrine" : "breadOven");
         })
         .with({ type: "store_mill_goods" }, command => {
           const delivery = this.farmSnapshot.farm.millGoods.delivery;
           if (!delivery)
-            return (
-              millBagTiles.find(tile => tile.millId === command.millId)
-                ?.position ?? command.target
-            );
-          return getFarmDepositTarget();
+            return getProductionPickupTarget(command.millId, command.target);
+          return deliveryTarget(Object.entries(delivery.bags).map(([itemKey, quantity]) => ({ itemKey, quantity })));
         })
         .with({ type: "mill" }, ({ target, id }) => {
           const trip = millingTrip?.commandId === id ? millingTrip : null;
@@ -2840,7 +2849,7 @@ export class MainScene extends Phaser.Scene {
         .with(
           {
             type: "build",
-            build: P.union("granary", "brewery", "mill", "breadOven")
+            build: P.union("granary", "brewery", "mill", "breadOven", "smallShrine", "warehouse")
           },
           buildCommand =>
             getBuildingInteractionTarget(
@@ -2851,12 +2860,7 @@ export class MainScene extends Phaser.Scene {
         .with({ type: "destroy" }, ({ target }) => target)
         .with({ type: "pickup" }, ({ target }) => target)
         .with({ type: "drop" }, ({ target }) => target)
-        .with({ type: "deposit", storage: "farm" }, () =>
-          getFarmDepositTarget()
-        )
-        .with({ type: "deposit", storage: "granary" }, ({ target }) =>
-          getBuildingInteractionTarget(target)
-        )
+        .with({ type: "deposit" }, () => deliveryTarget(carriedDeliveryItems()))
         .with({ type: "withdraw", storage: "farm" }, () =>
           getFarmDepositTarget()
         )
@@ -3051,7 +3055,7 @@ export class MainScene extends Phaser.Scene {
 
       void executeGameCommand({
         type:
-          command.build === "breadOven"
+          command.build === "warehouse" ? "build_warehouse" : command.build === "smallShrine" ? "build_small_shrine" : command.build === "breadOven"
             ? "build_bread_oven"
             : command.build === "mill"
               ? "build_mill"
@@ -3311,22 +3315,14 @@ export class MainScene extends Phaser.Scene {
             expectedFarmVersion: farmState.snapshot.farm.version
           })
         )
-        .with({ type: "deposit", storage: "farm" }, () =>
-          executeGameCommand({
-            type: "deposit_carried_item",
-            expectedFarmVersion: farmState.snapshot.farm.version
-          })
-        )
-        .with({ type: "deposit", storage: "granary" }, depositCommand =>
-          executeGameCommand({
+        .with({ type: "deposit" }, () => {
+          const building = deliveryBuilding(carriedDeliveryItems());
+          return executeGameCommand(building && farmState.snapshot.farm.carriedItem?.itemKey === "barley" ? {
             type: "deposit_carried_item_in_granary",
-            target: {
-              column: depositCommand.target.column - farmPosition.column,
-              row: depositCommand.target.row - farmPosition.row
-            },
+            target: { column: building.column, row: building.row },
             expectedFarmVersion: farmState.snapshot.farm.version
-          })
-        )
+          } : { type: "deposit_carried_item", expectedFarmVersion: farmState.snapshot.farm.version });
+        })
         .with({ type: "withdraw", storage: "farm" }, withdrawCommand =>
           executeGameCommand({
             type: "withdraw_inventory_item",
@@ -3351,6 +3347,12 @@ export class MainScene extends Phaser.Scene {
           farmStore.getState().setReady(snapshot);
 
           if (!sceneIsActive) {
+            return;
+          }
+
+          if (command.type === "deposit" && snapshot.farm.carriedItem?.itemKey === "barley" &&
+              (deliveryBuilding(carriedDeliveryItems()) || (snapshot.inventory.find(i => i.itemKey === "barley")?.quantity ?? 0) < FARM_STORAGE_CAPACITY)) {
+            moveFarmerTo(getMovementTarget(command), outcome => completeCommandMovement(command, outcome), reason => failMovementCommand(command.id, reason), "tile");
             return;
           }
 
@@ -3405,11 +3407,11 @@ export class MainScene extends Phaser.Scene {
               )
               .with(
                 { type: "deposit", storage: "farm" },
-                () => "The barley was stored inside the farm."
+                () => "Goods delivered to storage."
               )
               .with(
                 { type: "deposit", storage: "granary" },
-                () => "The barley was stored inside the granary."
+                () => "Goods delivered to storage."
               )
               .with(
                 { type: "withdraw", storage: "farm" },
@@ -3501,10 +3503,22 @@ export class MainScene extends Phaser.Scene {
                   return;
                 }
 
-                showBottomDialog(
-                  `The farmer collected ${getResourceLabel(command.item)}.`
-                );
-                completeMovementCommand(command.id);
+                showBottomDialog(`Carrying ${getResourceLabel(command.item)} to storage.`);
+                farmerCommandStore.getState().setStatus({ type: "moving", commandId: command.id });
+                moveFarmerTo(deliveryTarget(carriedDeliveryItems()), outcome => {
+                  if (outcome.type !== "arrived") { failMovementCommand(command.id, "Could not reach the farm."); return; }
+                  const latest = farmStore.getState().farm;
+                  if (latest.type !== "ready") return;
+                  void executeGameCommand({ type: "deposit_carried_item", expectedFarmVersion: latest.snapshot.farm.version }).then(delivered => {
+                    farmStore.getState().setReady(delivered);
+                    if (!sceneIsActive) return;
+                    showBottomDialog("Building materials delivered to storage.");
+                    completeMovementCommand(command.id);
+                  }).catch(error => {
+                    if (!sceneIsActive) return;
+                    failMovementCommand(command.id, error instanceof Error ? error.message : "Storage is full. The farmer is keeping the materials.");
+                  });
+                }, reason => failMovementCommand(command.id, reason), "tile");
               })
               .catch(error => {
                 if (!sceneIsActive) {
@@ -3798,11 +3812,11 @@ export class MainScene extends Phaser.Scene {
         .then(snapshot => {
           farmStore.getState().setReady(snapshot);
           if (!sceneIsActive) return;
-          if (action === "store") {
+          if (action === "store" && !snapshot.farm.millGoods.delivery) {
             showBottomDialog("Processed grain stored in Resources.");
             completeMovementCommand(command.id);
           } else {
-            showBottomDialog("Carrying the bags to the farm.");
+            showBottomDialog("Carrying the bags to storage.");
             farmerCommandStore
               .getState()
               .setStatus({ type: "moving", commandId: command.id });
@@ -3833,15 +3847,17 @@ export class MainScene extends Phaser.Scene {
         failMovementCommand(command.id, "The farm is not ready.");
         return;
       }
-      if (command.action === "bake" && bakingTrip?.commandId === command.id && bakingTrip.phase === "collecting") {
-        if ((state.snapshot.inventory.find(item => item.itemKey === "flour")?.quantity ?? 0) < BREAD_RECIPE.flour) {
-          failMovementCommand(command.id, "Store 2 Flour before baking.");
-          showBottomDialog("Store 2 Flour before baking.");
+      if (command.action !== "store" && bakingTrip?.commandId === command.id && bakingTrip.phase === "collecting") {
+        const quantity = command.action === "bake" ? BREAD_RECIPE.flour : SHRINE_OFFERING_QUANTITY;
+        if ((state.snapshot.inventory.find(item => item.itemKey === bakingTrip!.itemKey)?.quantity ?? 0) < quantity) {
+          const reason = `Store ${quantity} ${bakingTrip.itemKey} at the farm first.`;
+          failMovementCommand(command.id, reason);
+          showBottomDialog(reason);
           return;
         }
-        bakingTrip = { commandId: command.id, phase: "delivering" };
+        bakingTrip = { ...bakingTrip, phase: "delivering" };
         updateFarmerCarryVisual();
-        showBottomDialog("Carrying flour from the farm to the Bread Oven.");
+        showBottomDialog(command.action === "bake" ? "Carrying flour from the farm to the Bread Oven." : `Carrying ${quantity} ${bakingTrip.itemKey} to the shrine.`);
         moveFarmerTo(getMovementTarget(command), result => completeCommandMovement(command, result),
           reason => failMovementCommand(command.id, reason), "tile");
         return;
@@ -3853,7 +3869,9 @@ export class MainScene extends Phaser.Scene {
         .getState()
         .setStatus({ type: "pickingUp", commandId: command.id });
       const request =
-        command.action === "bake"
+        command.action === "offerBread" || command.action === "offerBeer"
+          ? executeGameCommand({ type: "shrine_offering", buildingId: command.buildingId, item: command.action === "offerBread" ? "bread" : "beer", expectedFarmVersion: state.snapshot.farm.version })
+          : command.action === "bake"
           ? executeGameCommand({
               type: "start_baking",
               buildingId: command.buildingId,
@@ -3869,15 +3887,15 @@ export class MainScene extends Phaser.Scene {
         .then(snapshot => {
           farmStore.getState().setReady(snapshot);
           if (!sceneIsActive) return;
-          if (command.action === "bake" || action === "store") {
+          if (command.action !== "store" || (action === "store" && !snapshot.farm.production.delivery)) {
             showBottomDialog(
-              command.action === "bake"
+              command.action === "offerBread" || command.action === "offerBeer" ? "Offering placed. Happiness decays 25% more slowly for 12 hours." : command.action === "bake"
                 ? "Baking started. Bread will be ready beside the oven."
-                : "Goods delivered to the farm and added to Resources."
+                : "Goods delivered to storage and added to Resources."
             );
             completeMovementCommand(command.id);
           } else {
-            showBottomDialog("Carrying the finished goods to the farm.");
+            showBottomDialog("Carrying the finished goods to storage.");
             farmerCommandStore
               .getState()
               .setStatus({ type: "moving", commandId: command.id });
@@ -3967,7 +3985,7 @@ export class MainScene extends Phaser.Scene {
             .with(
               {
                 type: "build",
-                build: P.union("granary", "brewery", "mill", "breadOven")
+                build: P.union("granary", "brewery", "mill", "breadOven", "smallShrine", "warehouse")
               },
               buildCommand => {
                 startBuildingConstruction(buildCommand);
@@ -4063,13 +4081,13 @@ export class MainScene extends Phaser.Scene {
         return;
       }
 
-      if (command.type === "production" && command.action === "bake") {
+      if (command.type === "production" && command.action !== "store") {
         if (carriedItem !== null) {
-          failMovementCommand(command.id, "Empty your hands before collecting flour.");
+          failMovementCommand(command.id, "Empty your hands before collecting supplies.");
           return;
         }
-        bakingTrip = { commandId: command.id, phase: "collecting" };
-        showBottomDialog("Collecting flour from the farm.");
+        bakingTrip = { commandId: command.id, phase: "collecting", itemKey: command.action === "bake" ? "flour" : command.action === "offerBread" ? "bread" : "beer" };
+        showBottomDialog(`Collecting ${bakingTrip.itemKey} from the farm.`);
       }
 
       if (command.type === "mill") {
@@ -4389,6 +4407,9 @@ export class MainScene extends Phaser.Scene {
     if (pendingRoad)
       waitForRoadConstruction(pendingRoad, "resume-road-construction", true);
 
+    if (this.farmSnapshot.farm.production.materialDelivery && this.farmSnapshot.farm.carriedItem) {
+      farmerCommandStore.getState().addCommand({ type: "deposit", storage: "farm", target: getFarmDepositTarget() });
+    }
     if (
       pendingGathering !== null &&
       farmerCommandStore.getState().carriedItem === null
@@ -4458,7 +4479,7 @@ export class MainScene extends Phaser.Scene {
         }
         activeBottomDialog
           .updateSize()
-          .setPosition(this.scale.width / 2, this.scale.height * 0.96);
+          .setPosition(this.scale.width / 2, bottomDialogY());
       }
 
       if (this.farmSnapshot.farm.production.planting && batchWasMoving) {
@@ -4484,6 +4505,7 @@ export class MainScene extends Phaser.Scene {
       }
 
       sceneIsActive = false;
+      viewport?.removeEventListener("scroll", positionBottomDialog);
       donkey.destroy();
       this.events.off("return-from-market", returnFromMarket);
       this.events.off(Phaser.Scenes.Events.SHUTDOWN, cleanupScene);

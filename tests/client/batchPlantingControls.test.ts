@@ -27,6 +27,48 @@ afterEach(() => {
 });
 
 describe("NES-style planting controls", () => {
+  it.each([[50, 4], [51, 6], [90, 6], [91, 8]])("caps planting at %i happiness to %i fields", (happiness, limit) => {
+    const farm = snapshot();
+    farm.farm.household.happiness = happiness;
+    farm.inventory = [{ itemKey: "barley", quantity: 20 }];
+    farm.improvements = [3, 4, 5, 6, 7, 8, 9].map(row => ({
+      id: `00000000-0000-4000-8000-00000000000${row}`, type: "irrigation" as const, column: 5, row,
+      startedAt: new Date(0).toISOString(), completesAt: new Date(1000).toISOString(), destroyStartedAt: null, destroyCompletesAt: null
+    }));
+    farmStore.getState().setReady(farm);
+    batchPlantingStore.setState({ origin: { column: 0, row: 0 } });
+    batchPlantingStore.getState().start("plant");
+    for (const row of [3, 4, 6, 7, 8]) for (const column of [4, 6]) batchPlantingStore.getState().toggle({ column, row });
+    expect(batchPlantingStore.getState().selected).toHaveLength(limit);
+    expect(render()).toContain(`${limit} / ${limit} fields selected`);
+    expect(render()).toContain(`${limit} / 20 barley`);
+    farmStore.getState().setReady({ ...farm, inventory: [{ itemKey: "barley", quantity: 2 }] });
+    expect(render()).toContain('class="nes-btn is-disabled" disabled=""');
+    batchPlantingStore.getState().toggle({ column: 4, row: 3 });
+    expect(batchPlantingStore.getState().selected).toHaveLength(limit - 1);
+  });
+  it.each([[74, 6], [95, 8]])("shows %i%% happiness and caps selection at %i fields", (happiness, limit) => {
+    const farm = snapshot();
+    farm.farm.household.happiness = happiness;
+    farm.crops = Array.from({ length: 9 }, (_, i) => ({
+      id: `00000000-0000-4000-8000-00000000000${i}`, cropKey: "barley" as const, column: i % 8, row: 8 + Math.floor(i / 8),
+      sowingStartedAt: new Date(0).toISOString(), plantedAt: new Date(10000).toISOString(),
+      growthCompletesAt: new Date(1810000).toISOString(), harvestStartedAt: null, harvestCompletesAt: null
+    }));
+    farmStore.getState().setReady(farm);
+    batchPlantingStore.setState({ origin: { column: 0, row: 0 } });
+    batchPlantingStore.getState().start("harvest");
+    for (const crop of farm.crops) batchPlantingStore.getState().toggle(crop);
+    expect(batchPlantingStore.getState().selected).toHaveLength(limit);
+    expect(render()).toContain(`${limit} / ${limit} fields selected`);
+    expect(render()).toContain('>Info</button>');
+    expect(render()).not.toContain("% happiness");
+    expect(render()).toContain(`${limit * 10}s harvesting + travel`);
+    farmStore.getState().setReady({ ...farm, farm: { ...farm.farm, household: { ...farm.farm.household, happiness: 50 } } });
+    expect(render()).toContain('class="nes-btn is-disabled" disabled=""');
+    batchPlantingStore.getState().toggle(farm.crops[0]!);
+    expect(batchPlantingStore.getState().selected).toHaveLength(limit - 1);
+  });
   it("uses the shared white message styling and NES disabled buttons during selection", () => {
     farmStore.getState().setReady(snapshot());
     batchPlantingStore.getState().start();
@@ -66,6 +108,7 @@ describe("NES-style planting controls", () => {
   });
   it("reuses NES controls for harvesting and caps selection at four ripe fields", () => {
     const farm = snapshot();
+    farm.farm.household.happiness = 50;
     farm.crops = [0, 1, 2, 3, 4].map(column => ({
       id: `00000000-0000-4000-8000-00000000000${column}`, cropKey: "barley" as const, column, row: 8,
       sowingStartedAt: new Date(0).toISOString(), plantedAt: new Date(10000).toISOString(),
@@ -77,7 +120,11 @@ describe("NES-style planting controls", () => {
     for (const crop of farm.crops) batchPlantingStore.getState().toggle(crop);
     expect(batchPlantingStore.getState().selected).toHaveLength(4);
     const html = render();
-    expect(html).toContain("4 / 4 fields selected · 40s harvesting + travel");
+    expect(html).toContain("4 / 4 fields selected");
+    expect(html).toContain("40s harvesting + travel");
+    expect(html).toContain('>Info</button>');
+    expect(html).not.toContain("Tap yellow fields");
+    expect(html).not.toContain("% happiness");
     expect(html).toContain('class="nes-btn is-primary">Harvest barley');
     expect(html).toContain('class="nes-btn is-error">Cancel');
     batchPlantingStore.getState().toggle(farm.crops[0]!);

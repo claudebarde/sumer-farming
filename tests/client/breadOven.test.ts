@@ -43,13 +43,14 @@ describe("Bread Oven popup", () => {
   it("updates the countdown and removes construction progress on completion", () => {
     expect(render(4, 6, false, 150000)).toContain("Construction: 0m 30s remaining.");
     expect(render(4, 6, false, 180000)).not.toContain("construction progress");
-    expect(render(4, 6, false, 180000)).not.toContain("disabled=");
+    expect(render(4, 6, false, 180000)).toContain("<button>Bake bread</button>");
   });
   it("shows the recipe and delivery instructions before an enabled action", () => {
     const html = render(2);
-    expect(html).toContain("2 Flour → 2 Bread · 5 minutes");
+    expect(html).toContain("2 Flour → 2 Bread · 5m 0s");
     expect(html).toContain("until delivered to the farm");
-    expect(html).not.toContain("disabled=");
+    expect(html).toContain("<button>Bake bread</button>");
+    expect(html).toContain('<button disabled="">Level 2 · Unlock at estate level 9');
     expect(html.lastIndexOf("</p>")).toBeLessThan(html.indexOf("<button"));
   });
   it("explains missing Flour instead of implying a level lock", () => {
@@ -62,7 +63,7 @@ describe("Bread Oven popup", () => {
   });
   it("shows the remaining timer and progress and prevents duplicate jobs", () => {
     const html = render(4, 6, true);
-    expect(html).toContain("150 seconds remaining.");
+    expect(html).toContain("2m 30s remaining.");
     expect(html).toContain('aria-label="Baking progress" max="100" value="50"');
     expect(html).toContain('disabled=""');
   });

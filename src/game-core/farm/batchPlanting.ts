@@ -3,6 +3,11 @@ import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import { getBuildingFootprint } from "./buildings";
 import { validateCultivation } from "./cultivation";
 import type { FarmCoordinate } from "./irrigation";
+import { harvestFieldLimit } from "./harvestCapacity";
+
+export const plantingFieldLimit = harvestFieldLimit;
+export const plantingSelectionLimit = (snapshot: FarmSnapshot, now: number): number =>
+  Math.min(plantingFieldLimit(snapshot.farm.household.happiness), availablePlantingBarley(snapshot, now));
 
 export const fieldKey = (p: FarmCoordinate) => `${p.column}:${p.row}`;
 
@@ -47,7 +52,7 @@ export const batchPlantingCarriedBarley = (snapshot: FarmSnapshot, now: number):
 
 export const storedPlantingBarley = (snapshot: FarmSnapshot, now: number): number =>
   (snapshot.inventory.find(i => i.itemKey === "barley")?.quantity ?? 0) +
-  snapshot.buildings.filter(b => b.type === "granary" && Date.parse(b.completesAt) <= now).reduce((sum, b) => sum + b.storedBarley, 0);
+  snapshot.buildings.filter(b => (b.type === "granary" || b.type === "warehouse") && Date.parse(b.completesAt) <= now).reduce((sum, b) => sum + b.storedBarley, 0);
 
 export const togglePlantingField = (selected: readonly FarmCoordinate[], target: FarmCoordinate, available: readonly FarmCoordinate[], barley: number): readonly FarmCoordinate[] =>
   selected.some(p => fieldKey(p) === fieldKey(target))
