@@ -5,22 +5,17 @@ import { farmStore } from "../../stores/farmStore";
 import { fetchDevelopmentFarm } from "../../api/developmentPlayer";
 import { TILE_SIZE } from "./config";
 import type { TilePosition } from "./types";
-import { porterApproach, porterPathLength, porterRoadOffset, positionAlongPorterPath } from "./porterPresentation";
+import { porterRoadOffset, positionAlongPorterPath } from "./porterPresentation";
 import type { WorkerPoint, YieldingWorker } from "./workerAvoidance";
 
 /** Independent, timestamp-driven actor. No farmer commands or movement locks. */
-export const installPorter = (scene: Phaser.Scene, getOrigin: () => TilePosition, getMarketRoad: () => TilePosition, getRoadOffset: (tile: { column: number; row: number }) => number, depth: number): { dispose: () => void; worker: YieldingWorker } => {
+export const installPorter = (scene: Phaser.Scene, getOrigin: () => TilePosition, getRoadOffset: (tile: { column: number; row: number }) => number, depth: number): { dispose: () => void; worker: YieldingWorker } => {
   const sprite = scene.add.sprite(0, 0, spriteName("porterIdle")).setOrigin(0).setDisplaySize(TILE_SIZE, TILE_SIZE).setDepth(depth);
   let alive = true;
   let pending = false;
   let nextRefresh = 0;
-  let waitingAtMarket = true;
-  let approachJob: number | null = null;
-  let approachStartedAt = 0;
-  let initialized = false;
   let moving = false;
   let parked: WorkerPoint | null = null;
-  let approachFrom: { posX: number; posY: number } | null = null;
   let yieldTween: Phaser.Tweens.Tween | null = null;
   let previousJob: number | null = null;
   const controller = new AbortController();
@@ -33,38 +28,17 @@ export const installPorter = (scene: Phaser.Scene, getOrigin: () => TilePosition
     const job = porter.job;
     const origin = getOrigin();
     if (job && job.startedAt !== previousJob && parked) {
-      // Rejoin the job from the yielded road position, not the old loading point.
+      // Reconcile to the saved journey; never add an independent approach clock.
       yieldTween?.stop(); yieldTween = null;
-      approachJob = job.startedAt;
-      approachStartedAt = now;
-      waitingAtMarket = false;
-      approachFrom = { posX: parked.x, posY: parked.y + TILE_SIZE / 2 };
       parked = null;
     }
     previousJob = job?.startedAt ?? null;
-    if (!initialized) {
-      // Never relocate a delivery restored from the server.
-      waitingAtMarket = !job;
-      initialized = true;
-    }
-    if (job && waitingAtMarket) { approachJob = job.startedAt; approachStartedAt = now; waitingAtMarket = false; }
-    const market = approachFrom ?? getMarketRoad();
-    const marketLocal = { column: (market.posX - origin.posX) / TILE_SIZE, row: (market.posY - origin.posY) / TILE_SIZE };
-    const approach = job && approachJob === job.startedAt
-      ? porterApproach(marketLocal, job.path.slice(0, job.pickupIndex + 1)) : null;
-    const approachDuration = approach ? porterPathLength(approach) * PORTER_STEP_MS : 0;
-    // Keep the market approach at walking pace, then resume the saved delivery leg.
-    const visualNow = job && approach ? job.pickupAt + now - approachStartedAt - approachDuration : now;
-    const progress = job ? Math.max(0, (visualNow - job.startedAt) / PORTER_STEP_MS) : 0;
+    const progress = job ? Math.max(0, (now - job.startedAt) / PORTER_STEP_MS) : 0;
     const index = job ? Math.min(job.path.length - 1, Math.floor(progress)) : 0;
     const from = job?.path[index] ?? porter.position;
     const to = job?.path[Math.min(index + 1, job.path.length - 1)] ?? from;
-    const fraction = progress - Math.floor(progress);
-    sprite.setVisible(true).setTexture(spriteName(job && visualNow >= job.pickupAt ? "porterBusy" : "porterIdle"));
-    const position = !job && waitingAtMarket ? marketLocal
-      : approach && now < approachStartedAt + approachDuration
-        ? positionAlongPorterPath(approach, (now - approachStartedAt) / Math.max(1, approachDuration))
-        : { column: from.column + (to.column - from.column) * fraction, row: from.row + (to.row - from.row) * fraction };
+    sprite.setVisible(true).setTexture(spriteName(job && now >= job.pickupAt ? "porterBusy" : "porterIdle"));
+    const position = job ? positionAlongPorterPath(job.path, progress / Math.max(1, job.path.length - 1)) : porter.position;
     const roadOffset = porterRoadOffset({ column: origin.column + position.column, row: origin.row + position.row }, getRoadOffset);
     moving = !!job;
     if (!yieldTween) {
@@ -72,7 +46,7 @@ export const installPorter = (scene: Phaser.Scene, getOrigin: () => TilePosition
       else sprite.setPosition(origin.posX + position.column * TILE_SIZE, origin.posY + position.row * TILE_SIZE + roadOffset);
     }
     if (to.column !== from.column) sprite.setFlipX(to.column < from.column);
-    if (!pending && now >= nextRefresh && (!job || visualNow >= job.completesAt)) {
+    if (!pending && now >= nextRefresh) {
       pending = true; nextRefresh = now + 2000;
       void fetchDevelopmentFarm(controller.signal).then(snapshot => {
         if (!alive) return;

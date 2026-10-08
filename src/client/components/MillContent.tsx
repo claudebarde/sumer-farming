@@ -1,4 +1,5 @@
 import type { FarmSnapshot } from "../../schemas/farm";
+import { productionIsPreparing } from "../../game-data/productionPreparation";
 import { useContext, useRef, useState } from "react";
 import {
   activeBuildingUpgrade,
@@ -125,11 +126,11 @@ export default function MillContent({
         ) : job ? (
           <>
             <p>
-              {job.worker === "donkey" ? "The donkey" : "The farmer"} is
+              {productionIsPreparing(job, now) ? "Preparing the Mill. Production will start automatically, even while you are away." : <>{job.worker === "donkey" ? "The donkey" : "The farmer"} is
               producing {job.output} {MILL_RECIPES[job.recipe].label}.
               {job.worker === "donkey"
                 ? " The farmer is free to work elsewhere."
-                : " He is unavailable until milling finishes."}
+                : " He is unavailable until milling finishes."}</>}
             </p>
             <p>
               {Math.floor(remainingSeconds / 60)}m {remainingSeconds % 60}s

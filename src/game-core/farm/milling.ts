@@ -1,4 +1,5 @@
 import { farmerProductionJob } from "./farmerProduction";
+import { improvementWorkActive } from "../../game-data/farmImprovements";
 import { millRecipe, type MillRecipe, type MillWorker } from "../../game-data/milling";
 import type { FarmSnapshot } from "../../schemas/farm";
 import { activeBuildingUpgrade } from "../../game-data/buildingUpgrades";
@@ -9,6 +10,7 @@ export const millingBarleyAvailable = (snapshot: FarmSnapshot, now: number): num
   (snapshot.farm.carriedItem?.itemKey === "barley" && snapshot.farm.carriedItem.expiresAt !== null && Date.parse(snapshot.farm.carriedItem.expiresAt) > now ? snapshot.farm.carriedItem.quantity : 0);
 
 export const millingUnavailableReason = (snapshot: FarmSnapshot, recipe: MillRecipe, now: number, worker: MillWorker = "farmer", buildingId?: string): string | null => {
+  if (snapshot.farm.production.cropWork && !snapshot.farm.production.cropWork.settled) return "The farmer is tending a crop.";
   const mills = snapshot.buildings.filter(b => b.type === "mill");
   const id = buildingId ?? (mills.length === 1 ? mills[0]!.id : undefined);
   if (id && activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, id, now)) return "The Mill is upgrading. Wait for the upgrade to finish.";
@@ -23,7 +25,7 @@ export const millingUnavailableReason = (snapshot: FarmSnapshot, recipe: MillRec
   if (snapshot.farm.fishing || snapshot.farm.gathering ||
     snapshot.crops.some(c => Date.parse(c.plantedAt) > now || c.harvestStartedAt !== null) ||
     snapshot.buildings.some(b => Date.parse(b.completesAt) > now) ||
-    snapshot.improvements.some(i => Date.parse(i.completesAt) > now || i.destroyStartedAt !== null)) return "Wait for the farmer to finish the current task.";
+    snapshot.improvements.some(i => improvementWorkActive(i, now))) return "Wait for the farmer to finish the current task.";
   if (snapshot.farm.carriedItem && snapshot.farm.carriedItem.itemKey !== "barley") return "Empty the farmer's hands or bring barley.";
   if (millingBarleyAvailable(snapshot, now) < millRecipe(recipe, worker).barley) return "Bring barley or store it in the farm or a completed granary.";
   return null;
@@ -32,7 +34,7 @@ export const millingUnavailableReason = (snapshot: FarmSnapshot, recipe: MillRec
 export const millSprite = (buildingId: string, job: FarmSnapshot["farm"]["milling"]) =>
   job?.buildingId === buildingId ? job.worker === "donkey" ? "millDonkey" as const : "millBusy" as const : "mill" as const;
 
-// The collection trip is visual; inventory is committed only at the Mill.
+// The collection trip is visual; inventory is committed when the job is accepted.
 export const millingCollectionSource = (snapshot: FarmSnapshot, now: number) => {
   const granary = snapshot.buildings.find(b => (b.type === "granary" || b.type === "warehouse") &&
     b.storedBarley > 0 && Date.parse(b.completesAt) <= now);

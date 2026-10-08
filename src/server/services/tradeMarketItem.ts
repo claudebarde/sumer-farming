@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
+import { violatesBarleyReserve } from "../../game-core/farm/marketSeedReserve";
 
 import {
   MARKET_ITEM_DEFINITIONS,
@@ -18,6 +19,7 @@ import {
 } from "./marketItemStorage";
 
 type MarketTradeRule =
+  | { readonly type: "barley_reserve_required" }
   | { readonly type: "farm_not_found" }
   | { readonly type: "player_not_found" }
   | {
@@ -229,6 +231,10 @@ const executeStorageTrade = (
                 available: storage.storedQuantity
               }
             };
+          }
+
+          if (trade.type === "sell" && violatesBarleyReserve(input.itemKey, storage.storedQuantity, input.quantity)) {
+            return { type: "rule_error", rule: { type: "barley_reserve_required" } };
           }
 
           if (trade.type === "buy" && player.shekelBalance < -delta) {

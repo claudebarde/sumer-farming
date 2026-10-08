@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
+import { planProductionJourney, productionArrivalAt } from "../../game-core/farm/productionJourney";
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { sharedDeliveryStop } from "../../game-core/farm/storageDelivery";
 import { porterReserved } from "../../game-data/porter";
@@ -28,6 +29,7 @@ export const productionAction = (database: Database, input: Extract<GameCommand,
       const now = Date.now();
       if (snapshot.farm.roads.some(r => (r.completesAt ?? 0) > now)) return fail("Finish building the road first.");
       const state = snapshot.farm.production;
+      if (state.cropWork && !state.cropWork.settled) return fail("The farmer is tending a crop.");
       if (state.planting) return fail("Finish or stop planting or harvesting the selected fields first.");
       if (input.type === "start_baking" && state.baking[input.buildingId]) return fail("This oven is already baking.");
       if (Object.keys(state.baking).length > 0) return fail("The farmer is baking in the Bread Oven. Wait for baking to finish.");
@@ -58,9 +60,12 @@ export const productionAction = (database: Database, input: Extract<GameCommand,
         if (state.baking[oven.id]) return fail("This oven is already baking.");
         const flour = snapshot.inventory.find(i => i.itemKey === "flour")?.quantity ?? 0;
         if (flour < BREAD_RECIPE.flour) return fail(`Baking requires ${BREAD_RECIPE.flour} stored Flour.`);
+        const preparation = planProductionJourney(snapshot, oven.id, now, input, "baking");
+        if (!preparation) return fail("The Bread Oven needs an accessible loading tile.");
         await tx.update(farmInventory).set({ quantity: flour - BREAD_RECIPE.flour, updatedAt: new Date(now) }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "flour")));
         const duration = Math.round(BREAD_RECIPE.durationMs * buildingProductionMultiplier("breadOven", buildingLevel(state.buildingUpgrades, oven.id, now)));
-        production = { ...state, baking: { ...state.baking, [oven.id]: { startedAt: new Date(now).toISOString(), completesAt: new Date(now + duration).toISOString(), output: BREAD_RECIPE.output } } };
+        const startsAt = productionArrivalAt(preparation);
+        production = { ...state, baking: { ...state.baking, [oven.id]: { preparation, startedAt: new Date(startsAt).toISOString(), completesAt: new Date(startsAt + duration).toISOString(), output: BREAD_RECIPE.output } } };
       } else if (input.action === "pickup") {
         const stack = state.pending[input.buildingId];
         if (!stack) return fail("There are no finished goods to collect.");

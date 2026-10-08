@@ -11,6 +11,7 @@ const render = (level: number, happiness = 70, quantity = 2, lastFishAt: string 
   const snapshot = FarmSnapshotSchema.parse({
     created: false, player: { shekelBalance: 0 },
     farm: {
+      farmerProfile: { version: 1, identity: { name: "Meskalamdug" } },
       id: "00000000-0000-4000-8000-000000000001", playerId: "00000000-0000-4000-8000-000000000002", version: 1,
       progression: { level, stats: INITIAL_PROGRESSION_STATS, barleySold: 0, beerSold: 0, requestsDelivered: 0 },
       household: { happiness, lastBeerAt: item === "beer" ? lastFishAt : null, lastFishAt: !item || item === "fish" ? lastFishAt : null, lastBreadAt: item === "bread" ? lastFishAt : null, hungrySince: null,
@@ -24,6 +25,18 @@ const render = (level: number, happiness = 70, quantity = 2, lastFishAt: string 
 };
 
 describe("Farmer management tab", () => {
+  it("shows the saved farmer name without a happiness emoji", () => {
+    const html = render(6);
+    expect(html).toContain("Meskalamdug");
+    expect(html).not.toContain('aria-label="Farmer mood:');
+  });
+  it("shows the standing farmer portrait above the name and stats", () => {
+    const html = render(6);
+    expect(html).toContain("farmer-stand-staff-1.png");
+    expect(html).toContain('alt="Meskalamdug, your farmer"');
+    expect(html.indexOf('<img ')).toBeLessThan(html.indexOf('<h2'));
+    expect(html).toContain('width="96" height="96"');
+  });
   afterEach(() => vi.restoreAllMocks());
   it.each(["harvesting", "planting", "moving", "milling", "baking", "gathering", "building"] as const)("offers busy popovers for all treats while %s", type => {
     vi.spyOn(farmerCommandStore, "getInitialState").mockReturnValue({
@@ -42,7 +55,7 @@ describe("Farmer management tab", () => {
     expect(coolingDown).toContain("Wait 7h 0m");
     expect(coolingDown).not.toContain("No fish available");
   });
-  it.each([["fish", 8], ["bread", 12], ["beer", 24]] as const)("keeps the %s farmer cooldown visible with no stock", (item, hours) => {
+  it.each([["fish", 8], ["bread", 6], ["beer", 12]] as const)("keeps the %s farmer cooldown visible with no stock", (item, hours) => {
     const html = render(6, 70, 0, new Date(now - 3600000).toISOString(), item);
     expect(html).toContain(`Wait ${hours - 1}h 0m`);
     expect(html).toContain('disabled=""');
@@ -61,11 +74,10 @@ describe("Farmer management tab", () => {
     [0, "unhappy", "🙁"], [39, "unhappy", "🙁"],
     [40, "content", "🙂"], [69, "content", "🙂"],
     [70, "happy", "😄"], [100, "happy", "😄"]
-  ] as const)("shows the mood smiley at happiness %i", (happiness, mood, smiley) => {
+  ] as const)("keeps the happiness meter without a mood smiley at %i", (happiness, _mood, smiley) => {
     const html = render(6, happiness);
-    expect(html).toContain(`aria-label="Farmer mood: ${mood}"`);
-    expect(html).toContain(smiley);
-    expect(html.indexOf(smiley)).toBeLessThan(html.indexOf("Farmer happiness"));
+    expect(html).toContain('aria-label="Farmer happiness"');
+    expect(html).not.toContain(smiley);
     expect(html).not.toContain("<p>Mood:");
   });
   it("shows both meters and unlocked treat actions", () => {

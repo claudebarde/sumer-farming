@@ -1,5 +1,17 @@
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
+import { OPEN_BUILD_DRAWER } from "../api/buildingReadiness";
+import { improvementWorkActive } from "../../game-data/farmImprovements";
+import { isClearableScenery } from "../../game-data/farmObjects";
+import {
+  clampMarketQuantity,
+  marketQuantityLimit
+} from "../game/marketQuantity";
 import TileActionButton from "./TileActionButton";
+import PerennialCropContent, {
+  PerennialCropAction
+} from "./PerennialCropContent";
+import { cropWorkActive } from "../../game-core/farm/perennialCrops";
+import datesImage from "../../assets/sprite_assets/pngs/dates-basket.png";
 import ProductionStoreButton from "./ProductionStoreButton";
 import { TileActionsBusy } from "./tileActionsBusy";
 import { FARM_SPRITES } from "../../assets/farmSprites";
@@ -28,10 +40,16 @@ import clayImage from "../../assets/sprite_assets/pngs/brick-pile.png";
 import HappinessMeter from "./HappinessMeter";
 import RationMeter from "./RationMeter";
 import FarmerPanel from "./FarmerPanel";
+import LeaderboardDialog from "./LeaderboardDialog";
 import MillContent from "./MillContent";
-import BuildingUpgradeContent, { BuildingLevelSign } from "./BuildingUpgradeContent";
+import BuildingUpgradeContent, {
+  BuildingLevelSign
+} from "./BuildingUpgradeContent";
 import { durationLabel } from "./durationLabel";
-import { buildingLevel, buildingProductionMultiplier } from "../../game-data/buildingUpgrades";
+import {
+  buildingLevel,
+  buildingProductionMultiplier
+} from "../../game-data/buildingUpgrades";
 import BreadOvenContent from "./BreadOvenContent";
 import beerJarsImage from "../../assets/sprite_assets/pngs/beer-jars.png";
 import breadBasketImage from "../../assets/sprite_assets/pngs/bread-basket.png";
@@ -44,10 +62,14 @@ import {
 } from "@radix-ui/react-icons";
 import { match } from "ts-pattern";
 import styles from "../styles/GameCanvas.module.scss";
-import { farmWorldToCanvasY, farmScrollContentHeight } from "../game/phaser/farmViewport";
+import {
+  farmWorldToCanvasY,
+  farmScrollContentHeight
+} from "../game/phaser/farmViewport";
 import { GAME_CONTAINER_ID, TILE_SIZE } from "../game/phaser/config";
 import { createGame } from "../game/phaser/game";
 import { MainScene } from "../game/phaser/scenes/MainScene";
+import SumerMapControls from "./SumerMapControls";
 import { useStore } from "zustand";
 import { gridStore } from "../stores/gridStore";
 import { interactionStore } from "../stores/interactionStore";
@@ -75,6 +97,8 @@ import { executeGameCommand } from "../api/gameActions";
 import { fetchMarketQuotes } from "../api/marketQuotes";
 import MarketTradeHistory from "./MarketTradeHistory";
 import MarketListings from "./MarketListings";
+import MarketTransactionPreview from "./MarketTransactionPreview";
+import { BARLEY_RESERVE_MESSAGE, violatesBarleyReserve } from "../../game-core/farm/marketSeedReserve";
 import MerchantRequests from "./MerchantRequests";
 import FarmLevelDialog from "./FarmLevelDialog";
 import {
@@ -155,6 +179,12 @@ const formatShekels = (quantity: number): string =>
 
 export default function GameCanvas() {
   const [isOpenManageDialog, setIsOpenManageDialog] = useState(false);
+  const [manageTab, setManageTab] = useState("build");
+  useEffect(() => {
+    const openBuild = () => { setManageTab("build"); setIsOpenManageDialog(true); };
+    window.addEventListener(OPEN_BUILD_DRAWER, openBuild);
+    return () => window.removeEventListener(OPEN_BUILD_DRAWER, openBuild);
+  }, []);
   const gameRef = useRef<ReturnType<typeof createGame> | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [farmScrollTop, setFarmScrollTop] = useState(0);
@@ -184,15 +214,66 @@ export default function GameCanvas() {
   const carriedItem = useStore(farmerCommandStore, state => state.carriedItem);
   const farmerStatus = useStore(farmerCommandStore, state => state.status.type);
   const farmState = useStore(farmStore, state => state.farm);
-  const tileActionsBusy = (farmerStatus !== "idle" && farmerStatus !== "failed") || (farmState.type === "ready" && !!(
-    farmerProductionJob(farmState.snapshot.farm) || farmState.snapshot.farm.production.planting ||
-    farmState.snapshot.farm.production.materialDelivery || farmState.snapshot.farm.production.delivery ||
-    farmState.snapshot.farm.millGoods.delivery || farmState.snapshot.farm.gathering || farmState.snapshot.farm.fishing ||
-    farmState.snapshot.crops.some(c => c.harvestStartedAt !== null || Date.parse(c.plantedAt) > storageClock) ||
-    farmState.snapshot.buildings.some(b => Date.parse(b.completesAt) > storageClock) ||
-    farmState.snapshot.improvements.some(i => Date.parse(i.completesAt) > storageClock || i.destroyStartedAt !== null) ||
-    farmState.snapshot.farm.roads.some(r => (r.completesAt ?? 0) > storageClock)
-  ));
+  const cropWork =
+    farmState.type === "ready"
+      ? farmState.snapshot.farm.production.cropWork
+      : null;
+  useEffect(() => {
+    if (!cropWork || cropWork.settled) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const refresh = async () => {
+      try {
+        const snapshot = await fetchDevelopmentFarm();
+        const current = farmStore.getState().farm;
+        if (
+          !cancelled &&
+          current.type === "ready" &&
+          snapshot.farm.id === current.snapshot.farm.id &&
+          snapshot.farm.version >= current.snapshot.farm.version
+        )
+          farmStore.getState().setReady(snapshot);
+      } catch (error) {
+        console.error("Could not refresh crop work", error);
+      }
+      if (!cancelled) timer = setTimeout(refresh, 1000);
+    };
+    timer = setTimeout(
+      refresh,
+      Math.max(0, cropWork.completesAt - Date.now()) + 50
+    );
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [cropWork]);
+  const tileActionsBusy =
+    (farmerStatus !== "idle" && farmerStatus !== "failed") ||
+    (farmState.type === "ready" &&
+      !!(
+        farmerProductionJob(farmState.snapshot.farm) ||
+        cropWorkActive(farmState.snapshot) ||
+        farmState.snapshot.farm.production.planting ||
+        farmState.snapshot.farm.production.materialDelivery ||
+        farmState.snapshot.farm.production.delivery ||
+        farmState.snapshot.farm.millGoods.delivery ||
+        farmState.snapshot.farm.gathering ||
+        farmState.snapshot.farm.fishing ||
+        farmState.snapshot.crops.some(
+          c =>
+            c.harvestStartedAt !== null ||
+            Date.parse(c.plantedAt) > storageClock
+        ) ||
+        farmState.snapshot.buildings.some(
+          b => Date.parse(b.completesAt) > storageClock
+        ) ||
+        farmState.snapshot.improvements.some(
+          i => improvementWorkActive(i, storageClock)
+        ) ||
+        farmState.snapshot.farm.roads.some(
+          r => (r.completesAt ?? 0) > storageClock
+        )
+      ));
   const fetchActive = useStore(fetchStore, state => state.phase !== "idle");
   const farmLevel =
     farmState.type === "ready"
@@ -205,8 +286,35 @@ export default function GameCanvas() {
   const marketScope = useStore(marketUiStore, state => state.scope);
   const marketSceneVisible = useStore(
     marketUiStore,
-    state => state.location === "market"
+    state => state.location !== "farm"
   );
+  const sumerVisible = useStore(
+    marketUiStore,
+    state => state.location === "sumer"
+  );
+  const mapInputWasEnabled = useRef(true);
+  const openSumer = () => {
+    const game = gameRef.current;
+    if (!game || marketUiStore.getState().location !== "farm") return;
+    const main = game.scene.getScene("main-scene");
+    mapInputWasEnabled.current = main.input.enabled;
+    main.input.enabled = false;
+    main.scene.setVisible(false);
+    clearSelection();
+    setIsOpenManageDialog(false);
+    batchPlantingStore.getState().cancel();
+    marketUiStore.getState().setLocation("sumer");
+    game.scene.start("sumer-scene");
+  };
+  const closeSumer = () => {
+    const game = gameRef.current;
+    if (!game) return;
+    game.scene.stop("sumer-scene");
+    const main = game.scene.getScene("main-scene");
+    main.scene.setVisible(true);
+    main.input.enabled = mapInputWasEnabled.current;
+    marketUiStore.getState().setLocation("farm");
+  };
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
     gameRef.current?.scale.updateBounds();
@@ -240,9 +348,22 @@ export default function GameCanvas() {
           .reduce((quantity, building) => quantity + building.storedBarley, 0)
       : 0;
   const totalBarley = storedBarley + granaryBarley;
-  const barleyStorageFull = storedBarley >= FARM_STORAGE_CAPACITY && !(farmState.type === "ready" && farmState.snapshot.buildings.some(building =>
-    (building.type === "granary" || building.type === "warehouse") && Date.parse(building.completesAt) <= storageClock &&
-    building.storedBarley < (building.type === "warehouse" ? 20 : granaryCapacityForLevel(farmState.snapshot.farm.progression?.level ?? 1))));
+  const barleyStorageFull =
+    storedBarley >= FARM_STORAGE_CAPACITY &&
+    !(
+      farmState.type === "ready" &&
+      farmState.snapshot.buildings.some(
+        building =>
+          (building.type === "granary" || building.type === "warehouse") &&
+          Date.parse(building.completesAt) <= storageClock &&
+          building.storedBarley <
+            (building.type === "warehouse"
+              ? 20
+              : granaryCapacityForLevel(
+                  farmState.snapshot.farm.progression?.level ?? 1
+                ))
+      )
+    );
   const warehouseComplete =
     farmState.type === "ready" &&
     farmState.snapshot.buildings.some(
@@ -474,8 +595,11 @@ export default function GameCanvas() {
   const tilePopoverY =
     selectedTile === null
       ? 0
-      : selectedTile.position.posY + (showPopoverBelow ? selectedTileSize : 0) +
-        (marketSceneVisible ? 0 : farmWorldToCanvasY(0, TILE_SIZE) - farmScrollTop);
+      : selectedTile.position.posY +
+        (showPopoverBelow ? selectedTileSize : 0) +
+        (marketSceneVisible
+          ? 0
+          : farmWorldToCanvasY(0, TILE_SIZE) - farmScrollTop);
 
   const addCommand = (command: FarmerCommandInput): void => {
     farmerCommandStore.getState().addCommand(command);
@@ -671,6 +795,15 @@ export default function GameCanvas() {
         INITIAL_FARM_CONFIG.buildingBounds.minimumRow
     };
     if (isRoadIntersection(local, farmState.snapshot.farm.roads)) return null;
+    if (
+      farmState.snapshot.objects.some(
+        object =>
+          object.column === local.column &&
+          object.row === local.row &&
+          !isClearableScenery(object.type)
+      )
+    )
+      return null;
     return (
       <TileActionButton
         onClick={() =>
@@ -702,7 +835,11 @@ export default function GameCanvas() {
     return validateRoadPlacement(
       local,
       farmState.snapshot.farm.roads,
-      new Set()
+      new Set(
+        farmState.snapshot.objects
+          .filter(object => !isClearableScenery(object.type))
+          .map(object => `${object.column}:${object.row}`)
+      )
     ) === null ? (
       <TileActionButton
         onClick={() =>
@@ -848,11 +985,13 @@ export default function GameCanvas() {
             {carriedItem && <p>Empty the farmer's hands first.</p>}
             <ProductionStoreButton
               snapshot={snapshot}
-              items={(["flour", "brewersGroats"] as const).filter(item => (bags?.[item] ?? 0) > 0)}
+              items={(["flour", "brewersGroats"] as const).filter(
+                item => (bags?.[item] ?? 0) > 0
+              )}
               now={storageClock}
               disabled={
                 !bags ||
-                (bags.flour + bags.brewersGroats === 0) ||
+                bags.flour + bags.brewersGroats === 0 ||
                 !!carriedItem ||
                 !!farmerProductionJob(snapshot.farm) ||
                 !!snapshot.farm.millGoods.delivery
@@ -939,7 +1078,11 @@ export default function GameCanvas() {
       );
     }
 
-    if (!tileActionsBusy && carriedItem?.itemKey === "water" && tile.type !== "brewery") {
+    if (
+      !tileActionsBusy &&
+      carriedItem?.itemKey === "water" &&
+      tile.type !== "brewery"
+    ) {
       const canPour = [
         "ground",
         "groundVariant",
@@ -985,7 +1128,7 @@ export default function GameCanvas() {
             Road
           </div>
           <div className={styles["tile-popover-content-body"]}>
-            <span>A road connecting buildings and their loading points.</span>
+            <span>A road connecting buildings.</span>
             <TileActionButton
               onClick={() =>
                 addCommand({ type: "move", target: tile.position })
@@ -1077,7 +1220,6 @@ export default function GameCanvas() {
         const canBuildIrrigation =
           carriedItem === null && isNextToIrrigationSource(tile);
         const isIrrigated = isNextToIrrigationCanal(tile);
-        const canPlantBarley = carriedItem?.itemKey === "barley" && isIrrigated;
         const canRetrieveBarley =
           carriedItem === null &&
           barleyWithdrawalSource !== null &&
@@ -1097,15 +1239,25 @@ export default function GameCanvas() {
             </div>
             <div className={styles["tile-popover-content-body"]}>
               <span>Fertile soil suitable for farming.</span>
+              {isIrrigated && farmLevel >= 9 && farmState.type === "ready" && (
+                <PerennialCropAction
+                  snapshot={farmState.snapshot}
+                  cropKey="datePalm"
+                  target={localTilePosition(tile)}
+                  now={storageClock}
+                  action="plant"
+                />
+              )}
               {!isIrrigated && (
                 <span>
                   Build an irrigation canal next to this tile and connect it to
                   the river to grow barley here.
                 </span>
               )}
-              {isIrrigated && farmState.type === "ready" &&
+              {isIrrigated &&
+                farmState.type === "ready" &&
                 plantableFields(farmState.snapshot, storageClock).length >=
-                  2 && (
+                  1 && (
                   <TileActionButton
                     disabled={
                       (carriedItem !== null &&
@@ -1118,22 +1270,9 @@ export default function GameCanvas() {
                       batchPlantingStore.getState().start();
                     }}
                   >
-                    Plant multiple fields
+                    Plant barley
                   </TileActionButton>
                 )}
-              {canPlantBarley && (
-                <TileActionButton
-                  onClick={() =>
-                    addCommand({
-                      type: "plant",
-                      target: tile.position,
-                      crop: "barley"
-                    })
-                  }
-                >
-                  Plant Barley
-                </TileActionButton>
-              )}
               {canRetrieveBarley && (
                 <TileActionButton
                   onClick={() =>
@@ -1151,13 +1290,17 @@ export default function GameCanvas() {
               {isIrrigated &&
                 carriedItem === null &&
                 barleyWithdrawalSource === null && (
-                  <TileActionButton disabled>No stored barley available</TileActionButton>
+                  <TileActionButton disabled>
+                    No stored barley available
+                  </TileActionButton>
                 )}
               {isIrrigated &&
                 carriedItem !== null &&
                 carriedItem.itemKey !== "barley" &&
                 carriedItem.itemKey !== "reed" && (
-                  <TileActionButton disabled>Empty your hands before planting</TileActionButton>
+                  <TileActionButton disabled>
+                    Empty your hands before planting
+                  </TileActionButton>
                 )}
               {canDropCarriedItem && (
                 <TileActionButton
@@ -1411,6 +1554,15 @@ export default function GameCanvas() {
           </div>
         );
       })
+      .with("datePalmSapling", "datePalmGrowing", "datePalmReady", () =>
+        farmState.type === "ready" ? (
+          <PerennialCropContent
+            snapshot={farmState.snapshot}
+            target={localTilePosition(tile)}
+            now={storageClock}
+          />
+        ) : null
+      )
       .with("barleyReady", () => (
         <div className={styles["tile-popover-content"]}>
           <div className={styles["tile-popover-content-header"]}>
@@ -1458,7 +1610,7 @@ export default function GameCanvas() {
             <span>Farm</span>
           </div>
           <div className={styles["tile-popover-content-body"]}>
-            A building used for agricultural activities and storage
+            A building used for storage
             {farmState.type === "ready" && (
               <BuildingStorageTables
                 location="farm"
@@ -1466,6 +1618,7 @@ export default function GameCanvas() {
                 barley={storedBarley}
                 warehouseComplete={warehouseComplete}
                 showFish={farmLevel >= 4}
+                showDates={farmLevel >= 9}
               />
             )}
             {(carriedItem?.itemKey === "reed" ||
@@ -1493,9 +1646,7 @@ export default function GameCanvas() {
                   })
                 }
               >
-                {barleyStorageFull
-                  ? "Barley storage is full"
-                  : "Store Barley"}
+                {barleyStorageFull ? "Barley storage is full" : "Store Barley"}
               </TileActionButton>
             )}
           </div>
@@ -1583,13 +1734,24 @@ export default function GameCanvas() {
             <div className={styles["tile-popover-content-header"]}>
               <span className="cuneiforms">𒂍𒋆</span>
               <span>Brewery</span>
-              {brewery && farmState.type === "ready" && <BuildingLevelSign snapshot={farmState.snapshot} buildingId={brewery.id} now={storageClock} />}
+              {brewery && farmState.type === "ready" && (
+                <BuildingLevelSign
+                  snapshot={farmState.snapshot}
+                  buildingId={brewery.id}
+                  now={storageClock}
+                />
+              )}
             </div>
             <div className={styles["tile-popover-content-body"]}>
               {!complete || farmState.type !== "ready" ? (
                 "Under construction"
               ) : (
-                <BuildingUpgradeContent key={brewery.id} snapshot={farmState.snapshot} buildingId={brewery.id} now={storageClock}>
+                <BuildingUpgradeContent
+                  key={brewery.id}
+                  snapshot={farmState.snapshot}
+                  buildingId={brewery.id}
+                  now={storageClock}
+                >
                   <span>
                     Water: {brewery.brewingWater} / {BREWERY_WATER_CAPACITY}{" "}
                     loads
@@ -1604,9 +1766,20 @@ export default function GameCanvas() {
                     / {BEER_RECIPE.groats}
                   </span>
                   <span>
-                    2 groats + 2 water loads + 2 empty jars → 2 beer · {durationLabel(BEER_RECIPE.durationMs * buildingProductionMultiplier("brewery", buildingLevel(farmState.snapshot.farm.production.buildingUpgrades, brewery.id, storageClock)))}.
-                    Groats are consumed from estate inventory when
-                    brewing starts.
+                    2 groats + 2 water loads + 2 empty jars → 2 beer ·{" "}
+                    {durationLabel(
+                      BEER_RECIPE.durationMs *
+                        buildingProductionMultiplier(
+                          "brewery",
+                          buildingLevel(
+                            farmState.snapshot.farm.production.buildingUpgrades,
+                            brewery.id,
+                            storageClock
+                          )
+                        )
+                    )}
+                    . Groats are consumed from estate inventory when brewing
+                    starts.
                   </span>
                   <span>
                     Empty beer jars: {brewery.emptyBeerJars} /{" "}
@@ -1730,6 +1903,7 @@ export default function GameCanvas() {
             {farmState.type === "ready" && selectedGranary !== undefined && (
               <BuildingStorageTables
                 location="warehouse"
+                showDates={farmLevel >= 9}
                 inventory={farmState.snapshot.inventory}
                 barley={selectedGranary.storedBarley}
                 warehouseComplete={warehouseComplete}
@@ -2032,10 +2206,12 @@ export default function GameCanvas() {
       void refresh();
     }, 15_000);
     window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
     return () => {
       controller.abort();
       window.clearInterval(timer);
       window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
     };
   }, []);
 
@@ -2197,6 +2373,7 @@ export default function GameCanvas() {
     <>
       {!marketSceneVisible && <FishingControls />}
       <FarmLevelDialog />
+      <LeaderboardDialog />
       {farmLevel >= 7 && <MerchantRequests />}
       <Dialog.Root
         open={isOpenManageDialog && !marketSceneVisible}
@@ -2211,6 +2388,14 @@ export default function GameCanvas() {
                   🏺 Manage
                 </button>
               </Dialog.Trigger>
+              <button
+                className="with-shadow"
+                style={{ padding: "8px 16px" }}
+                onClick={openSumer}
+                disabled={farmState.type !== "ready"}
+              >
+                📍 Sumer
+              </button>
             </div>
           )}
           <div
@@ -2225,10 +2410,21 @@ export default function GameCanvas() {
               gameRef.current?.scale.updateBounds();
             }}
           >
-            <div id={GAME_CONTAINER_ID} className={styles["game-container"]}
-              style={{ minHeight: marketSceneVisible ? 0 : farmScrollContentHeight(INITIAL_FARM_CONFIG.riverRow, TILE_SIZE) }} />
+            <div
+              id={GAME_CONTAINER_ID}
+              className={styles["game-container"]}
+              style={{
+                minHeight: marketSceneVisible
+                  ? 0
+                  : farmScrollContentHeight(
+                      INITIAL_FARM_CONFIG.riverRow,
+                      TILE_SIZE
+                    )
+              }}
+            />
           </div>
           {!marketSceneVisible && <BatchPlantingControls now={storageClock} />}
+          {sumerVisible && <SumerMapControls onBack={closeSumer} />}
           <Popover.Root
             key={selectedTile?.id ?? "no-selection"}
             open={isOpenTilePopover && !marketSceneVisible}
@@ -2256,7 +2452,7 @@ export default function GameCanvas() {
               <Popover.Content
                 className={styles["tile-popover"]}
                 style={{
-                  maxWidth: `min(${TILE_SIZE * 5}px, calc(100vw - 24px), var(--radix-popover-content-available-width))`
+                  maxWidth: `min(${TILE_SIZE * 6}px, calc(100vw - 24px), var(--radix-popover-content-available-width))`
                 }}
                 side={showPopoverBelow ? "bottom" : "top"}
                 align="center"
@@ -2293,7 +2489,7 @@ export default function GameCanvas() {
             <Dialog.Description>
               Review your resources and plan improvements to the farm.
             </Dialog.Description>
-            <Tabs.Root defaultValue="build" className={styles["manage-tabs"]}>
+            <Tabs.Root value={manageTab} onValueChange={setManageTab} className={styles["manage-tabs"]}>
               <Tabs.List
                 className={styles["manage-tabs-list"]}
                 aria-label="Estate management sections"
@@ -2719,7 +2915,16 @@ export default function GameCanvas() {
                               label: "Filled beer jars",
                               image: beerJarsImage
                             },
-                            { key: "fish", label: "Fish", image: fishImage }
+                            { key: "fish", label: "Fish", image: fishImage },
+                            ...(farmLevel >= 9
+                              ? [
+                                  {
+                                    key: "dates" as const,
+                                    label: "Baskets of dates",
+                                    image: datesImage
+                                  }
+                                ]
+                              : [])
                           ] as const
                         ).map(item => (
                           <div key={item.key}>
@@ -2830,10 +3035,16 @@ export default function GameCanvas() {
                 value="farmer"
               >
                 {farmState.type === "ready" ? (
-                  <><FarmerPanel
-                    snapshot={farmState.snapshot}
-                    now={storageClock}
-                  /><PorterPanel snapshot={farmState.snapshot} now={storageClock} /></>
+                  <>
+                    <FarmerPanel
+                      snapshot={farmState.snapshot}
+                      now={storageClock}
+                    />
+                    <PorterPanel
+                      snapshot={farmState.snapshot}
+                      now={storageClock}
+                    />
+                  </>
                 ) : (
                   <p>Farmer information is loading…</p>
                 )}
@@ -3030,20 +3241,13 @@ export default function GameCanvas() {
                                 )
                                 .map(item => {
                                   const quantityKey = `${market}:${action}:${item.itemKey}`;
-                                  const quantityLimit =
+                                  const purchaseQuantityLimit =
                                     item.itemKey === "donkey"
                                       ? 1
                                       : action === "buy" &&
                                           item.itemKey === "brewingVessels"
                                         ? missingBrewingJars
                                         : undefined;
-                                  const marketQuantity =
-                                    item.itemKey === "donkey"
-                                      ? 1
-                                      : Math.min(
-                                          marketQuantities[quantityKey] ?? 1,
-                                          quantityLimit ?? Infinity
-                                        );
                                   const storedQuantity = match(item.itemKey)
                                     .with("barley", () => storedHouseholdBarley)
                                     .with(
@@ -3071,6 +3275,15 @@ export default function GameCanvas() {
                                       () => availableEmptyBeerJars
                                     )
                                     .exhaustive();
+                                  const quantityLimit = marketQuantityLimit(
+                                    action,
+                                    storedQuantity,
+                                    purchaseQuantityLimit
+                                  );
+                                  const marketQuantity = clampMarketQuantity(
+                                    marketQuantities[quantityKey] ?? 1,
+                                    quantityLimit
+                                  );
                                   const availableStorage = match(
                                     item.storageType
                                   )
@@ -3091,6 +3304,7 @@ export default function GameCanvas() {
                                     .exhaustive();
                                   const purchaseCost =
                                     marketQuantity * item.npcMarket.buyPrice;
+                                  const reserveBlocked = action === "sell" && violatesBarleyReserve(item.itemKey, storedQuantity, marketQuantity);
                                   const saleValue =
                                     marketQuantity * item.npcMarket.sellPrice;
                                   const listingPrice =
@@ -3168,36 +3382,30 @@ export default function GameCanvas() {
                                         >
                                           {cuneiformLabel()}
                                         </span>
+                                        {market === "npc" && <span> ({formatShekels(action === "buy" ? item.npcMarket.buyPrice : item.npcMarket.sellPrice)} each)</span>}
+                                        {market === "player" && action === "sell" && <span> ({formatShekels(listingPrice)} each)</span>}
                                       </h3>
+                                      <MarketTransactionPreview
+                                        label={item.label.toLowerCase()}
+                                        stock={storedQuantity}
+                                        balance={farmState.snapshot.player.shekelBalance}
+                                        transaction={market === "npc" ? {
+                                          type: action === "buy" ? "buy" : "sell",
+                                          quantity: marketQuantity,
+                                          unitPrice: action === "buy" ? item.npcMarket.buyPrice : item.npcMarket.sellPrice
+                                        } : action === "sell" ? {
+                                          type: "listing", quantity: marketQuantity, unitPrice: listingPrice
+                                        } : undefined}
+                                      />
                                       {item.itemKey === "beer" && (
                                         <p>
-                                          Owned: {storedQuantity} filled jars in
-                                          estate inventory. <br />
                                           Each sale includes the jar; no empty
                                           jar is returned.
                                         </p>
                                       )}
-                                      {market === "npc" && (
+                                      {item.itemKey === "donkey" && (
                                         <p>
-                                          {action === "buy"
-                                            ? "Buy for "
-                                            : "Sell for "}
-                                          {formatShekels(
-                                            action === "buy"
-                                              ? item.npcMarket.buyPrice
-                                              : item.npcMarket.sellPrice
-                                          )}{" "}
-                                          each
-                                          {item.storageType ===
-                                            "estate_inventory" && (
-                                            <>
-                                              {" "}
-                                              · Owned: {storedQuantity}. <br />
-                                              {item.itemKey === "donkey"
-                                                ? "One donkey per farm. Processes 6 barley into 3 Flour or Brewer's Groats in 15 minutes, leaving the farmer free."
-                                                : "Kept in estate inventory; does not use barley storage."}
-                                            </>
-                                          )}
+                                          One donkey per farm. Processes 6 barley into 3 Flour or Brewer's Groats in 15 minutes, leaving the farmer free.
                                         </p>
                                       )}
                                       {item.itemKey !== "donkey" && (
@@ -3215,7 +3423,11 @@ export default function GameCanvas() {
                                             max={quantityLimit}
                                             step="1"
                                             value={marketQuantity}
-                                            disabled={marketTradePending}
+                                            disabled={
+                                              marketTradePending ||
+                                              (action === "sell" &&
+                                                storedQuantity === 0)
+                                            }
                                             onChange={event => {
                                               const quantity = Number.parseInt(
                                                 event.currentTarget.value,
@@ -3223,14 +3435,11 @@ export default function GameCanvas() {
                                               );
                                               setMarketQuantities(current => ({
                                                 ...current,
-                                                [quantityKey]: Number.isNaN(
-                                                  quantity
-                                                )
-                                                  ? 1
-                                                  : Math.min(
-                                                      quantityLimit ?? Infinity,
-                                                      Math.max(1, quantity)
-                                                    )
+                                                [quantityKey]:
+                                                  clampMarketQuantity(
+                                                    quantity,
+                                                    quantityLimit
+                                                  )
                                               }));
                                             }}
                                           />
@@ -3278,7 +3487,7 @@ export default function GameCanvas() {
                                             <button
                                               disabled={
                                                 marketTradePending ||
-                                                !item.npcMarket.canSell ||
+                                                  !item.npcMarket.canSell || reserveBlocked ||
                                                 storedQuantity < marketQuantity
                                               }
                                               onClick={() => {
@@ -3290,7 +3499,7 @@ export default function GameCanvas() {
                                                 );
                                               }}
                                             >
-                                              {!item.npcMarket.canSell
+                                              {reserveBlocked ? BARLEY_RESERVE_MESSAGE : !item.npcMarket.canSell
                                                 ? "Selling unavailable"
                                                 : storedQuantity <
                                                     marketQuantity
@@ -3414,7 +3623,7 @@ export default function GameCanvas() {
                                                   marketTradePending ||
                                                   !item.playerMarket
                                                     .canCreateSellOrder ||
-                                                  storedQuantity <
+                                                  reserveBlocked || storedQuantity <
                                                     marketQuantity
                                                 }
                                                 onClick={() => {
@@ -3425,7 +3634,7 @@ export default function GameCanvas() {
                                                   );
                                                 }}
                                               >
-                                                {!item.playerMarket
+                                                {reserveBlocked ? BARLEY_RESERVE_MESSAGE : !item.playerMarket
                                                   .canCreateSellOrder
                                                   ? "Player listings unavailable"
                                                   : storedQuantity <
@@ -3439,6 +3648,7 @@ export default function GameCanvas() {
                                           )}
                                           <MarketListings
                                             key={`${action}:${item.itemKey}`}
+                                            stock={storedQuantity}
                                             itemKey={item.itemKey}
                                             action={
                                               action === "sell" ? "sell" : "buy"

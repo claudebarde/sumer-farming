@@ -6,8 +6,9 @@ export type DevelopmentFixture = {
 };
 
 // Applied once on creation. Edit these values to prepare new test scenarios.
-// Both local players use the same ordinary starting economy for progression testing.
+// All local players use the same ordinary starting economy for progression testing.
 export const DEVELOPMENT_FIXTURES = {
   primary: { shekels: 0, inventory: [] },
-  second: { shekels: 0, inventory: [] }
+  second: { shekels: 0, inventory: [] },
+  onboarding: { shekels: 0, inventory: [] }
 } as const satisfies Record<string, DevelopmentFixture>;

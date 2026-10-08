@@ -8,7 +8,7 @@ import { findRoadPreferredPath } from "../../src/game-core/farm/roadPath";
 import { getBuildingFootprint, validateBuildingPlacement } from "../../src/game-core/farm/buildings";
 import { isInsideArablePlot } from "../../src/game-core/farm/cultivation";
 import { createDatabase } from "../../src/server/db/client";
-import { farms, players, farmGroundItems } from "../../src/server/db/schema";
+import { farms, players, farmGroundItems, farmObjects, farmImprovements } from "../../src/server/db/schema";
 import { buildRoad } from "../../src/server/services/buildRoad";
 import { buildFarmBuilding } from "../../src/server/services/buildFarmBuilding";
 import { buildIrrigation } from "../../src/server/services/buildIrrigation";
@@ -36,6 +36,47 @@ const finishRoads = async (farmId: string) => {
 };
 
 describe("player-built roads", () => {
+  it.each(["rock", "bush"] as const)("clears %s when building roads and preserves nearby scenery", async type => {
+    const input = await fixture();
+    await db.insert(farmObjects).values([
+      { farmId: input.farmId, type, ...input.target },
+      { farmId: input.farmId, type, column: 6, row: 4 }
+    ]);
+    const result = await Effect.runPromise(buildRoad(db, input));
+    expect(result.objects).toHaveLength(1);
+    expect(result.objects[0]).toMatchObject({ column: 6, row: 4 });
+    expect(await db.select().from(farmObjects).where(eq(farmObjects.farmId, input.farmId))).toHaveLength(1);
+  });
+  it.each(["rock", "bush"] as const)("clears %s when building connected irrigation", async type => {
+    const input = await fixture();
+    const target = { column: -1, row: 9 };
+    await db.insert(farmObjects).values({ farmId: input.farmId, type, ...target });
+    await Effect.runPromise(buildIrrigation(db, { ...input, target }));
+    expect(await db.select().from(farmObjects).where(eq(farmObjects.farmId, input.farmId))).toHaveLength(0);
+    expect(await db.select().from(farmImprovements).where(eq(farmImprovements.farmId, input.farmId))).toHaveLength(1);
+  });
+  it.each(["road", "irrigation"] as const)("keeps reeds blocking %s without changing the farm", async kind => {
+    const input = await fixture();
+    const target = kind === "road" ? input.target : { column: -1, row: 9 };
+    await db.insert(farmObjects).values({ farmId: input.farmId, type: "reeds", ...target });
+    const result = kind === "road"
+      ? await Effect.runPromise(Effect.flip(buildRoad(db, { ...input, target })))
+      : await Effect.runPromise(Effect.flip(buildIrrigation(db, { ...input, target })));
+    expect(result._tag).toBe(kind === "road" ? "RoadRuleError" : "IrrigationTileOccupiedError");
+    expect(await db.select().from(farmObjects).where(eq(farmObjects.farmId, input.farmId))).toHaveLength(1);
+    const [farm] = await db.select().from(farms).where(eq(farms.id, input.farmId));
+    expect(farm!.version).toBe(1);
+    expect(farm!.roads).toEqual([]);
+    expect(await db.select().from(farmImprovements).where(eq(farmImprovements.farmId, input.farmId))).toHaveLength(0);
+  });
+  it("does not clear scenery when connectivity validation fails", async () => {
+    const input = await fixture();
+    const target = { column: -1, row: 1 };
+    await db.insert(farmObjects).values({ farmId: input.farmId, type: "rock", ...target });
+    await Effect.runPromise(Effect.flip(buildRoad(db, { ...input, target })));
+    await Effect.runPromise(Effect.flip(buildIrrigation(db, { ...input, target })));
+    expect(await db.select().from(farmObjects).where(eq(farmObjects.farmId, input.farmId))).toHaveLength(1);
+  });
   it("detects T junctions and crossroads, but not straight roads or diagonal branches", () => {
     const target = { column: 5, row: 5 };
     expect(isRoadIntersection(target, [])).toBe(false);

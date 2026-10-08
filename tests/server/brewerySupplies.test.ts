@@ -61,7 +61,7 @@ describe("persistent brewery supplies", () => {
     expect(stored?.happiness).toBe(60);
     expect(stored!.happinessCheckedAt.getTime()).toBeGreaterThan(Date.now() - 10000);
   });
-  it("feeds fish every eight hours independently of the daily beer cooldown", async () => {
+  it("feeds fish every eight hours independently of the twelve-hour beer cooldown", async () => {
     const { farm, command } = await fixture();
     const fishCommand = { type: "give_farmer_fish" as const, playerId: farm.playerId, expectedFarmVersion: 1 };
     await db.delete(farmBuildings).where(eq(farmBuildings.farmId, farm.id));
@@ -139,7 +139,7 @@ describe("persistent brewery supplies", () => {
       .resolves.toMatchObject({ type: "wrong_supply" });
     expect((await refresh(farm.id)).farm.carriedItem).toMatchObject({ itemKey: "barley", quantity: 1 });
   });
-  it("gives estate beer without a brewery and shares the daily cooldown", async () => {
+  it("gives estate beer without a brewery and shares the twelve-hour cooldown", async () => {
     const { farm } = await fixture();
     await db.delete(farmBuildings).where(eq(farmBuildings.farmId, farm.id));
     await db.insert(farmInventory).values({ farmId: farm.id, itemKey: "beer", quantity: 2 });

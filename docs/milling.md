@@ -1,12 +1,20 @@
 # Mill production
 
+Donkey return presentation uses the saved escort route in reverse (drop index to
+pickup index), not a direct tween from the mill to an old grazing coordinate.
+Only completion during the current visible farm visit animates the return.
+Visibility reconciliation or reload after completion places the donkey at rest;
+leaving during its return also settles it immediately. If a newly built building
+blocks the old route, settle safely rather than crossing its footprint. This is
+presentation-only and never defers server production or output availability.
+
 ## Implementation
 
 The Mill reuses `FARM_BUILDING_DEFINITIONS`, footprint/access validation, the building placement store, construction commands/deadlines, sprite loader, shared tile popovers, and farmer movement queue. It is a 2×2 building costing 2 reed and 4 clay, with a two-minute construction time.
 
 `MILL_RECIPES` defines temporary recipes: 2 barley → 1 Flour or 1 Brewer's Groats, both 5 minutes. Inputs are taken from carried barley, completed granaries, then farm inventory. Ground bundles must first be picked up or stored. Outputs use estate inventory rather than barley-capacity storage. No processed-grain market is added.
 
-The farmer first visits a completed granary with any barley, otherwise the farm if it has barley, then carries a visual two-barley bundle to the Mill. A single collection stop represents combined storage, even if the granary has only one barley. Carried barley counts toward the two required; if no storage has barley and both are already carried, the farmer goes straight to the Mill. This trip does not mutate inventory. Only on arrival at the Mill does `start_milling` submit the command. The service locks the farm, advances lifecycle, checks version, level, Mill completion, resources and existing work, then deducts barley and persists a single nullable `farms.milling` job. It stores the building, recipe, timestamps and quantities so later balance changes cannot alter an active job. Interrupted trips consume nothing, and failure clears the temporary carrying visual.
+`start_milling` is submitted immediately when selected, before travel. The service locks the farm, advances lifecycle, validates version, level, Mill completion, resources and existing work, then deducts barley and persists a single nullable `farms.milling` job. It saves recipe quantities, a scheduled `startedAt` after a 10-second manual / 20-second donkey preparation allowance, and `completesAt` after the recipe duration. The farmer's collection/escort trip is presentation only. A hidden tab, interrupted animation or reload cannot postpone the saved job or spend inputs again. A rejected request consumes nothing. See [production timing](production-timing.md).
 
 The existing farmer-availability check rejects physical work during milling. Fishing and brewery services also enforce this lock. The existing client command store rejects new tasks, market/fetch entry is blocked, and the farmer is hidden inside the Mill. Reload places him beside the active Mill before hiding him. On completion he becomes visible and queued work can resume.
 

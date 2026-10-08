@@ -23,6 +23,12 @@ const render = (owned: boolean, barley = 6, working = false, level = 7, clock = 
   return renderToStaticMarkup(createElement(MillContent, { snapshot, target: { column: 3, row: 3, posX: 192, posY: 192 }, now: clock, addCommand: () => {} }));
 };
 describe("donkey mill popup", () => {
+  it("distinguishes preparation from independent donkey production", () => {
+    const html = render(true, 0, true, 7, now - 450001);
+    expect(html).toContain("Preparing the Mill");
+    expect(html).toContain("even while you are away");
+    expect(html).not.toContain("free to work elsewhere");
+  });
   it.each([
     [786, "13m 6s remaining."],
     [60, "1m 0s remaining."],

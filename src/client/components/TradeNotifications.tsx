@@ -10,8 +10,12 @@ import { notificationStore, type GameNotification } from "../stores/notification
 import { LEVEL_NAMES, LEVEL_UNLOCKS } from "../../game-data/progression";
 import styles from "../styles/TradeNotifications.module.scss";
 import { MARKET_ITEM_DEFINITIONS } from "../../game-data/marketItems";
+import { buildingReadinessText, readyProgressionBuilding } from "../../game-core/farm/buildingReadiness";
+import { claimBuildingReadiness, OPEN_BUILD_DRAWER } from "../api/buildingReadiness";
+import { marketUiStore } from "../stores/marketUiStore";
 
 function TradeToast({ trade }: { readonly trade: GameNotification }) {
+  const onFarm = useStore(marketUiStore, state => state.location === "farm");
   const [open, setOpen] = useState(true);
 
   useEffect(() => {
@@ -39,14 +43,17 @@ function TradeToast({ trade }: { readonly trade: GameNotification }) {
       onPointerUp={event => event.stopPropagation()}
     >
       <Toast.Title className={styles.title}>
-        {trade.type === "level_up" ? `Congratulations! Farm level ${trade.level}!` : trade.type === "building_upgrade" ? "Building upgrade started" : trade.type === "porter_hire" ? "Porter hired" : trade.type === "request_reward" ? "Request delivered" : trade.type === "market_sale" ? "Sale completed" : "Purchase completed"}
+        {trade.type === "building_ready" ? buildingReadinessText(trade.building).title : trade.type === "level_up" ? `Congratulations! Farm level ${trade.level}!` : trade.type === "building_upgrade" ? "Building upgrade started" : trade.type === "porter_hire" ? "Porter hired" : trade.type === "request_reward" ? "Request delivered" : trade.type === "market_sale" ? "Sale completed" : "Purchase completed"}
       </Toast.Title>
       <Toast.Description className={styles.description}>
-        {trade.type === "level_up" ? <>{LEVEL_NAMES[trade.level]}<span>Unlocked: {LEVEL_UNLOCKS[trade.level]}.</span></> : <>
+        {trade.type === "building_ready" ? buildingReadinessText(trade.building).description : trade.type === "level_up" ? <>{LEVEL_NAMES[trade.level]}<span>Unlocked: {LEVEL_UNLOCKS[trade.level]}.</span></> : <>
           {trade.type === "building_upgrade" ? `Paid ${trade.total} shekels.` : trade.type === "porter_hire" ? `Automatic collection for 24 hours · ${trade.total} shekels.` : trade.type === "request_reward" ? `${trade.requestCustomer}: earned ${trade.total} shekels.` : <>{trade.type === "market_sale" ? "Sold" : "Bought"} {trade.quantity} {trade.itemKey === "beer" ? (trade.quantity === 1 ? "beer jar" : "beer jars") : trade.itemKey === "brewingVessels" || trade.itemKey === "emptyBeerJar" ? MARKET_ITEM_DEFINITIONS[trade.itemKey].label.toLowerCase() : trade.itemKey} for {trade.total} {trade.total === 1 ? "shekel" : "shekels"}.</>}
           <span>{trade.type === "porter_hire" || trade.type === "building_upgrade" ? "Estate service" : trade.source === "npc" ? "NPC market" : "Player market"}</span>
         </>}
       </Toast.Description>
+      {trade.type === "building_ready" && onFarm && <Toast.Action altText="Open the Build tab in Manage estate" asChild>
+        <button onClick={() => window.dispatchEvent(new Event(OPEN_BUILD_DRAWER))}>Open Build</button>
+      </Toast.Action>}
       <Toast.Close className={styles.close} aria-label="Dismiss notification"><Cross2Icon /></Toast.Close>
     </Toast.Root>
   );
@@ -57,6 +64,29 @@ export default function TradeNotifications() {
     state.farm.type === "ready" ? state.farm.snapshot.farm.playerId : null
   );
   const pending = useStore(notificationStore, state => state.pending);
+
+  useEffect(() => {
+    if (!playerId) return;
+    let requesting = false;
+    const check = async () => {
+      const state = farmStore.getState().farm;
+      if (requesting || document.visibilityState !== "visible" || state.type !== "ready" || state.snapshot.farm.playerId !== playerId) return;
+      const building = readyProgressionBuilding(state.snapshot);
+      if (!building || notificationStore.getState().announced.has(`building-ready:${state.snapshot.farm.id}:${building}`)) return;
+      requesting = true;
+      try {
+        const claimed = await claimBuildingReadiness();
+        if (claimed) notificationStore.getState().notifyBuilding(playerId, state.snapshot.farm.id, claimed);
+      } catch (error) { console.error("Building readiness notification failed", error); }
+      finally { requesting = false; }
+    };
+    // The player effect below establishes notification ownership before this microtask.
+    void Promise.resolve().then(check);
+    const unsubscribe = farmStore.subscribe(() => { void check(); });
+    const onVisible = () => { void check(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { unsubscribe(); document.removeEventListener("visibilitychange", onVisible); };
+  }, [playerId]);
 
   useEffect(() => {
     notificationStore.getState().setPlayer(playerId);

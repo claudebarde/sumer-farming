@@ -1,10 +1,15 @@
 import { HUNGRY_FARMER_MOVEMENT_DURATION_MULTIPLIER } from "../../game-data/household";
+import { DATES_HAPPINESS_BOOST, DATES_TREAT_INTERVAL_MS } from "../../game-data/household";
+export const datesTreatErrors = { no_dates: "Store a basket of dates in the warehouse first.", dates_cooldown: "The farmer can receive one basket of dates every 8 hours.", happiness_full: "The farmer's happiness is already full." } as const;
+export const validateDatesTreat = (quantity: number, happiness: number, lastAt: number | null, now: number): keyof typeof datesTreatErrors | null =>
+  lastAt !== null && now < lastAt + DATES_TREAT_INTERVAL_MS ? "dates_cooldown" : quantity < 1 ? "no_dates" : happiness >= 100 ? "happiness_full" : null;
+export const happinessAfterDates = (happiness: number) => Math.min(100, happiness + DATES_HAPPINESS_BOOST);
 import { SHRINE_DECAY_RATE, type ShrineBlessing } from "../../game-data/shrine";
 import { BREAD_HAPPINESS_BOOST, BREAD_TREAT_INTERVAL_MS } from "../../game-data/household";
 
 export const breadTreatErrors = {
   no_bread: "Store or buy bread first.",
-  bread_cooldown: "The farmer can receive one bread every 12 hours.",
+  bread_cooldown: `The farmer can receive one bread every ${BREAD_TREAT_INTERVAL_MS / 3600000} hours.`,
   happiness_full: "The farmer's happiness is already full."
 } as const;
 export const validateBreadTreat = (quantity: number, happiness: number, lastAt: number | null, now: number): keyof typeof breadTreatErrors | null =>
@@ -16,7 +21,7 @@ import { BEER_HAPPINESS_BOOST, BEER_TREAT_INTERVAL_MS, FISH_HAPPINESS_BOOST, FIS
 
 export const beerTreatErrors = {
   no_beer: "Collect or buy a beer jar first.",
-  beer_cooldown: "The farmer can receive one beer every 24 hours.",
+  beer_cooldown: `The farmer can receive one beer every ${BEER_TREAT_INTERVAL_MS / 3600000} hours.`,
   happiness_full: "The farmer's happiness is already full."
 } as const;
 export const validateBeerTreat = (quantity: number, happiness: number, lastBeerAt: number | null, now: number): keyof typeof beerTreatErrors | null =>

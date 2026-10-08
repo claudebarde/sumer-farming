@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ProductionJourneySchema } from "./productionJourney";
 import { buildingProductionMultiplier } from "./buildingUpgrades";
 
 export const MillRecipeSchema = z.enum(["flour", "brewersGroats"]);
@@ -16,6 +17,7 @@ export const millRecipe = (recipe: MillRecipe, worker: MillWorker = "farmer", le
   return { ...base, barley: base.barley * multiplier, output: base.output * multiplier, durationMs: Math.round(base.durationMs * multiplier * buildingProductionMultiplier("mill", level)) };
 };
 export const MillingJobSchema = z.object({
+  preparation: ProductionJourneySchema.optional(),
   worker: MillWorkerSchema.optional(),
   buildingId: z.uuid(), recipe: MillRecipeSchema,
   startedAt: z.iso.datetime(), completesAt: z.iso.datetime(),

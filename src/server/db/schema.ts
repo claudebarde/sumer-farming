@@ -70,6 +70,32 @@ export const players = pgTable(
   ]
 );
 
+export const marketPresence = pgTable("market_presence", {
+  playerId: uuid("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  sessionId: uuid("session_id").notNull(),
+  position: jsonb("position").$type<import("../../schemas/marketPresence").MarketPosition>().notNull(),
+  closed: boolean("closed").default(false).notNull(),
+  seenAt: timestamp("seen_at", { withTimezone: true }).defaultNow().notNull()
+}, table => [primaryKey({ columns: [table.playerId, table.sessionId] })]);
+
+export const neighbourhoods = pgTable("neighbourhoods", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  city: varchar("city", { length: 20 }).$type<import("../../game-data/sumer").SumerCityId>().notNull(),
+  name: varchar("name", { length: 50 }).notNull(),
+  private: boolean("private").default(false).notNull(),
+  inviteCode: uuid("invite_code").defaultRandom().notNull().unique(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+}, table => [check("neighbourhoods_city_check", sql`${table.city} IN ('nippur','adab','shuruppak','umma','uruk','lagash','ur','eridu')`)]);
+
+export const neighbourhoodMembers = pgTable("neighbourhood_members", {
+  playerId: uuid("player_id").primaryKey().references(() => players.id, { onDelete: "cascade" }),
+  neighbourhoodId: uuid("neighbourhood_id").notNull().references(() => neighbourhoods.id, { onDelete: "cascade" }),
+  slot: integer("slot").notNull()
+}, table => [
+  unique("neighbourhood_slot_unique").on(table.neighbourhoodId, table.slot),
+  check("neighbourhood_slot_range", sql`${table.slot} BETWEEN 1 AND 10`)
+]);
+
 export const shekelTransactions = pgTable(
   "shekel_transactions",
   {
@@ -119,11 +145,11 @@ export const shekelTransactions = pgTable(
     ),
     check("shekel_transactions_reward_or_trade", sql`
       (${table.type}::text = 'request_reward' AND ${table.requestCustomer} IS NOT NULL AND ${table.itemKey} IS NULL AND ${table.itemQuantity} IS NULL AND ${table.unitPrice} IS NULL)
-      OR (${table.type}::text IN ('porter_hire', 'building_upgrade') AND ${table.requestCustomer} IS NULL AND ${table.itemKey} IS NULL AND ${table.itemQuantity} IS NULL AND ${table.unitPrice} IS NULL)
-      OR (${table.type}::text NOT IN ('request_reward', 'porter_hire', 'building_upgrade') AND ${table.requestCustomer} IS NULL AND ${table.itemKey} IS NOT NULL AND ${table.itemQuantity} IS NOT NULL AND ${table.unitPrice} IS NOT NULL)`),
+      OR (${table.type}::text IN ('porter_hire', 'building_upgrade', 'crop_planting') AND ${table.requestCustomer} IS NULL AND ${table.itemKey} IS NULL AND ${table.itemQuantity} IS NULL AND ${table.unitPrice} IS NULL)
+      OR (${table.type}::text NOT IN ('request_reward', 'porter_hire', 'building_upgrade', 'crop_planting') AND ${table.requestCustomer} IS NULL AND ${table.itemKey} IS NOT NULL AND ${table.itemQuantity} IS NOT NULL AND ${table.unitPrice} IS NOT NULL)`),
     check(
       "shekel_transactions_direction_matches_type",
-      sql`(${table.type}::text IN ('market_sale', 'request_reward') AND ${table.delta} > 0) OR (${table.type}::text IN ('market_purchase', 'porter_hire', 'building_upgrade') AND ${table.delta} < 0)`
+      sql`(${table.type}::text IN ('market_sale', 'request_reward') AND ${table.delta} > 0) OR (${table.type}::text IN ('market_purchase', 'porter_hire', 'building_upgrade', 'crop_planting') AND ${table.delta} < 0)`
     )
   ]
 );
@@ -217,6 +243,7 @@ import { emptyProductionState, type ProductionState } from "../../game-data/prod
 export const farms = pgTable(
   "farms",
   {
+    farmerProfile: jsonb("farmer_profile").$type<import("../../schemas/farmerProfile").FarmerProfile>(),
     roads: jsonb("roads").$type<readonly import("../../game-data/roads").FarmRoad[]>().notNull().default([]),
     fishing: jsonb("fishing").$type<FishingSession>(),
     milling: jsonb("milling").$type<MillingJob>(),

@@ -1,4 +1,5 @@
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
+import { planProductionJourney, productionArrivalAt } from "../../game-core/farm/productionJourney";
 import { sharedDeliveryStop } from "../../game-core/farm/storageDelivery";
 import { porterReserved } from "../../game-data/porter";
 import { and, eq, sql } from "drizzle-orm";
@@ -85,6 +86,9 @@ export const startMilling = (database: Database, input: Extract<GameCommand, { t
       if (!mill) return new MillingRuleError({ message: "Choose a completed Mill." });
       if (activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, mill.id, now)) return new MillingRuleError({ message: "The Mill is upgrading. Wait for the upgrade to finish." });
       const recipe = millRecipe(input.recipe, input.worker, buildingLevel(snapshot.farm.production.buildingUpgrades, mill.id, now));
+      const preparation = planProductionJourney(snapshot, mill.id, now, input, input.worker === "donkey" ? "donkeyMilling" : "milling");
+      if (!preparation) return new MillingRuleError({ message: "The Mill needs an accessible loading tile." });
+      const startsAt = productionArrivalAt(preparation);
       let remaining = recipe.barley;
       const carried = snapshot.farm.carriedItem;
       const fromHands = carried?.itemKey === "barley" ? Math.min(remaining, carried.quantity) : 0;
@@ -99,8 +103,8 @@ export const startMilling = (database: Database, input: Extract<GameCommand, { t
       const fromFarm = Math.min(remaining, stored);
       if (fromFarm > 0) await tx.update(farmInventory).set({ quantity: stored - fromFarm }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "barley")));
       const [updated] = await tx.update(farms).set({
-        milling: { buildingId: mill.id, recipe: input.recipe, worker: input.worker ?? "farmer", barley: recipe.barley, output: recipe.output,
-          startedAt: new Date(now).toISOString(), completesAt: new Date(now + recipe.durationMs).toISOString() },
+        milling: { preparation, buildingId: mill.id, recipe: input.recipe, worker: input.worker ?? "farmer", barley: recipe.barley, output: recipe.output,
+          startedAt: new Date(startsAt).toISOString(), completesAt: new Date(startsAt + recipe.durationMs).toISOString() },
         ...(fromHands > 0 ? { carriedItemKey: carried!.quantity === fromHands ? null : "barley" as const,
           carriedItemQuantity: carried!.quantity - fromHands, carriedItemExpiresAt: carried!.quantity === fromHands ? null : new Date(carried!.expiresAt!) } : {}),
         version: sql`${farms.version} + 1`, updatedAt: new Date(now)

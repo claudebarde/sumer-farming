@@ -7,6 +7,10 @@ export const INITIAL_PROGRESSION_STATS = {
   processedBarley: 0
 };
 export type ProgressionStats = typeof INITIAL_PROGRESSION_STATS & {
+  readonly buildingReadyAnnounced?: readonly import("./buildings").FarmBuildingType[];
+  readonly builtFirstCanal?: boolean;
+  readonly plantedFirstBarley?: boolean;
+  readonly level3Baseline?: { readonly harvests: number };
   readonly level8Baseline?: { readonly harvestedBarley: number; readonly produced?: number };
   readonly level6Baseline?: {
     readonly produced: number;
@@ -21,6 +25,7 @@ export const LEVEL_4_REQUIRED_HARVESTS = 50;
 export const LEVEL_6_REQUIRED_HARVESTS = LEVEL_4_REQUIRED_HARVESTS * 2;
 export const LEVEL_7_REQUIRED_PRODUCTION = 15;
 export const LEVEL_7_REQUIRED_SALES = 10;
+export const LEVEL_7_FOOD_OFFERING = 5;
 export const LEVEL_8_REQUIRED_GRANARY_BARLEY = 20;
 export const LEVEL_4_BARLEY_OFFERING = 15;
 export const LEVEL_5_BARLEY_OFFERING = 15;
@@ -59,7 +64,7 @@ export const LEVEL_UNLOCK_ITEMS = [
     "Mill donkey (30 shekels at the Baking market)"
   ],
   ["Warehouse", "Small shrine", "Mill upgrade to building level 2"],
-  ["Bread oven and brewery upgrades to building level 2"],
+  ["Date palms", "Dates treats", "Bread oven and brewery upgrades to building level 2"],
   ["Mill upgrade to building level 3", "Neighbourhood and cooperative projects (upcoming)"],
   ["Bread oven and brewery upgrades to building level 3"]
 ] as const;

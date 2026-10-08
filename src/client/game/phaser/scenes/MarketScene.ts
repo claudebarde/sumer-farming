@@ -9,6 +9,10 @@ import { TILE_SIZE } from "../config";
 import { marketDecorations, marketSceneLayout, marketSceneZoom, marketStandStop, marketWalkingPath } from "../marketSceneLayout";
 import { installSceneDomIsolation } from "../sceneDomIsolation";
 import { createDonkey } from "../donkey";
+import { startMarketPresence } from "../../../api/marketPresence";
+import { encodeMarketPosition } from "../marketPresencePosition";
+import { createMarketVisitors } from "../marketVisitors";
+import type { MarketVisitor } from "../../../../schemas/marketPresence";
 
 export class MarketScene extends Phaser.Scene {
   constructor() { super("market-scene"); }
@@ -22,6 +26,10 @@ export class MarketScene extends Phaser.Scene {
     let farmerTile: RoadCoordinate | null = null;
     let previousLeft: number | null = null;
     let walking = false;
+    let presenceColumns = 10;
+    let visitors: readonly MarketVisitor[] = [];
+    let visitorSprites: ReturnType<typeof createMarketVisitors> | null = null;
+    let presenceAvailable = true;
     let donkey: ReturnType<typeof createDonkey> | null = null;
     let donkeyFollowing = false;
     const syncDonkey = () => {
@@ -65,6 +73,8 @@ export class MarketScene extends Phaser.Scene {
       )).setDisplaySize(TILE_SIZE, TILE_SIZE);
     };
     const draw = () => {
+      visitorSprites?.destroy();
+      visitorSprites = null;
       donkey?.destroy();
       donkey = null;
       movement?.stop();
@@ -77,6 +87,7 @@ export class MarketScene extends Phaser.Scene {
       const height = this.scale.height / zoom;
       this.cameras.main.setZoom(zoom).setScroll(0, 0).setOrigin(0, 0);
       const columns = Math.ceil(width / TILE_SIZE);
+      presenceColumns = columns;
       const layout = marketSceneLayout(columns);
       // Preserve the last reached road tile when the responsive layout moves.
       farmerTile = farmerTile === null ? layout.farmer : {
@@ -198,6 +209,14 @@ export class MarketScene extends Phaser.Scene {
         backgroundColor: "#fff6e6", padding: { x: 6, y: 3 }
       }).setOrigin(0.5, 1);
       label(TILE_SIZE, layout.farm.row * TILE_SIZE, "Return to farm");
+      const { column: signColumn, row: signRow } = layout.leaderboard;
+      this.add.image((signColumn + 0.5) * TILE_SIZE, (signRow + 1) * TILE_SIZE, spriteName("signpost"))
+        .setOrigin(0.5, 1).setDisplaySize(TILE_SIZE * 0.75, TILE_SIZE * 0.75)
+        .setInteractive({ useHandCursor: true })
+        .on(Phaser.Input.Events.POINTER_UP, () => {
+          if (!returningHome) marketUiStore.getState().setLeaderboardOpen(true);
+        });
+      label((signColumn + 0.5) * TILE_SIZE, signRow * TILE_SIZE + TILE_SIZE * 0.25, "Leaderboard");
       layout.stands.forEach(({ column, row }, index) => {
         const definition = ([
           { scope: "barley", sprite: "marketStand" },
@@ -233,9 +252,20 @@ export class MarketScene extends Phaser.Scene {
       ).setOrigin(0.5, 1).setDisplaySize(TILE_SIZE, TILE_SIZE);
       updateFarmer();
       syncDonkey();
+      visitorSprites = createMarketVisitors(this, columns);
+      visitorSprites.sync(visitors);
       walkToDestination();
     };
     draw();
+    const stopPresence = startMarketPresence(
+      () => encodeMarketPosition(farmerTile ?? marketSceneLayout(presenceColumns).farmer, presenceColumns),
+      (next, available) => {
+        visitors = next;
+        visitorSprites?.sync(visitors);
+        if (!available && presenceAvailable) showBottomDialog("Live neighbours are temporarily unavailable. Reconnecting...");
+        presenceAvailable = available;
+      }
+    );
     const unsubscribe = farmerCommandStore.subscribe((state, previous) => {
       if (state.carriedItem !== previous.carriedItem) updateFarmer();
     });
@@ -246,6 +276,9 @@ export class MarketScene extends Phaser.Scene {
     });
     this.scale.on(Phaser.Scale.Events.RESIZE, draw);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      stopPresence();
+      visitorSprites?.destroy();
+      visitorSprites = null;
       movement?.stop();
       movement = null;
       destination = null;

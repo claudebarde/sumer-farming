@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { porterApproach, porterPathLength, porterRoadOffset, positionAlongPorterPath } from "../../src/client/game/phaser/porterPresentation";
+import { porterPathLength, porterRoadOffset, positionAlongPorterPath } from "../../src/client/game/phaser/porterPresentation";
 import { PORTER_STEP_MS } from "../../src/game-data/porter";
 import { FARMER_MOVE_DURATION_PER_TILE } from "../../src/game-core/farm/batchPlantingTravel";
 import { getFarmerRoadOffset } from "../../src/client/game/phaser/farmerArrival";
@@ -18,17 +18,18 @@ describe("porter road alignment", () => {
 
 describe("porter market spawn", () => {
   it("takes one farmer walking interval per tile even on a long market approach", () => {
-    const path = porterApproach({ column: 11, row: 5 }, [{ column: 3, row: 5 }, { column: 4, row: 5 }]);
+    const path = Array.from({ length: 8 }, (_, i) => ({ column: 11 - i, row: 5 }));
     const duration = porterPathLength(path) * PORTER_STEP_MS;
     expect(PORTER_STEP_MS).toBe(FARMER_MOVE_DURATION_PER_TILE);
     expect(positionAlongPorterPath(path, FARMER_MOVE_DURATION_PER_TILE / duration)).toEqual({ column: 10, row: 5 });
   });
-  it("starts the visual approach beside the market and joins the saved pickup route", () => {
+  it("uses the same saved route and elapsed position after reload without an extra approach", () => {
     const market = { column: 11, row: 5 };
     const pickup = { column: 5, row: 5 };
-    const path = porterApproach(market, [{ column: 3, row: 5 }, { column: 4, row: 5 }, pickup]);
+    const path = Array.from({ length: 7 }, (_, i) => ({ column: 11 - i, row: 5 }));
     expect(positionAlongPorterPath(path, 0)).toEqual(market);
     expect(positionAlongPorterPath(path, 1)).toEqual(pickup);
     expect(positionAlongPorterPath(path, 0.5).row).toBe(5);
+    expect(positionAlongPorterPath(JSON.parse(JSON.stringify(path)), 0.5)).toEqual(positionAlongPorterPath(path, 0.5));
   });
 });

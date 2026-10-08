@@ -27,6 +27,12 @@ const fixture = async (barley = 3) => {
   const start = (fields = targets, version = 1) => batchPlantingAction(db, { type: "start_batch_planting", playerId, targets: fields, expectedFarmVersion: version });
   const advance = async (action: "collect" | "plant" | "finish" | "stop") => {
     const [current] = await db.select().from(farms).where(eq(farms.id, farm!.id));
+    const batch = current!.production.planting!;
+    // Simulate arrival, rather than using animation callbacks to skip server travel.
+    if ((action === "collect" && batch.phase.type === "collecting") || (action === "plant" && batch.phase.type === "ready")) {
+      if (Date.parse(batch.nextStepAt!) > Date.now())
+        await db.update(farms).set({ production: { ...current!.production, planting: { ...batch, nextStepAt: new Date(Date.now() - 1).toISOString() } } }).where(eq(farms.id, farm!.id));
+    }
     return Effect.runPromise(batchPlantingAction(db, { type: "advance_batch_planting", playerId, action, batchId: current!.production.planting!.id, expectedFarmVersion: current!.version }));
   };
   const finishTimer = async () => {
@@ -35,7 +41,7 @@ const fixture = async (barley = 3) => {
     if (job.phase.type !== "sowing") throw new Error("Expected sowing");
     await db.update(farms).set({ production: { ...current!.production, planting: { ...job, phase: { ...job.phase, completesAt: new Date(Date.now() - 1).toISOString() } } } }).where(eq(farms.id, farm!.id));
   };
-  return { start, advance, finishTimer, farmId: farm!.id };
+  return { start, advance, finishTimer, farmId: farm!.id, playerId };
 };
 
 const catchUp = (farmId: string, now: number) => db.transaction(async tx => {
@@ -44,6 +50,38 @@ const catchUp = (farmId: string, now: number) => db.transaction(async tx => {
 });
 
 describe("batch barley planting", () => {
+  it("starts directly at the farmer when he already carries all required seeds", async () => {
+    const f = await fixture(0);
+    await db.update(farms).set({ carriedItemKey: "barley", carriedItemQuantity: 2,
+      carriedItemExpiresAt: new Date(Date.now() + 86400000) }).where(eq(farms.id, f.farmId));
+    const origin = { column: 7, row: 8 };
+    const started = await Effect.runPromise(batchPlantingAction(db, { type: "start_batch_planting", playerId: f.playerId,
+      targets, farmerPosition: origin, expectedFarmVersion: 1 }));
+    expect(started.farm.production.planting?.phase.type).toBe("ready");
+    expect(started.farm.production.planting?.collectionPath).toBeUndefined();
+    expect(started.farm.production.planting?.travelPaths?.[0]?.[0]).toEqual(origin);
+  });
+  it("saves the actual starting position and cannot skip the collection journey", async () => {
+    const f = await fixture();
+    const origin = { column: 7, row: 8 };
+    const started = await Effect.runPromise(batchPlantingAction(db, { type: "start_batch_planting", playerId: f.playerId,
+      targets, farmerPosition: origin, expectedFarmVersion: 1 }));
+    const job = started.farm.production.planting!;
+    expect(job.collectionPath?.[0]).toEqual(origin);
+    expect(job.collectionPath?.at(-1)).toEqual(job.travelPaths?.[0]?.[0]);
+    expect(job.travelPaths?.[0]?.at(-1)).toEqual(job.remaining[0]);
+    expect(job.travelPaths?.[1]?.[0]).toEqual(job.remaining[0]);
+    const early = await Effect.runPromise(batchPlantingAction(db, { type: "advance_batch_planting", playerId: f.playerId,
+      batchId: job.id, action: "collect", expectedFarmVersion: started.farm.version }));
+    expect(early.farm.production.planting).toEqual(job);
+    const atCollection = await catchUp(f.farmId, Date.parse(job.nextStepAt!));
+    expect(atCollection.production.planting?.phase.type).toBe("ready");
+    expect(atCollection.production.planting?.travelStartedAt).toBe(job.nextStepAt);
+    const firstArrival = Date.parse(job.nextStepAt!) + job.travelMs![0]!;
+    const atField = await catchUp(f.farmId, firstArrival);
+    expect(atField.production.planting?.phase.type).toBe("sowing");
+    expect(atField.production.planting?.travelPaths).toEqual(job.travelPaths?.slice(1));
+  });
   it.each([[50, 4], [51, 6], [90, 6], [91, 8]])("enforces %i happiness's %i-field planting limit before reserving seeds", async (happiness, limit) => {
     const f = await fixture(0);
     await db.update(farms).set({ level: 4, happiness, happinessCheckedAt: new Date(),

@@ -3,6 +3,30 @@ import { marketDecorations, marketRoadTiles, marketSceneLayout, marketSceneZoom,
 import { marketUiStore } from "../../src/client/stores/marketUiStore";
 
 describe("market scene", () => {
+  it.each([10, 12, 16, 24])("places the leaderboard on free ground right of the beer stand (%i columns)", columns => {
+    const layout = marketSceneLayout(columns);
+    const sign = layout.leaderboard;
+    expect(sign.column).toBe(layout.stands[1].column + 2);
+    expect(sign.row).toBe(layout.stands[1].row);
+    expect(marketRoadTiles(columns)).not.toContainEqual(sign);
+    for (const decoration of marketDecorations(columns)) {
+      expect(sign.column < decoration.column + decoration.size && sign.column + 1 > decoration.column && sign.row < decoration.row + decoration.size && sign.row + 1 > decoration.row).toBe(false);
+    }
+  });
+  it("opens the leaderboard only in the market and closes it on exit or trade", () => {
+    marketUiStore.getState().setLocation("farm");
+    marketUiStore.getState().setLeaderboardOpen(true);
+    expect(marketUiStore.getState().leaderboardOpen).toBe(false);
+    marketUiStore.getState().setLocation("market");
+    marketUiStore.getState().setLeaderboardOpen(true);
+    expect(marketUiStore.getState().leaderboardOpen).toBe(true);
+    marketUiStore.getState().openMarket("beer");
+    expect(marketUiStore.getState().leaderboardOpen).toBe(false);
+    marketUiStore.getState().setLeaderboardOpen(true);
+    expect(marketUiStore.getState().isOpen).toBe(false);
+    marketUiStore.getState().setLocation("farm");
+    expect(marketUiStore.getState().leaderboardOpen).toBe(false);
+  });
   it.each([10, 12, 16, 24])("keeps fixed greenery clear of roads and buildings (%i columns)", columns => {
     const decorations = marketDecorations(columns);
     const layout = marketSceneLayout(columns);

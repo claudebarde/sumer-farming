@@ -6,6 +6,14 @@ import { sharedStorageAllocation } from "../../src/game-core/farm/storageDisplay
 import { ESTATE_STORAGE_LIMITS } from "../../src/game-data/storage";
 
 describe("building storage displays", () => {
+  it("shows date baskets only in the warehouse with a five-basket capacity", () => {
+    const inventory = [{ itemKey: "dates" as const, quantity: 4 }];
+    const farm = renderToStaticMarkup(createElement(BuildingStorageTables, { location: "farm", inventory, barley: 0, warehouseComplete: true, showDates: true }));
+    const warehouse = renderToStaticMarkup(createElement(BuildingStorageTables, { location: "warehouse", inventory, barley: 0, warehouseComplete: true, showDates: true }));
+    expect(farm).not.toContain("Date baskets");
+    expect(warehouse).toContain(">Date baskets</th>"); expect(warehouse).toContain("4/5");
+    expect(sharedStorageAllocation("dates", 8, true)).toEqual({ farm: { quantity: 0, capacity: 0 }, warehouse: { quantity: 8, capacity: 5 } });
+  });
   it.each(Object.keys(ESTATE_STORAGE_LIMITS) as (keyof typeof ESTATE_STORAGE_LIMITS)[])("allocates %s warehouse-first without double counting", item => {
     const capacity = ESTATE_STORAGE_LIMITS[item];
     for (const quantity of [0, capacity - 1, capacity, capacity + 4, capacity + 10, capacity + 15]) {

@@ -3,6 +3,8 @@ import type { MarketItemKey } from "../../game-data/marketItems";
 import type { MarketListingCursor, MarketListingsPage } from "../../schemas/marketListings";
 import { fetchMarketListings } from "../api/marketListings";
 import styles from "../styles/GameCanvas.module.scss";
+import MarketTransactionPreview from "./MarketTransactionPreview";
+import { MARKET_ITEM_DEFINITIONS } from "../../game-data/marketItems";
 
 type Props = {
   readonly itemKey: MarketItemKey;
@@ -10,6 +12,7 @@ type Props = {
   readonly quantity: number;
   readonly availableStorage: number;
   readonly balance: number;
+  readonly stock: number;
   readonly pending: boolean;
   readonly farmVersion: number;
   readonly buy: (id: string, unitPrice: number) => Promise<void>;
@@ -62,6 +65,11 @@ export default function MarketListings(props: Props) {
           {result.page.orders.map(order => (
             <li key={order.id}>
               <span>{order.remainingQuantity} at {order.unitPrice} {order.unitPrice === 1 ? "shekel" : "shekels"} each</span>
+              {action === "buy" && <MarketTransactionPreview
+                label={MARKET_ITEM_DEFINITIONS[itemKey].label.toLowerCase()}
+                stock={props.stock} balance={props.balance}
+                transaction={{ type: "buy", quantity: props.quantity, unitPrice: order.unitPrice }}
+              />}
               {action === "sell" ? (
                 <button disabled={props.pending || props.availableStorage < order.remainingQuantity}
                   onClick={() => { void props.cancel(order.id); }}>

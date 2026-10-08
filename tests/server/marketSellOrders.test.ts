@@ -61,6 +61,18 @@ describe.sequential("player market sell orders", () => {
     return { playerId, farmId };
   };
 
+  it("rejects reserving all barley, including a second listing of the last seed", async () => {
+    const fixture = await createFixture();
+    const input = { playerId: fixture.playerId, itemKey: "barley" as const, quantity: 5,
+      unitPrice: 3, idempotencyKey: randomUUID(), expectedFarmVersion: 1 };
+    expect(await Effect.runPromise(Effect.flip(createMarketSellOrder(database, input))))
+      .toMatchObject({ rule: { type: "barley_reserve_required" } });
+    const listed = await Effect.runPromise(createMarketSellOrder(database, { ...input, quantity: 4 }));
+    expect(listed.buildings[0]?.storedBarley).toBe(1);
+    expect(await Effect.runPromise(Effect.flip(createMarketSellOrder(database, { ...input, quantity: 1,
+      expectedFarmVersion: listed.farm.version, idempotencyKey: randomUUID() }))))
+      .toMatchObject({ rule: { type: "barley_reserve_required" } });
+  });
   beforeAll(async () => {
     client = new Client({ connectionString: TEST_DATABASE_URL });
     await client.connect();

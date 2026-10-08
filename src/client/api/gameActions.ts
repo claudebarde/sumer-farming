@@ -22,6 +22,10 @@ export const executeGameCommand = async (
 ): Promise<FarmSnapshot> => {
   const response = await fetch("/api/game/action", {
     method: "POST",
+    // Small start intentions should survive navigating away immediately after
+    // confirmation. A job is guaranteed only once accepted by the server.
+    keepalive: command.type === "start_milling" || command.type === "start_baking" || command.type === "tend_perennial_crop" ||
+      (command.type === "brewery_supply" && command.action === "start_brewing"),
     headers: {
       ...developmentPlayerHeaders(),
       "content-type": "application/json"

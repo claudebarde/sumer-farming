@@ -1,4 +1,5 @@
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
+import { datesTreatErrors, validateDatesTreat, happinessAfterDates } from "../../game-core/farm/wellbeing";
 import { and, eq, gt, isNotNull, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { validateBrewerySupply, brewerySupplyErrors, type BrewerySupplyRule } from "../../game-core/farm/brewerySupplies";
@@ -16,12 +17,12 @@ import { readFarmSnapshot } from "./farmSnapshot";
 import { breadTreatErrors, validateBreadTreat, happinessAfterBread } from "../../game-core/farm/wellbeing";
 
 export class BrewerySupplyRuleError extends Data.TaggedError("BrewerySupplyRuleError")<{
-  readonly type: BrewerySupplyRule | keyof typeof brewingErrors | keyof typeof fishTreatErrors | keyof typeof breadTreatErrors | "farm_not_found" | "farm_version_conflict" | "farmer_busy";
+  readonly type: BrewerySupplyRule | keyof typeof brewingErrors | keyof typeof fishTreatErrors | keyof typeof breadTreatErrors | keyof typeof datesTreatErrors | "farm_not_found" | "farm_version_conflict" | "farmer_busy" | "level_locked";
   readonly message: string;
 }> {}
 export class BrewerySupplyPersistenceError extends Data.TaggedError("BrewerySupplyPersistenceError")<{ readonly cause: unknown }> {}
 
-export const supplyBrewery = (database: Database, input: Extract<GameCommand, { type: "brewery_supply" | "give_farmer_beer" | "give_farmer_fish" | "give_farmer_bread" }> & { readonly playerId: string }) =>
+export const supplyBrewery = (database: Database, input: Extract<GameCommand, { type: "brewery_supply" | "give_farmer_beer" | "give_farmer_fish" | "give_farmer_bread" | "give_farmer_dates" }> & { readonly playerId: string }) =>
   Effect.gen(function* () {
     const now = new Date(yield* Clock.currentTimeMillis);
     const result = yield* Effect.tryPromise({
@@ -37,6 +38,17 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
         )).limit(1);
         if (farm.production.materialDelivery || farm.production.planting || farmerProductionJob(farm) || farm.millGoods.delivery || farm.production.delivery || farm.gatheringItemKey !== null || workingCrop) return new BrewerySupplyRuleError({ type: "farmer_busy", message: "The farmer is busy." });
         const snapshot = await readFarmSnapshot(transaction, farm, false);
+        if (farm.production.cropWork && !farm.production.cropWork.settled) return new BrewerySupplyRuleError({ type: "farmer_busy", message: "The farmer is busy." });
+        if (input.type === "give_farmer_dates") {
+          if (farm.level < 9) return new BrewerySupplyRuleError({ type: "level_locked", message: "Dates unlock at level 9." });
+          const quantity = snapshot.inventory.find(i => i.itemKey === "dates")?.quantity ?? 0;
+          const rule = validateDatesTreat(quantity, farm.happiness, farm.production.lastDatesAt ? Date.parse(farm.production.lastDatesAt) : null, now.getTime());
+          if (rule) return new BrewerySupplyRuleError({ type: rule, message: datesTreatErrors[rule] });
+          await transaction.update(farmInventory).set({ quantity: quantity - 1, updatedAt: now }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "dates")));
+          const [updated] = await transaction.update(farms).set({ happiness: happinessAfterDates(farm.happiness), happinessCheckedAt: now,
+            production: { ...farm.production, lastDatesAt: now.toISOString() }, version: sql`${farms.version} + 1`, updatedAt: now }).where(eq(farms.id, farm.id)).returning();
+          return readFarmSnapshot(transaction, updated!, false);
+        }
         // Estate gifts do not require a brewery or consume a brewery's ready batch.
         if (input.type === "give_farmer_beer" || input.type === "give_farmer_fish" || input.type === "give_farmer_bread") {
           const itemKey = input.type === "give_farmer_fish" ? "fish" : input.type === "give_farmer_bread" ? "bread" : "beer";

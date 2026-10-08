@@ -31,7 +31,7 @@ export default function HarvestInfoDialog({ limit, happiness, started }: {
           </ul>
           <p>The limit is locked when harvesting starts. Later happiness changes do not interrupt the batch.</p>
           <p>Start with empty hands. Each field takes 10 seconds plus travel and yields 2 barley. The chip above the farmer shows how much he is carrying.</p>
-          <p>Harvesting continues while you are away. “Stop after this field” finishes the current field and leaves the others untouched. Deliver the harvested barley to the farm or a granary afterwards.</p>
+          <p>Harvesting and the return trip continue while you are away. “Stop after this field” finishes the current field and leaves the others untouched. The farmer automatically takes harvested barley to a completed, reachable granary and stores what fits. Any surplus stays in his hands outside the granary. Without an available granary, he keeps the barley for you to direct.</p>
           <Dialog.Close asChild><button type="button">Got it</button></Dialog.Close>
         </div>
       </Dialog.Content>

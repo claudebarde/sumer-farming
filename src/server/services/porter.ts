@@ -1,10 +1,11 @@
 import { and, eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { PORTER_COST, PORTER_HIRE_MS } from "../../game-data/porter";
-import { PORTER_HOME } from "../../game-core/farm/porter";
+import { PORTER_HOME, porterPath } from "../../game-core/farm/porter";
+import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import type { GameCommand } from "../../schemas/gameCommands";
 import type { Database } from "../db/client";
-import { farms, players, shekelTransactions } from "../db/schema";
+import { farms, farmBuildings, players, shekelTransactions } from "../db/schema";
 import { readFarmSnapshot } from "./farmSnapshot";
 import { advanceFarmLifecycle } from "./farmLifecycle";
 
@@ -24,9 +25,14 @@ export const hirePorter = (db: Database, input: Extract<GameCommand, { type: "hi
     const [player] = await tx.select().from(players).where(eq(players.id, input.playerId)).for("update");
     if (!player || player.shekelBalance < PORTER_COST) return new PorterRuleError({ message: "Not enough shekels." });
     const balanceAfter = player.shekelBalance - PORTER_COST;
+    const buildings = await tx.select().from(farmBuildings).where(eq(farmBuildings.farmId, farm.id));
+    const market = input.marketRoad;
+    const position = market && market.row === INITIAL_FARM_CONFIG.roadRow && porterPath(
+      buildings.map(b => ({ ...b, completesAt: b.completesAt.getTime() })), farm.roads, PORTER_HOME, market, now
+    ) ? market : PORTER_HOME;
     await tx.update(players).set({ shekelBalance: balanceAfter }).where(eq(players.id, input.playerId));
     await tx.insert(shekelTransactions).values({ playerId: input.playerId, idempotencyKey: input.idempotencyKey, type: "porter_hire", delta: -PORTER_COST, balanceAfter });
-    const [updated] = await tx.update(farms).set({ production: { ...farm.production, porter: { hiredAt: now, expiresAt: now + PORTER_HIRE_MS, checkedAt: now, position: PORTER_HOME, job: null } }, version: sql`${farms.version} + 1`, updatedAt: new Date(now) }).where(eq(farms.id, farm.id)).returning();
+    const [updated] = await tx.update(farms).set({ production: { ...farm.production, porter: { hiredAt: now, expiresAt: now + PORTER_HIRE_MS, checkedAt: now, position, job: null } }, version: sql`${farms.version} + 1`, updatedAt: new Date(now) }).where(eq(farms.id, farm.id)).returning();
     return readFarmSnapshot(tx, updated!, false);
   }), catch: cause => new PorterPersistenceError({ cause }) });
   return result instanceof PorterRuleError ? yield* Effect.fail(result) : result;

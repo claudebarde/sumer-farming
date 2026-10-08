@@ -34,7 +34,7 @@ withdrawn, sold, dropped, or delivered to other buildings in this version.
 
 In Resources, **Give one fish to the farmer** consumes one stored fish for +10
 happiness (capped at 100). Fish has an eight-hour cooldown recorded in
-`last_fish_at`, independent of beer's 24-hour `last_beer_at` cooldown.
+`last_fish_at`, independent of beer's 12-hour `last_beer_at` cooldown.
 Migration 0031 leaves existing beer deadlines intact and makes fish immediately
 available because legacy shared timestamps cannot identify the last fish gift.
 Full happiness or a cooldown never consumes

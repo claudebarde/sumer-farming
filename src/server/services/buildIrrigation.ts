@@ -1,5 +1,6 @@
 import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
-import { and, eq, isNull, lte, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, lte, sql } from "drizzle-orm";
+import { farmDecorationTypes, isClearableScenery } from "../../game-data/farmObjects";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
 
@@ -179,7 +180,7 @@ export const buildIrrigation = (
                 )
                 .limit(1),
               transaction
-                .select({ id: farmObjects.id })
+                .select({ id: farmObjects.id, type: farmObjects.type })
                 .from(farmObjects)
                 .where(
                   and(
@@ -231,7 +232,7 @@ export const buildIrrigation = (
 
           if (
             buildings.some(b => b.loadingTile?.column === input.target.column && b.loadingTile.row === input.target.row) ||
-            occupyingObject.length > 0 ||
+            occupyingObject.some(object => !isClearableScenery(object.type)) ||
             occupyingGroundItem.length > 0 ||
             occupyingCrop.length > 0 ||
             buildings.some(building =>
@@ -265,6 +266,11 @@ export const buildIrrigation = (
           if (createdImprovement === undefined) {
             return { type: "already_exists" };
           }
+
+          await transaction.delete(farmObjects).where(and(
+            eq(farmObjects.farmId, farm.id), eq(farmObjects.column, input.target.column),
+            eq(farmObjects.row, input.target.row), inArray(farmObjects.type, [...farmDecorationTypes])
+          ));
 
           const [updatedFarm] = await transaction
             .update(farms)

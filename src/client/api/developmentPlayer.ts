@@ -1,4 +1,12 @@
 import { FarmSnapshotSchema } from "../../schemas/farm";
+import { z } from "zod";
+
+export const DEVELOPMENT_PLAYERS_CHANGED = "development-players-changed";
+export const fetchDevelopmentPlayers = async (signal?: AbortSignal) => {
+  const response = await fetch("/api/development/players", { headers: developmentPlayerHeaders(), signal });
+  if (!response.ok) throw new Error("Test player names could not be loaded.");
+  return z.object({ players: z.array(z.object({ key: z.string(), name: z.string() })) }).parse(await response.json()).players;
+};
 
 export const developmentPlayerHeaders = (): Record<string, string> =>
   import.meta.env.DEV

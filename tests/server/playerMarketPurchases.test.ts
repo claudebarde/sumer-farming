@@ -29,7 +29,7 @@ const player = async (barley = 0, shekels = 20) => {
   return { id, farmId: farm!.id };
 };
 const fixture = async (quantity = 3) => {
-  const seller = await player(quantity, 0);
+  const seller = await player(quantity + 1, 0);
   const buyer = await player();
   await Effect.runPromise(createMarketSellOrder(db, { playerId: seller.id, itemKey: "barley", quantity, unitPrice: 3, idempotencyKey: randomUUID(), expectedFarmVersion: 1 }));
   const [order] = await db.select().from(marketOrders).where(eq(marketOrders.playerId, seller.id));
@@ -52,7 +52,7 @@ describe.sequential("player purchases", () => {
     const [trade] = await db.select().from(marketTrades).where(eq(marketTrades.orderId, order.id));
     expect(trade).toMatchObject({ buyerId: buyer.id, sellerId: seller.id, quantity: 2, unitPrice: 3 });
     const cancelled = await Effect.runPromise(cancelMarketSellOrder(db, { playerId: seller.id, orderId: order.id, expectedFarmVersion: 3 }));
-    expect(cancelled.inventory).toContainEqual({ itemKey: "barley", quantity: 1 });
+    expect(cancelled.inventory).toContainEqual({ itemKey: "barley", quantity: 2 });
   });
 
   it("fills an order and retries the same purchase without charging twice", async () => {
@@ -141,7 +141,7 @@ describe.sequential("player purchases", () => {
       ]);
       expect(outcomes.filter(Either.isRight)).toHaveLength(1);
       const inventory = await db.select().from(farmInventory).where(inArray(farmInventory.farmId, [seller.farmId, buyer.farmId]));
-      expect(inventory.reduce((sum, entry) => sum + entry.quantity, 0)).toBe(1);
+      expect(inventory.reduce((sum, entry) => sum + entry.quantity, 0)).toBe(2);
       const wallets = await db.select().from(players).where(inArray(players.id, [seller.id, buyer.id]));
       expect(wallets.reduce((sum, wallet) => sum + wallet.shekelBalance, 0)).toBe(20);
       const [finalOrder] = await db.select().from(marketOrders).where(eq(marketOrders.id, order.id));

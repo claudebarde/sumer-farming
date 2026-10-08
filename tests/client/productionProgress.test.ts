@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { productionProgress } from "../../src/client/game/phaser/productionProgress";
+import { productionProgress, productionVisualsReady } from "../../src/client/game/phaser/productionProgress";
 import { FARM_BUILDING_DEFINITIONS, farmBuildingTypes } from "../../src/game-data/buildings";
 
 describe("building production bars", () => {
@@ -11,6 +11,19 @@ describe("building production bars", () => {
     expect(productionProgress(construction, 1000 + duration)).toBeNull();
   });
   const job = { startedAt: new Date(1000).toISOString(), completesAt: new Date(301000).toISOString() };
+  it("keeps busy sprites and bars hidden during preparation even if the actor arrives early", () => {
+    expect(productionVisualsReady(job, 500, true)).toBe(false);
+    expect(productionVisualsReady(job, 500, false)).toBe(false);
+  });
+  it("waits for local arrival reconciliation even when the server start time has passed", () => {
+    expect(productionVisualsReady(job, 2000, true)).toBe(false);
+    expect(productionVisualsReady(job, 2000, false)).toBe(true);
+  });
+  it("restores production visuals from saved time without another arrival event", () => {
+    expect(productionVisualsReady(job, 1000, false)).toBe(true);
+    expect(productionVisualsReady(null, 1000, false)).toBe(false);
+    expect(productionVisualsReady({ startedAt: "invalid" }, 1000, false)).toBe(false);
+  });
   it("uses persisted times to resume progress after reload", () => {
     expect(productionProgress(job, 1000)).toBe(0);
     expect(productionProgress(job, 151000)).toBe(0.5);

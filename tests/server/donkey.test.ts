@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { Client } from "pg";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { createDatabase } from "../../src/server/db/client";
 import { farmBuildings, farmInventory, farms, players, shekelTransactions } from "../../src/server/db/schema";
 import { buyFromNpcMarket, sellToNpcMarket } from "../../src/server/services/tradeMarketItem";
@@ -21,7 +21,7 @@ const client = new Client({ connectionString: process.env.TEST_DATABASE_URL ?? "
 const db = createDatabase(client);
 const ids = new Set<string>();
 beforeAll(() => client.connect());
-afterEach(async () => { if (ids.size) await db.delete(players).where(inArray(players.id, [...ids])); ids.clear(); });
+afterEach(async () => { vi.useRealTimers(); if (ids.size) await db.delete(players).where(inArray(players.id, [...ids])); ids.clear(); });
 afterAll(() => client.end());
 const fixture = async (level = 7, balance = 100) => {
   const playerId = randomUUID(); ids.add(playerId);
@@ -80,9 +80,15 @@ describe("mill donkey", () => {
     expect(active.inventory.find(i => i.itemKey === "barley")?.quantity).toBe(0);
     expect(active.buildings.find(b => b.type === "granary")?.storedBarley).toBe(0);
     expect(millSprite(f.mill.id, job)).toBe("millDonkey");
+    expect(farmerProductionJob(active.farm)?.type).toBe("milling");
+    expect(() => assertFarmerAvailable({ ...f.farm, milling: job })).toThrow("preparing");
+    expect((await f.read()).farm.milling).toEqual(job);
+    // No animation callbacks or new start request: elapsed server time alone
+    // releases the farmer and starts the already-reserved batch.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(Date.parse(job.startedAt) + 1);
     expect(farmerProductionJob(active.farm)).toBeNull();
     expect(() => assertFarmerAvailable({ ...f.farm, milling: job })).not.toThrow();
-    expect((await f.read()).farm.milling).toEqual(job);
     await expect(Effect.runPromise(Effect.flip(startMilling(db, { ...input, expectedFarmVersion: active.farm.version })))).resolves.toMatchObject({ _tag: "MillingRuleError" });
     const baking = await Effect.runPromise(productionAction(db, { type: "start_baking", playerId: f.playerId, buildingId: oven!.id, expectedFarmVersion: active.farm.version }));
     expect(farmerProductionJob(baking.farm)?.type).toBe("baking");

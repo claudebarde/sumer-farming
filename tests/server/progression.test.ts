@@ -6,9 +6,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { INITIAL_PROGRESSION_STATS } from "../../src/game-data/progression";
 import { evaluateProgression } from "../../src/game-core/farm/progression";
 import { createDatabase } from "../../src/server/db/client";
-import { farmBuildings, farmCrops, farmGroundItems, farmInventory, farms, players, shekelTransactions } from "../../src/server/db/schema";
+import { farmBuildings, farmCrops, farmImprovements, farmGroundItems, farmInventory, farms, players, shekelTransactions } from "../../src/server/db/schema";
 import { claimFarmLevel } from "../../src/server/services/claimFarmLevel";
 import { readFarmSnapshot } from "../../src/server/services/farmSnapshot";
+import { claimBuildingReadiness } from "../../src/server/services/buildingReadiness";
 
 const connectionString = process.env.TEST_DATABASE_URL ?? "postgres://sumer:sumer_dev@localhost:5432/sumer_farming";
 const client = new Client({ connectionString });
@@ -30,6 +31,58 @@ const fixture = async (quantity = 5) => {
   return { farmId: farm!.id, input, snapshot };
 };
 describe("manual farm levels", () => {
+  it("claims building readiness once across concurrent clients and subsequent reloads", async () => {
+    const f = await fixture();
+    await db.update(farms).set({ level: 2 }).where(eq(farms.id, f.farmId));
+    expect(await claimBuildingReadiness(db, f.input.playerId)).toEqual({ building: null });
+    await db.insert(farmInventory).values([{ farmId: f.farmId, itemKey: "reed", quantity: 2 }, { farmId: f.farmId, itemKey: "clay", quantity: 3 }]);
+    const results = await Promise.all([0, 1].map(async () => {
+      const connection = new Client({ connectionString }); await connection.connect();
+      try { return await claimBuildingReadiness(createDatabase(connection), f.input.playerId); }
+      finally { await connection.end(); }
+    }));
+    expect(results.filter(r => r.building === "granary")).toHaveLength(1);
+    expect((await f.snapshot()).farm.progression!.stats.buildingReadyAnnounced).toEqual(["granary"]);
+    expect(await claimBuildingReadiness(db, f.input.playerId)).toEqual({ building: null });
+  });
+  it.each([true, false])("suppresses readiness for an existing building (complete: %s)", async complete => {
+    const f = await fixture();
+    await db.update(farms).set({ level: 2 }).where(eq(farms.id, f.farmId));
+    await db.insert(farmInventory).values([{ farmId: f.farmId, itemKey: "reed", quantity: 2 }, { farmId: f.farmId, itemKey: "clay", quantity: 3 }]);
+    await db.insert(farmBuildings).values({ farmId: f.farmId, type: "granary", column: 5, row: 2, startedAt: new Date(0), completesAt: new Date(complete ? 1000 : Date.now() + 60000) });
+    expect(await claimBuildingReadiness(db, f.input.playerId)).toEqual({ building: null });
+  });
+  it("tracks introductory objectives only after completion and preserves them after removal", async () => {
+    const f = await fixture();
+    await db.update(farms).set({ progressionStats: INITIAL_PROGRESSION_STATS }).where(eq(farms.id, f.farmId));
+    const checks = async () => evaluateProgression(await f.snapshot(), Date.now()).requirements.slice(0, 2).map(r => r.met);
+    expect(await checks()).toEqual([false, false]);
+    const future = new Date(Date.now() + 60000);
+    await db.insert(farmImprovements).values({ farmId: f.farmId, type: "irrigation", column: 2, row: 9, startedAt: new Date(), completesAt: future });
+    expect(await checks()).toEqual([false, false]);
+    await db.update(farmImprovements).set({ startedAt: new Date(0), completesAt: new Date(1000), row: 1 }).where(eq(farmImprovements.farmId, f.farmId));
+    expect(await checks()).toEqual([false, false]);
+    await db.update(farmImprovements).set({ row: 9 }).where(eq(farmImprovements.farmId, f.farmId));
+    expect(await checks()).toEqual([true, false]);
+    await db.delete(farmImprovements).where(eq(farmImprovements.farmId, f.farmId));
+    expect(await checks()).toEqual([true, false]);
+    await db.insert(farmCrops).values({ farmId: f.farmId, cropKey: "barley", column: 3, row: 8,
+      sowingStartedAt: new Date(0), plantedAt: future, growthCompletesAt: new Date(future.getTime() + 1800000) });
+    expect(await checks()).toEqual([true, false]);
+    await db.update(farmCrops).set({ plantedAt: new Date(1000) }).where(eq(farmCrops.farmId, f.farmId));
+    expect(await checks()).toEqual([true, true]);
+    await db.delete(farmCrops).where(eq(farmCrops.farmId, f.farmId));
+    expect(await checks()).toEqual([true, true]);
+    expect((await f.snapshot()).farm.progression!.stats).toMatchObject({ builtFirstCanal: true, plantedFirstBarley: true });
+  });
+  it("credits existing harvest history for both introductory objectives", async () => {
+    const f = await fixture();
+    const snapshot = await f.snapshot();
+    expect(evaluateProgression(snapshot, Date.now()).requirements.slice(0, 2)).toMatchObject([
+      { label: "Build an irrigation canal", met: true }, { label: "Plant your first barley field", met: true }
+    ]);
+    expect(snapshot.farm.progression!.stats).toMatchObject({ builtFirstCanal: true, plantedFirstBarley: true });
+  });
   it("adds legacy production tracking once while preserving harvest progress", async () => {
     const f = await fixture();
     await db.update(farms).set({ level: 8, progressionStats: { ...INITIAL_PROGRESSION_STATS,
@@ -139,7 +192,7 @@ describe("manual farm levels", () => {
     await db.insert(shekelTransactions).values({ playerId: f.input.playerId, idempotencyKey: randomUUID(), type: "market_sale", itemKey: "bread", itemQuantity: 50 + sold, unitPrice: 5, delta: (50 + sold) * 5, balanceAfter: 500 });
     const snapshot = await f.snapshot();
     const progress = evaluateProgression(snapshot, Date.now());
-    expect(progress.requirements.map(r => [r.current, r.required])).toEqual([[produced, 15], [sold, 10]]);
+    expect(progress.requirements.map(r => [r.current, r.required])).toEqual([[produced, 15], [sold, 10], [0, 5]]);
     expect(progress.canClaim).toBe(false);
     expect(await Effect.runPromise(Effect.flip(claimFarmLevel(db, { ...f.input, expectedLevel: 6, expectedFarmVersion: snapshot.farm.version })))).toMatchObject({ _tag: "LevelClaimRuleError" });
   });
@@ -149,15 +202,16 @@ describe("manual farm levels", () => {
     await db.insert(shekelTransactions).values({ playerId: f.input.playerId, idempotencyKey: randomUUID(), type: "market_sale", itemKey: "bread", itemQuantity: 5, unitPrice: 5, delta: 25, balanceAfter: 25 });
     const first = await f.snapshot();
     expect(first.farm.progression?.stats.level6Baseline).toEqual({ produced: 12, sold: 5 });
-    expect(evaluateProgression(first, Date.now()).requirements.map(r => r.current)).toEqual([0, 0]);
+    expect(evaluateProgression(first, Date.now()).requirements.map(r => r.current)).toEqual([0, 0, 0]);
     await db.update(farms).set({ progressionStats: { ...first.farm.progression!.stats, breadProduced: 14 } }).where(eq(farms.id, f.farmId));
     const reload = await f.snapshot();
     expect(reload.farm.progression?.stats.breadProduced).toBe(14);
-    expect(evaluateProgression(reload, Date.now()).requirements.map(r => r.current)).toEqual([2, 0]);
+    expect(evaluateProgression(reload, Date.now()).requirements.map(r => r.current)).toEqual([2, 0, 0]);
     expect((await f.snapshot()).farm.progression?.stats.level6Baseline).toEqual({ produced: 12, sold: 5 });
   });
   it.each([[15, 0, 10, 0], [0, 15, 0, 10], [8, 7, 4, 6]])("allows level 7 with bread/beer production %i/%i and sales %i/%i", async (breadProduced, beerProduced, breadSold, beerSold) => {
     const f = await fixture();
+    await db.insert(farmInventory).values({ farmId: f.farmId, itemKey: "bread", quantity: 5 });
     await db.update(farms).set({ level: 6, progressionStats: { ...INITIAL_PROGRESSION_STATS, breadProduced, beerProduced, level6Baseline: { produced: 0, sold: 0 } } }).where(eq(farms.id, f.farmId));
     for (const [itemKey, quantity] of [["bread", breadSold], ["beer", beerSold]] as const) {
       if (quantity) await db.insert(shekelTransactions).values({ playerId: f.input.playerId, idempotencyKey: randomUUID(), type: "market_sale", itemKey, itemQuantity: quantity, unitPrice: 5, delta: quantity * 5, balanceAfter: 20 });
@@ -167,6 +221,34 @@ describe("manual farm levels", () => {
     expect(evaluateProgression(snapshot, Date.now()).canClaim).toBe(true);
     const claimed = await Effect.runPromise(claimFarmLevel(db, { ...f.input, expectedLevel: 6, expectedFarmVersion: snapshot.farm.version }));
     expect(claimed.farm.progression?.level).toBe(7);
+  });
+  it.each([[5, 0], [0, 5], [3, 2], [2, 8], [8, 8], [2, 2], [0, 0]])("consumes exactly five stored food for level 7 from bread %i / beer %i, once", async (bread, beer) => {
+    const f = await fixture();
+    await db.update(farms).set({ level: 6, progressionStats: { ...INITIAL_PROGRESSION_STATS,
+      breadProduced: 15, level6Baseline: { produced: 0, sold: 0 } },
+      carriedItemKey: "bread", carriedItemQuantity: 2,
+      production: { baking: {}, bread: { pending: { [randomUUID()]: 10 }, delivery: null } }
+    }).where(eq(farms.id, f.farmId));
+    await db.insert(shekelTransactions).values({ playerId: f.input.playerId, idempotencyKey: randomUUID(), type: "market_sale", itemKey: "bread", itemQuantity: 10, unitPrice: 5, delta: 50, balanceAfter: 50 });
+    await db.insert(farmInventory).values([{ farmId: f.farmId, itemKey: "bread", quantity: bread }, { farmId: f.farmId, itemKey: "beer", quantity: beer }]);
+    const snapshot = await f.snapshot();
+    const input = { ...f.input, expectedLevel: 6, expectedFarmVersion: snapshot.farm.version };
+    const enough = bread + beer >= 5;
+    expect(evaluateProgression(snapshot, Date.now()).canClaim).toBe(enough);
+    if (enough) {
+      // Concurrent retries must share the farm lock and charge only once.
+      const results = await Promise.all([Effect.runPromise(claimFarmLevel(db, input)), Effect.runPromise(claimFarmLevel(db, input))]);
+      expect(results.every(r => r.farm.progression?.level === 7)).toBe(true);
+    } else {
+      expect(await Effect.runPromise(Effect.flip(claimFarmLevel(db, input)))).toMatchObject({ _tag: "LevelClaimRuleError" });
+    }
+    const after = await f.snapshot();
+    const takeBread = enough ? Math.min(5, bread) : 0;
+    expect(after.inventory.find(i => i.itemKey === "bread")?.quantity).toBe(bread - takeBread);
+    expect(after.inventory.find(i => i.itemKey === "beer")?.quantity).toBe(beer - (enough ? 5 - takeBread : 0));
+    expect(after.farm.carriedItem?.quantity).toBe(2);
+    expect(after.farm.production.bread.pending).toEqual(snapshot.farm.production.bread.pending);
+    expect(after.farm.progression?.level).toBe(enough ? 7 : 6);
   });
   it.each([
     { barley: 14, fish: 3, fed: 1, seed: 1, complete: true, succeeds: false },
@@ -207,7 +289,7 @@ describe("manual farm levels", () => {
   it.each(["ground", "planted", "farm", "carried", "expired", "sowing", "none"] as const)(
     "requires a full granary and preserves qualifying seed: %s", async reserve => {
       const f = await fixture(1);
-      await db.update(farms).set({ level: 3, progressionStats: { ...INITIAL_PROGRESSION_STATS, harvests: 50 },
+      await db.update(farms).set({ level: 3, progressionStats: { ...INITIAL_PROGRESSION_STATS, harvests: 50, level3Baseline: { harvests: 0 } },
         ...(reserve === "carried" ? { carriedItemKey: "barley", carriedItemQuantity: 1, carriedItemExpiresAt: new Date(Date.now() + 86400000) } : {})
       }).where(eq(farms.id, f.farmId));
       if (reserve !== "ground") await db.delete(farmGroundItems).where(eq(farmGroundItems.farmId, f.farmId));
@@ -246,7 +328,7 @@ describe("manual farm levels", () => {
   });
   it("starts level 4 decay without introductory debt or a fish cooldown", async () => {
     const f = await fixture();
-    await db.update(farms).set({ level: 3, progressionStats: { ...INITIAL_PROGRESSION_STATS, harvests: 50 }, happiness: 70, happinessCheckedAt: new Date(0), hungrySince: new Date(0) }).where(eq(farms.id, f.farmId));
+    await db.update(farms).set({ level: 3, progressionStats: { ...INITIAL_PROGRESSION_STATS, harvests: 50, level3Baseline: { harvests: 0 } }, happiness: 70, happinessCheckedAt: new Date(0), hungrySince: new Date(0) }).where(eq(farms.id, f.farmId));
     await db.insert(farmInventory).values({ farmId: f.farmId, itemKey: "barley", quantity: 1 });
     await db.insert(farmBuildings).values({ farmId: f.farmId, type: "granary", column: 5, row: 0, storedBarley: 15, startedAt: new Date(0), completesAt: new Date(1000) });
     await db.insert(shekelTransactions).values({ playerId: f.input.playerId, idempotencyKey: randomUUID(), type: "market_sale", itemKey: "barley", itemQuantity: 5, unitPrice: 1, delta: 5, balanceAfter: 5 });
@@ -305,6 +387,18 @@ describe("manual farm levels", () => {
       expect((await f.snapshot()).groundItems[0]?.quantity).toBe(1);
     } finally { await second.end(); }
   });
+  it("starts legacy level-3 harvest progress at zero and preserves its baseline on reload", async () => {
+    const f = await fixture();
+    await db.update(farms).set({ level: 3 }).where(eq(farms.id, f.farmId));
+    const first = await f.snapshot();
+    expect(first.farm.progression?.stats.level3Baseline).toEqual({ harvests: 3 });
+    expect(evaluateProgression(first, Date.now()).requirements.find(r => r.label === "Crop plantings harvested")?.current).toBe(0);
+    await db.update(farms).set({ progressionStats: { ...first.farm.progression!.stats, harvests: 5 } }).where(eq(farms.id, f.farmId));
+    const next = await f.snapshot();
+    expect(next.farm.progression?.stats.level3Baseline).toEqual({ harvests: 3 });
+    expect(next.farm.progression?.stats.harvests).toBe(5);
+    expect(evaluateProgression(next, Date.now()).requirements.find(r => r.label === "Crop plantings harvested")?.current).toBe(2);
+  });
   it("supports every playable level and stops before the unbuilt expansion", async () => {
     const f = await fixture(6);
     let snapshot = await Effect.runPromise(claimFarmLevel(db, f.input));
@@ -312,14 +406,16 @@ describe("manual farm levels", () => {
     await db.insert(farmBuildings).values({ farmId: f.farmId, type: "granary", column: 5, row: 0, storedBarley: 10, startedAt: new Date(0), completesAt: new Date(1000) });
     snapshot = await claim();
     expect(snapshot.farm.progression?.level).toBe(3);
+    expect(snapshot.farm.progression?.stats.level3Baseline).toEqual({ harvests: 3 });
+    expect(evaluateProgression(snapshot, Date.now()).requirements.find(r => r.label === "Crop plantings harvested")?.current).toBe(0);
     expect(snapshot.buildings[0]?.storedBarley).toBe(0);
     await db.insert(shekelTransactions).values({ playerId: f.input.playerId, idempotencyKey: randomUUID(), type: "market_sale", itemKey: "barley", itemQuantity: 5, unitPrice: 1, delta: 5, balanceAfter: 5 });
-    await db.update(farms).set({ progressionStats: { ...snapshot.farm.progression!.stats, harvests: 49 } }).where(eq(farms.id, f.farmId));
+    await db.update(farms).set({ progressionStats: { ...snapshot.farm.progression!.stats, harvests: 52 } }).where(eq(farms.id, f.farmId));
     await db.update(farmBuildings).set({ storedBarley: 15 }).where(eq(farmBuildings.farmId, f.farmId));
     expect(await Effect.runPromise(Effect.flip(claimFarmLevel(db, { ...f.input, expectedLevel: 3, expectedFarmVersion: snapshot.farm.version })))).toMatchObject({ _tag: "LevelClaimRuleError" });
     const beforeUnlock = evaluateProgression(await f.snapshot(), Date.now());
     expect(beforeUnlock.requirements.find(r => r.label === "Crop plantings harvested")).toMatchObject({ current: 49, required: 50, met: false });
-    await db.update(farms).set({ progressionStats: { ...snapshot.farm.progression!.stats, harvests: 50 } }).where(eq(farms.id, f.farmId));
+    await db.update(farms).set({ progressionStats: { ...snapshot.farm.progression!.stats, harvests: 53 } }).where(eq(farms.id, f.farmId));
     snapshot = await claim(); expect(snapshot.farm.progression?.level).toBe(4);
     expect(snapshot.buildings[0]?.storedBarley).toBe(0);
     expect(snapshot.groundItems[0]?.quantity).toBe(1);
@@ -335,7 +431,8 @@ describe("manual farm levels", () => {
     await db.update(farms).set({ progressionStats: { ...snapshot.farm.progression!.stats, harvests: 100, beerProduced: 6, processedBarley: 4 } }).where(eq(farms.id, f.farmId));
     snapshot = await claim(); expect(snapshot.farm.progression?.level).toBe(6);
     expect(snapshot.farm.progression?.stats.level6Baseline).toEqual({ produced: 6, sold: 0 });
-    expect(evaluateProgression(snapshot, Date.now()).requirements.map(r => r.current)).toEqual([0, 0]);
+    expect(evaluateProgression(snapshot, Date.now()).requirements.map(r => r.current)).toEqual([0, 0, 0]);
+    await db.insert(farmInventory).values({ farmId: f.farmId, itemKey: "beer", quantity: 5 });
     await db.update(farms).set({ progressionStats: { ...snapshot.farm.progression!.stats, beerProduced: 21 } }).where(eq(farms.id, f.farmId));
     await db.insert(shekelTransactions).values({ playerId: f.input.playerId, idempotencyKey: randomUUID(), type: "market_sale", itemKey: "beer", itemQuantity: 10, unitPrice: 5, delta: 50, balanceAfter: 55 });
     snapshot = await claim(); expect(snapshot.farm.progression?.level).toBe(7);

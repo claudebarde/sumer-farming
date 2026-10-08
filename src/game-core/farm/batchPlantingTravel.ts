@@ -10,7 +10,7 @@ export { WORKER_MOVE_DURATION_PER_TILE as FARMER_MOVE_DURATION_PER_TILE } from "
 import { WORKER_MOVE_DURATION_PER_TILE as FARMER_MOVE_DURATION_PER_TILE } from "../../game-data/movement";
 
 /** Farm-local routing, independent of viewport size and animation frames. */
-export const plantingTravelMs = (snapshot: FarmSnapshot, from: FarmCoordinate, to: FarmCoordinate, now: number): number => {
+export const plantingTravelPath = (snapshot: FarmSnapshot, from: FarmCoordinate, to: FarmCoordinate, now: number): readonly FarmCoordinate[] | null => {
   const { worldBounds: bounds, buildingBounds: home, roadRow, riverRow } = INITIAL_FARM_CONFIG;
   const local = (p: FarmCoordinate) => ({ column: p.column - bounds.minimumColumn, row: p.row });
   const key = (p: FarmCoordinate) => `${p.column}:${p.row}`;
@@ -23,6 +23,11 @@ export const plantingTravelMs = (snapshot: FarmSnapshot, from: FarmCoordinate, t
   const path = findRoadPreferredPath(local(from), local(to),
     { columns: bounds.maximumColumn - bounds.minimumColumn + 1, rows: bounds.maximumRow + 1 },
     new Set(blocked.map(p => key(local(p)))), new Set(roads.map(key)));
+  return path?.map(p => ({ column: p.column + bounds.minimumColumn, row: p.row })) ?? null;
+};
+
+export const plantingTravelMs = (snapshot: FarmSnapshot, from: FarmCoordinate, to: FarmCoordinate, now: number): number => {
+  const path = plantingTravelPath(snapshot, from, to, now);
   const steps = path ? path.length - 1 : Math.abs(from.column - to.column) + Math.abs(from.row - to.row);
   return Math.ceil(steps * FARMER_MOVE_DURATION_PER_TILE * farmerMovementDurationMultiplier(
     snapshot.farm.household.happiness, snapshot.farm.household.hungrySince !== null, snapshot.farm.progression?.level ?? 1));

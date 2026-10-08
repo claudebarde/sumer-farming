@@ -47,9 +47,10 @@ export const claimFarmLevel = (database: Database, input: {
             remaining -= take;
             if (remaining === 0) break;
           }
-        } else if (offering.source === "processed_grain") {
+        } else if (offering.source === "processed_grain" || offering.source === "prepared_food") {
           let remaining = offering.quantity;
-          for (const itemKey of ["flour", "brewersGroats"] as const) {
+          const items = offering.source === "prepared_food" ? ["bread", "beer"] as const : ["flour", "brewersGroats"] as const;
+          for (const itemKey of items) {
             const quantity = snapshot.inventory.find(i => i.itemKey === itemKey)?.quantity ?? 0;
             const take = Math.min(remaining, quantity);
             if (take > 0) await tx.update(farmInventory).set({ quantity: quantity - take }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, itemKey)));
@@ -61,6 +62,10 @@ export const claimFarmLevel = (database: Database, input: {
         }
       }
       const [updated] = await tx.update(farms).set({ level: farm.level + 1,
+        ...(farm.level === 2 ? { progressionStats: {
+          ...snapshot.farm.progression!.stats,
+          level3Baseline: { harvests: snapshot.farm.progression!.stats.harvests }
+        } } : {}),
         ...(farm.level === 7 ? { progressionStats: {
           ...snapshot.farm.progression!.stats,
           level8Baseline: {

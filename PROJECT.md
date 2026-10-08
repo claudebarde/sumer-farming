@@ -1166,6 +1166,15 @@ game action succeeds
 
 The economic simulation should not need to wait for the visual worker to finish walking.
 
+**Golden rule — production never waits for animations.** Submit and persist the
+production intention immediately on player confirmation, validating and reserving
+ingredients atomically. The server schedules any preparation/travel allowance,
+production start and completion. Animation callbacks must never be required to
+start production or advance its economic phases. A hidden tab, closed browser,
+reload or slow frame rate cannot delay a saved job. On return, reconcile elapsed
+server time instead of replaying preparation as a prerequisite. Test both absence
+during preparation and absence spanning completion, including duplicate requests.
+
 Avoid prematurely modeling:
 
 - hunger
@@ -1446,10 +1455,12 @@ above the action buttons. Action buttons must be the last elements at the bottom
 of a popup; never render explanatory text after them. Reorder actions only within
 this bottom action section (for example, prioritize delivering carried water).
 
-Item/action popups must be no wider than five ground tiles, including padding
+Item/action popups must be no wider than six ground tiles, including padding
 and borders. Derive this cap from `TILE_SIZE`, shrink it to fit narrow viewports,
 and wrap descriptions and button labels. Reserve space for the close button when
-titles wrap. This cap does not apply to full dialogs such as markets or farm levels.
+titles wrap. Keep the same title font size across popups; allow whole header items
+to wrap on narrow screens rather than shrinking individual titles or splitting
+cuneiform labels. This cap does not apply to full dialogs such as markets or farm levels.
 
 ## 34. Build drawer convention
 
@@ -1474,3 +1485,11 @@ to future buildings too; exceptions require an explicit user decision. Share the
 rule between placement previews and authoritative server validation. An invalid
 placement must show a red footprint and sprite, including when road access is
 missing even though the ground tiles are empty.
+
+## 36. Minimal player-facing text
+
+Keep interface text to a minimum. Prefer concise labels, quantities, visual states,
+and short contextual button messages over persistent explanations. Explain detailed
+rules and their rationale in the game rules, not in every gameplay popup. A blocked
+barley sale uses “You must keep 1 barley in your farm” on its disabled confirmation
+button, without adding a paragraph to the market card.

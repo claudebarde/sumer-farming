@@ -64,7 +64,7 @@ export const validateCultivation = (
 
   const requiredItem = CROP_DEFINITIONS[context.crop].seedItemKey;
 
-  if (context.carriedItem !== requiredItem) {
+  if (requiredItem !== null && context.carriedItem !== requiredItem) {
     return { type: "missing_seed", requiredItem };
   }
 

@@ -11,9 +11,10 @@ type Props = {
   readonly barley: number;
   readonly warehouseComplete: boolean;
   readonly showFish?: boolean;
+  readonly showDates?: boolean;
 };
 
-export default function BuildingStorageTables({ location, inventory, barley, warehouseComplete, showFish = false }: Props) {
+export default function BuildingStorageTables({ location, inventory, barley, warehouseComplete, showFish = false, showDates = false }: Props) {
   const quantity = (key: InventoryItemKey) => inventory.find(item => item.itemKey === key)?.quantity ?? 0;
   const shared = (key: Parameters<typeof sharedStorageAllocation>[0], label: string) => ({ label, ...sharedStorageAllocation(key, quantity(key), warehouseComplete)[location] });
   const groups = [
@@ -21,6 +22,7 @@ export default function BuildingStorageTables({ location, inventory, barley, war
     { label: "Barley and building material storage", items: [
       { label: "Barley", quantity: barley, capacity: location === "farm" ? FARM_STORAGE_CAPACITY : warehouseComplete ? FARM_BUILDING_DEFINITIONS.warehouse.barleyStorageBonus : 0 },
       ...(location === "farm" && showFish ? [{ label: "Fish", quantity: quantity("fish"), capacity: FISH_CAPACITY }] : []),
+      ...(showDates && location === "warehouse" ? [shared("dates", "Date baskets")] : []),
       shared("reed", "Reed"), shared("clay", "Clay")
     ] }
   ];

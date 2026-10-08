@@ -1,5 +1,10 @@
 import { z } from "zod";
+import { FarmBuildingTypeSchema } from "../game-data/buildings";
 export const ProgressionStatsSchema = z.object({
+  buildingReadyAnnounced: z.array(FarmBuildingTypeSchema).readonly().optional(),
+  builtFirstCanal: z.boolean().optional(),
+  plantedFirstBarley: z.boolean().optional(),
+  level3Baseline: z.object({ harvests: z.int().nonnegative() }).optional(),
   level8Baseline: z.object({ harvestedBarley: z.int().nonnegative(), produced: z.int().nonnegative().optional() }).optional(),
   level6Baseline: z.object({ produced: z.int().nonnegative(), sold: z.int().nonnegative() }).optional(),
   breadProduced: z.int().nonnegative().default(0),

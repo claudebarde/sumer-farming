@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { Client } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase } from "../../src/server/db/client";
-import { farms, players, farmCrops } from "../../src/server/db/schema";
+import { farms, players, farmCrops, farmBuildings } from "../../src/server/db/schema";
 import { batchPlantingAction } from "../../src/server/services/batchPlanting";
 import { depositCarriedItem } from "../../src/server/services/farmItemActions";
 import { GameCommandSchema } from "../../src/schemas/gameCommands";
@@ -27,6 +27,9 @@ const fixture = async () => {
   const start = (fields = targets.slice(0, 4), version = 1) => batchPlantingAction(db, { type: "start_batch_harvesting", playerId, targets: fields, expectedFarmVersion: version });
   const command = async (action: "harvest" | "finish" | "stop" | "collect" | "plant") => {
     const current = await read();
+    const batch = current.production.planting!;
+    if (action === "harvest" && batch.phase.type === "ready" && Date.parse(batch.nextStepAt!) > Date.now())
+      await db.update(farms).set({ production: { ...current.production, planting: { ...batch, nextStepAt: new Date(Date.now() - 1).toISOString() } } }).where(eq(farms.id, farm!.id));
     return { type: "advance_batch_planting" as const, playerId, action, batchId: current.production.planting!.id, expectedFarmVersion: current.version };
   };
   const advance = async (action: Parameters<typeof command>[0]) => Effect.runPromise(batchPlantingAction(db, await command(action)));
@@ -50,6 +53,65 @@ const catchUp = (farmId: string, now: number) => db.transaction(async tx => {
 });
 
 describe("four-field batch harvesting", () => {
+  it.each([[0, 8, 0], [18, 20, 6], [20, 20, 8]])("automatically deposits into a granary with %i barley and keeps overflow", async (initial, stored, remaining) => {
+    const f = await fixture();
+    await db.update(farms).set({ level: 7 }).where(eq(farms.id, f.farmId));
+    const [granary] = await db.insert(farmBuildings).values({ farmId: f.farmId, type: "granary", column: 5, row: 3,
+      loadingTile: { column: 5, row: 5 }, storedBarley: initial, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+    const [warehouse] = await db.insert(farmBuildings).values({ farmId: f.farmId, type: "warehouse", column: 3, row: 3,
+      loadingTile: { column: 3, row: 5 }, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+    const started = await Effect.runPromise(f.start());
+    const batch = started.farm.production.planting!;
+    const harvestEnd = Date.parse(batch.nextStepAt!) + 40_000 + batch.travelMs!.slice(1).reduce((sum, ms) => sum + ms, 0);
+    const travelling = await catchUp(f.farmId, harvestEnd);
+    const phase = travelling.production.planting!.phase;
+    if (phase.type !== "delivering") throw new Error("Expected saved granary delivery");
+    expect(phase.path[0]).toEqual({ column: 3, row: 8 });
+    expect(phase.path.at(-1)).toEqual(granary!.loadingTile);
+    expect(travelling.carriedItemQuantity).toBe(8);
+    // An animation callback arriving early must not complete a timed delivery.
+    const early = await f.advance("finish");
+    expect(early.farm.carriedItem?.quantity).toBe(8);
+    expect(early.farm.production.planting?.phase.type).toBe("delivering");
+    const before = await catchUp(f.farmId, Date.parse(phase.completesAt) - 1);
+    expect(before.carriedItemQuantity).toBe(8);
+    expect((await db.select().from(farmBuildings).where(eq(farmBuildings.id, granary!.id)))[0]!.storedBarley).toBe(initial);
+    const arrived = await catchUp(f.farmId, Date.parse(phase.completesAt));
+    expect(arrived.production.planting).toBeNull();
+    expect(arrived.carriedItemQuantity).toBe(remaining);
+    expect(arrived.carriedItemKey).toBe(remaining ? "barley" : null);
+    expect(arrived.production.lastHarvestDelivery).toMatchObject({ target: granary!.loadingTile, stored: stored - initial, remaining });
+    expect((await db.select().from(farmBuildings).where(eq(farmBuildings.id, granary!.id)))[0]!.storedBarley).toBe(stored);
+    const again = await catchUp(f.farmId, Date.parse(phase.completesAt) + 60_000);
+    expect(again.version).toBe(arrived.version);
+    expect(again.carriedItemQuantity).toBe(remaining);
+    expect((await db.select().from(farmBuildings).where(eq(farmBuildings.id, warehouse!.id)))[0]!.storedBarley).toBe(0);
+  });
+  it("catches up harvesting and delivery together without an arrival callback", async () => {
+    const f = await fixture();
+    const [granary] = await db.insert(farmBuildings).values({ farmId: f.farmId, type: "granary", column: 5, row: 3,
+      loadingTile: { column: 5, row: 5 }, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+    await Effect.runPromise(f.start());
+    const done = await catchUp(f.farmId, Date.now() + 3600_000);
+    expect(done.production.planting).toBeNull();
+    expect(done.carriedItemQuantity).toBe(0);
+    expect(done.progressionStats.harvestedBarley).toBe(8);
+    expect((await db.select().from(farmBuildings).where(eq(farmBuildings.id, granary!.id)))[0]!.storedBarley).toBe(8);
+  });
+  it("checks room on arrival if granary stock changes during the walk", async () => {
+    const f = await fixture();
+    const [granary] = await db.insert(farmBuildings).values({ farmId: f.farmId, type: "granary", column: 5, row: 3,
+      loadingTile: { column: 5, row: 5 }, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+    const started = await Effect.runPromise(f.start([targets[0]!]));
+    const travelling = await catchUp(f.farmId, Date.parse(started.farm.production.planting!.nextStepAt!) + 10_000);
+    const phase = travelling.production.planting!.phase;
+    if (phase.type !== "delivering") throw new Error("Expected delivery");
+    await db.update(farmBuildings).set({ storedBarley: 14 }).where(eq(farmBuildings.id, granary!.id));
+    const done = await catchUp(f.farmId, Date.parse(phase.completesAt));
+    expect(done.carriedItemQuantity).toBe(1);
+    expect(done.carriedItemExpiresAt).toEqual(travelling.carriedItemExpiresAt);
+    expect((await db.select().from(farmBuildings).where(eq(farmBuildings.id, granary!.id)))[0]!.storedBarley).toBe(15);
+  });
   it.each([[50, 4], [51, 6], [90, 6], [91, 8], [100, 8]])("locks %i happiness to %i fields and completes after happiness drops", async (happiness, limit) => {
     const f = await fixture();
     const fields = Array.from({ length: 9 }, (_, i) => ({ column: i % 8, row: 8 + Math.floor(i / 8) }));

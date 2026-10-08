@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
+import { violatesBarleyReserve } from "../../game-core/farm/marketSeedReserve";
 
 import {
   MARKET_ITEM_DEFINITIONS,
@@ -18,6 +19,7 @@ import {
 } from "./marketItemStorage";
 
 type MarketSellOrderRule =
+  | { readonly type: "barley_reserve_required" }
   | { readonly type: "farm_not_found" }
   | {
       readonly type: "version_conflict";
@@ -198,6 +200,10 @@ export const createMarketSellOrder = (
                 available: storage.storedQuantity
               }
             };
+          }
+
+          if (violatesBarleyReserve(input.itemKey, storage.storedQuantity, input.quantity)) {
+            return { type: "rule_error", rule: { type: "barley_reserve_required" } };
           }
 
           await removeFromMarketItemStorage(

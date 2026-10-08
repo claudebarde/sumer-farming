@@ -119,7 +119,7 @@ const executeHarvestAction = (
               .for("update")
           )[0];
 
-          if (crop === undefined) {
+          if (crop === undefined || CROP_DEFINITIONS[crop.cropKey].kind !== "annual") {
             return { type: "rule_error", rule: { type: "crop_not_found" } };
           }
 

@@ -6,11 +6,12 @@ import type { Tile } from "./types";
 import { interactionStore } from "../../stores/interactionStore";
 import { buildingPlacementStore } from "../../stores/buildingPlacementStore";
 import { MarketScene } from "./scenes/MarketScene";
+import { SumerScene } from "./scenes/SumerScene";
 
 export const createGame = (
   scene: Phaser.Types.Scenes.SceneType,
   parent: HTMLElement | string = GAME_CONTAINER_ID
-): Phaser.Game => new Phaser.Game({ ...createGameConfig(scene, parent), scene: [scene, MarketScene] });
+): Phaser.Game => new Phaser.Game({ ...createGameConfig(scene, parent), scene: [scene, MarketScene, SumerScene] });
 
 // HANDLES PHASER POINTER UP EVENT
 export const handlePointerUp = (
@@ -65,7 +66,7 @@ export const handlePointerUp = (
         .setSize(TILE_SIZE, TILE_SIZE)
         .setVisible(visibility);
     })
-    .with("barleySeeded", "barleyGrowing", "barleyReady", () => {
+    .with("barleySeeded", "barleyGrowing", "barleyReady", "datePalmSapling", "datePalmGrowing", "datePalmReady", () => {
       selectionHighlight
         .setPosition(
           tile.position.column * TILE_SIZE,

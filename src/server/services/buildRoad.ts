@@ -1,5 +1,6 @@
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { farmDecorationTypes, isClearableScenery } from "../../game-data/farmObjects";
 import { ROAD_CONSTRUCTION_DURATION_MS, roadIsComplete } from "../../game-data/roads";
 import { Data, Effect } from "effect";
 import { getBuildingFootprint } from "../../game-core/farm/buildings";
@@ -7,7 +8,7 @@ import { roadKey, validateRoadPlacement } from "../../game-core/farm/roads";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import type { GameCommand } from "../../schemas/gameCommands";
 import type { Database } from "../db/client";
-import { farms } from "../db/schema";
+import { farms, farmObjects } from "../db/schema";
 import { readFarmSnapshot } from "./farmSnapshot";
 
 export class RoadRuleError extends Data.TaggedError("RoadRuleError")<{ readonly message: string }> {}
@@ -27,12 +28,16 @@ export const buildRoad = (database: Database, input: Extract<GameCommand, { type
         snapshot.crops.some(c => Date.parse(c.plantedAt) > now || c.harvestStartedAt !== null) || snapshot.buildings.some(b => Date.parse(b.completesAt) > now) ||
         snapshot.improvements.some(i => Date.parse(i.completesAt) > now || i.destroyStartedAt !== null)) return fail("Finish the current task and empty the farmer's hands first.");
       const occupied = new Set([
-        ...snapshot.crops, ...snapshot.groundItems, ...snapshot.objects, ...snapshot.improvements,
+        ...snapshot.crops, ...snapshot.groundItems, ...snapshot.objects.filter(object => !isClearableScenery(object.type)), ...snapshot.improvements,
         ...snapshot.buildings.flatMap(b => getBuildingFootprint(b.type, b)),
         ...getBuildingFootprint("granary", { column: INITIAL_FARM_CONFIG.buildingBounds.minimumColumn, row: INITIAL_FARM_CONFIG.buildingBounds.minimumRow })
       ].map(roadKey));
       const reason = validateRoadPlacement(input.target, snapshot.farm.roads, occupied);
       if (reason) return fail(reason);
+      await tx.delete(farmObjects).where(and(
+        eq(farmObjects.farmId, farm.id), eq(farmObjects.column, input.target.column),
+        eq(farmObjects.row, input.target.row), inArray(farmObjects.type, [...farmDecorationTypes])
+      ));
       const [updated] = await tx.update(farms).set({ roads: [...snapshot.farm.roads, { ...input.target, completesAt: now + ROAD_CONSTRUCTION_DURATION_MS }], version: sql`${farms.version} + 1`, updatedAt: new Date(now) }).where(eq(farms.id, farm.id)).returning();
       return readFarmSnapshot(tx, updated!, false);
     }), catch: cause => new RoadPersistenceError({ cause })

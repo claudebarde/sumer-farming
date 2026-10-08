@@ -48,7 +48,7 @@ const availableObjectPositions = (): readonly GridCoordinate[] => {
     const row = worldBounds.minimumRow + Math.floor(index / columns);
 
     return { column, row };
-  }).filter(position => position.row !== riverRow && position.row !== INITIAL_FARM_CONFIG.roadRow && !isInsidePlot(position));
+  }).filter(position => position.row < riverRow && position.row !== INITIAL_FARM_CONFIG.roadRow && !isInsidePlot(position));
 };
 
 const availableReedPositions = (): readonly GridCoordinate[] => {
@@ -111,6 +111,9 @@ export const createInitialFarmPlan = (seed: number): InitialFarmPlan => {
     firstTypeResult.value === 0
       ? farmDecorationTypes
       : ([farmDecorationTypes[1], farmDecorationTypes[0]] as const);
+  const guaranteedTypes = firstTypes.flatMap(type =>
+    Array.from({ length: INITIAL_FARM_CONFIG.minimumPerDecoration }, () => type)
+  );
 
   for (let index = 0; index < countResult.value; index += 1) {
     const positionResult = nextInteger(
@@ -125,7 +128,7 @@ export const createInitialFarmPlan = (seed: number): InitialFarmPlan => {
       (_, candidateIndex) => candidateIndex !== positionResult.value
     );
 
-    const guaranteedType = firstTypes[index];
+    const guaranteedType = guaranteedTypes[index];
     const typeResult = nextInteger(
       randomSeed,
       0,

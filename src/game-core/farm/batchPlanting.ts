@@ -1,4 +1,5 @@
 import type { FarmSnapshot } from "../../schemas/farm";
+import { improvementIsPresent } from "../../game-data/farmImprovements";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import { getBuildingFootprint } from "./buildings";
 import { validateCultivation } from "./cultivation";
@@ -22,7 +23,7 @@ export const plantableFields = (snapshot: FarmSnapshot, now: number): readonly F
     row: home.minimumRow + Math.floor(i / (home.maximumColumn - home.minimumColumn + 1))
   }));
   const occupiedCoordinates = [...homeTiles, ...snapshot.farm.roads, ...snapshot.objects,
-    ...snapshot.groundItems, ...snapshot.crops, ...snapshot.improvements,
+    ...snapshot.groundItems, ...snapshot.crops, ...snapshot.improvements.filter(i => improvementIsPresent(i, now)),
     ...snapshot.buildings.flatMap(b => getBuildingFootprint(b.type, b))];
   const activeCanals = snapshot.improvements.filter(i => i.type === "irrigation" && Date.parse(i.completesAt) <= now && i.destroyCompletesAt === null);
   const fields: FarmCoordinate[] = [];

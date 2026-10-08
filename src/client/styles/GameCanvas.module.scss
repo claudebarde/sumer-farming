@@ -37,15 +37,17 @@
   font-size: 0.8rem;
 }
 
-.farmer-heading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.farmer-portrait {
+  display: block;
+  width: 96px;
+  height: 96px;
+  max-width: 100%;
+  object-fit: contain;
+  margin: 0 auto 8px;
+}
 
-  span {
-    font-size: 0.8em;
-    line-height: 1;
-  }
+.farmer-heading {
+  text-align: center;
 }
 
 .farmer-metrics {
@@ -142,11 +144,16 @@
 
 .tile-popover-content-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-start;
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
   padding-right: 32px; // Reserve space for the close button when titles wrap.
+  > span {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
 }
 
 .tile-popover-content-body {
@@ -284,11 +291,49 @@
   top: 10px;
   right: 10px;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   justify-content: center;
-  align-items: flex-start;
+  align-items: stretch;
   gap: 10px;
   z-index: 10;
+}
+
+.city-onboarding { position: relative; height: calc(100dvh - 80px); min-height: 650px; }
+.onboarding-map { position: absolute; inset: 0; }
+.city-choice { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; font-size: 0.8rem; }
+.city-choice label { display: flex; align-items: center; gap: 6px; }
+.city-choice input, .city-choice select { max-width: 100%; }
+
+.sumer-controls {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 24px;
+  color: $color-ink;
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    h2 { margin: 0; }
+  }
+
+  button { pointer-events: auto; }
+  footer { background: #f4e4c4ed; text-align: center; pointer-events: auto; max-height: 55%; overflow: auto; }
+  nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  nav button { font-size: 0.75rem; padding: 4px 8px; }
+  nav button[aria-pressed="true"] { background: $color-sand; outline: 2px solid $color-ink; }
+  p { font-size: 0.8rem; margin: 8px 0 0; }
+  small { font-size: 0.65rem; }
+
+  @media (max-width: 500px) {
+    padding: 16px;
+    header button { font-size: 0.75rem; }
+  }
 }
 
 .manage-dialog-overlay {
@@ -366,6 +411,11 @@
   &[data-state="active"]:not(:disabled) {
     background-color: $color-barley-light;
     border-color: $color-soil-dark;
+
+    // Outrank the generic button hover so selected tabs stay distinctive.
+    &:hover {
+      background-color: $color-clay-light;
+    }
   }
 }
 
@@ -431,6 +481,10 @@
       }
     }
   }
+}
+
+.porter-panel {
+  margin-top: 20px;
 }
 
 .resource-list {
@@ -681,7 +735,8 @@
 
   li {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
   }

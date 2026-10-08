@@ -1,13 +1,17 @@
 import { and, asc, eq, lte, sql, inArray } from "drizzle-orm";
+import { getRiverConnectedCanals } from "../../game-core/farm/irrigation";
 
 import { BARLEY_CONSUMPTION_INTERVAL_MS } from "../../game-data/household";
 import { BEER_RECIPE } from "../../game-data/brewing";
 import { advancePorterLifecycle } from "./porterLifecycle";
 import { advanceHappiness } from "../../game-core/farm/wellbeing";
 import { advanceBatchPlanting } from "./batchPlantingLifecycle";
+import { advancePerennialCropWork } from "./perennialCropLifecycle";
 import type { DatabaseTransaction } from "../db/client";
 import {
   farmBuildings,
+  farmCrops,
+  farmImprovements,
   farmGroundItems,
   farmInventory,
   shekelTransactions,
@@ -66,6 +70,14 @@ export const advanceFarmLifecycle = async (
     const secondGranary = storageBuildings.filter(b => b.type === "granary")[1];
     if (secondGranary) await transaction.update(farmBuildings).set({ type: "warehouse" }).where(eq(farmBuildings.id, secondGranary.id));
   }
+  // Legacy level-3 saves have no entry history. Start once, before advancing work.
+  if (farm.level === 3 && !farm.progressionStats.level3Baseline) {
+    const progressionStats = { ...farm.progressionStats,
+      level3Baseline: { harvests: farm.progressionStats.harvests }
+    };
+    await transaction.update(farms).set({ progressionStats }).where(eq(farms.id, farm.id));
+    farm = { ...farm, progressionStats };
+  }
   if (farm.level === 8 && farm.progressionStats.level8Baseline?.produced === undefined) {
     const progressionStats = { ...farm.progressionStats,
       level8Baseline: {
@@ -76,6 +88,22 @@ export const advanceFarmLifecycle = async (
     farm = { ...farm, progressionStats };
   }
   farm = await advanceBatchPlanting(transaction, farm, now);
+  farm = await advancePerennialCropWork(transaction, farm, now);
+  if (!farm.progressionStats.builtFirstCanal || !farm.progressionStats.plantedFirstBarley) {
+    const planted = await transaction.select({ id: farmCrops.id }).from(farmCrops)
+      .where(and(eq(farmCrops.farmId, farm.id), eq(farmCrops.cropKey, "barley"), lte(farmCrops.plantedAt, now))).limit(1);
+    const canals = await transaction.select().from(farmImprovements)
+      .where(and(eq(farmImprovements.farmId, farm.id), eq(farmImprovements.type, "irrigation"), lte(farmImprovements.completesAt, now)));
+    const plantedFirstBarley = farm.progressionStats.plantedFirstBarley === true || planted.length > 0 ||
+      farm.progressionStats.harvests > 0 || farm.progressionStats.harvestedBarley > 0;
+    const builtFirstCanal = farm.progressionStats.builtFirstCanal === true || plantedFirstBarley || getRiverConnectedCanals(canals).length > 0;
+    if (builtFirstCanal !== (farm.progressionStats.builtFirstCanal === true) ||
+      plantedFirstBarley !== (farm.progressionStats.plantedFirstBarley === true)) {
+      const progressionStats = { ...farm.progressionStats, builtFirstCanal, plantedFirstBarley };
+      await transaction.update(farms).set({ progressionStats }).where(eq(farms.id, farm.id));
+      farm = { ...farm, progressionStats };
+    }
+  }
   // Old saves lack a level-entry baseline. Start tracking once, under the farm
   // row lock, before processing newly completed jobs or actions.
   if (farm.level === 6 && !farm.progressionStats.level6Baseline) {

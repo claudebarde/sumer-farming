@@ -14,6 +14,10 @@ export const getCarryBubblePosition = (
   };
   return {
     x: clampToCanvas(farmerX + tileSize * 0.78, canvasWidth),
-    y: clampToCanvas(farmerY + tileSize * 0.08, canvasHeight)
+    // The camera reveals a scenery row above world y=0. Clamp in canvas
+    // coordinates, then return to world coordinates shared with the farmer.
+    y: clampToCanvas(farmWorldToCanvasY(farmerY + tileSize * 0.08, tileSize), canvasHeight)
+      - farmWorldToCanvasY(0, tileSize)
   };
 };
+import { farmWorldToCanvasY } from "./farmViewport";

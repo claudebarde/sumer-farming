@@ -15,9 +15,15 @@ export const BatchPlantingSchema = z.object({
   // Server deadlines keep the queue progressing when rendering is suspended.
   nextStepAt: z.iso.datetime().optional(),
   travelMs: z.array(z.number().nonnegative()).optional(),
+  travelPaths: z.array(z.array(FieldCoordinateSchema).min(1)).optional(),
+  collectionPath: z.array(FieldCoordinateSchema).min(1).optional(),
+  travelStartedAt: z.iso.datetime().optional(),
+  lastHarvested: FieldCoordinateSchema.optional(),
   source: FieldCoordinateSchema.extend({ type: z.enum(["farm", "granary"]) }),
   stopRequested: z.boolean(),
   phase: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("delivering"), granaryId: z.uuid(), path: z.array(FieldCoordinateSchema).min(1),
+      startedAt: z.iso.datetime(), completesAt: z.iso.datetime() }),
     z.object({ type: z.literal("collecting") }),
     z.object({ type: z.literal("ready") }),
     z.object({ type: z.literal("sowing"), target: FieldCoordinateSchema, completesAt: z.iso.datetime() }),

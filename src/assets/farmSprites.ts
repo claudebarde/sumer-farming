@@ -1,4 +1,8 @@
 import groundUrl from "./sprite_assets/pngs/ground.png";
+import datePalmSaplingUrl from "./sprite_assets/pngs/date-palm-sapling.png";
+import datePalmGrowingUrl from "./sprite_assets/pngs/date-palm-without-fruits.png";
+import datePalmReadyUrl from "./sprite_assets/pngs/date-palm-with-fruits.png";
+import datesBasketUrl from "./sprite_assets/pngs/dates-basket.png";
 import porterIdleUrl from "./sprite_assets/pngs/porter-idle.png";
 import porterBusyUrl from "./sprite_assets/pngs/porter-busy.png";
 import donkeyUrl from "./sprite_assets/pngs/donkey-1.png";
@@ -71,6 +75,10 @@ import breweryUrl from "./sprite_assets/pngs/brewery.png";
 // Keep gameplay names stable; only the artwork URLs change.
 // The generated assets use "wheat" filenames for our existing barley artwork.
 export const FARM_SPRITES = {
+  datePalmSapling: datePalmSaplingUrl,
+  datePalmGrowing: datePalmGrowingUrl,
+  datePalmReady: datePalmReadyUrl,
+  datesBasket: datesBasketUrl,
   porterIdle: porterIdleUrl,
   porterBusy: porterBusyUrl,
   donkey: donkeyUrl,

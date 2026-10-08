@@ -57,9 +57,9 @@ describe("farmer wellbeing", () => {
     expect(validateFishTreat(1, 50, 1000, 1000 + 8 * hour - 1)).toBe("fish_cooldown");
     expect(validateFishTreat(1, 50, 1000, 1000 + 8 * hour)).toBeNull();
   });
-  it("enforces the exact 24-hour beer boundary and caps happiness", () => {
-    expect(validateBeerTreat(1, 70, 1000, 86400999)).toBe("beer_cooldown");
-    expect(validateBeerTreat(1, 70, 1000, 86401000)).toBeNull();
+  it("enforces the exact 12-hour beer boundary and caps happiness", () => {
+    expect(validateBeerTreat(1, 70, 1000, 1000 + 12 * hour - 1)).toBe("beer_cooldown");
+    expect(validateBeerTreat(1, 70, 1000, 1000 + 12 * hour)).toBeNull();
     expect(happinessAfterBeer(95)).toBe(100);
     expect(happinessAfterBeer(50)).toBe(65);
   });

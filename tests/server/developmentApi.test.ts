@@ -2,13 +2,14 @@ import { eq, inArray } from "drizzle-orm";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createDatabase } from "../../src/server/db/client";
-import { players, farms, farmInventory } from "../../src/server/db/schema";
+import { players, farms, farmInventory, neighbourhoods, neighbourhoodMembers } from "../../src/server/db/schema";
 import app from "../../src/server/index";
 
 // Exercise the real HTTP handlers without touching either interactive test farm.
 const identities = vi.hoisted(() => [
   { key: "primary", id: crypto.randomUUID(), displayName: "API player 1" },
-  { key: "second", id: crypto.randomUUID(), displayName: "API player 2" }
+  { key: "second", id: crypto.randomUUID(), displayName: "API player 2" },
+  { key: "onboarding", id: crypto.randomUUID(), displayName: "API onboarding" }
 ]);
 vi.mock("../../src/game-data/developmentPlayers", () => ({
   DEVELOPMENT_PLAYERS: identities,
@@ -18,6 +19,7 @@ vi.mock("../../src/game-data/developmentPlayers", () => ({
 const connectionString = process.env.TEST_DATABASE_URL ?? "postgres://sumer:sumer_dev@localhost:5432/sumer_farming";
 const client = new Client({ connectionString });
 const db = createDatabase(client);
+const testNeighbourhoods: string[] = [];
 const env = { HYPERDRIVE: { connectionString } };
 const request = (path: string, player: string, body?: unknown) => app.request(path, {
   method: body === undefined && path !== "/api/development/farm" ? "GET" : "POST",
@@ -29,12 +31,33 @@ beforeAll(() => client.connect());
 afterAll(async () => {
   vi.unstubAllEnvs();
   await db.delete(players).where(inArray(players.id, identities.map(player => player.id)));
+  if (testNeighbourhoods.length) await db.delete(neighbourhoods).where(inArray(neighbourhoods.id, testNeighbourhoods));
   await client.end();
 });
 
 describe.sequential("development HTTP identity and trading", () => {
   it("rejects unknown players before accessing persistence", async () => {
     expect((await request("/api/development/farm", "intruder")).status).toBe(400);
+  });
+
+  it("keeps the fresh playthrough out of the selector until its farmer is named", async () => {
+    const response = await request("/api/development/farm", "onboarding");
+    expect(response.status).toBe(200);
+    const fresh = await response.json();
+    expect(fresh.created).toBe(true);
+    expect(fresh.farm.progression.level).toBe(1);
+    expect(fresh.player.shekelBalance).toBe(0);
+    expect(fresh.farm.farmerProfile).toBeNull();
+    expect((await (await request("/api/residence", "onboarding")).json()).residence).toBeNull();
+    const before = await request("/api/development/players", "onboarding");
+    expect(before.headers.get("Cache-Control")).toBe("no-store");
+    expect((await before.json()).players).toEqual([]);
+    expect((await request("/api/farmer/profile", "onboarding", { type: "name_farmer", name: "Gudea" })).status).toBe(200);
+    expect((await (await request("/api/development/players", "onboarding")).json()).players).toEqual([{ key: "onboarding", name: "Gudea" }]);
+    const again = await (await request("/api/development/farm", "onboarding")).json();
+    expect(again.created).toBe(false);
+    expect(again.farm.id).toBe(fresh.farm.id);
+    expect(again.farm.farmerProfile.identity.name).toBe("Gudea");
   });
 
   it("creates two farms and routes listing, ownership and purchase to the selected identity", async () => {
@@ -48,6 +71,24 @@ describe.sequential("development HTTP identity and trading", () => {
     expect(b.farm.playerId).toBe(identities[1]!.id);
     expect(b.player.shekelBalance).toBe(0);
     expect(b.farm.progression.level).toBe(1);
+    expect((await (await request("/api/residence", "second")).json()).residence).toBeNull();
+    expect((await request("/api/game/action", "second", { type: "create_market_sell_order", itemKey: "barley", quantity: 1, unitPrice: 3, expectedFarmVersion: b.farm.version, idempotencyKey: crypto.randomUUID() })).status).toBe(409);
+    expect((await request("/api/residence", "second", { type: "settle", city: "not-a-city" })).status).toBe(400);
+    expect((await request("/api/residence", "primary", { type: "found", city: "lagash", name: "Friends", private: true })).status).toBe(400);
+    expect((await request("/api/residence", "second", { type: "join", city: "lagash", inviteCode: crypto.randomUUID() })).status).toBe(400);
+    // Isolated legacy membership fixture: do not join or delete interactive public groups.
+    const [home] = await db.insert(neighbourhoods).values({ city: "lagash", name: "API test neighbourhood", private: true }).returning();
+    testNeighbourhoods.push(home!.id);
+    await db.insert(neighbourhoodMembers).values(identities.slice(0, 2).map((player, index) => ({ playerId: player.id, neighbourhoodId: home!.id, slot: index + 1 })));
+    expect((await request("/api/residence", "primary", { type: "settle", city: "lagash" })).status).toBe(200);
+    expect((await request("/api/farmer/profile", "primary", { type: "name_farmer", name: "Meskalamdug" })).status).toBe(200);
+    expect((await request("/api/farmer/profile", "second", { type: "name_farmer", name: "Geme-Bau" })).status).toBe(200);
+    const namedA = await (await request("/api/development/farm", "primary")).json();
+    const namedB = await (await request("/api/development/farm", "second")).json();
+    a.farm.version = namedA.farm.version;
+    b.farm.version = namedB.farm.version;
+    expect(namedA.farm.farmerProfile.identity.name).toBe("Meskalamdug");
+    expect(namedB.farm.farmerProfile.identity.name).toBe("Geme-Bau");
     const lockedTrade = await request("/api/game/action", "second", {
       type: "create_market_sell_order", itemKey: "barley", quantity: 1, unitPrice: 3,
       expectedFarmVersion: b.farm.version, idempotencyKey: crypto.randomUUID()
@@ -102,12 +143,36 @@ describe.sequential("development HTTP identity and trading", () => {
     expect((await request("/api/market/listings?itemKey=barley&action=sell", "intruder")).status).toBe(400);
   });
 
+  it("scopes live visitors to the resolved identity and validates market roads", async () => {
+    const visit = { type: "join", sessionId: crypto.randomUUID(), position: { column: 0, row: 5 } };
+    expect((await request("/api/market/presence", "intruder", visit)).status).toBe(400);
+    expect((await request("/api/market/presence", "primary", { ...visit, position: { column: 1, row: 5 } })).status).toBe(400);
+    const other = { ...visit, sessionId: crypto.randomUUID() };
+    expect((await request("/api/market/presence", "second", other)).status).toBe(200);
+    const response = await request("/api/market/presence", "primary", { ...visit, playerId: identities[1]!.id, neighbourhoodId: crypto.randomUUID() });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ visitors: [{ playerId: identities[1]!.id, name: "Geme-Bau" }] });
+    expect((await request("/api/market/presence", "second", { type: "leave", sessionId: other.sessionId })).status).toBe(200);
+    expect(await (await request("/api/market/presence", "primary", { ...visit, type: "heartbeat" })).json()).toEqual({ visitors: [] });
+  });
+
+  it("validates leaderboard queries and uses the resolved viewer identity", async () => {
+    expect((await request("/api/leaderboard?metric=unknown", "primary")).status).toBe(400);
+    expect((await request("/api/leaderboard?scope=other", "primary")).status).toBe(400);
+    expect((await request("/api/leaderboard", "intruder")).status).toBe(400);
+    const response = await request(`/api/leaderboard?scope=local&metric=shekels&playerId=${identities[1]!.id}`, "primary");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.json()).toMatchObject({ scope: "local", metric: "shekels", self: { playerId: identities[0]!.id, isYou: true, score: 7 } });
+  });
+
   it("disables test identity APIs in production", async () => {
     vi.stubEnv("DEV", false);
     try {
-      for (const path of ["/api/development/farm", "/api/market/quotes", "/api/market/listings", "/api/market/history", "/api/game/action"]) {
+      for (const path of ["/api/development/players", "/api/leaderboard", "/api/development/farm", "/api/market/quotes", "/api/market/listings", "/api/market/history", "/api/game/action"]) {
         expect((await request(path, "second", path === "/api/game/action" ? {} : undefined)).status).toBe(404);
       }
+      expect((await request("/api/market/presence", "primary", { type: "join" })).status).toBe(404);
     } finally {
       vi.unstubAllEnvs();
     }

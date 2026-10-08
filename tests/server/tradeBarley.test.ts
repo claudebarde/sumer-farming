@@ -94,6 +94,18 @@ describe.sequential("NPC barley market", () => {
     await client.end();
   });
 
+  it("rejects selling the last stored barley without charging or changing stock", async () => {
+    const fixture = await createFixture({ farmBarley: 2, granaryBarley: 3 });
+    const input = { playerId: fixture.playerId, itemKey: "barley" as const, quantity: 5,
+      expectedUnitPrice: 1, idempotencyKey: randomUUID(), expectedFarmVersion: 1 };
+    expect(await Effect.runPromise(Effect.flip(sellToNpcMarket(database, input))))
+      .toMatchObject({ rule: { type: "barley_reserve_required" } });
+    const sold = await Effect.runPromise(sellToNpcMarket(database, { ...input, quantity: 4 }));
+    expect(sold.buildings[0]?.storedBarley).toBe(1);
+    expect(await Effect.runPromise(Effect.flip(sellToNpcMarket(database, { ...input, quantity: 1,
+      expectedFarmVersion: sold.farm.version, idempotencyKey: randomUUID() }))))
+      .toMatchObject({ rule: { type: "barley_reserve_required" } });
+  });
   it("sells safely stored barley and records the proceeds", async () => {
     const fixture = await createFixture({ farmBarley: 2, granaryBarley: 3 });
 

@@ -133,6 +133,7 @@ export const readFarmSnapshot = async (
     created,
     player,
     farm: {
+      farmerProfile: currentFarm.farmerProfile,
       roads: [...currentFarm.roads],
       milling: currentFarm.milling,
       production: currentFarm.production,

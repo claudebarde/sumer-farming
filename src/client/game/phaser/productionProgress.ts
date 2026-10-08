@@ -1,3 +1,10 @@
+/** Presentation only: never use this gate to submit or advance server jobs. */
+export const productionVisualsReady = (
+  job: { readonly startedAt: string } | null | undefined,
+  now: number,
+  awaitingArrival: boolean
+): boolean => !!job && !awaitingArrival && Date.parse(job.startedAt) <= now;
+
 export const productionProgress = (
   job: { readonly startedAt: string; readonly completesAt: string } | null | undefined,
   now: number

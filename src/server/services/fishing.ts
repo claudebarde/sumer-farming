@@ -22,6 +22,7 @@ export const fishingAction = (db: Database, input: Input) => Effect.gen(function
       if (!loaded) return fail("The farm could not be found.");
       const now = Date.now();
       const farm = await advanceFarmLifecycle(tx, loaded, new Date(now));
+      if (farm.production.cropWork && !farm.production.cropWork.settled) return fail("The farmer is tending a crop.");
       if (farm.roads.some(r => (r.completesAt ?? 0) > now)) return fail("Finish building the road first.");
       if (farm.production.planting || farmerProductionJob(farm) || farm.millGoods.delivery || farm.production.delivery) return fail("The farmer is working or delivering goods.");
       const [inventory] = await tx.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "fish")));

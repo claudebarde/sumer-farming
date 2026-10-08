@@ -5,6 +5,7 @@ export const ESTATE_STORAGE_LIMITS = {
   bread: 10, beer: 10, flour: 10, brewersGroats: 10, reed: 6, clay: 6
 } as const;
 export const WAREHOUSE_RESOURCE_BONUS = 10;
+export const WAREHOUSE_DATE_BASKET_CAPACITY = 5;
 export const estateResourceCapacity = (
   item: InventoryItemKey,
   buildings: readonly { readonly type: FarmBuildingType; readonly completesAt: string | Date }[],
@@ -12,6 +13,7 @@ export const estateResourceCapacity = (
 ): number => {
   if (item === "donkey") return 1;
   if (item === "fish") return 5;
+  if (item === "dates") return buildings.some(b => b.type === "warehouse" && new Date(b.completesAt).getTime() <= now) ? WAREHOUSE_DATE_BASKET_CAPACITY : 0;
   if (!(item in ESTATE_STORAGE_LIMITS)) return 2147483647;
   const base = ESTATE_STORAGE_LIMITS[item as keyof typeof ESTATE_STORAGE_LIMITS];
   return base + (buildings.some(b => b.type === "warehouse" && new Date(b.completesAt).getTime() <= now) ? WAREHOUSE_RESOURCE_BONUS : 0);

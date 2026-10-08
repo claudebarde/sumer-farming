@@ -1,13 +1,48 @@
 import type Phaser from "phaser";
 import { describe, expect, it, vi } from "vitest";
 vi.mock("phaser", () => ({ default: {} }));
-import { adjacentGrazingTiles, createDonkey } from "../../src/client/game/phaser/donkey";
+import { adjacentGrazingTiles, createDonkey, followingDonkeyPosition, donkeyReturnPath, shouldAnimateDonkeyReturn } from "../../src/client/game/phaser/donkey";
 import { millRecipe, MillingJobSchema } from "../../src/game-data/milling";
 import { farmerProductionJob } from "../../src/game-core/farm/farmerProduction";
 import { marketIncludesItem } from "../../src/client/stores/marketUiStore";
 import { marketUnlockLevel } from "../../src/game-data/progression";
 
 describe("donkey presentation and rules", () => {
+  it("walks home only for completion during the current visible visit", () => {
+    expect(shouldAnimateDonkeyReturn(2000, 1000, 2100)).toBe(true);
+    expect(shouldAnimateDonkeyReturn(2000, 3000, 3100)).toBe(false);
+    expect(shouldAnimateDonkeyReturn(2000, Infinity, 3100)).toBe(false);
+    expect(shouldAnimateDonkeyReturn(4000, 1000, 3100)).toBe(false);
+  });
+  it("returns along the escort route, excluding the farmer's subsequent supply trip", () => {
+    const path = [{ column: 0, row: 0 }, { column: 1, row: 0 }, { column: 2, row: 0 },
+      { column: 2, row: 1 }, { column: 2, row: 2 }, { column: 3, row: 2 }];
+    const job = MillingJobSchema.parse({ buildingId: "00000000-0000-4000-8000-000000000001", recipe: "flour", worker: "donkey",
+      startedAt: "2026-10-01T00:00:00Z", completesAt: "2026-10-01T00:15:00Z", barley: 6, output: 3,
+      preparation: { departedAt: 0, stepDurationMs: 180, path, supplyIndex: 5, donkeyPickupIndex: 1, donkeyDropIndex: 4 } });
+    expect(donkeyReturnPath(job)).toEqual([path[4], path[3], path[2], path[1]]);
+    expect(path[1]).toEqual({ column: 1, row: 0 });
+    expect(donkeyReturnPath({ ...job, preparation: undefined })).toEqual([]);
+  });
+  it.each([
+    [1, 0, 0.9, 0, false], [-1, 0, -0.9, 0, true],
+    [0, 1, 0, 0.9, undefined], [0, -1, 0, -0.9, undefined]
+  ] as const)("trails the farmer while travelling (%s, %s)", (dx, dy, column, row, flipX) => {
+    const path = Array.from({ length: 4 }, (_, i) => ({ column: i * dx, row: i * dy }));
+    const following = followingDonkeyPosition(path, 0, 3, 1.5);
+    expect(following.position.column).toBeCloseTo(column);
+    expect(following.position.row).toBeCloseTo(row);
+    expect(following.flipX).toBe(flipX);
+  });
+  it("waits at pickup and follows the road around corners rather than cutting diagonally", () => {
+    const path = [{ column: 0, row: 0 }, { column: 1, row: 0 }, { column: 2, row: 0 }, { column: 2, row: 1 }];
+    expect(followingDonkeyPosition(path, 1, 3, 0).position).toEqual(path[1]);
+    expect(followingDonkeyPosition(path, 1, 3, 1.2).position).toEqual(path[1]);
+    const corner = followingDonkeyPosition(path, 1, 3, 2.3).position;
+    expect(corner.column).toBeCloseTo(1.7);
+    expect(corner.row).toBe(0);
+    expect(followingDonkeyPosition(path, 1, 3, 10).position).toEqual(path[3]);
+  });
   it("offers the donkey only in the NPC bread buy tab from level seven", () => {
     expect(marketUnlockLevel("donkey")).toBe(7);
     for (const scope of ["bread", "beer", "barley"] as const) {

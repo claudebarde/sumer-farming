@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { FarmerProfileSchema } from "./farmerProfile";
 import { ProductionStateSchema, emptyProductionState } from "../game-data/production";
 import { MillingJobSchema, MillGoodsSchema, emptyMillGoods } from "../game-data/milling";
 import { ProgressionSchema } from "./progression";
@@ -16,6 +17,7 @@ export const FarmSnapshotSchema = z.object({
     shekelBalance: z.int().nonnegative()
   }),
   farm: z.object({
+    farmerProfile: FarmerProfileSchema.nullish(),
     roads: z.array(z.object({ column: z.int(), row: z.int(), completesAt: z.number().optional() })).default([]),
     production: ProductionStateSchema.default(emptyProductionState),
     milling: MillingJobSchema.nullable().default(null),

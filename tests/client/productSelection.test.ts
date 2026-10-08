@@ -7,6 +7,7 @@ vi.mock("../../src/client/game/phaser/config", () => ({ TILE_SIZE: 128 }));
 vi.mock("../../src/client/game/phaser/scenes/MarketScene", () => ({ MarketScene: class {} }));
 
 import { handlePointerUp } from "../../src/client/game/phaser/game";
+vi.mock("../../src/client/game/phaser/scenes/SumerScene", () => ({ SumerScene: class {} }));
 import { interactionStore } from "../../src/client/stores/interactionStore";
 
 describe("finished product selection", () => {

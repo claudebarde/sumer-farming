@@ -13,7 +13,8 @@ import { CROP_DEFINITIONS } from "../../game-data/crops";
 import { BARLEY_CONSUMPTION_INTERVAL_MS, EXPOSED_BARLEY_LIFETIME_MS } from "../../game-data/household";
 import type { BatchPlanting } from "../../game-data/batchPlanting";
 import { harvestFieldLimit, lockedHarvestFieldLimit } from "../../game-core/farm/harvestCapacity";
-import { plantingTravelMs } from "../../game-core/farm/batchPlantingTravel";
+import { plantingTravelMs, plantingTravelPath } from "../../game-core/farm/batchPlantingTravel";
+import { planHarvestDelivery } from "./batchPlantingLifecycle";
 
 export class BatchPlantingError extends Data.TaggedError("BatchPlantingError")<{ readonly message: string }> {}
 export class BatchPlantingPersistenceError extends Data.TaggedError("BatchPlantingPersistenceError")<{ readonly cause: unknown }> {}
@@ -40,6 +41,13 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
     if (input.type !== "advance_batch_planting") {
       assertFarmerAvailable(farm);
       const harvesting = input.type === "start_batch_harvesting";
+      const origin = input.farmerPosition && plantingTravelPath(snapshot, INITIAL_FARM_CONFIG.farmerSpawn, input.farmerPosition, now.getTime())
+        ? input.farmerPosition : INITIAL_FARM_CONFIG.farmerSpawn;
+      const pathTo = (from: typeof origin, to: typeof origin) => {
+        const path = plantingTravelPath(snapshot, from, to, now.getTime());
+        if (!path) return fail("The selected field or seed storage cannot be reached.");
+        return [...path];
+      };
       if (planting || (farm.carriedItemKey && (harvesting || farm.carriedItemKey !== "barley")) || farm.gatheringItemKey ||
         snapshot.crops.some(c => Date.parse(c.plantedAt) > now.getTime() || c.harvestStartedAt !== null) ||
         snapshot.buildings.some(b => Date.parse(b.completesAt) > now.getTime()) ||
@@ -51,13 +59,15 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
       if (harvesting) {
         const source = { type: "farm" as const, column: INITIAL_FARM_CONFIG.buildingBounds.minimumColumn, row: INITIAL_FARM_CONFIG.buildingBounds.minimumRow };
         planting = { id: crypto.randomUUID(), mode: "harvest", harvestFieldLimit: limit, total: input.targets.length, remaining: [...orderPlantingFields(input.targets, input.targets[0]!)], source, stopRequested: false, phase: { type: "ready" } };
-        let position: { column: number; row: number } = INITIAL_FARM_CONFIG.farmerSpawn;
+        let position: { column: number; row: number } = origin;
+        const travelPaths = planting.remaining.map(target => { const path = pathTo(position, target); position = target; return path; });
+        position = origin;
         const travelMs = planting.remaining.map(target => {
           const duration = plantingTravelMs(snapshot, position, target, now.getTime());
           position = target;
           return duration;
         });
-        planting = { ...planting, travelMs, nextStepAt: new Date(now.getTime() + (travelMs[0] ?? 0)).toISOString() };
+        planting = { ...planting, travelMs, travelPaths, travelStartedAt: now.toISOString(), nextStepAt: new Date(now.getTime() + (travelMs[0] ?? 0)).toISOString() };
       } else {
       const storage = await loadMarketItemStorage(tx, farm.id, "barley", now);
       const carried = Math.min(farm.carriedItemQuantity, input.targets.length);
@@ -72,20 +82,34 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
       planting = { id: crypto.randomUUID(), total: input.targets.length, remaining: [...orderPlantingFields(input.targets, stored > 0 ? source : input.targets[0]!)], source, stopRequested: false,
         carriedSeeds: { quantity: carried, expiresAt: farm.carriedItemExpiresAt?.toISOString() ?? null },
         phase: { type: stored > 0 ? "collecting" : "ready" } };
-      const collectionTile = granary?.loadingTile ?? INITIAL_FARM_CONFIG.farmerSpawn;
-      let position = stored > 0 ? collectionTile : INITIAL_FARM_CONFIG.farmerSpawn;
+      const collectionTile = granary ? [granary.loadingTile, { column: granary.column, row: granary.row + 2 },
+        { column: granary.column - 1, row: granary.row }, { column: granary.column + 2, row: granary.row },
+        { column: granary.column, row: granary.row - 1 }].find(p => p && plantingTravelPath(snapshot, origin, p, now.getTime()))
+        : INITIAL_FARM_CONFIG.farmerSpawn;
+      if (!collectionTile) return fail("The seed storage cannot be reached.");
+      const collectionPath = stored > 0 ? pathTo(origin, collectionTile) : undefined;
+      let position = stored > 0 ? collectionTile : origin;
+      const travelPaths = planting.remaining.map(target => { const path = pathTo(position, target); position = target; return path; });
+      position = stored > 0 ? collectionTile : origin;
       const travelMs = planting.remaining.map(target => {
         const duration = plantingTravelMs(snapshot, position, target, now.getTime());
         position = target;
         return duration;
       });
-      planting = { ...planting, travelMs, nextStepAt: new Date(now.getTime() + (stored > 0
-        ? Math.max(1000, plantingTravelMs(snapshot, INITIAL_FARM_CONFIG.farmerSpawn, collectionTile, now.getTime()))
+      planting = { ...planting, travelMs, travelPaths, collectionPath, travelStartedAt: now.toISOString(), nextStepAt: new Date(now.getTime() + (stored > 0
+        ? Math.max(1000, plantingTravelMs(snapshot, origin, collectionTile, now.getTime()))
         : travelMs[0] ?? 0)).toISOString() };
       }
     } else {
+      if (!planting && farm.production.lastHarvestDelivery?.batchId === input.batchId) return readFarmSnapshot(tx, farm, false);
       if (!planting && previousBatch?.id === input.batchId) return readFarmSnapshot(tx, farm, false);
       if (!planting || planting.id !== input.batchId) return fail("This field job is no longer active.");
+      // Delivery is timestamp-owned; an early/duplicate arrival cannot deposit it.
+      if (planting.phase.type === "delivering") return readFarmSnapshot(tx, farm, false);
+      // Saved-route jobs are advanced only by the lifecycle clock, never an early animation callback.
+      if (planting.travelPaths && ((planting.phase.type === "collecting" && input.action === "collect") ||
+        (planting.phase.type === "ready" && input.action === (planting.mode === "harvest" ? "harvest" : "plant"))))
+        return readFarmSnapshot(tx, farm, false);
       if (input.action === "stop") planting = { ...planting, stopRequested: true };
       else if (input.action === "collect") {
         if (planting.mode === "harvest" || planting.phase.type !== "collecting") return fail("The seeds have already been collected.");
@@ -119,7 +143,7 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
             carriedItemExpiresAt: farm.carriedItemExpiresAt ?? new Date(now.getTime() + EXPOSED_BARLEY_LIFETIME_MS),
             progressionStats: { ...farm.progressionStats, harvestedBarley: farm.progressionStats.harvestedBarley + CROP_DEFINITIONS.barley.harvestYield, harvests: farm.progressionStats.harvests + 1 } };
         }
-        planting = { ...planting, phase: { type: "ready" } };
+        planting = { ...planting, lastHarvested: planting.phase.type === "harvesting" ? planting.phase.target : planting.lastHarvested, phase: { type: "ready" } };
       }
       if (planting.phase.type !== "sowing" && planting.phase.type !== "harvesting" && (planting.stopRequested || planting.remaining.length === 0)) {
         if (planting.mode !== "harvest" && planting.remaining.length) {
@@ -131,7 +155,8 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
           if (carried > 0) harvestUpdate = { carriedItemKey: "barley", carriedItemQuantity: farm.carriedItemQuantity + carried,
             carriedItemExpiresAt: planting.carriedSeeds?.expiresAt ? new Date(planting.carriedSeeds.expiresAt) : farm.carriedItemExpiresAt };
         }
-        planting = null;
+        planting = planting.mode === "harvest" && (harvestUpdate.carriedItemQuantity ?? farm.carriedItemQuantity) > 0
+          ? await planHarvestDelivery(tx, farm, planting, now.getTime()) : null;
       }
     }
     const [updated] = await tx.update(farms).set({

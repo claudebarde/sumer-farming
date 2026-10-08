@@ -44,11 +44,11 @@ function TradeList({ trades }: { readonly trades: TradeHistory["trades"] }) {
       {trades.map(trade => (
         <li key={trade.id}>
           <div className={styles.summary}>
-            <strong>{trade.type === "building_upgrade" ? "Building upgrade" : trade.type === "porter_hire" ? "Hired porter · 24 hours" : trade.type === "request_reward" ? `Request delivered: ${trade.requestCustomer}` : <>{trade.type === "market_sale" ? "Sold" : "Bought"} {trade.quantity} {trade.itemKey === "beer" ? (trade.quantity === 1 ? "beer jar" : "beer jars") : trade.itemKey === "brewingVessels" || trade.itemKey === "emptyBeerJar" ? MARKET_ITEM_DEFINITIONS[trade.itemKey].label.toLowerCase() : trade.itemKey}</>}</strong>
-            <span>{trade.type === "market_purchase" || trade.type === "porter_hire" || trade.type === "building_upgrade" ? "−" : "+"}{shekels(trade.total)}</span>
+            <strong>{trade.type === "crop_planting" ? "Planted a sapling" : trade.type === "building_upgrade" ? "Building upgrade" : trade.type === "porter_hire" ? "Hired porter · 24 hours" : trade.type === "request_reward" ? `Request delivered: ${trade.requestCustomer}` : <>{trade.type === "market_sale" ? "Sold" : "Bought"} {trade.quantity} {trade.itemKey === "beer" ? (trade.quantity === 1 ? "beer jar" : "beer jars") : trade.itemKey === "brewingVessels" || trade.itemKey === "emptyBeerJar" ? MARKET_ITEM_DEFINITIONS[trade.itemKey].label.toLowerCase() : trade.itemKey}</>}</strong>
+            <span>{trade.type === "market_purchase" || trade.type === "porter_hire" || trade.type === "building_upgrade" || trade.type === "crop_planting" ? "−" : "+"}{shekels(trade.total)}</span>
           </div>
           <div className={styles.details}>
-            <span>{trade.type === "porter_hire" || trade.type === "building_upgrade" ? "Estate service" : trade.source === "npc" ? "NPC market" : "Player market"}{trade.unitPrice !== null && <> · {shekels(trade.unitPrice)} each</>}</span>
+            <span>{trade.type === "porter_hire" || trade.type === "building_upgrade" || trade.type === "crop_planting" ? "Estate service" : trade.source === "npc" ? "NPC market" : "Player market"}{trade.unitPrice !== null && <> · {shekels(trade.unitPrice)} each</>}</span>
             <time dateTime={trade.createdAt}>{new Date(trade.createdAt).toLocaleString(undefined, {
               dateStyle: "medium", timeStyle: "short"
             })}</time>

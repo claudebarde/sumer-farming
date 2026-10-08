@@ -22,6 +22,29 @@ const fixture = async (balance = 40, level = 8) => {
   return { playerId, farm: farm!, input: { type: "hire_porter" as const, playerId, idempotencyKey: randomUUID(), expectedFarmVersion: 1 } };
 };
 describe("porter persistence and payment", () => {
+  it("starts at the market and books existing bread on the same saved timeline", async () => {
+    const f = await fixture();
+    const [oven] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "breadOven", column: 0, row: 1,
+      loadingTile: { column: -1, row: 1 }, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+    await db.update(farms).set({ production: { ...emptyProductionState(), pending: { [oven!.id]: { itemKey: "bread", quantity: 2 } } } }).where(eq(farms.id, f.farm.id));
+    const marketRoad = { column: 10, row: 5 };
+    const hired = await Effect.runPromise(hirePorter(db, { ...f.input, marketRoad }));
+    const job = hired.farm.production.porter!.job!;
+    expect(job.itemKey).toBe("bread");
+    expect(job.path[0]).toEqual(marketRoad);
+    expect(job.path[job.pickupIndex]).toEqual(oven!.loadingTile);
+    expect(hired.inventory.find(i => i.itemKey === "bread")).toBeUndefined();
+    await db.transaction(async tx => {
+      const [record] = await tx.select().from(farms).where(eq(farms.id, f.farm.id)).for("update");
+      const arriving = await advanceFarmLifecycle(tx, record!, new Date(job.completesAt - 1));
+      expect(arriving.production.porter!.job).toEqual(job);
+      const delivered = await advanceFarmLifecycle(tx, arriving, new Date(job.completesAt));
+      expect(delivered.production.porter!.job).toBeNull();
+      await advanceFarmLifecycle(tx, delivered, new Date(job.completesAt + 60_000));
+    });
+    const stock = await db.select().from(farmInventory).where(eq(farmInventory.farmId, f.farm.id));
+    expect(stock.find(i => i.itemKey === "bread")?.quantity).toBe(2);
+  });
   it("collects an offline bake completed during the hire, but not one completed after expiry", async () => {
     const f = await fixture();
     const [oven] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "breadOven", column: 3, row: 3, loadingTile: { column: 3, row: 5 }, startedAt: new Date(0), completesAt: new Date(1) }).returning();

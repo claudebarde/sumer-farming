@@ -2,6 +2,14 @@
 
 Before making architectural decisions or implementing features, read `PROJECT.md`.
 
+Golden rule: production must never wait for on-screen animations. Persist a
+validated production job and reserve its ingredients as soon as the player starts
+it. The server owns preparation/start/completion timestamps (estimated travel is
+fine). Hidden tabs, closed browsers, reloads and delayed animation callbacks must
+not postpone production. Reconcile elapsed time on return; animations only present
+the saved job. Apply this to every new or changed production flow and test offline
+catch-up and exactly-once ingredient consumption/output.
+
 When adding or changing player-facing game rules, update the root `game-rules.md`
 in the same task. Keep it aligned with implemented behaviour, and clearly separate
 planned features from playable rules. Use it as the consolidated reference for

@@ -4,6 +4,7 @@ import { batchPlantingStore } from "../stores/batchPlantingStore";
 import { farmStore } from "../stores/farmStore";
 import { farmerCommandStore } from "../stores/farmerCommandStore";
 import { executeGameCommand } from "../api/gameActions";
+import { workerLocationStore } from "../stores/workerLocationStore";
 import {
   fieldKey,
   plantableFields,
@@ -61,6 +62,7 @@ export default function BatchPlantingControls({
                 ? "start_batch_harvesting"
                 : "start_batch_planting",
               targets: [...selection.selected],
+              farmerPosition: workerLocationStore.getState().farmerPosition,
               expectedFarmVersion: farm.snapshot.farm.version
             }
       );
@@ -77,7 +79,7 @@ export default function BatchPlantingControls({
     }
   };
   const actionDisabled =
-    pending || (!batch && !valid) || !!batch?.stopRequested;
+    pending || (!batch && !valid) || !!batch?.stopRequested || batch?.phase.type === "delivering";
   return (
     <section
       className={`dialog-bottom-container nes-container is-centered is-rounded ${styles["batch-planting-controls"]}`}
@@ -87,7 +89,8 @@ export default function BatchPlantingControls({
     >
       <p role="status">
         {batch
-          ? batch.phase.type === "collecting"
+          ? batch.phase.type === "delivering" ? "Taking harvested barley to the granary…"
+            : batch.phase.type === "collecting"
             ? `Collecting ${batch.remaining.length - (batch.carriedSeeds?.quantity ?? 0)} barley seeds…`
             : `${harvesting ? "Harvesting" : "Planting"} ${Math.min(batch.total, batch.total - batch.remaining.length + (batch.phase.type === "sowing" || batch.phase.type === "harvesting" ? 0 : 1))} of ${batch.total} fields`
           : harvesting
@@ -122,7 +125,8 @@ export default function BatchPlantingControls({
           {pending
             ? "Please wait…"
             : batch
-              ? batch.stopRequested
+              ? batch.phase.type === "delivering" ? "Delivering barley…"
+                : batch.stopRequested
                 ? "Stopping after this field…"
                 : "Stop after this field"
               : harvesting

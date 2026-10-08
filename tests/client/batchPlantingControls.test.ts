@@ -11,7 +11,7 @@ import { installBatchPlantingOverlay } from "../../src/client/game/phaser/batchP
 
 // Read the current vanilla stores when rendering without a browser subscription.
 vi.mock("../../src/client/game/phaser/config", () => ({ TILE_SIZE: 64 }));
-vi.mock("zustand", () => ({ useStore: (store: { getState: () => unknown }, selector = (state: unknown) => state) => selector(store.getState()) }));
+vi.mock("zustand", async importOriginal => ({ ...await importOriginal<typeof import("zustand")>(), useStore: (store: { getState: () => unknown }, selector = (state: unknown) => state) => selector(store.getState()) }));
 const now = Date.parse("2026-10-01T12:00:00Z");
 const snapshot = () => FarmSnapshotSchema.parse({
   created: false, player: { shekelBalance: 0 },
@@ -27,6 +27,34 @@ afterEach(() => {
 });
 
 describe("NES-style planting controls", () => {
+  it("allows selecting just one field with one seed", () => {
+    const farm = snapshot();
+    farm.inventory = [{ itemKey: "barley", quantity: 1 }];
+    farm.improvements = [8, 9].map(row => ({
+      id: `00000000-0000-4000-8000-00000000000${row}`, type: "irrigation" as const, column: 5, row,
+      startedAt: new Date(0).toISOString(), completesAt: new Date(1000).toISOString(), destroyStartedAt: null, destroyCompletesAt: null
+    }));
+    farmStore.getState().setReady(farm);
+    batchPlantingStore.setState({ origin: { column: 0, row: 0 } });
+    batchPlantingStore.getState().start("plant");
+    batchPlantingStore.getState().toggle({ column: 4, row: 8 });
+    expect(batchPlantingStore.getState().selected).toEqual([{ column: 4, row: 8 }]);
+    expect(render()).toContain("1 / 1 barley");
+    expect(render()).toContain("Plant barley</button>");
+  });
+  it("shows automatic granary delivery instead of another harvest or stop action", () => {
+    const farm = snapshot();
+    farm.farm.production.planting = {
+      id: farm.farm.id, mode: "harvest", total: 4, remaining: [], source: { type: "farm", column: 1, row: 3 }, stopRequested: false,
+      phase: { type: "delivering", granaryId: farm.farm.id, path: [{ column: 3, row: 8 }, { column: 3, row: 7 }],
+        startedAt: new Date(now).toISOString(), completesAt: new Date(now + 1000).toISOString() }
+    };
+    farmStore.getState().setReady(farm);
+    const html = render();
+    expect(html).toContain("Taking harvested barley to the granary");
+    expect(html).toContain('disabled="">Delivering barley');
+    expect(html).not.toContain("Stop after this field</button>");
+  });
   it.each([[50, 4], [51, 6], [90, 6], [91, 8]])("caps planting at %i happiness to %i fields", (happiness, limit) => {
     const farm = snapshot();
     farm.farm.household.happiness = happiness;

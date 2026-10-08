@@ -5,7 +5,8 @@ export const shekelTransactionTypes = [
   "market_purchase",
   "request_reward",
   "porter_hire",
-  "building_upgrade"
+  "building_upgrade",
+  "crop_planting"
 ] as const;
 
 export const ShekelTransactionTypeSchema = z.enum(shekelTransactionTypes);

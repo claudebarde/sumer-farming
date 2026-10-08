@@ -1,0 +1,28 @@
+.controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-top: 16px;
+  // NES.css adds a bottom margin to labels, offsetting the adjacent button.
+  label { display: flex; flex: 1 1 180px; flex-direction: column; gap: 4px; margin-bottom: 0; }
+  select { width: 100%; min-height: 44px; font: inherit; color: inherit; }
+  button { min-height: 44px; }
+}
+.note { font-size: 0.85em; }
+.tableContainer { overflow-x: auto; }
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+  caption { text-align: left; padding: 8px 0; }
+  th, td { padding: 8px 6px; text-align: left; border-bottom: 1px solid #d9c5a6; }
+  th:last-child, td:last-child { text-align: right; }
+  small { display: block; font-weight: normal; font-size: 0.8em; }
+}
+.identity {
+  display: flex; gap: 8px; align-items: center; overflow-wrap: anywhere;
+  img { object-fit: contain; flex-shrink: 0; }
+}
+.you, .self { background: #f3e3c8; }
+.self { padding: 8px; }

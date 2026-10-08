@@ -32,6 +32,13 @@ const render = (flour: number, level = 6, baking = false, constructionElapsed?: 
 };
 
 describe("Bread Oven popup", () => {
+  it("uses the shared header with a grouped title and all cuneiform characters", () => {
+    const html = render(2);
+    expect(html).toContain("tile-popover-content-header");
+    expect(html).not.toContain("bread-oven-header");
+    expect(html).toContain('<span class="cuneiforms">𒌅𒊒𒈾</span><span>Bread Oven</span>');
+    expect(html).toContain('aria-label="Building level 1"');
+  });
   it("shows construction progress and remaining time before the disabled action", () => {
     const html = render(4, 6, false, 90000);
     expect(html).toContain("Construction: 1m 30s remaining.");

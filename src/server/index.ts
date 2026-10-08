@@ -1,7 +1,17 @@
 // src/server/index.ts
+import { claimBuildingReadiness } from "./services/buildingReadiness";
+import { tendPerennialCrop, PerennialCropRuleError, PerennialCropPersistenceError } from "./services/perennialCrops";
 
 import { Effect, Either } from "effect";
-import { eq } from "drizzle-orm";
+import { LeaderboardQuerySchema } from "../schemas/leaderboard";
+import { readLeaderboard } from "./services/leaderboard";
+import { MarketPresenceCommandSchema } from "../schemas/marketPresence";
+import { updateMarketPresence } from "./services/marketPresence";
+import { NameFarmerCommandSchema } from "../schemas/farmerProfile";
+import { nameFarmer } from "./services/farmerProfile";
+import { ResidenceCommandSchema } from "../schemas/residence";
+import { chooseResidence, readResidence } from "./services/residence";
+import { eq, inArray } from "drizzle-orm";
 import { commandUnlockLevel } from "../game-core/farm/commandUnlock";
 import { startMilling, deliverMillGoods, MillingRuleError, MillingPersistenceError } from "./services/milling";
 import { productionAction, ProductionRuleError, ProductionPersistenceError } from "./services/production";
@@ -104,7 +114,7 @@ import {
   type MarketSellOrderError
 } from "./services/marketSellOrders";
 
-import { resolveDevelopmentPlayer } from "../game-data/developmentPlayers";
+import { DEVELOPMENT_PLAYERS, resolveDevelopmentPlayer } from "../game-data/developmentPlayers";
 import { supplyBrewery, BrewerySupplyRuleError, BrewerySupplyPersistenceError } from "./services/brewerySupplies";
 import { buyMarketSellOrder, PlayerMarketRuleError, PlayerMarketPersistenceError } from "./services/buyMarketSellOrder";
 
@@ -153,10 +163,106 @@ type GameActionEffect = Effect.Effect<
   | MarketSellOrderError
   | PlayerMarketRuleError
   | PlayerMarketPersistenceError
+  | PerennialCropRuleError
+  | PerennialCropPersistenceError
 >;
 
 app.get("/api/health", c => {
   return c.json({ ok: true });
+});
+
+app.post("/api/notifications/building-ready", async c => {
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    return c.json(await claimBuildingReadiness(createDatabase(client), c.get("developmentPlayer").id));
+  } catch (error) {
+    console.error("Building readiness notification unavailable", error);
+    return c.json({ error: { message: "Could not check building readiness." } }, 503);
+  } finally { await client.end().catch(error => console.error("Closing notification connection failed", error)); }
+});
+
+app.on(["GET", "POST"], "/api/residence", async c => {
+  if (!import.meta.env.DEV) return c.notFound();
+  const parsed = c.req.method === "POST"
+    ? ResidenceCommandSchema.safeParse(await c.req.json().catch(() => null)) : null;
+  if (parsed && !parsed.success) return c.json({ error: { message: "Choose a valid city and neighbourhood option." } }, 400);
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const db = createDatabase(client);
+    const playerId = c.get("developmentPlayer").id;
+    if (!parsed) return c.json({ residence: await readResidence(db, playerId) });
+    if (!parsed.success) return c.json({ error: { message: "Invalid choice." } }, 400);
+    const result = await Effect.runPromise(Effect.either(chooseResidence(db, playerId, parsed.data)));
+    if (Either.isLeft(result)) {
+      console.error("Residence persistence failed", result.left.cause);
+      return c.json({ error: { message: "Your city could not be saved. Please retry." } }, 500);
+    }
+    return result.right.type === "rejected"
+      ? c.json({ error: { message: result.right.message } }, 409)
+      : c.json({ residence: result.right.residence });
+  } catch (error) {
+    console.error("Residence unavailable", error);
+    return c.json({ error: { message: "City selection is unavailable. Please retry." } }, 503);
+  } finally { await client.end().catch(error => console.error("Closing residence connection failed", error)); }
+});
+
+app.post("/api/farmer/profile", async c => {
+  const command = NameFarmerCommandSchema.safeParse(await c.req.json().catch(() => null));
+  if (!command.success) return c.json({ error: { message: "Choose one of the available farmer names." } }, 400);
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await Effect.runPromise(Effect.either(nameFarmer(createDatabase(client), c.get("developmentPlayer").id, command.data.name)));
+    if (Either.isLeft(result)) {
+      console.error("Farmer profile failed", result.left.cause);
+      return c.json({ error: { message: "Your farmer's name could not be saved. Please retry." } }, 500);
+    }
+    return result.right.type === "ok" ? c.json({ profile: result.right.profile }) : c.json({ error: { message: result.right.message } }, 409);
+  } catch (error) {
+    console.error("Farmer profile connection failed", error);
+    return c.json({ error: { message: "Farmer customization is unavailable. Please retry." } }, 503);
+  } finally { await client.end().catch(error => console.error("Closing profile connection failed", error)); }
+});
+
+app.post("/api/market/presence", async c => {
+  const command = MarketPresenceCommandSchema.safeParse(await c.req.json().catch(() => null));
+  if (!command.success) return c.json({ error: { message: "Invalid market visit." } }, 400);
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await Effect.runPromise(Effect.either(updateMarketPresence(createDatabase(client), c.get("developmentPlayer").id, command.data)));
+    if (Either.isLeft(result)) {
+      console.error("Market presence failed", result.left.cause);
+      return c.json({ error: { message: "Live neighbours are temporarily unavailable." } }, 503);
+    }
+    return result.right.type === "ok" ? c.json({ visitors: result.right.visitors })
+      : c.json({ error: { message: result.right.message } }, 409);
+  } catch (error) {
+    console.error("Market presence connection failed", error);
+    return c.json({ error: { message: "Live neighbours are temporarily unavailable." } }, 503);
+  } finally { await client.end().catch(error => console.error("Closing presence connection failed", error)); }
+});
+
+app.get("/api/leaderboard", async c => {
+  const query = LeaderboardQuerySchema.safeParse(c.req.query());
+  if (!query.success) return c.json({ error: { message: "Choose a valid leaderboard and metric." } }, 400);
+  c.header("Cache-Control", "no-store");
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await Effect.runPromise(Effect.either(readLeaderboard(createDatabase(client), c.get("developmentPlayer").id, query.data)));
+    if (Either.isLeft(result)) {
+      console.error("Leaderboard failed", result.left.cause);
+      return c.json({ error: { message: "Leaderboard temporarily unavailable." } }, 503);
+    }
+    return result.right.type === "ok" ? c.json(result.right.leaderboard)
+      : c.json({ error: { message: result.right.message } }, 409);
+  } catch (error) {
+    console.error("Leaderboard connection failed", error);
+    return c.json({ error: { message: "Leaderboard temporarily unavailable." } }, 503);
+  } finally { await client.end().catch(error => console.error("Closing leaderboard connection failed", error)); }
 });
 
 app.get("/api/market/quotes", async c => {
@@ -305,6 +411,25 @@ app.get("/api/db/health", async c => {
   }
 });
 
+// Read names without bootstrapping or advancing any other player's farm.
+app.get("/api/development/players", async c => {
+  if (!import.meta.env.DEV) return c.notFound();
+  c.header("Cache-Control", "no-store");
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const rows = await createDatabase(client).select({ playerId: farms.playerId, profile: farms.farmerProfile })
+      .from(farms).where(inArray(farms.playerId, DEVELOPMENT_PLAYERS.map(player => player.id)));
+    return c.json({ players: DEVELOPMENT_PLAYERS.flatMap(player => {
+      const name = rows.find(row => row.playerId === player.id)?.profile?.identity.name;
+      return name ? [{ key: player.key, name }] : [];
+    }) });
+  } catch (error) {
+    console.error("Development player names could not be loaded", error);
+    return c.json({ error: { message: "Test player names could not be loaded." } }, 503);
+  } finally { await client.end().catch(() => {}); }
+});
+
 app.post("/api/development/farm", async c => {
   if (!import.meta.env.DEV) {
     return c.notFound();
@@ -370,7 +495,9 @@ app.post("/api/game/action", async c => {
 
     const database = createDatabase(client);
     const command = parsedCommand.data;
-    const [progressFarm] = await database.select({ level: farms.level, production: farms.production }).from(farms).where(eq(farms.playerId, c.get("developmentPlayer").id));
+    if (!await readResidence(database, c.get("developmentPlayer").id)) return c.json({ error: { type: "city_required", message: "Choose your city before starting your farm." } }, 409);
+    const [progressFarm] = await database.select({ level: farms.level, production: farms.production, farmerProfile: farms.farmerProfile }).from(farms).where(eq(farms.playerId, c.get("developmentPlayer").id));
+    if (progressFarm && !progressFarm.farmerProfile) return c.json({ error: { type: "farmer_name_required", message: "Choose your farmer's name before starting your farm." } }, 409);
     if (progressFarm?.production.planting && command.type !== "advance_batch_planting") return c.json({ error: { type: "farmer_busy", message: "Finish or stop planting or harvesting the selected fields first." } }, 409);
     const order = command.type === "buy_market_sell_order"
       ? (await database.select({ itemKey: marketOrders.itemKey }).from(marketOrders).where(eq(marketOrders.id, command.orderId)))[0]
@@ -392,6 +519,8 @@ app.post("/api/game/action", async c => {
           .with({ type: "brewery_supply" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "give_farmer_beer" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "give_farmer_fish" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: "give_farmer_dates" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: "tend_perennial_crop" }, command => tendPerennialCrop(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "give_farmer_bread" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "build_irrigation" }, command =>
             buildIrrigation(database, {
@@ -561,6 +690,11 @@ app.post("/api/game/action", async c => {
         return c.json({ error: { type: "porter_failed", message: "Could not hire the porter. Please try again." } }, 500);
       })
       .with(P.instanceOf(PorterRuleError), error => c.json({ error: { type: "porter_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(PerennialCropRuleError), error => c.json({ error: { type: "crop_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(PerennialCropPersistenceError), error => {
+        console.error("Crop work failed", error.cause);
+        return c.json({ error: { type: "crop_failed", message: "Could not update the crop." } }, 500);
+      })
       .with(P.instanceOf(ProductionRuleError), error => c.json({ error: { type: "production_unavailable", message: error.message } }, 409))
       .with(P.instanceOf(BatchPlantingError), error => c.json({ error: { type: "batch_planting_unavailable", message: error.message } }, 409))
       .with(P.instanceOf(BatchPlantingPersistenceError), () => c.json({ error: { type: "batch_planting_failed", message: "Planting could not be updated." } }, 500))
@@ -1360,6 +1494,9 @@ app.post("/api/game/action", async c => {
               409
             )
           )
+          .with({ type: "barley_reserve_required" }, () =>
+            c.json({ error: { type: "barley_reserve_required", message: "You must keep 1 barley in your farm" } }, 409)
+          )
           .with({ type: "insufficient_shekels" }, rule =>
             c.json(
               {
@@ -1483,6 +1620,9 @@ app.post("/api/game/action", async c => {
               },
               409
             )
+          )
+          .with({ type: "barley_reserve_required" }, () =>
+            c.json({ error: { type: "barley_reserve_required", message: "You must keep 1 barley in your farm" } }, 409)
           )
           .with({ type: "order_not_found" }, () =>
             c.json(
