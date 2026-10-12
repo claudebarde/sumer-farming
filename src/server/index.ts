@@ -17,6 +17,7 @@ import { startMilling, deliverMillGoods, MillingRuleError, MillingPersistenceErr
 import { productionAction, ProductionRuleError, ProductionPersistenceError } from "./services/production";
 import { hirePorter, PorterRuleError, PorterPersistenceError } from "./services/porter";
 import { upgradeBuilding, BuildingUpgradeRuleError, BuildingUpgradePersistenceError } from "./services/buildingUpgrades";
+import { destroyBuilding, BuildingDemolitionRuleError, BuildingDemolitionPersistenceError } from "./services/destroyBuilding";
 import { batchPlantingAction, BatchPlantingError, BatchPlantingPersistenceError } from "./services/batchPlanting";
 import { buildRoad, RoadRuleError, RoadPersistenceError } from "./services/buildRoad";
 import { isProgressionSignpost } from "../game-data/progression";
@@ -135,6 +136,8 @@ type GameActionEffect = Effect.Effect<
   | MillingRuleError
   | PorterRuleError
   | BuildingUpgradeRuleError
+  | BuildingDemolitionRuleError
+  | BuildingDemolitionPersistenceError
   | BuildingUpgradePersistenceError
   | PorterPersistenceError
   | ProductionRuleError
@@ -531,6 +534,7 @@ app.post("/api/game/action", async c => {
           )
           .with({ type: "hire_porter" }, command => hirePorter(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "upgrade_building" }, command => upgradeBuilding(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: "destroy_building" }, command => destroyBuilding(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: P.union("start_baking", "production_delivery", "shrine_offering") }, command => productionAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: P.union("build_granary", "build_brewery", "build_mill", "build_bread_oven", "build_small_shrine", "build_warehouse") }, command =>
             buildFarmBuilding(database, {
@@ -681,6 +685,11 @@ app.post("/api/game/action", async c => {
     return match(result.left)
       .with(P.instanceOf(MillingRuleError), error => c.json({ error: { type: "milling_unavailable", message: error.message } }, 409))
       .with(P.instanceOf(BuildingUpgradeRuleError), error => c.json({ error: { type: "building_upgrade_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(BuildingDemolitionRuleError), error => c.json({ error: { type: "building_demolition_unavailable", message: error.message } }, 409))
+      .with(P.instanceOf(BuildingDemolitionPersistenceError), error => {
+        console.error("Building demolition failed", error.cause);
+        return c.json({ error: { type: "building_demolition_failed", message: "Could not destroy the building. Please try again." } }, 500);
+      })
       .with(P.instanceOf(BuildingUpgradePersistenceError), error => {
         console.error("Building upgrade failed", error.cause);
         return c.json({ error: { type: "building_upgrade_failed", message: "Could not upgrade the building. Please try again." } }, 500);
@@ -979,7 +988,6 @@ app.post("/api/game/action", async c => {
               409
             )
           )
-          .with({ type: "materials_cannot_be_dropped" }, () => c.json({ error: { type: "materials_cannot_be_dropped", message: "Reed and clay must be delivered to the farm, not dropped on the ground." } }, 409))
           .with({ type: "incompatible_carried_item" }, () =>
             c.json(
               {

@@ -32,7 +32,6 @@ import { readFarmSnapshot } from "./farmSnapshot";
 import { advanceFarmLifecycle } from "./farmLifecycle";
 
 type FarmItemRule =
-  | { readonly type: "materials_cannot_be_dropped" }
   | { readonly type: "farm_not_found" }
   | {
       readonly type: "version_conflict";
@@ -221,6 +220,7 @@ const executeFarmItemAction = (
             loadedFarm,
             now
           );
+          if (farm.gatheringItemKey) throw new FarmerUnavailableError({ message: "The farmer is gathering a resource." });
           assertFarmerAvailable(action.type === "deposit" || action.type === "drop" ? { ...farm, production: { ...farm.production, materialDelivery: false } } : farm);
 
           if (farm.version !== action.input.expectedFarmVersion) {
@@ -341,9 +341,6 @@ const executeFarmItemAction = (
                   };
             })
             .with({ type: "drop" }, async ({ input }) => {
-              if (farm.carriedItemKey === "reed" || farm.carriedItemKey === "clay") {
-                return { type: "rule_error", rule: { type: "materials_cannot_be_dropped" } };
-              }
               if (
                 farm.carriedItemKey === null ||
                 farm.carriedItemQuantity === 0
@@ -404,7 +401,8 @@ const executeFarmItemAction = (
               const [updatedFarm] = await transaction
                 .update(farms)
                 .set({
-                  production: { ...farm.production, materialDelivery: false },
+                  production: { ...farm.production, materialDelivery: false,
+                    materialReservation: farm.production.materialReservation === farm.carriedItemKey ? null : farm.production.materialReservation },
                   carriedItemKey:
                     remainingQuantity === 0 ? null : farm.carriedItemKey,
                   carriedItemQuantity: remainingQuantity,

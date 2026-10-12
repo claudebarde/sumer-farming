@@ -16,7 +16,7 @@ export const ProductionStateSchema = z.object({
   buildingUpgrades: BuildingUpgradesSchema.optional(),
   porter: PorterSchema.nullable().optional(),
   materialDelivery: z.boolean().optional(),
-  // One slot held from gathering start until the gathered material is delivered.
+  // One slot held during gathering; legacy deliveries can also retain a reservation.
   materialReservation: z.enum(["reed", "clay"]).nullable().optional(),
   shrineBlessing: z.object({ buildingId: z.uuid(), startedAt: z.iso.datetime(), expiresAt: z.iso.datetime() }).nullable().optional(),
   planting: BatchPlantingSchema.nullable().optional(),

@@ -1,4 +1,4 @@
-import defaultFarmerSprite from "../../assets/sprite_assets/pngs/farmer-stand-staff-1.png";
+import defaultFarmerSprite from "../../assets/sprite_assets/pngs/v2/farmer-idle-approved-design.png";
 import styles from "../styles/GameCanvas.module.scss";
 
 /** Shared portrait presentation; future appearance choices can supply a sprite. */

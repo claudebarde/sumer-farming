@@ -429,6 +429,23 @@
   }
 }
 
+.demolition-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.market-dialog-content.demolition-dialog {
+  box-sizing: border-box;
+  padding: clamp(16px, 4vw, 24px);
+  overflow-y: auto;
+
+  > h2 {
+    margin-top: 0;
+  }
+}
+
 .building-list {
   display: flex;
   flex-direction: column;
@@ -459,6 +476,42 @@
     height: 48px;
     object-fit: contain;
   }
+}
+
+.building-list li.building-card {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  column-gap: 16px;
+  align-items: start;
+
+  > img {
+    grid-column: 1;
+    grid-row: 1 / span 3;
+    width: 160px;
+    height: 160px;
+    max-width: 100%;
+    object-fit: contain;
+  }
+
+  > h3, > p {
+    grid-column: 2;
+    overflow-wrap: anywhere;
+  }
+
+  > button {
+    grid-column: 1 / -1;
+  }
+
+  @media (max-width: 420px) {
+    grid-template-columns: 1fr;
+
+    > img { grid-row: auto; justify-self: center; }
+    > h3, > p { grid-column: 1; }
+  }
+}
+
+.manage-dialog-content:has(.building-card) {
+  width: min(540px, 90vw);
 }
 
 .resource-sections {

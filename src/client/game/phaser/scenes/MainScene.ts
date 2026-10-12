@@ -1,4 +1,7 @@
 import Phaser from "phaser";
+import { prepareFarmerTexture } from "../farmerTexture";
+import { FARMER_WALK_SOURCES, FARMER_WALK_BOUNDS, farmerWalkTexture } from "../farmerWalk";
+import { FARMER_PLANT_SOURCES, farmerPlantBounds, farmerPlantTexture } from "../farmerPlant";
 import { createFarmerIdle, idleKey } from "../farmerIdle";
 import { improvementWorkActive } from "../../../../game-data/farmImprovements";
 import { batchTravelPresentation } from "../batchTravelPresentation";
@@ -416,12 +419,35 @@ export class MainScene extends Phaser.Scene {
   }
 
   preload(): void {
+    FARMER_PLANT_SOURCES.forEach((url, index) => this.load.image(`farmer-plant-source-${index}`, url));
+    FARMER_WALK_SOURCES.forEach((url, index) => this.load.image(`farmer-walk-source-${index}`, url));
     for (const [name, url] of Object.entries(FARM_SPRITES)) {
-      this.load.image(name, url);
+      this.load.image(name === "farmerIdle0" ? "farmer-idle-v2-source" : name, url);
     }
   }
 
   create(): void {
+    FARMER_PLANT_SOURCES.forEach((_, index) => {
+      const key = `farmer-plant-v2-${index}`;
+      if (this.textures.exists(key)) return;
+      const source = this.textures.get(`farmer-plant-source-${index}`).getSourceImage() as HTMLImageElement;
+      this.textures.addCanvas(key, prepareFarmerTexture(source, undefined, farmerPlantBounds(source.naturalWidth)))
+        ?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    });
+    FARMER_WALK_SOURCES.forEach((_, index) => {
+      const key = `farmer-walk-v2-${index}`;
+      if (this.textures.exists(key)) return;
+      const source = this.textures.get(`farmer-walk-source-${index}`).getSourceImage() as HTMLImageElement;
+      this.textures.addCanvas(key, prepareFarmerTexture(source, undefined, FARMER_WALK_BOUNDS))
+        ?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    });
+    // Fit the portrait-shaped test asset inside the existing square actor frame.
+    // Shared texture also keeps market characters correctly proportioned.
+    if (!this.textures.exists("farmerIdle0")) {
+      const source = this.textures.get("farmer-idle-v2-source").getSourceImage() as HTMLImageElement;
+      const texture = this.textures.addCanvas("farmerIdle0", prepareFarmerTexture(source));
+      texture?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    }
     installSceneDomIsolation(this);
     marketUiStore.getState().setLocation("farm");
     this.cameras.main.setBackgroundColor(colors.soil);
@@ -1509,6 +1535,34 @@ export class MainScene extends Phaser.Scene {
         })
       : resolveInitialFarmerPosition();
     let farmerVisualOffset: PixelPosition = { x: 0, y: 0 };
+    let plantingAnimationStartedAt: number | null = null;
+    const updatePlantAnimation = () => {
+      const texture = farmer.texture.key;
+      const planting = farmerCommandStore.getState().status.type === "planting" &&
+        (texture === "farmerPlant0" || texture.startsWith("farmer-plant-v2-"));
+      if (!planting || !farmer.visible || document.visibilityState !== "visible") {
+        plantingAnimationStartedAt = null;
+        return;
+      }
+      plantingAnimationStartedAt ??= this.time.now;
+      farmer.setTexture(farmerPlantTexture(this.time.now - plantingAnimationStartedAt))
+        .setDisplaySize(TILE_SIZE, TILE_SIZE);
+    };
+    let walkDistance = 0;
+    let lastWalkPosition: PixelPosition | null = null;
+    const updateWalkAnimation = () => {
+      const position = { x: farmer.x, y: farmer.y };
+      const distance = lastWalkPosition ? Math.hypot(position.x - lastWalkPosition.x, position.y - lastWalkPosition.y) : 0;
+      lastWalkPosition = position;
+      const walkingTexture = farmer.texture.key === "farmerWalk0" || farmer.texture.key.startsWith("farmer-walk-v2-");
+      if (!walkingTexture || !farmer.visible || document.visibilityState !== "visible" || distance > TILE_SIZE / 2) {
+        walkDistance = 0;
+        return;
+      }
+      // Distance, not wall-clock time: pauses and slower travel cannot cause foot sliding.
+      walkDistance += distance;
+      farmer.setTexture(farmerWalkTexture(walkDistance)).setDisplaySize(TILE_SIZE, TILE_SIZE);
+    };
     let farmerHasMoved = this.farmSnapshot.farm.fishing !== null;
     let activeFarmerMovement: Phaser.Tweens.TweenChain | null = null;
     let idleWalking = false;
@@ -2340,6 +2394,8 @@ export class MainScene extends Phaser.Scene {
       );
       updateDonkey();
       updateFarmerIdle();
+      updateWalkAnimation();
+      updatePlantAnimation();
       updateFarmerCarryBubblePosition();
       if (Date.now() >= nextLevelReadyCheck) updateLevelReadyMark();
     };

@@ -342,6 +342,11 @@ export const completeGatherResource = (
             };
           }
 
+          // Lazy lifecycle may already have settled this job (including a retry).
+          if (!farm.gatheringItemKey && (farm.carriedItemKey === "reed" || farm.carriedItemKey === "clay")) {
+            return { type: "success", snapshot: await readFarmSnapshot(transaction, farm, false) };
+          }
+
           if (
             farm.gatheringItemKey === null ||
             farm.gatheringColumn === null ||
@@ -372,7 +377,7 @@ export const completeGatherResource = (
             .update(farms)
             .set({
               carriedItemKey: farm.gatheringItemKey,
-              production: { ...farm.production, materialDelivery: true },
+              production: { ...farm.production, materialDelivery: false, materialReservation: null },
               carriedItemQuantity: 1,
               carriedItemExpiresAt: null,
               gatheringItemKey: null,

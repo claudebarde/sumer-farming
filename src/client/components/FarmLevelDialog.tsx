@@ -102,8 +102,7 @@ export default function FarmLevelDialog() {
           </header>
           <div className={styles["market-dialog-body"]}>
             <Dialog.Description>
-              Complete the requirements, then claim your next level at this
-              signpost.
+              Complete the requirements, then claim your next level.
             </Dialog.Description>
             {message && <p role="status">{message}</p>}
             <h3>

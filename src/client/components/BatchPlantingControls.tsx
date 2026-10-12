@@ -89,7 +89,7 @@ export default function BatchPlantingControls({
     >
       <p role="status">
         {batch
-          ? batch.phase.type === "delivering" ? "Taking harvested barley to the granary…"
+          ? batch.phase.type === "delivering" ? "Storing barley…"
             : batch.phase.type === "collecting"
             ? `Collecting ${batch.remaining.length - (batch.carriedSeeds?.quantity ?? 0)} barley seeds…`
             : `${harvesting ? "Harvesting" : "Planting"} ${Math.min(batch.total, batch.total - batch.remaining.length + (batch.phase.type === "sowing" || batch.phase.type === "harvesting" ? 0 : 1))} of ${batch.total} fields`

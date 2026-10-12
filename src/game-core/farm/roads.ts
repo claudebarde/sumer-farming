@@ -9,8 +9,8 @@ export const roadNeighbors = ({ column, row }: RoadCoordinate): readonly RoadCoo
   { column, row: row + 1 }, { column: column - 1, row },
   { column: column + 1, row }, { column, row: row - 1 }
 ];
-export const isRoad = (target: RoadCoordinate, roads: readonly RoadCoordinate[]) =>
-  target.row === INITIAL_FARM_CONFIG.roadRow || roads.some(r => roadKey(r) === roadKey(target) && roadIsComplete(r, Date.now()));
+export const isRoad = (target: RoadCoordinate, roads: readonly RoadCoordinate[], now = Date.now()) =>
+  target.row === INITIAL_FARM_CONFIG.roadRow || roads.some(r => roadKey(r) === roadKey(target) && roadIsComplete(r, now));
 
 // Include roads under construction: their connections are already reserved.
 export const isRoadIntersection = (target: RoadCoordinate, roads: readonly RoadCoordinate[]): boolean => {
@@ -19,14 +19,14 @@ export const isRoadIntersection = (target: RoadCoordinate, roads: readonly RoadC
   return hasRoad(target) && roadNeighbors(target).filter(hasRoad).length >= 3;
 };
 
-export const validateRoadPlacement = (target: RoadCoordinate, roads: readonly RoadCoordinate[], occupied: ReadonlySet<string>): string | null => {
+export const validateRoadPlacement = (target: RoadCoordinate, roads: readonly RoadCoordinate[], occupied: ReadonlySet<string>, now = Date.now()): string | null => {
   const b = INITIAL_FARM_CONFIG.worldBounds;
   if (target.column < b.minimumColumn || target.column > b.maximumColumn || target.row < b.minimumRow || target.row > b.maximumRow)
     return "Build roads inside the farm map.";
   if (target.row === INITIAL_FARM_CONFIG.riverRow) return "Roads cannot be built on the river.";
   if (target.row === INITIAL_FARM_CONFIG.roadRow || roads.some(r => roadKey(r) === roadKey(target))) return "There is already a road here.";
   if (isProgressionSignpost(target) || occupied.has(roadKey(target))) return "Choose an empty tile for the road.";
-  if (!roadNeighbors(target).some(p => isRoad(p, roads))) return "Connect the road to the main road or an existing branch.";
+  if (!roadNeighbors(target).some(p => isRoad(p, roads, now))) return "Connect the road to the main road or an existing branch.";
   return null;
 };
 

@@ -61,6 +61,18 @@ export const advanceFarmLifecycle = async (
   farm: FarmRecord,
   now: Date
 ): Promise<FarmRecord> => {
+  // Gathering completes from saved time, including while the tab is closed.
+  // Leave the material in the farmer's hands for a player-directed drop/deposit.
+  if (farm.gatheringItemKey && farm.gatheringCompletesAt && farm.gatheringCompletesAt <= now && !farm.carriedItemKey) {
+    const [gathered] = await transaction.update(farms).set({
+      carriedItemKey: farm.gatheringItemKey, carriedItemQuantity: 1, carriedItemExpiresAt: null,
+      gatheringItemKey: null, gatheringColumn: null, gatheringRow: null,
+      gatheringStartedAt: null, gatheringCompletesAt: null,
+      production: { ...farm.production, materialDelivery: false, materialReservation: null },
+      updatedAt: now
+    }).where(eq(farms.id, farm.id)).returning();
+    farm = gathered ?? farm;
+  }
   // Upgrade legacy second granaries in place: preserve coordinates, construction
   // timestamps, loading tile and stored barley. No goods are discarded.
   const storageBuildings = await transaction.select().from(farmBuildings)

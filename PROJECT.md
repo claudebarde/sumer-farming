@@ -1450,6 +1450,17 @@ The marketplace should be one of the primary engines of player decision-making a
 
 ## 33. Popup layout convention
 
+Contextual action popups show only actions available now for the clicked tile/item.
+Omit unavailable buttons instead of disabling them, and omit their blocker text.
+Apply this rule to all new and revised popups. Keep server validation and in-flight
+duplicate-submission guards. This supersedes older disabled-action conventions
+for popups. Existing non-isometric popup migrations can follow when those views
+are revised; this change does not remove any underlying gameplay restrictions.
+Tile/item popups should have a visible arrow pointing to their selected target.
+Keep the arrow outside any scrolling/clipping content container.
+Explicit exception: when the farmer carries barley and both granary and farm
+storage are full, retain a disabled `No storage available` button in his popup.
+
 Always place all informational text, resource counts, status messages, and alerts
 above the action buttons. Action buttons must be the last elements at the bottom
 of a popup; never render explanatory text after them. Reorder actions only within
@@ -1486,6 +1497,20 @@ rule between placement previews and authoritative server validation. An invalid
 placement must show a red footprint and sprite, including when road access is
 missing even though the ground tiles are empty.
 
+Approved isometric placement presentation (2026-10-11): use the granary preview
+as the baseline for all building placement. Show the full tile footprint and a
+semi-transparent building ghost, both green when valid and red when invalid;
+mark the valid loading tile in yellow. Move the preview with the pointer or a
+ground-projected tap, preserve camera pan/zoom, and provide cancellation/Escape.
+Use a subtle opacity pulse, respecting reduced-motion preferences. Keep the
+approved sprite scale/anchor aligned with the final building rendering.
+The temporary toolbar test has been removed. Retained mock code bypasses economic
+gates for spatial testing only: real Build actions must restore level, ownership,
+materials, farmer availability and server validation before committing construction.
+The granary now connects this preview to Manage → Build with a separate confirmation
+and the existing authoritative build_granary command. Construction deadlines are
+persisted immediately; walking and work animations never gate completion.
+
 ## 36. Minimal player-facing text
 
 Keep interface text to a minimum. Prefer concise labels, quantities, visual states,
@@ -1493,3 +1518,15 @@ and short contextual button messages over persistent explanations. Explain detai
 rules and their rationale in the game rules, not in every gameplay popup. A blocked
 barley sale uses “You must keep 1 barley in your farm” on its disabled confirmation
 button, without adding a paragraph to the market card.
+
+Farmer sprite rendering has a player-approved baseline and a reversible sharpening
+trial documented in `docs/farmer-rendering.md`. Preserve that baseline when tuning
+artwork; do not replace it with direct full-resolution texture minification.
+
+## 37. Dropped-item positioning
+
+All dropped ground items use the approved barley/reed/clay position: project their
+owning tile centre and use sprite origin (0.5, 0.71875), shared through
+`GROUND_ITEM_ORIGIN` in `isometricFarm.ts`. Apply this default to future goods too.
+Preserve owning-tile hit testing. Do not apply this anchor to carried items,
+characters, crops or buildings. New artwork should be framed to match this baseline.

@@ -1,20 +1,16 @@
+import EstateManagementContent from "./EstateManagementContent";
+import MarketDialog from "./MarketDialog";
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { OPEN_BUILD_DRAWER } from "../api/buildingReadiness";
 import { improvementWorkActive } from "../../game-data/farmImprovements";
 import { isClearableScenery } from "../../game-data/farmObjects";
-import {
-  clampMarketQuantity,
-  marketQuantityLimit
-} from "../game/marketQuantity";
 import TileActionButton from "./TileActionButton";
 import PerennialCropContent, {
   PerennialCropAction
 } from "./PerennialCropContent";
 import { cropWorkActive } from "../../game-core/farm/perennialCrops";
-import datesImage from "../../assets/sprite_assets/pngs/dates-basket.png";
 import ProductionStoreButton from "./ProductionStoreButton";
 import { TileActionsBusy } from "./tileActionsBusy";
-import { FARM_SPRITES } from "../../assets/farmSprites";
 import {
   plantableFields,
   harvestableFields
@@ -30,16 +26,8 @@ import smallShrineImage from "../../assets/sprite_assets/pngs/small-shrine.png";
 import warehouseImage from "../../assets/sprite_assets/pngs/warehouse.png";
 import { estateResourceCapacity } from "../../game-data/storage";
 import ShrineContent from "./ShrineContent";
-import bakingToolsImage from "../../assets/sprite_assets/pngs/wooden-baking-tools.png";
-import barleyImage from "../../assets/sprite_assets/pngs/wheat-sheaf.png";
-import flourBagsImage from "../../assets/sprite_assets/pngs/flour-bags.png";
-import shekelsImage from "../../assets/sprite_assets/pngs/shekels.png";
-import fishImage from "../../assets/sprite_assets/pngs/fish.png";
-import reedImage from "../../assets/sprite_assets/pngs/reed-bundle.png";
-import clayImage from "../../assets/sprite_assets/pngs/brick-pile.png";
 import HappinessMeter from "./HappinessMeter";
 import RationMeter from "./RationMeter";
-import FarmerPanel from "./FarmerPanel";
 import LeaderboardDialog from "./LeaderboardDialog";
 import MillContent from "./MillContent";
 import BuildingUpgradeContent, {
@@ -51,10 +39,8 @@ import {
   buildingProductionMultiplier
 } from "../../game-data/buildingUpgrades";
 import BreadOvenContent from "./BreadOvenContent";
-import beerJarsImage from "../../assets/sprite_assets/pngs/beer-jars.png";
-import breadBasketImage from "../../assets/sprite_assets/pngs/bread-basket.png";
 import millImage from "../../assets/sprite_assets/pngs/empty-mill.png";
-import { Dialog, Popover, Tabs } from "radix-ui";
+import { Dialog, Popover } from "radix-ui";
 import {
   Cross2Icon,
   ExternalLinkIcon,
@@ -94,38 +80,25 @@ import {
 } from "../stores/farmerCommandStore";
 import type { Tile } from "../game/phaser/types";
 import { executeGameCommand } from "../api/gameActions";
-import { fetchMarketQuotes } from "../api/marketQuotes";
-import MarketTradeHistory from "./MarketTradeHistory";
-import MarketListings from "./MarketListings";
-import MarketTransactionPreview from "./MarketTransactionPreview";
-import { BARLEY_RESERVE_MESSAGE, violatesBarleyReserve } from "../../game-core/farm/marketSeedReserve";
 import MerchantRequests from "./MerchantRequests";
 import FarmLevelDialog from "./FarmLevelDialog";
 import {
-  granaryLimitForLevel,
-  marketUnlockLevel,
-  canOpenMarketStand
+  granaryLimitForLevel
 } from "../../game-data/progression";
 import FishingControls from "./FishingControls";
 import FetchControls from "./FetchControls";
 import { fetchStore } from "../stores/fetchStore";
 import { FISH_CAPACITY } from "../../game-data/fishing";
 import { fetchDevelopmentFarm } from "../api/developmentPlayer";
-import PorterPanel from "./PorterPanel";
-import type { MarketQuotes } from "../../schemas/market";
 import {
-  MARKET_ITEM_DEFINITIONS,
-  type MarketItemKey
+  MARKET_ITEM_DEFINITIONS
 } from "../../game-data/marketItems";
 import { farmStore } from "../stores/farmStore";
 import { buildingPlacementStore } from "../stores/buildingPlacementStore";
 import {
-  MARKET_TITLES,
-  marketIncludesItem,
   marketUiStore
 } from "../stores/marketUiStore";
 import {
-  calculateFarmStorageCapacity,
   granaryCapacityForLevel,
   FARMER_CARRY_CAPACITY,
   FARM_STORAGE_CAPACITY
@@ -143,12 +116,6 @@ import {
   isInsideFarmWorld,
   isGatherableRiverbank
 } from "../../game-core/farm/worldBounds";
-
-type MarketQuoteState =
-  | { readonly type: "idle" }
-  | { readonly type: "loading" }
-  | { readonly type: "ready"; readonly quotes: MarketQuotes }
-  | { readonly type: "failed"; readonly reason: string };
 
 if (import.meta.hot) {
   import.meta.hot.accept(
@@ -174,9 +141,6 @@ const formatRemainingTime = (deadline: string, now: number): string => {
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 };
 
-const formatShekels = (quantity: number): string =>
-  `${quantity} ${quantity === 1 ? "shekel" : "shekels"}`;
-
 export default function GameCanvas() {
   const [isOpenManageDialog, setIsOpenManageDialog] = useState(false);
   const [manageTab, setManageTab] = useState("build");
@@ -197,19 +161,6 @@ export default function GameCanvas() {
     message: string;
   } | null>(null);
   const [storageClock, setStorageClock] = useState(() => Date.now());
-  const [marketQuantities, setMarketQuantities] = useState<
-    Record<string, number>
-  >({});
-  const [marketTradePending, setMarketTradePending] = useState(false);
-  const [marketTradeError, setMarketTradeError] = useState<string | null>(null);
-  const [marketSellPrices, setMarketSellPrices] = useState<
-    Partial<Record<MarketItemKey, number>>
-  >({});
-  const [marketQuoteState, setMarketQuoteState] = useState<MarketQuoteState>({
-    type: "idle"
-  });
-  const [marketQuoteRefresh, setMarketQuoteRefresh] = useState(0);
-
   const selectedTile = useStore(interactionStore, state => state.selectedTile);
   const carriedItem = useStore(farmerCommandStore, state => state.carriedItem);
   const farmerStatus = useStore(farmerCommandStore, state => state.status.type);
@@ -279,11 +230,6 @@ export default function GameCanvas() {
     farmState.type === "ready"
       ? (farmState.snapshot.farm.progression?.level ?? 1)
       : 1;
-  const isOpenMarketDialog = useStore(
-    marketUiStore,
-    state => state.isOpen && canOpenMarketStand(state.scope, farmLevel)
-  );
-  const marketScope = useStore(marketUiStore, state => state.scope);
   const marketSceneVisible = useStore(
     marketUiStore,
     state => state.location !== "farm"
@@ -319,7 +265,6 @@ export default function GameCanvas() {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
     gameRef.current?.scale.updateBounds();
   }, [marketSceneVisible]);
-  const setMarketDialogOpen = useStore(marketUiStore, state => state.setOpen);
   const storedBarley =
     farmState.type === "ready"
       ? (farmState.snapshot.inventory.find(item => item.itemKey === "barley")
@@ -337,17 +282,6 @@ export default function GameCanvas() {
           .filter(item => item.itemKey === "clay")
           .reduce((quantity, item) => quantity + item.quantity, 0)
       : 0;
-  const granaryBarley =
-    farmState.type === "ready"
-      ? farmState.snapshot.buildings
-          .filter(
-            building =>
-              (building.type === "granary" || building.type === "warehouse") &&
-              Date.parse(building.completesAt) <= storageClock
-          )
-          .reduce((quantity, building) => quantity + building.storedBarley, 0)
-      : 0;
-  const totalBarley = storedBarley + granaryBarley;
   const barleyStorageFull =
     storedBarley >= FARM_STORAGE_CAPACITY &&
     !(
@@ -383,16 +317,6 @@ export default function GameCanvas() {
           item => item.itemKey === "emptyBeerJar"
         )?.quantity ?? 0)
       : 0;
-  // Construction consumes the jars from inventory, but they remain installed.
-  const missingBrewingJars =
-    farmState.type === "ready" &&
-    farmState.snapshot.buildings.some(building => building.type === "brewery")
-      ? 0
-      : Math.max(
-          0,
-          FARM_BUILDING_DEFINITIONS.brewery.materials.brewingVessels -
-            availableVessels
-        );
   const hasMill =
     farmState.type === "ready" &&
     farmState.snapshot.buildings.some(building => building.type === "mill");
@@ -552,21 +476,6 @@ export default function GameCanvas() {
           target: granaryTile.position
         };
   })();
-  const storedHouseholdBarley =
-    farmState.type === "ready" ? storedBarley + granaryBarley : 0;
-  const householdBarleyCapacity =
-    farmState.type === "ready"
-      ? calculateFarmStorageCapacity(
-          farmState.snapshot.buildings,
-          storageClock,
-          farmLevel
-        )
-      : FARM_STORAGE_CAPACITY;
-  const availableBarleyStorage = Math.max(
-    0,
-    householdBarleyCapacity - storedHouseholdBarley
-  );
-
   const clearSelection = useStore(
     interactionStore,
     state => state.clearSelection
@@ -604,153 +513,6 @@ export default function GameCanvas() {
   const addCommand = (command: FarmerCommandInput): void => {
     farmerCommandStore.getState().addCommand(command);
     clearSelection();
-  };
-
-  const tradeMarketItem = async (
-    direction: "buy" | "sell",
-    itemKey: MarketItemKey,
-    expectedUnitPrice: number,
-    quantity: number
-  ): Promise<void> => {
-    if (
-      farmState.type !== "ready" ||
-      marketQuoteState.type !== "ready" ||
-      marketTradePending
-    ) {
-      return;
-    }
-
-    setMarketTradePending(true);
-    setMarketTradeError(null);
-
-    try {
-      const commandBase = {
-        itemKey,
-        quantity,
-        expectedUnitPrice,
-        idempotencyKey: crypto.randomUUID(),
-        expectedFarmVersion: farmState.snapshot.farm.version
-      } as const;
-      const snapshot = await match(direction)
-        .with("buy", () =>
-          executeGameCommand({
-            type: "buy_from_npc_market",
-            ...commandBase
-          })
-        )
-        .with("sell", () =>
-          executeGameCommand({
-            type: "sell_to_npc_market",
-            ...commandBase
-          })
-        )
-        .exhaustive();
-      farmStore.getState().setReady(snapshot);
-      setMarketQuoteRefresh(refresh => refresh + 1);
-    } catch (error) {
-      setMarketTradeError(
-        error instanceof Error
-          ? error.message
-          : "The trade could not be completed"
-      );
-      setMarketQuoteRefresh(refresh => refresh + 1);
-    } finally {
-      setMarketTradePending(false);
-    }
-  };
-
-  const createMarketSellOrder = async (
-    itemKey: MarketItemKey,
-    unitPrice: number,
-    quantity: number
-  ): Promise<void> => {
-    if (farmState.type !== "ready" || marketTradePending) {
-      return;
-    }
-
-    setMarketTradePending(true);
-    setMarketTradeError(null);
-
-    try {
-      const snapshot = await executeGameCommand({
-        type: "create_market_sell_order",
-        itemKey,
-        quantity,
-        unitPrice,
-        idempotencyKey: crypto.randomUUID(),
-        expectedFarmVersion: farmState.snapshot.farm.version
-      });
-      farmStore.getState().setReady(snapshot);
-      setMarketSellPrices(prices => ({ ...prices, [itemKey]: undefined }));
-      setMarketQuoteRefresh(refresh => refresh + 1);
-    } catch (error) {
-      setMarketTradeError(
-        error instanceof Error
-          ? error.message
-          : "The sell order could not be created"
-      );
-      setMarketQuoteRefresh(refresh => refresh + 1);
-    } finally {
-      setMarketTradePending(false);
-    }
-  };
-
-  const cancelMarketSellOrder = async (orderId: string): Promise<void> => {
-    if (farmState.type !== "ready" || marketTradePending) {
-      return;
-    }
-
-    setMarketTradePending(true);
-    setMarketTradeError(null);
-
-    try {
-      const snapshot = await executeGameCommand({
-        type: "cancel_market_sell_order",
-        orderId,
-        expectedFarmVersion: farmState.snapshot.farm.version
-      });
-      farmStore.getState().setReady(snapshot);
-      setMarketQuoteRefresh(refresh => refresh + 1);
-    } catch (error) {
-      setMarketTradeError(
-        error instanceof Error
-          ? error.message
-          : "The sell order could not be cancelled"
-      );
-      setMarketQuoteRefresh(refresh => refresh + 1);
-    } finally {
-      setMarketTradePending(false);
-    }
-  };
-
-  const buyPlayerListing = async (
-    orderId: string,
-    expectedUnitPrice: number,
-    quantity: number
-  ): Promise<void> => {
-    if (farmState.type !== "ready" || marketTradePending) return;
-    setMarketTradePending(true);
-    setMarketTradeError(null);
-    try {
-      const snapshot = await executeGameCommand({
-        type: "buy_market_sell_order",
-        orderId,
-        expectedUnitPrice,
-        quantity,
-        idempotencyKey: crypto.randomUUID(),
-        expectedFarmVersion: farmState.snapshot.farm.version
-      });
-      farmStore.getState().setReady(snapshot);
-    } catch (error) {
-      setMarketTradeError(
-        error instanceof Error
-          ? error.message
-          : "The purchase could not be completed"
-      );
-    } finally {
-      setMarketTradePending(false);
-      setMarketQuoteRefresh(refresh => refresh + 1);
-    }
   };
 
   const isNextToIrrigationSource = (tile: Tile): boolean =>
@@ -2114,60 +1876,6 @@ export default function GameCanvas() {
   };
 
   useEffect(() => {
-    if (!isOpenMarketDialog) {
-      return;
-    }
-
-    const controller = new AbortController();
-
-    void Promise.all([
-      fetchMarketQuotes(controller.signal),
-      fetchDevelopmentFarm(controller.signal)
-    ]).then(
-      ([quotes, snapshot]) => {
-        if (controller.signal.aborted) return;
-        const current = farmStore.getState().farm;
-        if (
-          current.type !== "ready" ||
-          current.snapshot.farm.version < snapshot.farm.version
-        ) {
-          farmStore.getState().setReady(snapshot);
-        }
-        setMarketQuoteState({ type: "ready", quotes });
-      },
-      error => {
-        if (controller.signal.aborted) return;
-        if (error instanceof DOMException && error.name === "AbortError") {
-          return;
-        }
-
-        setMarketQuoteState({
-          type: "failed",
-          reason:
-            error instanceof Error
-              ? error.message
-              : "The current market prices could not be loaded"
-        });
-      }
-    );
-
-    return () => {
-      controller.abort();
-    };
-  }, [isOpenMarketDialog, marketQuoteRefresh]);
-
-  useEffect(() => {
-    if (!isOpenMarketDialog || marketTradePending) return;
-    const refresh = () => setMarketQuoteRefresh(value => value + 1);
-    const timer = window.setInterval(refresh, 5_000);
-    window.addEventListener("focus", refresh);
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("focus", refresh);
-    };
-  }, [isOpenMarketDialog, marketTradePending]);
-
-  useEffect(() => {
     if (!import.meta.env.DEV) return;
     const controller = new AbortController();
     let pending = false;
@@ -2482,42 +2190,8 @@ export default function GameCanvas() {
             </Popover.Portal>
           </Popover.Root>
         </div>
-        <Dialog.Portal>
-          <Dialog.Overlay className={styles["manage-dialog-overlay"]} />
-          <Dialog.Content className={styles["manage-dialog-content"]}>
-            <Dialog.Title>Manage estate</Dialog.Title>
-            <Dialog.Description>
-              Review your resources and plan improvements to the farm.
-            </Dialog.Description>
-            <Tabs.Root value={manageTab} onValueChange={setManageTab} className={styles["manage-tabs"]}>
-              <Tabs.List
-                className={styles["manage-tabs-list"]}
-                aria-label="Estate management sections"
-              >
-                <Tabs.Trigger
-                  className={styles["manage-tabs-trigger"]}
-                  value="build"
-                >
-                  Build
-                </Tabs.Trigger>
-                <Tabs.Trigger
-                  className={styles["manage-tabs-trigger"]}
-                  value="resources"
-                >
-                  Resources
-                </Tabs.Trigger>
-                <Tabs.Trigger
-                  className={styles["manage-tabs-trigger"]}
-                  value="farmer"
-                >
-                  Farmer
-                </Tabs.Trigger>
-              </Tabs.List>
-
-              <Tabs.Content
-                className={styles["manage-tabs-content"]}
-                value="build"
-              >
+        <EstateManagementContent farmState={farmState} storageClock={storageClock}
+          manageTab={manageTab} setManageTab={setManageTab} buildContent={<>
                 <h2>Available buildings</h2>
                 <p>
                   Place buildings beside a road. Each building needs its own
@@ -2528,17 +2202,7 @@ export default function GameCanvas() {
                   arable tile and choose Build road. Dirt roads are free.
                 </p>
                 <ul className={styles["building-list"]}>
-                  <li>
-                    <h3 className={styles["building-title"]}>
-                      <img
-                        src={granaryImage}
-                        alt=""
-                        width={48}
-                        height={48}
-                        draggable={false}
-                      />
-                      Granary
-                    </h3>
+                  <EstateBuildingCard name="Granary" image={granaryImage}>
                     <p>
                       2×2 · 2 minutes · {availableReed}/
                       {FARM_BUILDING_DEFINITIONS.granary.materials.reed} reed ·{" "}
@@ -2575,18 +2239,8 @@ export default function GameCanvas() {
                           ? "Unlock at level 2"
                           : "Build granary"}
                     </button>
-                  </li>
-                  <li>
-                    <h3 className={styles["building-title"]}>
-                      <img
-                        src={millImage}
-                        alt=""
-                        width={48}
-                        height={48}
-                        draggable={false}
-                      />
-                      Mill
-                    </h3>
+                  </EstateBuildingCard>
+                  <EstateBuildingCard name="Mill" image={millImage}>
                     <p>
                       2×2 ·{" "}
                       {FARM_BUILDING_DEFINITIONS.mill.constructionDurationMs /
@@ -2631,7 +2285,7 @@ export default function GameCanvas() {
                             ? "Gather materials"
                             : "Build Mill"}
                     </button>
-                  </li>
+                  </EstateBuildingCard>
                   <li>
                     <h3 className={styles["building-title"]}>
                       <img
@@ -2824,901 +2478,11 @@ export default function GameCanvas() {
                     </button>
                   </li>
                 </ul>
-              </Tabs.Content>
-
-              <Tabs.Content
-                className={styles["manage-tabs-content"]}
-                value="resources"
-              >
-                <h2>Resources</h2>
-                {farmState.type === "ready" ? (
-                  <div className={styles["resource-sections"]}>
-                    <section>
-                      <h3 className={styles["resource-title"]}>
-                        <img
-                          src={flourBagsImage}
-                          alt=""
-                          width={32}
-                          height={32}
-                          draggable={false}
-                        />
-                        Processed grain
-                      </h3>
-                      <dl className={styles["resource-list"]}>
-                        <div>
-                          <dt>Flour</dt>
-                          <dd>
-                            {farmState.snapshot.inventory.find(
-                              i => i.itemKey === "flour"
-                            )?.quantity ?? 0}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Brewer's Groats</dt>
-                          <dd>
-                            {farmState.snapshot.inventory.find(
-                              i => i.itemKey === "brewersGroats"
-                            )?.quantity ?? 0}
-                          </dd>
-                        </div>
-                      </dl>
-                    </section>
-                    <section>
-                      <dl className={styles["resource-list"]}>
-                        <div>
-                          <dt className={styles["resource-title"]}>
-                            <img
-                              src={shekelsImage}
-                              alt=""
-                              width={32}
-                              height={32}
-                              draggable={false}
-                            />
-                            Shekels
-                          </dt>
-                          <dd>{farmState.snapshot.player.shekelBalance}</dd>
-                        </div>
-                      </dl>
-                    </section>
-
-                    <section>
-                      <h3 className={styles["resource-title"]}>
-                        <img
-                          src={barleyImage}
-                          alt=""
-                          width={32}
-                          height={32}
-                          draggable={false}
-                        />
-                        Barley
-                      </h3>
-                      <dl className={styles["resource-list"]}>
-                        <div className={styles["resource-total"]}>
-                          <dt>Total</dt>
-                          <dd>{totalBarley}</dd>
-                        </div>
-                      </dl>
-                    </section>
-
-                    <section>
-                      <h3>Food and drink</h3>
-                      <dl className={styles["resource-list"]}>
-                        {(
-                          [
-                            {
-                              key: "bread",
-                              label: "Bread",
-                              image: breadBasketImage
-                            },
-                            {
-                              key: "beer",
-                              label: "Filled beer jars",
-                              image: beerJarsImage
-                            },
-                            { key: "fish", label: "Fish", image: fishImage },
-                            ...(farmLevel >= 9
-                              ? [
-                                  {
-                                    key: "dates" as const,
-                                    label: "Baskets of dates",
-                                    image: datesImage
-                                  }
-                                ]
-                              : [])
-                          ] as const
-                        ).map(item => (
-                          <div key={item.key}>
-                            <dt className={styles["resource-title"]}>
-                              <img
-                                src={item.image}
-                                alt=""
-                                width={32}
-                                height={32}
-                                draggable={false}
-                              />
-                              {item.label}
-                            </dt>
-                            <dd>
-                              {farmState.snapshot.inventory.find(
-                                entry => entry.itemKey === item.key
-                              )?.quantity ?? 0}
-                            </dd>
-                          </div>
-                        ))}
-                      </dl>
-                    </section>
-                    <section>
-                      <h3>Equipment</h3>
-                      <dl className={styles["resource-list"]}>
-                        <div>
-                          <dt>Brewing jars</dt>
-                          <dd>{availableVessels}</dd>
-                        </div>
-                        <div>
-                          <dt>Empty beer jars</dt>
-                          <dd>{availableEmptyBeerJars}</dd>
-                        </div>
-                        <div>
-                          <dt>Baking tools</dt>
-                          <dd>{availableBakingTools}</dd>
-                        </div>
-                      </dl>
-                    </section>
-                    <section>
-                      <h3>Animals</h3>
-                      <dl className={styles["resource-list"]}>
-                        <div>
-                          <dt className={styles["resource-title"]}>
-                            <img
-                              src={FARM_SPRITES.donkey}
-                              alt=""
-                              width={32}
-                              height={32}
-                              draggable={false}
-                            />
-                            Mill donkey
-                          </dt>
-                          <dd>
-                            {farmState.snapshot.inventory.find(
-                              item => item.itemKey === "donkey"
-                            )?.quantity ?? 0}
-                          </dd>
-                        </div>
-                      </dl>
-                    </section>
-                    <section>
-                      <h3>Building materials</h3>
-                      <dl className={styles["resource-list"]}>
-                        <div>
-                          <dt className={styles["resource-title"]}>
-                            <img
-                              src={reedImage}
-                              alt=""
-                              width={32}
-                              height={32}
-                              draggable={false}
-                            />
-                            Reed
-                          </dt>
-                          <dd>
-                            {farmState.snapshot.inventory.find(
-                              i => i.itemKey === "reed"
-                            )?.quantity ?? 0}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className={styles["resource-title"]}>
-                            <img
-                              src={clayImage}
-                              alt=""
-                              width={32}
-                              height={32}
-                              draggable={false}
-                            />
-                            Clay
-                          </dt>
-                          <dd>
-                            {farmState.snapshot.inventory.find(
-                              i => i.itemKey === "clay"
-                            )?.quantity ?? 0}
-                          </dd>
-                        </div>
-                      </dl>
-                    </section>
-                  </div>
-                ) : (
-                  <p>Farm resources are loading…</p>
-                )}
-              </Tabs.Content>
-              <Tabs.Content
-                className={styles["manage-tabs-content"]}
-                value="farmer"
-              >
-                {farmState.type === "ready" ? (
-                  <>
-                    <FarmerPanel
-                      snapshot={farmState.snapshot}
-                      now={storageClock}
-                    />
-                    <PorterPanel
-                      snapshot={farmState.snapshot}
-                      now={storageClock}
-                    />
-                  </>
-                ) : (
-                  <p>Farmer information is loading…</p>
-                )}
-              </Tabs.Content>
-            </Tabs.Root>
-            <Dialog.Close asChild>
-              <button
-                className={styles["manage-dialog-close"]}
-                aria-label="Close estate management"
-              >
-                <Cross2Icon />
-              </button>
-            </Dialog.Close>
-          </Dialog.Content>
-        </Dialog.Portal>
+          </>} />
       </Dialog.Root>
 
-      <Dialog.Root
-        open={isOpenMarketDialog}
-        onOpenChange={open => {
-          setMarketDialogOpen(open);
-
-          if (!open) {
-            setMarketTradeError(null);
-            setMarketQuoteState({ type: "idle" });
-          }
-        }}
-      >
-        <Dialog.Portal>
-          <Dialog.Overlay className={styles["market-dialog-overlay"]} />
-          <Dialog.Content className={styles["market-dialog-content"]}>
-            <header className={styles["market-dialog-header"]}>
-              <Dialog.Title>
-                {MARKET_TITLES[marketScope]}
-                {marketScope === "barley" ? (
-                  <span className="cuneiforms">𒆠𒇴𒊺𒀀</span>
-                ) : marketScope === "beer" ? (
-                  <span className="cuneiforms">𒆠𒇴𒁉𒀀</span>
-                ) : marketScope === "bread" ? (
-                  <span className="cuneiforms">𒆠𒇴𒃻𒀀</span>
-                ) : null}
-              </Dialog.Title>
-              <Dialog.Close asChild>
-                <button
-                  className={styles["market-dialog-close"]}
-                  aria-label="Close market"
-                >
-                  <Cross2Icon />
-                </button>
-              </Dialog.Close>
-            </header>
-            <div className={styles["market-dialog-body"]}>
-              <Dialog.Description>
-                Trade {marketScope} with the NPC market or buy listings from
-                other players.
-              </Dialog.Description>
-              {farmLevel < (marketScope === "barley" ? 3 : 6) && (
-                <p role="note">
-                  This market unlocks at level{" "}
-                  {marketScope === "barley" ? 3 : 6}.
-                </p>
-              )}
-              {farmState.type === "ready" &&
-              marketQuoteState.type === "ready" ? (
-                <div className={styles["market-trade"]}>
-                  <dl className={styles["market-balances"]}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center"
-                      }}
-                    >
-                      <dt>
-                        Shekels <span className="cuneiforms small">𒂆</span>
-                      </dt>
-                      <dd>{farmState.snapshot.player.shekelBalance}</dd>
-                    </div>
-                    <div>
-                      <dt>
-                        {marketScope === "beer"
-                          ? "Filled beer jars"
-                          : marketScope === "bread"
-                            ? "Stored bread"
-                            : "Stored barley"}
-                      </dt>
-                      <dd>
-                        {marketScope !== "barley"
-                          ? (farmState.snapshot.inventory.find(
-                              item => item.itemKey === marketScope
-                            )?.quantity ?? 0)
-                          : `${storedHouseholdBarley} / ${householdBarleyCapacity}`}
-                      </dd>
-                    </div>
-                  </dl>
-
-                  <Tabs.Root
-                    key={marketScope}
-                    defaultValue="npc"
-                    className={styles["manage-tabs"]}
-                  >
-                    <Tabs.List
-                      className={styles["manage-tabs-list"]}
-                      aria-label="Market type"
-                    >
-                      <Tabs.Trigger
-                        className={styles["manage-tabs-trigger"]}
-                        value="npc"
-                      >
-                        NPC market
-                      </Tabs.Trigger>
-                      <Tabs.Trigger
-                        className={styles["manage-tabs-trigger"]}
-                        value="player"
-                      >
-                        Player market
-                      </Tabs.Trigger>
-                    </Tabs.List>
-                    {(["npc", "player"] as const).map(market => (
-                      <Tabs.Content
-                        key={market}
-                        value={market}
-                        className={styles["market-tab-content"]}
-                      >
-                        <p>
-                          {market === "npc"
-                            ? "Buy and sell at fixed prices with NPC merchants."
-                            : "Buy goods from other players or sell your own stored goods."}
-                        </p>
-                        <Tabs.Root
-                          defaultValue="buy"
-                          className={styles["manage-tabs"]}
-                        >
-                          <Tabs.List
-                            className={styles["manage-tabs-list"]}
-                            aria-label={
-                              market === "npc"
-                                ? "NPC market action"
-                                : "Player market action"
-                            }
-                          >
-                            <Tabs.Trigger
-                              className={styles["manage-tabs-trigger"]}
-                              value="buy"
-                            >
-                              Buy
-                            </Tabs.Trigger>
-                            <Tabs.Trigger
-                              className={styles["manage-tabs-trigger"]}
-                              value="sell"
-                            >
-                              Sell
-                            </Tabs.Trigger>
-                          </Tabs.List>
-                          {(["buy", "sell"] as const).map(action => (
-                            <Tabs.Content
-                              key={action}
-                              value={action}
-                              className={styles["market-tab-content"]}
-                            >
-                              <p>
-                                {market === "npc"
-                                  ? action === "buy"
-                                    ? "Choose a quantity to buy from NPC merchants."
-                                    : "Choose a quantity of stored goods to sell to NPC merchants."
-                                  : action === "buy"
-                                    ? "Choose a quantity and buy from another player's listing. Your own listings are shown under Sell."
-                                    : "Choose a quantity and asking price to create a listing. Manage your unsold listings below."}
-                              </p>
-                              {marketQuoteState.quotes.items
-                                .filter(
-                                  item =>
-                                    farmLevel >= marketUnlockLevel(item.itemKey)
-                                )
-                                .filter(item =>
-                                  marketIncludesItem(
-                                    marketScope,
-                                    item.itemKey,
-                                    { market, action }
-                                  )
-                                )
-                                .filter(
-                                  item =>
-                                    action !== "buy" ||
-                                    item.itemKey !== "brewingVessels" ||
-                                    missingBrewingJars > 0
-                                )
-                                .filter(item =>
-                                  market === "npc"
-                                    ? action === "buy"
-                                      ? item.npcMarket.canBuy
-                                      : item.npcMarket.canSell
-                                    : item.playerMarket.canCreateSellOrder
-                                )
-                                .map(item => {
-                                  const quantityKey = `${market}:${action}:${item.itemKey}`;
-                                  const purchaseQuantityLimit =
-                                    item.itemKey === "donkey"
-                                      ? 1
-                                      : action === "buy" &&
-                                          item.itemKey === "brewingVessels"
-                                        ? missingBrewingJars
-                                        : undefined;
-                                  const storedQuantity = match(item.itemKey)
-                                    .with("barley", () => storedHouseholdBarley)
-                                    .with(
-                                      "bakingTools",
-                                      () => availableBakingTools
-                                    )
-                                    .with(
-                                      "beer",
-                                      "bread",
-                                      "flour",
-                                      "brewersGroats",
-                                      "donkey",
-                                      () =>
-                                        farmState.snapshot.inventory.find(
-                                          entry =>
-                                            entry.itemKey === item.itemKey
-                                        )?.quantity ?? 0
-                                    )
-                                    .with(
-                                      "brewingVessels",
-                                      () => availableVessels
-                                    )
-                                    .with(
-                                      "emptyBeerJar",
-                                      () => availableEmptyBeerJars
-                                    )
-                                    .exhaustive();
-                                  const quantityLimit = marketQuantityLimit(
-                                    action,
-                                    storedQuantity,
-                                    purchaseQuantityLimit
-                                  );
-                                  const marketQuantity = clampMarketQuantity(
-                                    marketQuantities[quantityKey] ?? 1,
-                                    quantityLimit
-                                  );
-                                  const availableStorage = match(
-                                    item.storageType
-                                  )
-                                    .with(
-                                      "barley_storage",
-                                      () => availableBarleyStorage
-                                    )
-                                    .with("estate_inventory", () =>
-                                      Math.max(
-                                        0,
-                                        estateResourceCapacity(
-                                          item.itemKey,
-                                          farmState.snapshot.buildings,
-                                          storageClock
-                                        ) - storedQuantity
-                                      )
-                                    )
-                                    .exhaustive();
-                                  const purchaseCost =
-                                    marketQuantity * item.npcMarket.buyPrice;
-                                  const reserveBlocked = action === "sell" && violatesBarleyReserve(item.itemKey, storedQuantity, marketQuantity);
-                                  const saleValue =
-                                    marketQuantity * item.npcMarket.sellPrice;
-                                  const listingPrice =
-                                    marketSellPrices[item.itemKey] ??
-                                    item.playerMarket.suggestedSellPrice;
-                                  const cuneiformLabel = () => {
-                                    switch (item.itemKey) {
-                                      case "barley":
-                                        return "𒊺";
-                                      case "brewingVessels":
-                                        return "𒂁";
-                                      case "emptyBeerJar":
-                                        return "𒂁𒋤𒂵";
-                                      case "brewersGroats":
-                                        return "𒃻𒄯𒊏";
-                                      case "bread":
-                                        return "𒃻";
-                                      case "flour":
-                                        return "𒍥";
-                                      default:
-                                        return "";
-                                    }
-                                  };
-
-                                  return (
-                                    <section
-                                      className={styles["market-item"]}
-                                      key={item.itemKey}
-                                    >
-                                      <h3>
-                                        {item.itemKey === "donkey" && (
-                                          <img
-                                            src={FARM_SPRITES.donkey}
-                                            alt=""
-                                            width={48}
-                                            height={48}
-                                          />
-                                        )}
-                                        {item.itemKey === "beer" && (
-                                          <img
-                                            src={beerJarsImage}
-                                            alt=""
-                                            width={48}
-                                            height={48}
-                                          />
-                                        )}
-                                        {item.itemKey === "bakingTools" && (
-                                          <img
-                                            src={bakingToolsImage}
-                                            alt=""
-                                            width={48}
-                                            height={48}
-                                          />
-                                        )}
-                                        {item.itemKey === "bread" && (
-                                          <img
-                                            src={breadBasketImage}
-                                            alt=""
-                                            width={48}
-                                            height={48}
-                                          />
-                                        )}
-                                        {item.itemKey === "flour" && (
-                                          <img
-                                            src={flourBagsImage}
-                                            alt=""
-                                            width={48}
-                                            height={48}
-                                          />
-                                        )}
-                                        {item.label}
-                                        <span
-                                          className="cuneiforms small"
-                                          style={{ marginLeft: "0.5rem" }}
-                                        >
-                                          {cuneiformLabel()}
-                                        </span>
-                                        {market === "npc" && <span> ({formatShekels(action === "buy" ? item.npcMarket.buyPrice : item.npcMarket.sellPrice)} each)</span>}
-                                        {market === "player" && action === "sell" && <span> ({formatShekels(listingPrice)} each)</span>}
-                                      </h3>
-                                      <MarketTransactionPreview
-                                        label={item.label.toLowerCase()}
-                                        stock={storedQuantity}
-                                        balance={farmState.snapshot.player.shekelBalance}
-                                        transaction={market === "npc" ? {
-                                          type: action === "buy" ? "buy" : "sell",
-                                          quantity: marketQuantity,
-                                          unitPrice: action === "buy" ? item.npcMarket.buyPrice : item.npcMarket.sellPrice
-                                        } : action === "sell" ? {
-                                          type: "listing", quantity: marketQuantity, unitPrice: listingPrice
-                                        } : undefined}
-                                      />
-                                      {item.itemKey === "beer" && (
-                                        <p>
-                                          Each sale includes the jar; no empty
-                                          jar is returned.
-                                        </p>
-                                      )}
-                                      {item.itemKey === "donkey" && (
-                                        <p>
-                                          One donkey per farm. Processes 6 barley into 3 Flour or Brewer's Groats in 15 minutes, leaving the farmer free.
-                                        </p>
-                                      )}
-                                      {item.itemKey !== "donkey" && (
-                                        <label
-                                          className={styles["market-quantity"]}
-                                        >
-                                          {action === "buy"
-                                            ? "Quantity to buy"
-                                            : action === "sell"
-                                              ? "Quantity to sell"
-                                              : "Quantity"}
-                                          <input
-                                            type="number"
-                                            min="1"
-                                            max={quantityLimit}
-                                            step="1"
-                                            value={marketQuantity}
-                                            disabled={
-                                              marketTradePending ||
-                                              (action === "sell" &&
-                                                storedQuantity === 0)
-                                            }
-                                            onChange={event => {
-                                              const quantity = Number.parseInt(
-                                                event.currentTarget.value,
-                                                10
-                                              );
-                                              setMarketQuantities(current => ({
-                                                ...current,
-                                                [quantityKey]:
-                                                  clampMarketQuantity(
-                                                    quantity,
-                                                    quantityLimit
-                                                  )
-                                              }));
-                                            }}
-                                          />
-                                        </label>
-                                      )}
-                                      {market === "npc" && (
-                                        <div
-                                          className={styles["market-actions"]}
-                                        >
-                                          {action === "buy" && (
-                                            <button
-                                              disabled={
-                                                marketTradePending ||
-                                                !item.npcMarket.canBuy ||
-                                                farmState.snapshot.player
-                                                  .shekelBalance <
-                                                  purchaseCost ||
-                                                availableStorage <
-                                                  marketQuantity
-                                              }
-                                              onClick={() => {
-                                                void tradeMarketItem(
-                                                  "buy",
-                                                  item.itemKey,
-                                                  item.npcMarket.buyPrice,
-                                                  marketQuantity
-                                                );
-                                              }}
-                                            >
-                                              {!item.npcMarket.canBuy
-                                                ? "Buying unavailable"
-                                                : availableStorage <
-                                                    marketQuantity
-                                                  ? item.itemKey === "donkey"
-                                                    ? "Already owned"
-                                                    : "Not enough storage"
-                                                  : farmState.snapshot.player
-                                                        .shekelBalance <
-                                                      purchaseCost
-                                                    ? "Not enough shekels"
-                                                    : `Buy for ${formatShekels(purchaseCost)}`}
-                                            </button>
-                                          )}
-                                          {action === "sell" && (
-                                            <button
-                                              disabled={
-                                                marketTradePending ||
-                                                  !item.npcMarket.canSell || reserveBlocked ||
-                                                storedQuantity < marketQuantity
-                                              }
-                                              onClick={() => {
-                                                void tradeMarketItem(
-                                                  "sell",
-                                                  item.itemKey,
-                                                  item.npcMarket.sellPrice,
-                                                  marketQuantity
-                                                );
-                                              }}
-                                            >
-                                              {reserveBlocked ? BARLEY_RESERVE_MESSAGE : !item.npcMarket.canSell
-                                                ? "Selling unavailable"
-                                                : storedQuantity <
-                                                    marketQuantity
-                                                  ? `Not enough stored ${item.label.toLowerCase()}`
-                                                  : `Sell for ${formatShekels(saleValue)}`}
-                                            </button>
-                                          )}
-                                        </div>
-                                      )}
-                                      {market === "player" && (
-                                        <>
-                                          <dl
-                                            className={
-                                              styles["market-statistics"]
-                                            }
-                                          >
-                                            <div>
-                                              <dt>Lowest asking price</dt>
-                                              <dd>
-                                                {item.playerMarket
-                                                  .lowestSellPrice === null
-                                                  ? "No listings"
-                                                  : formatShekels(
-                                                      item.playerMarket
-                                                        .lowestSellPrice
-                                                    )}
-                                              </dd>
-                                            </div>
-                                            <div>
-                                              <dt>Average asking price</dt>
-                                              <dd>
-                                                {item.playerMarket
-                                                  .weightedAverageSellPrice ===
-                                                null
-                                                  ? "No listings"
-                                                  : formatShekels(
-                                                      Number(
-                                                        item.playerMarket.weightedAverageSellPrice.toFixed(
-                                                          1
-                                                        )
-                                                      )
-                                                    )}
-                                              </dd>
-                                            </div>
-                                            <div>
-                                              <dt>Quantity for sale</dt>
-                                              <dd>
-                                                {
-                                                  item.playerMarket
-                                                    .totalSellQuantity
-                                                }
-                                              </dd>
-                                            </div>
-                                            <div>
-                                              <dt>
-                                                Average traded price (24h)
-                                              </dt>
-                                              <dd>
-                                                {item.playerMarket
-                                                  .recentTradeAveragePrice ===
-                                                null
-                                                  ? "No trades in the last 24h"
-                                                  : formatShekels(
-                                                      Number(
-                                                        item.playerMarket.recentTradeAveragePrice.toFixed(
-                                                          1
-                                                        )
-                                                      )
-                                                    )}
-                                              </dd>
-                                            </div>
-                                          </dl>
-                                          {action === "sell" && (
-                                            <div
-                                              className={
-                                                styles[
-                                                  "market-listing-controls"
-                                                ]
-                                              }
-                                            >
-                                              <label
-                                                className={
-                                                  styles["market-quantity"]
-                                                }
-                                              >
-                                                Asking price per item
-                                                <input
-                                                  type="number"
-                                                  min="1"
-                                                  step="1"
-                                                  value={listingPrice}
-                                                  disabled={marketTradePending}
-                                                  onChange={event => {
-                                                    const price =
-                                                      Number.parseInt(
-                                                        event.currentTarget
-                                                          .value,
-                                                        10
-                                                      );
-                                                    setMarketSellPrices(
-                                                      prices => ({
-                                                        ...prices,
-                                                        [item.itemKey]:
-                                                          Number.isNaN(price)
-                                                            ? 1
-                                                            : Math.max(1, price)
-                                                      })
-                                                    );
-                                                  }}
-                                                />
-                                              </label>
-                                              <span>
-                                                Suggested:{" "}
-                                                {formatShekels(
-                                                  item.playerMarket
-                                                    .suggestedSellPrice
-                                                )}
-                                              </span>
-                                              <button
-                                                disabled={
-                                                  marketTradePending ||
-                                                  !item.playerMarket
-                                                    .canCreateSellOrder ||
-                                                  reserveBlocked || storedQuantity <
-                                                    marketQuantity
-                                                }
-                                                onClick={() => {
-                                                  void createMarketSellOrder(
-                                                    item.itemKey,
-                                                    listingPrice,
-                                                    marketQuantity
-                                                  );
-                                                }}
-                                              >
-                                                {reserveBlocked ? BARLEY_RESERVE_MESSAGE : !item.playerMarket
-                                                  .canCreateSellOrder
-                                                  ? "Player listings unavailable"
-                                                  : storedQuantity <
-                                                      marketQuantity
-                                                    ? `Not enough stored ${item.label.toLowerCase()}`
-                                                    : `Create sell listing: ${marketQuantity} for ${formatShekels(
-                                                        listingPrice
-                                                      )} each`}
-                                              </button>
-                                            </div>
-                                          )}
-                                          <MarketListings
-                                            key={`${action}:${item.itemKey}`}
-                                            stock={storedQuantity}
-                                            itemKey={item.itemKey}
-                                            action={
-                                              action === "sell" ? "sell" : "buy"
-                                            }
-                                            quantity={marketQuantity}
-                                            availableStorage={availableStorage}
-                                            balance={
-                                              farmState.snapshot.player
-                                                .shekelBalance
-                                            }
-                                            pending={marketTradePending}
-                                            farmVersion={
-                                              farmState.snapshot.farm.version
-                                            }
-                                            buy={(orderId, unitPrice) =>
-                                              buyPlayerListing(
-                                                orderId,
-                                                unitPrice,
-                                                marketQuantity
-                                              )
-                                            }
-                                            cancel={cancelMarketSellOrder}
-                                          />
-                                        </>
-                                      )}
-                                    </section>
-                                  );
-                                })}
-                            </Tabs.Content>
-                          ))}
-                        </Tabs.Root>
-                      </Tabs.Content>
-                    ))}
-                  </Tabs.Root>
-                  {marketTradeError !== null && (
-                    <p className={styles["market-error"]} role="alert">
-                      {marketTradeError}
-                    </p>
-                  )}
-                </div>
-              ) : marketQuoteState.type === "failed" ? (
-                <div>
-                  <p role="alert">{marketQuoteState.reason}</p>
-                  <button
-                    onClick={() => {
-                      setMarketQuoteState({ type: "loading" });
-                      setMarketQuoteRefresh(refresh => refresh + 1);
-                    }}
-                  >
-                    Retry
-                  </button>
-                </div>
-              ) : (
-                <p>
-                  {farmState.type === "ready"
-                    ? "Loading market prices…"
-                    : "Farm resources are loading…"}
-                </p>
-              )}
-              {isOpenMarketDialog && (
-                <MarketTradeHistory
-                  key={marketScope}
-                  refresh={marketQuoteRefresh}
-                  scope={marketScope}
-                />
-              )}
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <MarketDialog />
     </>
   );
 }
+import EstateBuildingCard from "./EstateBuildingCard";

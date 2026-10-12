@@ -34,6 +34,10 @@ The farm view scrolls vertically when it does not fit on screen, ending after th
 
 ### Optional fetch game
 
+In the isometric farm, the dog follows, sits roughly one tile from the farmer,
+and faces the mouse while sitting. Its legs animate during walking. Fetch remains
+deferred in this view; the fetch controls described below are legacy flat-view only.
+
 - Available from level 1: click the farm dog, then **Play Fetch** while the farmer is idle.
 - Clicking the dog opens a standard popup anchored to him, with a close button and **Play Fetch** action. It stays within the canvas edges. During a round, the separate gameplay controls show aiming instructions and **Stop playing**.
 - Outside fetch, the dog follows the farmer toward a clear neighbouring tile, keeping roughly one tile away. It goes around buildings, fields, canals, and the river, or waits if no route exists. When the farmer stops (including to plant or harvest), the dog continues catching up before sitting beside him. Normal farm updates never teleport it.
@@ -61,7 +65,9 @@ The farm view scrolls vertically when it does not fit on screen, ending after th
 
 ## Farm levels
 
-Click the signpost on the left side of the estate, immediately above the road, to see your current level and the next level's requirements.
+In the isometric farm, the **Farm level N** button at the top opens the level dialog with current progression, next-level requirements, unlocks and the claim button. The farm popup also shows its current level. The granary popup shows its own building level, independently of farm progression. Neither an estate-level signpost nor a pennant is used in the isometric view. This display does not add granary upgrades or change storage capacity rules.
+
+Legacy flat view only: click the signpost on the left side of the estate, immediately above the road, to open the same level dialog. The following signpost presentation remains specific to that legacy view.
 
 The signpost displays the current farm level in gold. The number changes to a large golden **+** when the next level can be claimed, including the spare-seed safety check. After claiming, it shows the new level number (or **+** if the following level is already ready); if requirements are no longer met, it returns to the current level number.
 
@@ -142,7 +148,7 @@ These future levels cannot be claimed yet, even if their previewed milestones ha
 - Exposed barley on the ground or carried by the farmer perishes after **3 days**. Store it to protect it.
 - The farm popup has no manual barley-withdrawal button. It shows a storage action when carrying barley, disabled if the farm is full; task-driven collection from farm storage remains available.
 - Ordinary pickups allow up to 2 barley at once. **Harvest multiple fields** allows **4 ripe fields at happiness 50% or below, 6 above 50% through 90%, and 8 above 90%**, not necessarily adjacent. The compact selection panel shows the selected count/limit and time estimate; its **Info** button opens a dialog with current happiness, capacity tiers, selection instructions, and harvesting details. Yellow stripes mark candidates and green stripes mark selected fields. At the limit, remaining ripe fields turn red; deselecting below the limit turns those candidates yellow again.
-- Multi-field harvesting starts with empty hands. The farmer visits each field and harvests for **10 seconds per field plus travel**, accumulating **2 barley per field** in his hands (up to **8, 12, or 16 barley**, according to the batch's limit). The carried-item chip updates after each harvest. After the final field, he automatically walks to a completed, reachable granary and deposits as much as fits on arrival. Any surplus stays in his hands outside the granary until the player chooses another action; he does not automatically continue to the warehouse or farm. If no granary is available, he keeps the harvested barley. The return route and arrival are saved on the server and continue while away; animation callbacks cannot deposit early or twice. Stopping during a field finishes that field and delivers the barley already harvested.
+- Multi-field harvesting starts with empty hands. The farmer visits each field and harvests for **10 seconds per field plus travel**, accumulating **2 barley per field** in his hands (up to **8, 12, or 16 barley**, according to the batch's limit). The carried-item chip updates after each harvest. After the final field, he automatically walks to a completed, reachable granary and deposits as much as fits on arrival. If barley remains and the farm has space, he continues to the farm and deposits what fits there. Any remaining surplus stays in his hands at the final delivery stop until the player chooses another action; he does not automatically continue to the warehouse. Capacity is checked again on each arrival. If no granary is available, he keeps the harvested barley. Both delivery legs are saved on the server and continue while away; animation callbacks cannot deposit early or twice. Stopping during a field finishes that field and delivers the barley already harvested.
 - The whole harvest queue continues while the tab is hidden or closed, using server deadlines for travel and each field. Returning catches up completed harvests and resumes unfinished work with its remaining time. Harvested barley and achievement counts are credited once; its expiry starts at the first completed harvest, not when the player returns. **Stop after this field** also remains effective while away.
 - The server locks the harvest limit using current happiness when the batch starts. Later happiness changes, including while offline, do not shrink or expand that accepted batch or discard carried barley. Existing saved batches keep their original four-field limit. Harvest batches survive reloads and continue offline. **Stop after this field** finishes the active harvest and keeps its barley carried, leaving the remaining fields untouched. Other farmer tasks are blocked during the batch.
 - The farm stores 5 barley. The completed granary stores 15 barley before level 7, then automatically increases to 20 at level 7, with no rebuilding or extra cost. The warehouse adds another 20 barley, for 45 total storage at level 8 once constructed. Only one granary and one warehouse can be built.
@@ -160,6 +166,16 @@ These future levels cannot be claimed yet, even if their previewed milestones ha
 - Dates trading, sale prices, date recipes, and automatic porter harvesting are **not implemented**. Existing level-9 entry requirements are unchanged.
 
 ## Buildings
+
+### Destroying buildings
+
+- In the isometric farm, a completed player-built building's popup offers **Destroy the building** when demolition is safe. The starting farm cannot be destroyed.
+- A confirmation dialog asks **Are you sure you want to destroy [building name]?** Cancel leaves everything unchanged. Confirming removes the building immediately, frees its footprint/loading tile, and returns no construction materials or upgrade payments. Rebuilding requires paying the normal costs again.
+- Granaries and warehouses must contain zero barley. Uncollected finished goods must be collected first. Buildings under construction or upgrade cannot be destroyed; active farming/production work and deliveries must finish first.
+- Warehouse removal must not reduce capacity below existing shared stocks. All dates must be used or removed first if this is the only warehouse. No stored inventory is silently discarded.
+- Unused supplies inside an idle brewery are lost with it. Destroying a shrine ends its blessing. Both losses are stated in the confirmation dialog.
+- The server checks ownership, the latest farm version, storage and work state again on confirmation. The initial farm and other players' buildings cannot be removed through the API.
+- Granaries can be rebuilt through Manage → Build in the isometric farm, paying the full construction cost again. Other building placement remains planned.
 
 Buildings occupy a 2 × 2 footprint, except the Small shrine (1 × 1). All require suitable free space.
 
@@ -226,7 +242,7 @@ Farm and warehouse popups use matching compact stock/capacity tables: bread, bee
 
 Storage deliveries animate visits to available buildings in this order: barley goes to the granary, then warehouse, then farm; flour, groats, bread, beer, reed and clay go to the warehouse, then farm. Only completed buildings contribute storage. Split loads continue to the next building, with remaining production cargo retained between stops and across reloads. Fish remains farm-only. References below to delivering goods to the farm mean estate storage, using these priorities.
 
-Starting a reed or clay gathering action reserves one storage slot for that material. The reservation survives reloads and cannot be used by another deposit. After gathering, the farmer carries the material back to the farm; it enters inventory and releases its reservation only on delivery. He remains busy during the trip, and reloading resumes a pending delivery. Gathering is unavailable when no unreserved storage slot is free. Reed and clay cannot be dropped on the ground. Resources shows only the stored total, without an outside counter. Legacy ground piles remain usable: pick them up and store them at the farm, or use them directly for construction. Construction consumes stored materials first, then legacy ground piles. All current buildings, including the warehouse, fit within the initial 6-reed and 6-clay limits.
+Starting a reed or clay gathering action reserves one storage slot for that material during gathering. Gathering is unavailable when no unreserved storage slot is free. Gathering completes from saved time even while away, leaves one material in the farmer's hands, and releases the reservation; it does not credit inventory automatically. In the isometric farm, click riverbank reeds to **Collect reeds**, or empty ground immediately above the river to **Collect clay**. The farmer approaches the source and uses harvesting movements for reeds or the pickaxe for clay. Once finished, select an empty arable tile to **Drop reeds** or **Drop clay**; he walks there before the visual drop. Materials can be picked up again, and dropped piles count toward construction materials. Drops never expire and cannot occupy roads, crops, canals or buildings. Resources shows only the stored total, without an outside counter. Construction consumes stored materials first, then ground piles. All current buildings, including the warehouse, fit within the initial 6-reed and 6-clay limits. The old flat interface still directs a deposit after gathering; isometric gathering leaves the drop decision to the player.
 
 When all material storage slots are occupied or reserved, the ground popup disables clay collection and displays **Clay storage is full**, and the river-reeds popup disables reed collection and displays **Reed storage is full**. Each check uses that resource's independent capacity, including completed warehouse capacity.
 
@@ -265,6 +281,21 @@ Happiness cannot exceed 100 or fall below 0.
 Normal decay begins when level 4 unlocks fishing. The happiness clock starts fresh at that claim; time spent in the protected levels does not create a penalty afterward.
 
 Manage estate has a Farmer tab with Happiness and Next meal round meters, mood and meal guidance, and fish/bread/beer/dates treat actions. Fish unlocks at level 4; bread and beer at level 6; dates at level 9. Treats require stock, happiness below 100%, and their independent cooldowns to be complete. Cooldown buttons remain visible even when stock is empty. Resources is a read-only inventory grouped by type, with no feeding controls.
+
+In the isometric farm, **Manage** at the top right opens the estate drawer with
+Resources and Farmer controls. The Build tab previews the granary, mill, brewery, bread oven, warehouse and small shrine with
+their artwork, descriptions, material requirements and level locks. Building
+placement is available for the granary; other Build buttons remain disabled pending migration.
+The isometric interface contains no links or selector option to switch
+to the flat farm.
+
+Granary building-placement interface: a green building and footprint
+indicate a valid location, red indicates a blocked location, and yellow marks the
+loading tile. This presentation has been tested; the temporary test button has
+been removed. Choose a location, then confirm **Build granary**. Construction costs
+2 reed and 3 clay and takes 2 minutes, continuing while away or after a reload.
+Normal level, material, ownership and farmer-availability requirements apply.
+Cancel or Escape exits placement without spending materials.
 
 - Above 50, happiness loses 1 point every **12 minutes**.
 - At or below 50, it loses 1 point every **6 hours**.
@@ -450,6 +481,36 @@ Market goods show their unit price, your available stock and shekels, and a live
 
 Clicking the estate's market building makes the farmer walk to the road tile beside it before entering the market scene. Clicking the farm building in the market likewise waits for arrival at its adjacent road entrance before returning home. Scene changes are based on arrival, not a fixed timer; a blocked route does not transport the farmer.
 
+In the isometric preview, click the market building and choose **Go to the market**.
+The farmer walks there before the scene changes. The market currently contains
+a main road that splits into a walkable rectangular loop, a farm building at its left end and decorative barley,
+beer and baking stands, each with a stationary placeholder merchant in front beside the road.
+The baking stand sits inside the loop beside the lower road, with space for one more future stand.
+Merchants stay beside their stands and turn left or right towards a nearby farmer
+after a short pause. They hold their direction when he is directly in front of
+them or far away; this is visual only and does not affect trading.
+Approaching a merchant within three tiles reveals a short greeting above the nearest
+merchant for four seconds. Only one bubble appears at a time; each merchant has an
+independent eight-second cooldown and requires leaving and approaching again to repeat.
+Approaching a different merchant replaces the previous bubble without waiting for
+the previous merchant's cooldown.
+Opening a trading dialog dismisses the greeting. These greetings do not change
+stand unlock levels or interrupt walking.
+Click the barley, baking or beer stand, or its merchant, to walk along the road
+to the tile in front of that merchant. The farmer stops and faces him before the
+same NPC/player Buy/Sell dialog used in the flat market opens. Clicking another
+stand redirects the walk; clicking a road tile cancels the pending interaction.
+Existing prices, storage limits, listing
+rules and the one-barley reserve still apply. Baking opens at level 5 for flour;
+bread and baking tools unlock at level 6, and the donkey at level 7, as in the flat
+market. The beer stand opens at level 5 for brewer's groats, with beer and brewing
+supplies available at level 6. Below level 5, baking and beer popups show their
+unlock level instead. Click the farm building
+and choose **Go back to the farm** to return after walking to its entrance.
+Market entry still requires level 3, an available farmer and empty hands. Farm
+timers continue while visiting. Isometric neighbour visibility is not implemented
+yet; use the flat market for that feature.
+
 ## Traveling merchant requests
 
 - Merchant requests unlock at level 7 and are accessed through the chariot on the estate road, not through the market stands.
@@ -502,6 +563,87 @@ No. Their 24-hour and 8-hour cooldowns are separate.
 
 **Can I progress while offline?**
 Crop growth, brewing, construction, happiness, and merchant schedules use elapsed time. Fishing requires active play, and level claims require your button press.
+
+## Isometric preview — barley planting and harvesting available
+
+In **Isometric farm (preview)**, choose **Plant barley**, select the highlighted
+irrigated fields, then confirm **Plant barley**. The usual seed costs, happiness-based
+field limit and farmer availability apply. The farmer collects any needed stored
+seeds, walks to each field and sows it. **Stop after this field** stops the saved queue
+using the existing unused-seed return rules. Accepted planting continues while away;
+reloading shows the current saved progress, not a restarted animation.
+
+Choose **Harvest barley**, select ripe fields and confirm. The same happiness-based
+field limit and empty-hands requirement apply. The farmer walks between fields,
+harvests each one and automatically takes the barley to a reachable completed
+granary. Only what fits is deposited; if barley remains and the farm has room,
+he continues there and stores what fits. Any further surplus remains in his hands.
+If no granary is reachable, he stays at the final field with the harvest.
+Accepted harvesting and delivery continue while away, without replaying completed
+work on return. **Stop after this field** finishes the active field and delivers
+what has already been harvested.
+
+Tap a tile or building for its popup. Crop popups start planting/harvest selection;
+farm and storage popups show current stocks.
+Once sowing starts in the isometric view, its panel shows progress without a stop
+button. You can still cancel field selection before starting.
+Isometric tile popups show only actions currently available for the selected target,
+without disabled alternatives or their blocker messages. A small pointer identifies
+the selected tile; unavailable actions reappear when their conditions are met.
+While carrying barley and idle, choose
+**Store barley** from the farmer's own popup to deliver it. A reachable completed
+granary with room for the whole load is preferred, then the farm. If neither fits
+the whole load, he stores what fits (granary first) and retains the surplus.
+He walks carrying the barley to the loading point, then deposits it. Storage and
+carrying chips change together at the end of the delivery animation. Accepted
+deposits are saved independently of animation and survive leaving/reloading.
+If both stores are full, the farmer popup shows a disabled **No storage available**
+button, an explicit exception to hiding unavailable popup actions. Warehouses are
+not destinations for this shortcut.
+
+A completed granary's popup also offers **Store barley** while the farmer is idle,
+carrying barley, and that granary has space. This delivers to the selected granary
+only, storing as much as fits and leaving any surplus in the farmer's hands.
+
+While carrying barley and idle, choose
+**Drop barley** on an empty arable tile to place one barley there, using the existing
+ground-barley expiry rules. Repeat on another empty tile to unload more barley.
+The farmer walks to that tile carrying the barley, makes the placing motion, then
+the ground bundle appears and his carried count decreases by one. Any remaining
+barley stays in his arms. The accepted drop is saved even if you leave or reload.
+Choose **Pick up barley** on a ground bundle to collect one barley at a time,
+up to the farmer's two-item carrying capacity. He must be idle and not carrying
+another kind of good. Carried barley can be used for planting or dropped elsewhere;
+picking it up does not reset its expiry. In the isometric view, the farmer walks
+to the selected bundle at the normal pace, briefly reaches down, then carries it.
+The bundle stays visible until that movement finishes. Accepted pickups are saved
+independently of the animation; leaving or reloading never cancels the collection.
+When the farmer is not carrying barley, clicks through his sprite select the tile
+or building beneath it rather than opening an empty farmer popup.
+**Walk here** on ground or crop tiles moves the farmer locally. He can cross crops
+at any growth stage without damaging or harvesting them. Buildings, scenery and
+water remain obstacles (completed road bridges allow canal crossings); drag to pan.
+Other popup actions, including manual storage
+transfers for goods other than carried barley, building construction, gathering,
+production and trading, still use **Flat farm**.
+**Build road** is available on suitable ground above the river next to the main
+road or a completed branch. The farmer must be idle and empty-handed. Rocks and
+bushes are cleared; reeds, crops, ground goods, buildings and canals block new roads.
+Construction takes five seconds and continues while away. The progress marker
+becomes a finished road, with neighbouring road tiles automatically choosing
+straight, corner, T-junction or crossroads artwork. Road removal still uses **Flat farm**.
+During road or canal construction, the farmer performs a pickaxe work animation
+beside the tile. It follows the saved timer and never delays completion while away.
+When starting a canal in the isometric view, he first walks to reachable ground
+beside the construction site at his normal pace, then works from that position.
+Travel is shown within the existing construction schedule, not added to its timer.
+**Build irrigation canal** is available on suitable ground above the river, including
+rocks and bushes that construction clears. Reeds, crops, ground goods, buildings,
+loading tiles and existing roads block placement. Connect to the river or an
+adjacent completed canal, with the farmer idle and empty-handed. Construction
+takes five seconds, shows a trench/progress bar, and continues while away. On
+completion the canal fills with water and eligible neighbouring fields can be planted.
+Canal removal is not yet available in the isometric interface.
 
 ## Maintaining this reference
 

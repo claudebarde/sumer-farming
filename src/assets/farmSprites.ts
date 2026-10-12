@@ -41,7 +41,7 @@ import barleySeededUrl from "./sprite_assets/pngs/field-plowed.png";
 import barleyGrowingUrl from "./sprite_assets/pngs/field-seeded.png";
 import barleyReadyUrl from "./sprite_assets/pngs/field-wheat-ripe.png";
 import harvestedBarleyUrl from "./sprite_assets/pngs/wheat-sheaf.png";
-import farmerIdle0Url from "./sprite_assets/pngs/farmer-stand-staff-1.png";
+import farmerIdle0Url from "./sprite_assets/pngs/v2/farmer-idle-refined.png";
 import farmerIdle1Url from "./sprite_assets/pngs/farmer-stand-staff-2.png";
 import farmerIdle2Url from "./sprite_assets/pngs/farmer-stand-staff-3.png";
 import farmerIdle3Url from "./sprite_assets/pngs/farmer-stand-staff-4.png";

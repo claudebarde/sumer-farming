@@ -22,7 +22,8 @@ export const BatchPlantingSchema = z.object({
   source: FieldCoordinateSchema.extend({ type: z.enum(["farm", "granary"]) }),
   stopRequested: z.boolean(),
   phase: z.discriminatedUnion("type", [
-    z.object({ type: z.literal("delivering"), granaryId: z.uuid(), path: z.array(FieldCoordinateSchema).min(1),
+    // Null identifies a farm-house fallback leg; existing granary saves remain valid.
+    z.object({ type: z.literal("delivering"), granaryId: z.uuid().nullable(), path: z.array(FieldCoordinateSchema).min(1),
       startedAt: z.iso.datetime(), completesAt: z.iso.datetime() }),
     z.object({ type: z.literal("collecting") }),
     z.object({ type: z.literal("ready") }),
