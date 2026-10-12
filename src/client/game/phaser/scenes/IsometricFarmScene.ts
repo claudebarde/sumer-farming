@@ -4,7 +4,8 @@ import { INITIAL_FARM_CONFIG as config } from "../../../../game-data/initialFarm
 import { WORKER_MOVE_DURATION_PER_TILE } from "../../../../game-data/movement";
 import { FARM_BUILDING_DEFINITIONS } from "../../../../game-data/buildings";
 import { FARM_SPRITES } from "../../../../assets/farmSprites";
-import farmUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/farm-isometric-test.png";
+import { FARM_EVOLUTION_SOURCES, farmAppearance } from "../farmEvolution";
+import { LYRE_SOURCES, PROCESSION_COUNT, PROCESSION_DURATION_MS, processionPose } from "../lyreProcession";
 import { DOG_SOURCES, initialDog, stepDog, dogTexture, type DogState } from "../isometricDog";
 import granaryUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/granary-isometric-test.png";
 import { mockGranaryPlacement, granaryPlacement, granaryBuildBlocker } from "../isometricBuildingPlacement";
@@ -82,6 +83,8 @@ export class IsometricFarmScene extends Phaser.Scene {
   private farmerCell: IsoCell = config.farmerSpawn;
   private dogState: DogState | null = null;
   private dog!: Phaser.GameObjects.Image;
+  private processionStartedAt: number | null = null;
+  private musicians: Phaser.GameObjects.Image[] = [];
   private walkPath: readonly IsoCell[] = [];
   private walkProgress = 0;
   private walkDistance = 0;
@@ -116,7 +119,9 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.farmerCell = snapshot.farm.production.lastHarvestDelivery?.target ?? config.farmerSpawn;
   }
   preload() {
-    this.load.image("farm", farmUrl); this.load.image("source-granary", granaryUrl);
+    LYRE_SOURCES.forEach(({ key, url }) => this.load.image(`source-${key}`, url));
+    for (const [key, url] of Object.entries(FARM_EVOLUTION_SOURCES)) this.load.image(`source-${key}`, url);
+    this.load.image("source-granary", granaryUrl);
     for (const [key, url] of Object.entries(DOG_SOURCES)) this.load.image(`source-dog-${key}`, url);
     this.load.image("source-market-preview", marketUrl);
     this.load.image("source-non-arable-ground", groundUrl);
@@ -137,6 +142,15 @@ export class IsometricFarmScene extends Phaser.Scene {
     for (const [key, url] of Object.entries({ ...scenery, ...crops, ...fallback })) this.load.image(`source-${key}`, url);
   }
   create() {
+    LYRE_SOURCES.forEach(({ key }) => {
+      this.textures.addCanvas(key, prepareFarmerTexture(this.textures.get(`source-${key}`).getSourceImage() as HTMLImageElement,
+        undefined, { left: 0, top: 0, right: 511, bottom: 511 }))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    });
+    this.events.on("sleep", () => this.stopProcession());
+    for (const key of Object.keys(FARM_EVOLUTION_SOURCES)) {
+      this.textures.addCanvas(key, prepareBuildingTexture(this.textures.get(`source-${key}`).getSourceImage() as HTMLImageElement))
+        ?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    }
     for (const key of Object.keys(DOG_SOURCES)) {
       this.textures.addCanvas(`dog-${key}`, prepareFarmerTexture(this.textures.get(`source-dog-${key}`).getSourceImage() as HTMLImageElement,
         undefined, { left: 0, top: 0, right: 511, bottom: 511 }))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
@@ -223,7 +237,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       this.publishAnchor();
     });
     this.scale.on("resize", this.fit, this);
-    this.events.once("shutdown", () => { this.ready = false; this.scale.off("resize", this.fit, this); });
+    this.events.once("shutdown", () => { this.stopProcession(); this.ready = false; this.scale.off("resize", this.fit, this); });
   }
   beginGranaryPlacement(onSelected: (cell: IsoCell) => void) {
     this.realPlacement = true; this.placementLocked = false; this.placementSelected = onSelected;
@@ -342,6 +356,7 @@ export class IsometricFarmScene extends Phaser.Scene {
   }
   private draw() {
     this.children.removeAll(true);
+    this.musicians = [];
     this.mockFootprint = undefined; this.mockBuilding = undefined;
     this.cropImages = [];
     this.buildingImages = [];
@@ -428,10 +443,11 @@ export class IsometricFarmScene extends Phaser.Scene {
         .setData("tile", { column: object.column, row: object.row }).setInteractive({ pixelPerfect: true });
     }
     const front = footprintFront(farmOrigin, 2, 2);
-    this.buildingImages.push(this.add.image(front.x, front.y + 19, "farm").setOrigin(0.5, 1).setDisplaySize(232, 232).setDepth(front.y - 24).setData("tile", farmOrigin).setInteractive({ pixelPerfect: true }));
+    const appearance = farmAppearance(snapshot.farm.progression?.level);
+    this.buildingImages.push(this.add.image(front.x, front.y + 19, appearance.texture).setOrigin(0.5, 1).setDisplaySize(232, 232).setDepth(front.y - 24).setData("tile", farmOrigin).setInteractive({ pixelPerfect: true }));
     // Anchor on the visible roof, not the transparent top of the source frame.
     const storageSnapshot = this.pickup?.type === "store" ? this.pickup.before : snapshot;
-    this.drawStorageChip("farm", front.x, front.y - 150, storageSnapshot.inventory.find(item => item.itemKey === "barley")?.quantity ?? 0);
+    this.drawStorageChip("farm", front.x, front.y + appearance.storageChipY, storageSnapshot.inventory.find(item => item.itemKey === "barley")?.quantity ?? 0);
     for (const building of snapshot.buildings) {
       const size = FARM_BUILDING_DEFINITIONS[building.type].footprint;
       const p = footprintFront(building, size.columns, size.rows);
@@ -491,9 +507,36 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.renderRiverWaves();
     this.renderStorageChips();
     this.renderFarmerMarker(0);
+    this.renderProcession();
     if (this.selected && !this.selectedFarmer) {
       this.diamond(this.add.graphics().setDepth(-800), this.selected, 0xffdc57, 0.6);
     }
+  }
+  /** Visual preview only: never sends commands or changes the farmer's job. */
+  previewProcession() {
+    if (!this.ready) return;
+    this.stopProcession();
+    this.processionStartedAt = Date.now();
+    this.renderProcession();
+  }
+  private stopProcession() {
+    this.processionStartedAt = null;
+    this.musicians.forEach(sprite => sprite.destroy());
+    this.musicians = [];
+  }
+  private renderProcession() {
+    if (this.processionStartedAt === null) return;
+    const elapsed = Date.now() - this.processionStartedAt;
+    if (elapsed >= PROCESSION_DURATION_MS) { this.stopProcession(); return; }
+    if (!this.musicians.length) this.musicians = Array.from({ length: PROCESSION_COUNT }, (_, index) =>
+      this.add.image(0, 0, processionPose(elapsed, index).texture).setOrigin(0.5, 108 / 128).setDisplaySize(72, 72));
+    // The road procession must not switch behind/in front at building corners.
+    const foregroundDepth = Math.max(0, ...this.buildingImages.map(building => building.depth)) + 1;
+    this.musicians.forEach((sprite, index) => {
+      const pose = processionPose(elapsed, index), point = isoPoint(pose.cell);
+      sprite.setTexture(pose.texture).setDisplaySize(72, 72).setPosition(point.x, point.y)
+        .setDepth(Math.max(point.y + 2, foregroundDepth)).setVisible(pose.visible);
+    });
   }
   private renderFarmer() {
     this.heldMaterial.setVisible(false);
@@ -694,6 +737,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     if (Date.now() - this.drawnAt >= 5000) this.draw();
     else { this.renderFarmer(); this.renderRiverWaves(); this.renderStorageChips(); }
     this.renderFarmerMarker(delta);
+    this.renderProcession();
     if (this.dogState) {
       const mouse = this.input.mousePointer;
       const mousePresent = mouse?.event && !this.input.activePointer.wasTouch;

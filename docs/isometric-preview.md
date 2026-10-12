@@ -291,6 +291,26 @@ Snapshot/selection redraws preserve the current segment and position. Reloading
 starts at home; this is local presentation only, not authoritative work or travel.
 
 The rejected farm-level pennant trial has been removed. The toolbar's Farm level N
+button is accompanied temporarily by Test procession: five decorative lyre players
+cross the main road left-to-right using four staggered walk frames over about 18s.
+Counting from the leader, positions 1/3/5 use the male frames and 2/4 use the
+female frames, with identical framing, scale, baseline and animation timing.
+No click targets, collision occupancy, commands, sound or level-claim trigger are
+added. Repeated tests restart rather than stack; redraws retain elapsed time and
+sleep/shutdown clears the preview. Source frames retain common 512px framing and
+the approved sharp character pipeline. This is not yet a progression reward.
+Musicians always render above every building sprite (including the market),
+recomputing the depth floor after redraws. This procession-only exception prevents
+corner clipping; normal farmer/dog depth sorting and building appearance are unchanged.
+
+The toolbar's Farm level N
+button remains the progression entry point. Farm evolution uses the supplied
+1024px transparent level-01/03/04/09 assets at levels 1–2/3/4–8/9+, with full-frame
+progressive downsampling/sharpening and the unchanged 232px size, origin and depth.
+Do not independently crop stages. Stock-chip heights follow the shorter stages;
+market return art refreshes on wake. The isolated art sandbox is unchanged.
+
+The toolbar's Farm level N
 button opens the shared FarmLevelDialog with the same flat-view styling, live
 requirements, offering checks and authoritative claim command. Shared farm-store
 updates reconcile claims immediately into the isometric scene. Location changes

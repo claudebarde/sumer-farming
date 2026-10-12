@@ -51,6 +51,13 @@ deferred in this view; the fetch controls described below are legacy flat-view o
 
 ### Initial estate
 
+In the isometric view, the farmhouse appearance evolves with the claimed farm
+level: low open walls at levels 1–2, a simple roofed home at level 3, a striped
+doorway awning at levels 4–8, and the
+finished farmhouse from level 9 onward. The change is cosmetic: its 2 × 2 footprint,
+entrance, storage rules and interactions remain unchanged. The market's return-to-farm
+building uses the same stage. Intermediate visual upgrades are not implemented yet.
+
 - Start at **level 1 — First plot**, with a farm building, two barley bundles on the ground, empty inventory, and zero shekels.
 - The estate has an 8 × 9 plot, extending one row toward the river. Buildings, roads, canals, and the level signpost occupy space that cannot also be planted.
 - The road crosses the sixth row from the top. Irrigation canals can cross it using a bridge.

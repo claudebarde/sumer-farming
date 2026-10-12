@@ -171,7 +171,7 @@ export default function IsometricFarm() {
         }, () => {
           marketUiStore.getState().setOpen(false);
           activeScene.current = scene.current; setInformation(null); setLocation("farm"); refresh.current();
-        });
+        }, () => current.current?.farm.progression?.level ?? 1);
         scene.current = renderer;
         marketScene.current = market; activeScene.current = renderer;
         game = new Phaser.Game({ type: Phaser.AUTO, parent: parent.current, backgroundColor: "#f4e5c7", scene: [renderer, market],
@@ -329,6 +329,7 @@ export default function IsometricFarm() {
       <button onClick={() => activeScene.current?.zoomBy(1.2)} aria-label="Zoom in">+</button>
       <button onClick={() => activeScene.current?.zoomBy(1 / 1.2)} aria-label="Zoom out">−</button>
       <button onClick={() => activeScene.current?.fit()}>Fit</button>
+      {location === "farm" && <button disabled={!snapshot} onClick={() => scene.current?.previewProcession()}>Test procession</button>}
     </div>
     <div ref={parent} className={styles.canvas} />
     <MarketDialog />

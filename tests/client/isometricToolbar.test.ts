@@ -10,6 +10,7 @@ it("keeps view controls without top-level planting and harvesting shortcuts", ()
   expect(html).toContain('aria-label="Zoom out"');
   expect(html).toContain(">Fit</button>");
   expect(html).toContain(">Manage</button>");
+  expect(html).toContain(">Test procession</button>");
   expect(html).toContain(">Farm level 1</button>");
   expect(html).not.toContain("Isometric preview");
   expect(html).not.toContain("Test granary placement");

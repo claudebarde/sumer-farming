@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { INITIAL_FARM_CONFIG as config } from "../../../../game-data/initialFarm";
 import { WORKER_MOVE_DURATION_PER_TILE } from "../../../../game-data/movement";
 import { farmerTravelTexture } from "../farmerCarry";
+import { farmAppearance } from "../farmEvolution";
 import { isoPoint, isoCell, footprintFront, footprintContains, ISO_WIDTH, ISO_HEIGHT } from "../isometricProjection";
 import { marketReturnOrigin, marketReturnEntrance } from "../isometricMarket";
 import type { IsometricTileAnchor } from "./IsometricFarmScene";
@@ -34,6 +35,8 @@ export class IsometricMarketScene extends Phaser.Scene {
   private approaching: typeof stands[number] | null = null;
   private actor!: Phaser.GameObjects.Image;
   private shadow!: Phaser.GameObjects.Ellipse;
+  private returnFarm!: Phaser.GameObjects.Image;
+  private readonly farmLevel: () => number;
   private merchants: { sprite: Phaser.GameObjects.Image; cell: IsoCell; facing: MerchantFacing }[] = [];
   private greeting = initialGreetingState();
   private speech?: Phaser.GameObjects.Container;
@@ -43,9 +46,9 @@ export class IsometricMarketScene extends Phaser.Scene {
   private readonly report: (anchor: IsometricTileAnchor | null) => void;
   private readonly returned: () => void;
 
-  constructor(report: (anchor: IsometricTileAnchor | null) => void, returned: () => void) {
+  constructor(report: (anchor: IsometricTileAnchor | null) => void, returned: () => void, farmLevel: () => number = () => 1) {
     super("isometric-market");
-    this.report = report; this.returned = returned;
+    this.report = report; this.returned = returned; this.farmLevel = farmLevel;
   }
   preload() {
     stands.forEach(stand => this.load.image(`source-market-${stand.scope}`, stand.url));
@@ -64,7 +67,7 @@ export class IsometricMarketScene extends Phaser.Scene {
         .setOrigin(0.5).setDisplaySize(ISO_WIDTH, ISO_HEIGHT).setDepth(-1000);
     }
     const front = footprintFront(marketReturnOrigin, 2, 2);
-    this.add.image(front.x, front.y + 19, "farm").setOrigin(0.5, 1).setDisplaySize(232, 232)
+    this.returnFarm = this.add.image(front.x, front.y + 19, farmAppearance(this.farmLevel()).texture).setOrigin(0.5, 1).setDisplaySize(232, 232)
       .setDepth(front.y - 24).setData("returnFarm", true).setInteractive({ pixelPerfect: true });
     stands.forEach(stand => this.drawStand(stand));
     this.shadow = this.add.ellipse(0, 0, 23, 8, 0x624728, 0.18);
@@ -98,6 +101,7 @@ export class IsometricMarketScene extends Phaser.Scene {
     });
     this.scale.on("resize", this.fit, this);
     this.events.on("wake", () => {
+      this.returnFarm.setTexture(farmAppearance(this.farmLevel()).texture).setDisplaySize(232, 232);
       this.greeting = initialGreetingState(); this.speech?.setVisible(false);
       this.position = { column: 0, row: config.roadRow }; this.path = []; this.returning = false;
       this.merchants.forEach(merchant => { merchant.facing = { ...merchant.facing, waitingMs: 0 }; });
