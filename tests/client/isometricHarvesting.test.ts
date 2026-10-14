@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
 import { BatchPlantingSchema } from "../../src/game-data/batchPlanting";
-import { isometricHarvestPose, harvestingBlocker } from "../../src/client/game/phaser/isometricHarvesting";
+import { isometricHarvestPose, harvestingBlocker, harvestSelectionMaximum, harvestingProgress } from "../../src/client/game/phaser/isometricHarvesting";
 import { harvestDeliveryPlan } from "../../src/game-core/farm/harvestDelivery";
 import { granaryCapacityForLevel } from "../../src/game-data/storage";
 import { farmerHarvestTexture } from "../../src/client/game/phaser/farmerHarvest";
@@ -23,6 +23,33 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
 const delivery = () => harvestDeliveryPlan({ buildings: snapshot().buildings.map(b => ({ ...b, completesAt: 0 })), roads: [], from: second, at: 21540, happiness: 70, hungry: false, level: 1 })!;
 
 describe("isometric harvest presentation", () => {
+  it("counts completed fields and work time without counting travel", () => {
+    const s = snapshot();
+    s.farm.production.planting = batch();
+    const before = JSON.stringify(s);
+    expect(harvestingProgress(s, 1200)).toEqual({ completed: 0, totalMs: 20000, percentage: 0 });
+    expect(harvestingProgress(s, 6360)).toEqual({ completed: 0, totalMs: 20000, percentage: 25 });
+    expect(harvestingProgress(s, 11400)).toEqual({ completed: 1, totalMs: 20000, percentage: 50 });
+    expect(harvestingProgress(s, 16540)).toEqual({ completed: 1, totalMs: 20000, percentage: 75 });
+    expect(harvestingProgress(s, 21540)).toEqual({ completed: 2, totalMs: 20000, percentage: 100 });
+    expect(harvestingProgress(s, 100000)).toEqual({ completed: 2, totalMs: 20000, percentage: 100 });
+    expect(JSON.stringify(s)).toBe(before);
+  });
+  it("matches progress after reload during the second field and during storage", () => {
+    const s = snapshot();
+    s.farm.production.planting = { ...batch(), remaining: [], travelPaths: [], travelMs: [],
+      phase: { type: "harvesting", target: second, completesAt: date(21540) } };
+    expect(harvestingProgress(s, 16540)).toEqual({ completed: 1, totalMs: 20000, percentage: 75 });
+    s.farm.production.planting.phase = delivery();
+    expect(harvestingProgress(s, 21600)).toEqual({ completed: 2, totalMs: 20000, percentage: 100 });
+    s.farm.production.planting = { ...batch(), total: 4, stopRequested: true, remaining: [first, second], phase: delivery() };
+    expect(harvestingProgress(s, 21600)).toEqual({ completed: 2, totalMs: 40000, percentage: 50 });
+  });
+  it.each([[6, 4, 4], [4, 6, 4], [6, 6, 6], [8, 3, 3], [8, 12, 8], [6, 0, 0]])(
+    "caps selection capacity %i to %i ripe fields: %i", (capacity, ripe, expected) => {
+      expect(harvestSelectionMaximum(capacity, ripe)).toBe(expected);
+    }
+  );
   it("shows independent farm and granary levels, counting only completed upgrades", () => {
     const s = snapshot();
     expect(isometricTilePopup(s, { column: 1, row: 3 }, 1000).level).toBe(1);

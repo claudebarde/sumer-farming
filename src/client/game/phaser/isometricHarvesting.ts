@@ -9,8 +9,25 @@ import { isoPoint, type IsoCell } from "./isometricProjection";
 import { plantingBlocker } from "./isometricPlanting";
 import { buildingFacingLeft } from "./buildingFacing";
 
+/** Selection display only; accepted jobs keep their original total and capacity. */
+export const harvestSelectionMaximum = (capacity: number, ripeFields: number) =>
+  Math.min(capacity, ripeFields);
+
 export const harvestingBlocker = (snapshot: FarmSnapshot, now: number) =>
   snapshot.farm.carriedItem ? "Empty your hands first" : plantingBlocker(snapshot, now);
+
+/** Same work-only meter as sowing, sampled from the saved harvest animation timeline. */
+export const harvestingProgress = (snapshot: FarmSnapshot, now: number) => {
+  const batch = snapshot.farm.production.planting;
+  if (batch?.mode !== "harvest") return { completed: 0, totalMs: 0, percentage: 0 };
+  const pose = isometricHarvestPose(snapshot, now);
+  const alreadyCompleted = batch.total - batch.remaining.length - (batch.phase.type === "harvesting" ? 1 : 0);
+  const completed = Math.max(0, Math.min(batch.total, alreadyCompleted + (pose?.harvested.length ?? 0)));
+  const perField = CROP_DEFINITIONS.barley.harvestDurationMs;
+  const totalMs = perField * batch.total;
+  const elapsedMs = completed * perField + (pose?.type === "harvesting" ? Math.min(perField, pose.elapsed) : 0);
+  return { completed, totalMs, percentage: Math.floor(Math.max(0, Math.min(100, elapsedMs / totalMs * 100))) };
+};
 
 export type HarvestPose = {
   readonly type: "walking" | "harvesting" | "idle" | "done";

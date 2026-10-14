@@ -76,14 +76,26 @@ describe("warehouse and finite storage", () => {
     expect(delivered.farm.production.materialReservation).toBeNull();
     expect(await Effect.runPromise(Effect.flip(startGatherResource(db, { playerId: f.farm.playerId, itemKey: "clay", target: { column: 5, row: 9 }, expectedFarmVersion: delivered.farm.version })))).toMatchObject({ rule: { type: "storage_full" } });
   });
-  it.each(["reed", "clay"] as const)("drops %s on arable ground without losing or duplicating it", async itemKey => {
+  it.each(["reed", "clay"] as const)("drops %s on non-arable ground without losing or duplicating it", async itemKey => {
     const f = await fixture();
     await db.update(farms).set({ carriedItemKey: itemKey, carriedItemQuantity: 1 }).where(eq(farms.id, f.farm.id));
-    await Effect.runPromise(dropCarriedItem(db, { playerId: f.farm.playerId, target: { column: 5, row: 0 }, expectedFarmVersion: 1 }));
+    await Effect.runPromise(dropCarriedItem(db, { playerId: f.farm.playerId, target: { column: -2, row: 2 }, expectedFarmVersion: 1 }));
     const snapshot = await f.refresh();
     expect(snapshot.farm.carriedItem).toBeNull();
     expect(snapshot.groundItems).toHaveLength(1);
     expect(snapshot.groundItems[0]).toMatchObject({ itemKey, quantity: 1, expiresAt: null });
+  });
+  it.each(["reed", "clay"] as const)("rejects invalid %s drop terrain without losing cargo", async itemKey => {
+    const f = await fixture();
+    await db.update(farms).set({ carriedItemKey: itemKey, carriedItemQuantity: 1 }).where(eq(farms.id, f.farm.id));
+    for (const target of [{ column: 4, row: 10 }, { column: 4, row: 11 }, { column: 4, row: 5 },
+      { column: 1, row: 3 }, { column: 11, row: 3 }, { column: -5, row: 2 }]) {
+      const current = await f.refresh();
+      expect(await Effect.runPromise(Effect.flip(dropCarriedItem(db, { playerId: f.farm.playerId, target, expectedFarmVersion: current.farm.version })))).toMatchObject({ rule: { type: "invalid_drop_ground" } });
+    }
+    const current = await f.refresh();
+    expect(current.farm.carriedItem).toMatchObject({ itemKey, quantity: 1 });
+    expect(current.groundItems).toHaveLength(0);
   });
   it("does not let another material deposit use the gathering reservation", async () => {
     const f = await fixture();

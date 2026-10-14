@@ -16,19 +16,21 @@ describe("road row", () => {
       expect(validateCultivation({ target: { column, row: 5 }, crop: "barley", carriedItem: "barley",
         occupiedCoordinates: [], activeCanals: [] })).toEqual({ type: "outside_arable_plot" });
     }
-    expect(isInsideArablePlot({ column: 2, row: 4 })).toBe(true);
+    expect(isInsideArablePlot({ column: 2, row: 4 })).toBe(false);
     expect(isInsideArablePlot({ column: 2, row: 6 })).toBe(true);
   });
   it.each([4, 5])("rejects a building overlapping the road from row %i", row => {
     expect(validateBuildingPlacement({ building: "granary", existingBuildings: [], target: { column: 1, row },
       occupiedCoordinates: new Set(), carriedItem: null, availableMaterials: { reed: 100, clay: 100 } }))
-      .toEqual({ type: "outside_arable_plot" });
+      .toEqual({ type: "outside_building_ground" });
   });
-  it("keeps canals connected beneath the road and irrigates land above it", () => {
+  it("keeps canals connected beneath the road without allowing northern crops", () => {
     const canals = Array.from({ length: 6 }, (_, i) => ({ column: 2, row: 9 - i }));
     expect(validateIrrigationLocation({ column: 2, row: 5 })).toEqual({ type: "valid" });
     expect(getRiverConnectedCanals(canals)).toHaveLength(6);
     expect(validateCultivation({ target: { column: 3, row: 4 }, crop: "barley", carriedItem: "barley",
+      occupiedCoordinates: [], activeCanals: canals })).toEqual({ type: "outside_arable_plot" });
+    expect(validateCultivation({ target: { column: 3, row: 9 }, crop: "barley", carriedItem: "barley",
       occupiedCoordinates: [], activeCanals: canals })).toEqual({ type: "valid" });
   });
 });

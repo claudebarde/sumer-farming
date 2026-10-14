@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
-import { mockGranaryPlacement, granaryBuildBlocker, granaryPlacement } from "../../src/client/game/phaser/isometricBuildingPlacement";
+import { mockGranaryPlacement, granaryBuildBlocker, granaryPlacement, buildingBuildBlocker, buildingPlacement } from "../../src/client/game/phaser/isometricBuildingPlacement";
 
 const id = "00000000-0000-4000-8000-000000000001";
 const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shekelBalance: 0 },
@@ -8,7 +8,23 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
     carriedItem: { itemKey: "barley", quantity: 2, expiresAt: null }, gathering: null },
   inventory: [], objects: [], groundItems: [], crops: [], improvements: [], buildings: [] });
 const farmer = { column: 1, row: 5 };
-const target = { column: 4, row: 6 };
+const target = { column: 4, row: 3 };
+
+it("enables mill placement at level 5 with dropped materials and empty hands", () => {
+  const s = snapshot();
+  expect(buildingBuildBlocker(s, 1000, "mill")).toBe("Unlock at level 5");
+  s.farm.progression = { level: 5, breadSold: 0, barleySold: 0, beerSold: 0, requestsDelivered: 0,
+    stats: { breadProduced: 0, processedBarley: 0, harvestedBarley: 0, harvests: 0, beerProduced: 0, fishFed: 0 } };
+  expect(buildingBuildBlocker(s, 1000, "mill")).toContain("hands");
+  s.farm.carriedItem = null;
+  s.inventory = [{ itemKey: "reed", quantity: 2 }, { itemKey: "clay", quantity: 3 }];
+  expect(buildingBuildBlocker(s, 1000, "mill")).toContain("4 clay");
+  s.groundItems = [{ id, itemKey: "clay", quantity: 1, expiresAt: null, column: 8, row: 2 }];
+  expect(buildingBuildBlocker(s, 1000, "mill")).toBeNull();
+  expect(buildingPlacement(s, target, farmer, 1000, "mill")).toMatchObject({ rule: { type: "valid" }, loading: { column: 4, row: 5 } });
+  expect(buildingPlacement(s, target, target, 1000, "mill").rule.type).toBe("footprint_occupied");
+  expect(buildingPlacement(s, { column: 4, row: 0 }, farmer, 1000, "mill").rule.type).toBe("road_access_required");
+});
 
 it("enforces economic and level gates for real construction", () => {
   const s = snapshot();
@@ -33,10 +49,10 @@ it("previews valid road-adjacent space without requiring materials or empty hand
 });
 
 it.each([
-  [{ column: 7, row: 6 }, "outside_arable_plot"],
-  [{ column: 4, row: 10 }, "outside_arable_plot"],
+  [{ column: 7, row: 6 }, "outside_building_ground"],
+  [{ column: 4, row: 10 }, "outside_building_ground"],
   [{ column: 1, row: 3 }, "footprint_occupied"],
-  [{ column: 4, row: 5 }, "outside_arable_plot"],
+  [{ column: 4, row: 5 }, "outside_building_ground"],
   [{ column: 4, row: 0 }, "road_access_required"]
 ] as const)("rejects invalid geometry at %j", (cell, type) => {
   expect(mockGranaryPlacement(snapshot(), cell, farmer, Date.now()).rule.type).toBe(type);
@@ -51,11 +67,13 @@ it("rejects ground items and the farmer in the footprint", () => {
 
 it("retains building footprints and reserved loading tiles while bypassing the owned-granary limit", () => {
   const s = snapshot();
-  s.buildings = FarmSnapshotSchema.parse({ ...s, buildings: [{ id, type: "granary", column: 5, row: 3,
+  s.buildings = FarmSnapshotSchema.parse({ ...s, buildings: [{ id, type: "granary", column: 6, row: 3,
     storedBarley: 0, brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0,
-    loadingTile: { column: 5, row: 5 }, startedAt: new Date(0).toISOString(), completesAt: new Date(0).toISOString() }] }).buildings;
+    loadingTile: { column: 6, row: 5 }, startedAt: new Date(0).toISOString(), completesAt: new Date(0).toISOString() }] }).buildings;
   expect(mockGranaryPlacement(s, target, farmer, Date.now()).rule.type).toBe("valid");
-  expect(mockGranaryPlacement(s, { column: 5, row: 3 }, farmer, Date.now()).rule.type).toBe("footprint_occupied");
+  expect(mockGranaryPlacement(s, { column: 6, row: 3 }, farmer, Date.now()).rule.type).toBe("footprint_occupied");
+  // A legacy building can have a separately reserved loading tile.
+  s.buildings[0]!.loadingTile = { column: 5, row: 5 };
   // Block the only other loading point; the reserved tile must not be reused.
   s.groundItems.push({ id, itemKey: "barley", quantity: 1, expiresAt: null, column: 4, row: 5 });
   expect(mockGranaryPlacement(s, target, farmer, Date.now()).rule.type).toBe("road_access_required");

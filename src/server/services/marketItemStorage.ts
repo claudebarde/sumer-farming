@@ -1,6 +1,7 @@
 import { and, asc, eq, lte, inArray } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { porterReserved } from "../../game-data/porter";
+import { millStorageReserved } from "../../game-core/farm/millStorage";
 
 import type { MarketItemKey } from "../../game-data/marketItems";
 import { FARM_STORAGE_CAPACITY, granaryCapacityForLevel, estateResourceCapacity } from "../../game-data/storage";
@@ -132,8 +133,8 @@ export const loadMarketItemStorage = (
       const quantity = entry?.quantity ?? 0;
       const buildings = await transaction.select().from(farmBuildings).where(eq(farmBuildings.farmId, farmId));
       const capacity = estateResourceCapacity(itemKey, buildings, now.getTime());
-      const [farm] = await transaction.select({ production: farms.production }).from(farms).where(eq(farms.id, farmId));
-      return { type: "estate_inventory", itemKey, farmId, farmQuantity: quantity, granaries: [], granaryCapacity: 0, storedQuantity: quantity, totalCapacity: capacity, availableCapacity: Math.max(0, capacity - quantity - porterReserved(farm?.production.porter, itemKey)) };
+      const [farm] = await transaction.select({ production: farms.production, millGoods: farms.millGoods, milling: farms.milling }).from(farms).where(eq(farms.id, farmId));
+      return { type: "estate_inventory", itemKey, farmId, farmQuantity: quantity, granaries: [], granaryCapacity: 0, storedQuantity: quantity, totalCapacity: capacity, availableCapacity: Math.max(0, capacity - quantity - porterReserved(farm?.production.porter, itemKey) - (farm ? millStorageReserved(farm, itemKey) : 0)) };
     })
     .exhaustive();
 

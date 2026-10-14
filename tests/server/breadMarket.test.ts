@@ -38,6 +38,14 @@ const fixture = async (bread = 4) => {
 };
 
 describe("bread markets", () => {
+  it.each(["flour", "brewersGroats"] as const)("does not sell NPC %s into space reserved for mill output", async itemKey => {
+    const input = { ...await fixture(), itemKey, quantity: 1, expectedUnitPrice: 4 };
+    await db.update(farms).set({ millGoods: { pending: { [randomUUID()]: { flour: itemKey === "flour" ? 10 : 0, brewersGroats: itemKey === "brewersGroats" ? 10 : 0 } }, delivery: null } }).where(eq(farms.id, input.farmId));
+    const rejected = await Effect.runPromise(Effect.flip(buyFromNpcMarket(db, input)));
+    expect(rejected).toMatchObject({ rule: { type: "insufficient_storage", available: 0 } });
+    const [player] = await db.select().from(players).where(eq(players.id, input.playerId));
+    expect(player!.shekelBalance).toBe(20);
+  });
   it.each(["flour", "brewersGroats"] as const)("trades %s through NPC and player markets without production credit", async itemKey => {
     const input = { ...await fixture(), itemKey, expectedUnitPrice: 4 };
     const bought = await Effect.runPromise(buyFromNpcMarket(db, input));

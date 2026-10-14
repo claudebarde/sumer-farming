@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { TradeHistory } from "../../src/schemas/tradeHistory";
 import { collectNewTrades } from "../../src/client/features/market/tradeNotifications";
 import { createNotificationStore } from "../../src/client/stores/notificationStore";
-import { LEVEL_UNLOCKS } from "../../src/game-data/progression";
+import { LEVEL_UNLOCKS, MAX_PLAYABLE_LEVEL } from "../../src/game-data/progression";
 
 const trade = (id: string): TradeHistory["trades"][number] => ({
   id, type: "market_sale", source: "player", itemKey: "barley",
@@ -13,6 +13,16 @@ const page = (ids: readonly string[], nextCursor: string | null = null): TradeHi
 });
 
 describe("trade notification delivery", () => {
+  it("announces every playable level with a nonempty unlock summary", () => {
+    const store = createNotificationStore();
+    store.getState().setPlayer("one");
+    for (let level = 2; level <= MAX_PLAYABLE_LEVEL; level++) {
+      store.getState().notifyLevel("one", "farm", level);
+      expect(store.getState().pending[0]).toEqual({ id: `level:farm:${level}`, type: "level_up", level });
+      expect(LEVEL_UNLOCKS[level]?.length).toBeGreaterThan(0);
+      store.getState().dismiss(`level:farm:${level}`);
+    }
+  });
   it("announces bread making and bread trading at level 6", () => {
     expect(LEVEL_UNLOCKS[6]).toContain("Bread Oven");
     expect(LEVEL_UNLOCKS[6]).toContain("Bread making");

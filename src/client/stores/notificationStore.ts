@@ -11,10 +11,12 @@ type State = {
   readonly playerId: string | null;
   readonly pending: readonly GameNotification[];
   readonly announced: ReadonlySet<string>;
+  readonly materialDropFarmId: string | null;
+  readonly setMaterialDrop: (farmId: string | null) => void;
   readonly setPlayer: (playerId: string | null) => void;
   readonly notifyTrade: (playerId: string, trade: TradeNotification) => void;
   readonly notifyLevel: (playerId: string, farmId: string, level: number) => void;
-  readonly notifyBuilding: (playerId: string, farmId: string, building: FarmBuildingType) => void;
+  readonly notifyBuilding: (playerId: string, farmId: string, building: FarmBuildingType, version?: number) => void;
   readonly dismiss: (id: string) => void;
 };
 
@@ -22,8 +24,10 @@ export const createNotificationStore = () => createStore<State>()(set => ({
   playerId: null,
   pending: [],
   announced: new Set(),
+  materialDropFarmId: null,
+  setMaterialDrop: farmId => set({ materialDropFarmId: farmId }),
   setPlayer: playerId => set(state => state.playerId === playerId ? state : {
-    playerId, pending: [], announced: new Set()
+    playerId, pending: [], announced: new Set(), materialDropFarmId: null
   }),
   notifyTrade: (playerId, trade) => set(state =>
     state.playerId !== playerId || state.announced.has(trade.id) ? state : {
@@ -39,8 +43,8 @@ export const createNotificationStore = () => createStore<State>()(set => ({
     };
   }),
   dismiss: id => set(state => ({ pending: state.pending.filter(trade => trade.id !== id) })),
-  notifyBuilding: (playerId, farmId, building) => set(state => {
-    const id = `building-ready:${farmId}:${building}`;
+  notifyBuilding: (playerId, farmId, building, version) => set(state => {
+    const id = `building-ready:${farmId}:${building}${version === undefined ? "" : `:${version}`}`;
     return state.playerId !== playerId || state.announced.has(id) ? state : {
       pending: [...state.pending, { id, type: "building_ready", building }],
       announced: new Set([...state.announced, id])

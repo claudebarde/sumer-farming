@@ -11,6 +11,7 @@ export type ProgressionStats = typeof INITIAL_PROGRESSION_STATS & {
   readonly builtFirstCanal?: boolean;
   readonly plantedFirstBarley?: boolean;
   readonly level3Baseline?: { readonly harvests: number };
+  readonly level5Baseline?: { readonly harvests: number };
   readonly level8Baseline?: { readonly harvestedBarley: number; readonly produced?: number };
   readonly level6Baseline?: {
     readonly produced: number;
@@ -22,7 +23,7 @@ export const LEVEL_9_REQUIRED_BARLEY = 100;
 export const LEVEL_9_REQUIRED_PRODUCTION = 30;
 export const LEVEL_9_FOOD_OFFERING = 10;
 export const LEVEL_4_REQUIRED_HARVESTS = 50;
-export const LEVEL_6_REQUIRED_HARVESTS = LEVEL_4_REQUIRED_HARVESTS * 2;
+export const LEVEL_6_REQUIRED_HARVESTS = 50;
 export const LEVEL_7_REQUIRED_PRODUCTION = 15;
 export const LEVEL_7_REQUIRED_SALES = 10;
 export const LEVEL_7_FOOD_OFFERING = 5;

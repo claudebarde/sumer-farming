@@ -42,13 +42,14 @@ describe("small shrine blessing", () => {
     expect(shrineSprite("other", blessing, 2 * hour)).toBe("smallShrine");
     expect(ProductionStateSchema.parse(emptyProductionState()).shrineBlessing).toBeUndefined();
   });
-  it("unlocks at level 8 and takes only one arable tile", () => {
+  it("unlocks at level 8 and takes only one northern ground tile", () => {
     expect(commandUnlockLevel({ type: "shrine_offering", item: "beer", buildingId: blessing.buildingId, expectedFarmVersion: 1 })).toBe(8);
     expect(commandUnlockLevel({ type: "build_small_shrine", target: { column: 7, row: 4 }, expectedFarmVersion: 1 })).toBe(8);
     expect(getBuildingFootprint("smallShrine", { column: 7, row: 4 })).toEqual([{ column: 7, row: 4 }]);
     const context = { building: "smallShrine" as const, target: { column: 7, row: 4 }, existingBuildings: [], occupiedCoordinates: new Set<string>(), carriedItem: null, availableMaterials: { reed: 2, clay: 4 } };
     expect(validateBuildingPlacement(context).type).toBe("valid");
-    expect(validateBuildingPlacement({ ...context, target: { column: 8, row: 4 } }).type).toBe("outside_arable_plot");
+    expect(validateBuildingPlacement({ ...context, target: { column: 8, row: 4 } }).type).toBe("valid");
+    expect(validateBuildingPlacement({ ...context, target: { column: 8, row: 6 } }).type).toBe("outside_building_ground");
     expect(validateBuildingPlacement({ ...context, existingBuildings: [{ type: "smallShrine" }] })).toEqual({ type: "building_limit", limit: 1 });
   });
 });

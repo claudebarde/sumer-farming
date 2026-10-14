@@ -88,6 +88,7 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
         : INITIAL_FARM_CONFIG.farmerSpawn;
       if (!collectionTile) return fail("The seed storage cannot be reached.");
       const collectionPath = stored > 0 ? pathTo(origin, collectionTile) : undefined;
+      const collectionTravelMs = stored > 0 ? plantingTravelMs(snapshot, origin, collectionTile, now.getTime()) : undefined;
       let position = stored > 0 ? collectionTile : origin;
       const travelPaths = planting.remaining.map(target => { const path = pathTo(position, target); position = target; return path; });
       position = stored > 0 ? collectionTile : origin;
@@ -96,8 +97,8 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
         position = target;
         return duration;
       });
-      planting = { ...planting, travelMs, travelPaths, collectionPath, travelStartedAt: now.toISOString(), nextStepAt: new Date(now.getTime() + (stored > 0
-        ? Math.max(1000, plantingTravelMs(snapshot, origin, collectionTile, now.getTime()))
+      planting = { ...planting, travelMs, travelPaths, collectionPath, collectionTravelMs, travelStartedAt: now.toISOString(), nextStepAt: new Date(now.getTime() + (stored > 0
+        ? Math.max(1000, collectionTravelMs!)
         : travelMs[0] ?? 0)).toISOString() };
       }
     } else {

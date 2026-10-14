@@ -1,4 +1,5 @@
 import { farmDecorationTypes } from "../../game-data/farmObjects";
+import { sceneryPositions } from "./land";
 import {
   INITIAL_FARM_CONFIG,
   INITIAL_FARM_GROUND_ITEMS,
@@ -31,40 +32,8 @@ const nextInteger = (
   };
 };
 
-const isInsidePlot = ({ column, row }: GridCoordinate): boolean =>
-  column >= INITIAL_FARM_CONFIG.plotBounds.minimumColumn &&
-  column <= INITIAL_FARM_CONFIG.plotBounds.maximumColumn &&
-  row >= INITIAL_FARM_CONFIG.plotBounds.minimumRow &&
-  row <= INITIAL_FARM_CONFIG.plotBounds.maximumRow;
-
-const availableObjectPositions = (): readonly GridCoordinate[] => {
-  const { worldBounds, riverRow } = INITIAL_FARM_CONFIG;
-  const columns =
-    worldBounds.maximumColumn - worldBounds.minimumColumn + 1;
-  const rows = worldBounds.maximumRow - worldBounds.minimumRow + 1;
-
-  return Array.from({ length: columns * rows }, (_, index) => {
-    const column = worldBounds.minimumColumn + (index % columns);
-    const row = worldBounds.minimumRow + Math.floor(index / columns);
-
-    return { column, row };
-  }).filter(position => position.row < riverRow && position.row !== INITIAL_FARM_CONFIG.roadRow && !isInsidePlot(position));
-};
-
-const availableReedPositions = (): readonly GridCoordinate[] => {
-  const { worldBounds, riverRow } = INITIAL_FARM_CONFIG;
-
-  return Array.from(
-    {
-      length:
-        worldBounds.maximumColumn - worldBounds.minimumColumn + 1
-    },
-    (_, index) => ({
-      column: worldBounds.minimumColumn + index,
-      row: riverRow - 1
-    })
-  );
-};
+const availableObjectPositions = (): readonly GridCoordinate[] => sceneryPositions(false);
+const availableReedPositions = (): readonly GridCoordinate[] => sceneryPositions(true);
 
 export const createInitialFarmPlan = (seed: number): InitialFarmPlan => {
   let randomSeed = seed >>> 0;

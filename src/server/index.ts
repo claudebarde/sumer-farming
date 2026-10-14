@@ -861,7 +861,7 @@ app.post("/api/game/action", async c => {
             )
           )
           .with(
-            { type: "outside_arable_plot" },
+            { type: "outside_building_ground" },
             { type: "footprint_occupied" },
             { type: "building_limit" },
             { type: "access_blocked" },
@@ -1037,18 +1037,21 @@ app.post("/api/game/action", async c => {
               {
                 error: {
                   type: "outside_arable_plot",
-                  message: "Items can only be dropped on arable land"
+                  message: "Barley can only be dropped on arable land"
                 }
               },
               422
             )
+          )
+          .with({ type: "invalid_drop_ground" }, () =>
+            c.json({ error: { type: "invalid_drop_ground", message: "Choose an empty ground tile" } }, 422)
           )
           .with({ type: "ground_tile_occupied" }, () =>
             c.json(
               {
                 error: {
                   type: "ground_tile_occupied",
-                  message: "This arable tile is occupied"
+                  message: "This ground tile is occupied"
                 }
               },
               409

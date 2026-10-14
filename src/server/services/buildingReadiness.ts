@@ -4,7 +4,7 @@ import { farms } from "../db/schema";
 import { readFarmSnapshot } from "./farmSnapshot";
 import { readyProgressionBuilding } from "../../game-core/farm/buildingReadiness";
 
-/** Claim once under the farm lock, including simultaneous tabs/devices. */
+/** Claim once per ready period under the farm lock, including simultaneous tabs. */
 export const claimBuildingReadiness = (db: Database, playerId: string) => db.transaction(async tx => {
   const [farm] = await tx.select().from(farms).where(eq(farms.playerId, playerId)).for("update");
   if (!farm) return { building: null };

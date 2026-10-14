@@ -1,0 +1,247 @@
+{
+  "status": "Alignment review required; see README.txt",
+  "millCanvas": [
+    1024,
+    1024
+  ],
+  "leverPivot": [
+    550,
+    505
+  ],
+  "ellipseRadii": [
+    365,
+    182.5
+  ],
+  "farmerCanvas": [
+    512,
+    512
+  ],
+  "farmerAnchor": [
+    256,
+    450
+  ],
+  "levers": [
+    {
+      "file": "mill-lever-01.png",
+      "angleDegrees": 0,
+      "pivot": [
+        550,
+        505
+      ],
+      "workingEnd": [
+        915,
+        505
+      ]
+    },
+    {
+      "file": "mill-lever-02.png",
+      "angleDegrees": 45,
+      "pivot": [
+        550,
+        505
+      ],
+      "workingEnd": [
+        808.09,
+        634.05
+      ]
+    },
+    {
+      "file": "mill-lever-03.png",
+      "angleDegrees": 90,
+      "pivot": [
+        550,
+        505
+      ],
+      "workingEnd": [
+        550,
+        687.5
+      ]
+    },
+    {
+      "file": "mill-lever-04.png",
+      "angleDegrees": 135,
+      "pivot": [
+        550,
+        505
+      ],
+      "workingEnd": [
+        291.91,
+        634.05
+      ]
+    },
+    {
+      "file": "mill-lever-05.png",
+      "angleDegrees": 180,
+      "pivot": [
+        550,
+        505
+      ],
+      "workingEnd": [
+        185,
+        505
+      ]
+    },
+    {
+      "file": "mill-lever-06.png",
+      "angleDegrees": 225,
+      "pivot": [
+        550,
+        505
+      ],
+      "workingEnd": [
+        291.91,
+        375.95
+      ]
+    },
+    {
+      "file": "mill-lever-07.png",
+      "angleDegrees": 270,
+      "pivot": [
+        550,
+        505
+      ],
+      "workingEnd": [
+        550,
+        322.5
+      ]
+    },
+    {
+      "file": "mill-lever-08.png",
+      "angleDegrees": 315,
+      "pivot": [
+        550,
+        505
+      ],
+      "workingEnd": [
+        808.09,
+        375.95
+      ]
+    }
+  ],
+  "farmers": [
+    {
+      "file": "farmer-mill-push-01.png",
+      "anchor": [
+        256,
+        450
+      ],
+      "approximateHands": [
+        [
+          163,
+          303
+        ],
+        [
+          340,
+          300
+        ]
+      ],
+      "direction": "down",
+      "preview": {
+        "scale": 1.35,
+        "left": 800,
+        "top": 288,
+        "baseOffset": [
+          300,
+          190
+        ],
+        "gripTarget": [
+          840,
+          505
+        ]
+      }
+    },
+    {
+      "file": "farmer-mill-push-02.png",
+      "anchor": [
+        256,
+        450
+      ],
+      "approximateHands": [
+        [
+          95,
+          277
+        ],
+        [
+          141,
+          290
+        ]
+      ],
+      "direction": "left",
+      "preview": {
+        "scale": 1.35,
+        "left": 691,
+        "top": 457,
+        "baseOffset": [
+          300,
+          190
+        ],
+        "gripTarget": [
+          550,
+          650
+        ]
+      }
+    },
+    {
+      "file": "farmer-mill-push-03.png",
+      "anchor": [
+        256,
+        450
+      ],
+      "approximateHands": [
+        [
+          182,
+          225
+        ],
+        [
+          358,
+          233
+        ]
+      ],
+      "direction": "up",
+      "preview": {
+        "scale": 1.35,
+        "left": 196,
+        "top": 386,
+        "baseOffset": [
+          300,
+          190
+        ],
+        "gripTarget": [
+          260,
+          505
+        ]
+      }
+    },
+    {
+      "file": "farmer-mill-push-04.png",
+      "anchor": [
+        256,
+        450
+      ],
+      "approximateHands": [
+        [
+          345,
+          276
+        ],
+        [
+          396,
+          259
+        ]
+      ],
+      "direction": "right",
+      "preview": {
+        "scale": 1.35,
+        "left": 350,
+        "top": 189,
+        "baseOffset": [
+          300,
+          190
+        ],
+        "gripTarget": [
+          550,
+          360
+        ]
+      }
+    }
+  ]
+}

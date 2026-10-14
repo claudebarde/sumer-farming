@@ -12,9 +12,9 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
   inventory: [], objects: [], groundItems: [], crops: [], improvements: [], buildings: [] });
 
 describe("construction work presentation", () => {
-  it("resumes granary work at its loading tile and never replays completed construction", () => {
+  it.each(["granary", "mill"])("resumes %s work at its loading tile and never replays completed construction", type => {
     const s = snapshot();
-    s.buildings = FarmSnapshotSchema.parse({ ...s, buildings: [{ id, type: "granary", column: 4, row: 6,
+    s.buildings = FarmSnapshotSchema.parse({ ...s, buildings: [{ id, type, column: 4, row: 3,
       storedBarley: 0, brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0,
       loadingTile: { column: 4, row: 5 }, startedAt: date(1000), completesAt: date(121000) }] }).buildings;
     expect(isometricConstructionPose(s, 5000)?.position).toEqual({ column: 4, row: 5 });

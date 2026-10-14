@@ -153,7 +153,7 @@ describe("brewery construction and equipment", () => {
   });
 
   it.each([
-    ["outside_arable_plot", { column: 7, row: 7 }],
+    ["outside_building_ground", { column: 7, row: 7 }],
     ["footprint_occupied", { column: 0, row: 3 }],
     ["footprint_occupied", { column: 1, row: 3 }],
     ["footprint_occupied", { column: 0, row: 0 }]

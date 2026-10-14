@@ -17,6 +17,7 @@ import { commandUnlockLevel } from "../../src/game-core/farm/commandUnlock";
 import { evaluateProgression } from "../../src/game-core/farm/progression";
 import { millSprite, millingCollectionSource } from "../../src/game-core/farm/milling";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
+import { loadMarketItemStorage } from "../../src/server/services/marketItemStorage";
 
 const client = new Client({ connectionString: process.env.TEST_DATABASE_URL ?? "postgres://sumer:sumer_dev@localhost:5432/sumer_farming" });
 const db = createDatabase(client);
@@ -47,6 +48,47 @@ const fixture = async (barley = 8) => {
 };
 
 describe("persistent single-farmer milling", () => {
+  it("reserves the last storage slot before milling and retains it through completion and collection", async () => {
+    const f = await fixture();
+    await db.insert(farmInventory).values({ farmId: f.farm.id, itemKey: "flour", quantity: 8 });
+    await db.update(farms).set({ millGoods: { pending: { [f.mill.id]: { flour: 1, brewersGroats: 0 } }, delivery: null } }).where(eq(farms.id, f.farm.id));
+    const room = () => db.transaction(tx => loadMarketItemStorage(tx, f.farm.id, "flour", new Date()));
+    expect((await room()).availableCapacity).toBe(1);
+    await f.start("flour");
+    expect((await room()).availableCapacity).toBe(0);
+    const ready = await f.finish();
+    expect(ready.farm.millGoods.pending[f.mill.id]!.flour).toBe(2);
+    await expect(f.start("flour")).rejects.toThrow("No storage space");
+    expect((await f.read()).inventory.find(i => i.itemKey === "barley")!.quantity).toBe(6);
+    const input = { type: "mill_delivery" as const, playerId: f.playerId, millId: f.mill.id };
+    const picked = await Effect.runPromise(deliverMillGoods(db, { ...input, action: "pickup", expectedFarmVersion: ready.farm.version }));
+    expect((await room()).availableCapacity).toBe(0);
+    await Effect.runPromise(deliverMillGoods(db, { ...input, action: "store", expectedFarmVersion: picked.farm.version }));
+    expect((await room()).availableCapacity).toBe(0);
+    await f.start("brewersGroats");
+  });
+  it("builds a mill, consumes its materials once and preserves its deadline on reload", async () => {
+    const f = await fixture();
+    await db.delete(farmBuildings).where(eq(farmBuildings.id, f.mill.id));
+    await db.insert(farmInventory).values([
+      { farmId: f.farm.id, itemKey: "reed", quantity: 2 },
+      { farmId: f.farm.id, itemKey: "clay", quantity: 4 },
+    ]);
+    const before = await f.read();
+    const input = { playerId: f.playerId, building: "mill" as const, target: { column: 4, row: 3 }, expectedFarmVersion: before.farm.version };
+    const built = await Effect.runPromise(buildFarmBuilding(db, input));
+    const mill = built.buildings.find(b => b.type === "mill")!;
+    expect(mill.loadingTile).toEqual({ column: 4, row: 5 });
+    expect(Date.parse(mill.completesAt) - Date.parse(mill.startedAt)).toBe(120000);
+    expect(built.inventory.find(i => i.itemKey === "reed")?.quantity ?? 0).toBe(0);
+    expect(built.inventory.find(i => i.itemKey === "clay")?.quantity ?? 0).toBe(0);
+    expect((await f.read()).buildings.find(b => b.id === mill.id)?.completesAt).toBe(mill.completesAt);
+    await expect(Effect.runPromise(buildFarmBuilding(db, input))).rejects.toThrow();
+    await db.update(farmBuildings).set({ completesAt: new Date(Date.now() - 1) }).where(eq(farmBuildings.id, mill.id));
+    const completed = (await f.read()).buildings.find(b => b.id === mill.id)!;
+    expect(Date.parse(completed.completesAt)).toBeLessThan(Date.now());
+    expect((await f.read()).buildings).toHaveLength(1);
+  });
   it("keeps mixed bags separate through pickup, reload and an exactly-once delivery", async () => {
     const f = await fixture();
     await f.start("flour"); await f.finish();
@@ -91,6 +133,12 @@ describe("persistent single-farmer milling", () => {
     expect(millingCollectionSource(before, Date.now())).toEqual({ type: "granary", column: 5, row: 0 });
     expect((await f.read()).buildings.find(b => b.type === "granary")?.storedBarley).toBe(1);
     const active = await f.start(recipe);
+    const stops = active.farm.milling!.preparation!.supplyStops!;
+    expect(stops.map(stop => stop.quantity)).toEqual([1, 1]);
+    expect(stops[0]!.buildingId).toBe(active.buildings.find(b => b.type === "granary")!.id);
+    expect(stops[1]!.buildingId).toBeNull();
+    expect(stops[0]!.index).toBeLessThan(stops[1]!.index);
+    expect((await f.read()).farm.milling!.preparation).toEqual(active.farm.milling!.preparation);
     expect(active.buildings.find(b => b.type === "granary")?.storedBarley).toBe(0);
     expect(active.inventory.find(i => i.itemKey === "barley")?.quantity).toBe(2);
   });
@@ -163,16 +211,16 @@ describe("persistent single-farmer milling", () => {
 
   it.each(["flour", "brewersGroats", "mixed"] as const)("accepts the %s specialization for level 6", async choice => {
     const f = await fixture();
-    await db.update(farms).set({ progressionStats: { ...INITIAL_PROGRESSION_STATS, harvestedBarley: 200, harvests: 100 } }).where(eq(farms.id, f.farm.id));
+    await db.update(farms).set({ progressionStats: { ...INITIAL_PROGRESSION_STATS, harvestedBarley: 200, harvests: 50, level5Baseline: { harvests: 0 } } }).where(eq(farms.id, f.farm.id));
     await f.start(choice === "mixed" ? "flour" : choice); await f.finish();
     await f.start(choice === "mixed" ? "brewersGroats" : choice);
     const pending = await f.finish();
     expect(evaluateProgression(pending, Date.now()).canClaim).toBe(false);
     const picked = await Effect.runPromise(deliverMillGoods(db, { type: "mill_delivery", action: "pickup", playerId: f.playerId, millId: f.mill.id, expectedFarmVersion: pending.farm.version }));
     const ready = await Effect.runPromise(deliverMillGoods(db, { type: "mill_delivery", action: "store", playerId: f.playerId, millId: f.mill.id, expectedFarmVersion: picked.farm.version }));
-    const belowTarget = { ...ready, farm: { ...ready.farm, progression: { ...ready.farm.progression!, stats: { ...ready.farm.progression!.stats, harvests: 99 } } } };
+    const belowTarget = { ...ready, farm: { ...ready.farm, progression: { ...ready.farm.progression!, stats: { ...ready.farm.progression!.stats, harvests: 49 } } } };
     const requirement = evaluateProgression(belowTarget, Date.now()).requirements.find(r => r.label === "Crop plantings harvested");
-    expect(requirement).toMatchObject({ current: 99, required: 100, met: false });
+    expect(requirement).toMatchObject({ current: 49, required: 50, met: false });
     expect(evaluateProgression(belowTarget, Date.now()).canClaim).toBe(false);
     expect(evaluateProgression(ready, Date.now()).canClaim).toBe(true);
     const claimed = await Effect.runPromise(claimFarmLevel(db, { playerId: f.playerId, expectedLevel: 5, expectedFarmVersion: ready.farm.version }));

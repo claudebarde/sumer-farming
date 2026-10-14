@@ -7,6 +7,8 @@ import { farmStore } from "../stores/farmStore";
 import { MARKET_TITLES, marketIncludesItem, marketUiStore } from "../stores/marketUiStore";
 import { canOpenMarketStand, marketUnlockLevel } from "../../game-data/progression";
 import { calculateFarmStorageCapacity, FARM_STORAGE_CAPACITY, estateResourceCapacity } from "../../game-data/storage";
+import { millStorageReserved } from "../../game-core/farm/millStorage";
+import { porterReserved } from "../../game-data/porter";
 import { FARM_BUILDING_DEFINITIONS } from "../../game-data/buildings";
 import type { MarketQuotes } from "../../schemas/market";
 import type { MarketItemKey } from "../../game-data/marketItems";
@@ -509,6 +511,8 @@ export default function MarketDialog() {
                                           farmState.snapshot.buildings,
                                           storageClock
                                         ) - storedQuantity
+                                          - millStorageReserved(farmState.snapshot.farm, item.itemKey)
+                                          - porterReserved(farmState.snapshot.farm.production.porter, item.itemKey)
                                       )
                                     )
                                     .exhaustive();

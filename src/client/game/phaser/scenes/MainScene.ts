@@ -128,11 +128,8 @@ import {
   type BuildingPlacementRule
 } from "../../../../game-core/farm/buildings";
 
-const INITIAL_FARM_SIZE = 8;
-const INITIAL_FARM_ROWS =
-  INITIAL_FARM_CONFIG.plotBounds.maximumRow -
-  INITIAL_FARM_CONFIG.plotBounds.minimumRow +
-  1;
+const INITIAL_FARM_SIZE = INITIAL_FARM_CONFIG.plotBounds.maximumColumn + 1;
+const INITIAL_FARM_ROWS = INITIAL_FARM_CONFIG.riverRow;
 import { findRoadPreferredPath } from "../../../../game-core/farm/roadPath";
 import {
   findLoadingTile,
@@ -525,18 +522,14 @@ export class MainScene extends Phaser.Scene {
     );
     const farmTilePositions: LocalTilePosition[] = [];
 
-    for (let row = 0; row < INITIAL_FARM_ROWS; row++) {
+    for (let row = INITIAL_FARM_CONFIG.plotBounds.minimumRow; row <= INITIAL_FARM_CONFIG.plotBounds.maximumRow; row++) {
       for (let column = 0; column < INITIAL_FARM_SIZE; column++) {
         const localPosition = { column, row } as const;
         const farmTile = this.add
           .image(
             column * TILE_SIZE,
             row * TILE_SIZE,
-            spriteName(
-              row === INITIAL_FARM_CONFIG.roadRow
-                ? "groundPathHorizontal"
-                : "groundVariant"
-            )
+            spriteName("groundVariant")
           )
           .setOrigin(0)
           .setDisplaySize(TILE_SIZE, TILE_SIZE)
@@ -547,9 +540,7 @@ export class MainScene extends Phaser.Scene {
           const position = translateTilePosition(farmPosition, localPosition);
           const farmTileData = createTile(
             position,
-            row === INITIAL_FARM_CONFIG.roadRow
-              ? "groundPathHorizontal"
-              : "groundVariant"
+            "groundVariant"
           );
           handlePointerUp(farmTileData, selectionHighlight);
         });
@@ -675,7 +666,8 @@ export class MainScene extends Phaser.Scene {
       .graphics()
       .setDepth(BOUNDARY_DEPTH)
       .lineStyle(4, 0xe6a11b, 1)
-      .strokeRect(0, 0, gameplayWidth, gameplayHeight);
+      .strokeRect(0, INITIAL_FARM_CONFIG.plotBounds.minimumRow * TILE_SIZE, gameplayWidth,
+        (INITIAL_FARM_CONFIG.plotBounds.maximumRow - INITIAL_FARM_CONFIG.plotBounds.minimumRow + 1) * TILE_SIZE);
 
     const positionFarm = (): void => {
       const containerColumns = Math.ceil(this.scale.width / TILE_SIZE);
@@ -2411,9 +2403,7 @@ export class MainScene extends Phaser.Scene {
       for (const localPosition of farmTilePositions) {
         const farmTile = createTile(
           translateTilePosition(farmPosition, localPosition),
-          localPosition.row === INITIAL_FARM_CONFIG.roadRow
-            ? "groundPathHorizontal"
-            : "groundVariant"
+          "groundVariant"
         );
         entries.push({ tile: farmTile, coordinate: farmTile.position });
       }

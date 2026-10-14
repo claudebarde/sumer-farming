@@ -18,7 +18,8 @@ export const planHarvestDelivery = async (tx: DatabaseTransaction, farm: typeof 
   const mapped = buildings.map(b => ({ ...b, completesAt: b.completesAt.getTime() }));
   const phase = harvestDeliveryPlan({ buildings: mapped, roads: farm.roads, from: batch.lastHarvested, at,
     happiness: farm.happiness, hungry: farm.hungrySince !== null, level: farm.level });
-  return phase ? { ...batch, remaining: [], nextStepAt: phase.completesAt, phase } : null;
+  // Retain unharvested fields when stopped so the delivery UI counts completed work accurately.
+  return phase ? { ...batch, nextStepAt: phase.completesAt, phase } : null;
 };
 
 /** Caller holds the farm row lock; no browser callback is needed to advance time. */

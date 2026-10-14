@@ -1,5 +1,11 @@
 # Saved-farm isometric checkpoint
 
+Mill animation v1 is approved and retained in `millAnimation.ts`, with regression
+tests in `millAnimation.test.ts`. See `docs/mill-animation.md` for its asset manifest,
+approved settings and integration contract. The temporary toolbar control, mock
+mill, yellow footprint, camera override and scene test lifecycle have been removed.
+The animation is not yet connected to real mill production.
+
 Reed/clay gathering is playable through contextual source popups. The existing
 start_gather_resource command is submitted immediately with keepalive. A local
 approach walks onto the selected source tile, then reuses harvest (reed) or build
@@ -290,15 +296,21 @@ without walking. A walk finishes before another destination can be chosen.
 Snapshot/selection redraws preserve the current segment and position. Reloading
 starts at home; this is local presentation only, not authoritative work or travel.
 
-The rejected farm-level pennant trial has been removed. The toolbar's Farm level N
-button is accompanied temporarily by Test procession: five decorative lyre players
-cross the main road left-to-right using four staggered walk frames over about 18s.
+The rejected farm-level pennant and temporary Test procession button are removed.
+The shared notification host is mounted once inside city onboarding for both live
+farm views (not the artwork sandbox). This initializes notification ownership and
+renders the existing eight-second level/unlock toast alongside the procession.
+After a successful level claim in the active isometric farm, the level dialog
+closes and five decorative lyre players cross the main road left-to-right using
+four staggered walk frames over about 18s. Only the claim-success callback starts
+the procession, never snapshot loading/polling. Duplicate callbacks for a level
+are ignored by the scene. Reloads do not replay celebrations.
 Counting from the leader, positions 1/3/5 use the male frames and 2/4 use the
 female frames, with identical framing, scale, baseline and animation timing.
-No click targets, collision occupancy, commands, sound or level-claim trigger are
-added. Repeated tests restart rather than stack; redraws retain elapsed time and
+No click targets, collision occupancy, commands or sound are added.
+Redraws retain elapsed time and
 sleep/shutdown clears the preview. Source frames retain common 512px framing and
-the approved sharp character pipeline. This is not yet a progression reward.
+the approved sharp character pipeline. Music is deferred.
 Musicians always render above every building sprite (including the market),
 recomputing the depth floor after redraws. This procession-only exception prevents
 corner clipping; normal farmer/dog depth sorting and building appearance are unchanged.
@@ -452,3 +464,70 @@ The arable-ground
 popup now supports Drop barley through the existing versioned `drop_carried_item`
 command: one barley per empty tile, no optimistic inventory mutation or automatic
 retry. Server snapshots update the ground bundle and carried count immediately.
+
+## Farm terrain split (2026-10-13)
+
+`INITIAL_FARM_CONFIG.plotBounds` now describes only cultivation: columns 0–7,
+rows 6–9, between the main road (row 5) and river (row 10). `farm/land.ts`
+shares these boundaries between crop validation, scenery generation and rendering.
+Building validation uses separate northern ground bounds (all world columns,
+rows 0–4), including the full footprint, permanent farm/market exclusions and
+the existing connected-road/loading-point requirements. The flat renderer uses
+the same southern bounds; it no longer paints a northern arable rectangle.
+
+`migrateFarmLand` runs under the existing farm transaction/row lock before
+lifecycle simulation. It relocates scenery on farmland to nearest vacant legal
+positions, preserving IDs/counts and active reed-gathering coordinates/deadlines.
+Reeds remain on the riverbank outside the cultivated columns. Crops, stored and
+dropped goods, buildings, roads and canals are not deleted or relocated. A repeat
+read is idempotent; only a relocation increments the farm version. New farms use
+the same exclusions and place their two seed bundles on southern arable ground.
+
+Approved river width: the isometric renderer paints rows 10 and 11 as water,
+with waves across both rows. The fish sweeps between both rows over twelve seconds,
+retaining its existing east/west pace and constant opacity. The north bank, farmland and server
+irrigation rules are unchanged. Scenery on the extra water row is hidden, not
+deleted or relocated. This remains a presentation change, not a saved-terrain migration.
+
+Fishing approach checkpoint: both river rows offer Go fishing at level 4 with
+empty hands, free fish storage and an available farmer. The client selects the
+nearest reachable north-bank tile to the clicked water and starts the existing
+authoritative fishing session at that column (canonical river row 10). Presentation
+walks the saved approach at the usual pace, then uses the new v2 seated idle frame.
+The seated pose keeps the shared `(0.5, 0.71875)` ground-item anchor and is
+projected 0.35 rows toward the water (16.8 world pixels left, 8.4 down), leaving
+only a small foot-to-water gap. Walking and the logical bank tile are unchanged.
+No server state waits for animation completion. Reload resumes seated at the
+session's bank; Stop fishing cancels the session.
+The arrival now plays a single 1.1-second lift/backswing/forward/follow-through
+sequence, respecting reduced motion and the approved seated anchor/offset.
+Full-frame preparation normalizes the 1254px forward-cast export alongside the
+512px frames without cropping their silhouettes. Reloaded sessions remain idle.
+Fish transition coordinates and heading survive scene redraws; starting/stopping
+blends between roaming and a bounded four-column area beside the selected bank.
+During active play, fishPosition uses the session seed and server-adjusted elapsed
+time, matching the authoritative catch check. Inverse-projected clicks map to its
+normalized aim; drag-to-pan is excluded. Arrow keys/Space also aim/cast. Arrival
+and transition readiness, pending requests and the two-second cooldown block
+duplicate casts. Each attempt plays the four casting frames over the existing
+400ms server cast window, with a visible line/hook. React submits cast_fishing
+immediately; snapshots determine misses/catches, not animation callbacks.
+A catch shows carried fish and briefly hides the swimming fish; farm storage and
+river release reuse the existing fishing commands and delivery presentation.
+Fish carrying uses the dedicated idle and two walking PNGs in `v2/isometric-test`,
+with a shared crop, the approved progressive downsampling/sharpening pipeline and
+the barley-carry cadence (35 world pixels per pose). The holding pose remains
+through the building-facing delivery dip; empty-handed artwork returns afterward.
+The old separate fish overlay is no longer used for the farmer. Server timing and
+inventory handling are unchanged.
+
+Fishing readiness and the cast gate share `fishingReadiness`: approach and cooldown
+countdowns, pending-cast feedback and ready state cannot disagree. The scene only
+publishes changed status labels. The marked area is red while blocked and green
+when ready. Invalid-area clicks show a brief hint. Functional fish-approach time
+advances even under reduced motion. Fishing messages, errors and Stop fishing now
+reuse the single lower action container used for barley work; the separate footer
+bar and its dedicated styles have been removed at the player's request.
+
+Level-based farmland expansion and road editing behind buildings remain future
+design work; neither is introduced by this terrain change.

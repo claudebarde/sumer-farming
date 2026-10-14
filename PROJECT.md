@@ -1460,6 +1460,8 @@ Tile/item popups should have a visible arrow pointing to their selected target.
 Keep the arrow outside any scrolling/clipping content container.
 Explicit exception: when the farmer carries barley and both granary and farm
 storage are full, retain a disabled `No storage available` button in his popup.
+Another explicit exception: a completed mill without enough stored barley shows
+one disabled `You don't have enough barley` button instead of its recipe actions.
 
 Always place all informational text, resource counts, status messages, and alerts
 above the action buttons. Action buttons must be the last elements at the bottom
@@ -1530,3 +1532,14 @@ owning tile centre and use sprite origin (0.5, 0.71875), shared through
 `GROUND_ITEM_ORIGIN` in `isometricFarm.ts`. Apply this default to future goods too.
 Preserve owning-tile hit testing. Do not apply this anchor to carried items,
 characters, crops or buildings. New artwork should be framed to match this baseline.
+
+## 38. Flat-to-isometric migration parity
+
+When migrating an existing flat-map feature, preserve its settings and behaviour
+exactly unless the player explicitly requests a change. Inspect and reuse the
+existing implementation and shared helpers rather than inventing new defaults.
+Adapt coordinates to the isometric projection, preserving the same logical tile
+placement, timings, quantities and interactions. Retain explicitly approved
+isometric artwork, anchors and rendering settings. Finished building goods use
+the shared `buildingOutputTile` placement inside the lower-left footprint tile,
+not a decorative offset outside the building.

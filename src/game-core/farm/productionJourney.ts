@@ -13,7 +13,10 @@ export const planProductionJourney = (
   kind: "baking" | "milling" | "donkeyMilling"
 ): ProductionJourney | null => {
   const buildings = snapshot.buildings.map(b => ({ ...b, completesAt: Date.parse(b.completesAt) }));
-  const route = (from: Position, to: Position) => porterPath(buildings, snapshot.farm.roads, from, to, now);
+  const obstacles = [...snapshot.objects, ...snapshot.improvements.filter(i =>
+    i.row !== INITIAL_FARM_CONFIG.roadRow && !(i.destroyCompletesAt && Date.parse(i.destroyCompletesAt) <= now)),
+    ...snapshot.farm.roads.filter(r => (r.completesAt ?? 0) > now)];
+  const route = (from: Position, to: Position) => porterPath(buildings, snapshot.farm.roads, from, to, now, obstacles);
   const home = INITIAL_FARM_CONFIG.farmerSpawn;
   const target = buildings.find(b => b.id === targetId);
   if (!target) return null;
@@ -40,17 +43,31 @@ export const planProductionJourney = (
     if (!append(destination)) return null;
     donkeyDropIndex = path.length - 1;
   }
-  const source = kind === "baking" ? undefined : buildings.find(b =>
-    (b.type === "granary" || b.type === "warehouse") && b.storedBarley > 0 && b.completesAt <= now);
   const carried = snapshot.farm.carriedItem?.itemKey === "barley" ? snapshot.farm.carriedItem.quantity : 0;
-  if (kind === "baking" || carried < (kind === "donkeyMilling" ? 6 : 2)) {
-    if (!append(source ? stop(source) ?? home : home)) return null;
+  const supplyStops: NonNullable<ProductionJourney["supplyStops"]> = [];
+  if (kind === "baking") {
+    if (!append(home)) return null;
+  } else {
+    let remaining = Math.max(0, (kind === "donkeyMilling" ? 6 : 2) - carried);
+    for (const source of buildings.filter(b => (b.type === "granary" || b.type === "warehouse") && b.storedBarley > 0 && b.completesAt <= now)) {
+      if (!remaining) break;
+      const sourceStop = stop(source);
+      if (!sourceStop || !append(sourceStop)) return null;
+      const quantity = Math.min(remaining, source.storedBarley);
+      supplyStops.push({ index: path.length - 1, quantity, buildingId: source.id, column: source.column, row: source.row });
+      remaining -= quantity;
+    }
+    if (remaining > 0) {
+      if (!append(home)) return null;
+      supplyStops.push({ index: path.length - 1, quantity: remaining, buildingId: null,
+        column: INITIAL_FARM_CONFIG.buildingBounds.minimumColumn, row: INITIAL_FARM_CONFIG.buildingBounds.minimumRow });
+    }
   }
   const supplyIndex = path.length - 1;
   if (!append(destination)) return null;
   const stepDurationMs = WORKER_MOVE_DURATION_PER_TILE * farmerMovementDurationMultiplier(
     snapshot.farm.household.happiness, snapshot.farm.household.hungrySince !== null, snapshot.farm.progression?.level ?? 1);
-  return { departedAt: now, stepDurationMs, path, supplyIndex, donkeyPickupIndex, donkeyDropIndex };
+  return { departedAt: now, stepDurationMs, path, supplyIndex, supplyStops, donkeyPickupIndex, donkeyDropIndex };
 };
 
 export const productionArrivalAt = (journey: ProductionJourney): number =>

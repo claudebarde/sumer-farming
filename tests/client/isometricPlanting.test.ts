@@ -25,16 +25,30 @@ describe("isometric planting schedule presentation", () => {
     expect(sowingProgress({ ...saved, stopRequested: true }, 10000)).toEqual({ completed: 2, totalMs: 40000, percentage: 50 });
   });
   it("turns toward the seed building just before collection without shifting its deadline", () => {
-    expect(isometricPlantingPose(batch, 1500)?.facingLeft).toBe(true);
+    expect(isometricPlantingPose(batch, 1090)?.facingLeft).toBe(true);
     expect(isometricPlantingPose(batch, 1900)).toMatchObject({ facingLeft: false, seeds: 0 });
     expect(isometricPlantingPose(batch, 2000)?.seeds).toBe(2);
   });
   it("walks to storage before carrying the reserved seeds", () => {
-    const pose = isometricPlantingPose(batch, 1500)!;
+    const pose = isometricPlantingPose(batch, 1090)!;
     expect(pose.type).toBe("walking");
     expect(pose.position).toEqual({ column: 5.5, row: 5 });
     expect(pose.seeds).toBe(0);
     expect(isometricPlantingPose(batch, 2000)?.seeds).toBe(2);
+  });
+  it("walks at the normal pace when topping up carried barley, then waits at storage", () => {
+    const topUp = { ...batch, collectionTravelMs: 180, carriedSeeds: { quantity: 1, expiresAt: null } };
+    expect(isometricPlantingPose(topUp, 1090)).toMatchObject({ type: "walking", seeds: 1, position: { column: 5.5, row: 5 } });
+    expect(isometricPlantingPose(topUp, 1180)).toMatchObject({ type: "idle", seeds: 1, position: { column: 5, row: 5 } });
+    expect(isometricPlantingPose(topUp, 1999)?.seeds).toBe(1);
+    expect(isometricPlantingPose(topUp, 2000)?.seeds).toBe(2);
+    expect(isometricPlantingPose(batch, 1180)?.position).toEqual({ column: 5, row: 5 });
+  });
+  it("retains a saved wellbeing-adjusted pace and infers it for older collection saves", () => {
+    const slower = { ...batch, collectionTravelMs: 360, travelMs: [720, 360] };
+    expect(isometricPlantingPose(slower, 1180)?.position).toEqual({ column: 5.5, row: 5 });
+    expect(isometricPlantingPose({ ...slower, collectionTravelMs: undefined }, 1180)?.position).toEqual({ column: 5.5, row: 5 });
+    expect(isometricPlantingPose(slower, 1360)?.type).toBe("idle");
   });
   it("follows saved route corners and starts sowing only upon arrival", () => {
     expect(isometricPlantingPose(batch, 2180)?.position).toEqual({ column: 4, row: 5 });

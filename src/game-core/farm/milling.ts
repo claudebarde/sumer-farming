@@ -3,6 +3,7 @@ import { improvementWorkActive } from "../../game-data/farmImprovements";
 import { millRecipe, type MillRecipe, type MillWorker } from "../../game-data/milling";
 import type { FarmSnapshot } from "../../schemas/farm";
 import { activeBuildingUpgrade } from "../../game-data/buildingUpgrades";
+import { millStorageAvailable } from "./millStorage";
 
 export const millingBarleyAvailable = (snapshot: FarmSnapshot, now: number): number =>
   (snapshot.inventory.find(i => i.itemKey === "barley")?.quantity ?? 0) +
@@ -28,6 +29,7 @@ export const millingUnavailableReason = (snapshot: FarmSnapshot, recipe: MillRec
     snapshot.improvements.some(i => improvementWorkActive(i, now))) return "Wait for the farmer to finish the current task.";
   if (snapshot.farm.carriedItem && snapshot.farm.carriedItem.itemKey !== "barley") return "Empty the farmer's hands or bring barley.";
   if (millingBarleyAvailable(snapshot, now) < millRecipe(recipe, worker).barley) return "Bring barley or store it in the farm or a completed granary.";
+  if (millStorageAvailable(snapshot, recipe, now) < millRecipe(recipe, worker).output) return "No storage space";
   return null;
 };
 

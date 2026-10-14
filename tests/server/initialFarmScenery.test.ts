@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInitialFarmPlan } from "../../src/game-core/farm/createInitialFarmPlan";
 import { INITIAL_FARM_CONFIG } from "../../src/game-data/initialFarm";
+import { isArableGround, isFixedBuildingGround } from "../../src/game-core/farm/land";
 
 describe("initial farm scenery", () => {
   it("guarantees three rocks and bushes on distinct dry non-arable tiles across seeds", () => {
@@ -23,6 +24,9 @@ describe("initial farm scenery", () => {
           tile.row >= plot.minimumRow && tile.row <= plot.maximumRow).toBe(false);
       }
       expect(objects.filter(o => o.type === "reeds")).toHaveLength(2);
+      expect(objects.every(o => !isArableGround(o) && !isFixedBuildingGround(o))).toBe(true);
+      expect(objects.filter(o => o.type === "reeds").every(o => o.row === riverRow - 1)).toBe(true);
+      expect(createInitialFarmPlan(seed).groundItems.every(isArableGround)).toBe(true);
     }
   });
   it("is reproducible for a seed and varies between farms", () => {

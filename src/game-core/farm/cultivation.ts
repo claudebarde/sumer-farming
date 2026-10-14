@@ -2,8 +2,7 @@ import {
   CROP_DEFINITIONS,
   type CropKey
 } from "../../game-data/crops";
-import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
-import { isProgressionSignpost } from "../../game-data/progression";
+import { isArableGround } from "./land";
 import type { InventoryItemKey } from "../../game-data/inventoryItems";
 import {
   areCardinallyAdjacent,
@@ -29,18 +28,7 @@ export type CultivationContext = {
   readonly activeCanals: readonly FarmCoordinate[];
 };
 
-export const isInsideArablePlot = (coordinate: FarmCoordinate): boolean => {
-  const { plotBounds } = INITIAL_FARM_CONFIG;
-
-  return (
-    coordinate.row !== INITIAL_FARM_CONFIG.roadRow &&
-    !isProgressionSignpost(coordinate) &&
-    coordinate.column >= plotBounds.minimumColumn &&
-    coordinate.column <= plotBounds.maximumColumn &&
-    coordinate.row >= plotBounds.minimumRow &&
-    coordinate.row <= plotBounds.maximumRow
-  );
-};
+export const isInsideArablePlot = isArableGround;
 
 const isSameCoordinate = (
   first: FarmCoordinate,

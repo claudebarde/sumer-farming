@@ -66,13 +66,13 @@ describe("NES-style planting controls", () => {
     farmStore.getState().setReady(farm);
     batchPlantingStore.setState({ origin: { column: 0, row: 0 } });
     batchPlantingStore.getState().start("plant");
-    for (const row of [3, 4, 6, 7, 8]) for (const column of [4, 6]) batchPlantingStore.getState().toggle({ column, row });
+    for (const row of [6, 7, 8, 9]) for (const column of [4, 6]) batchPlantingStore.getState().toggle({ column, row });
     expect(batchPlantingStore.getState().selected).toHaveLength(limit);
     expect(render()).toContain(`${limit} / ${limit} fields selected`);
     expect(render()).toContain(`${limit} / 20 barley`);
     farmStore.getState().setReady({ ...farm, inventory: [{ itemKey: "barley", quantity: 2 }] });
     expect(render()).toContain('class="nes-btn is-disabled" disabled=""');
-    batchPlantingStore.getState().toggle({ column: 4, row: 3 });
+    batchPlantingStore.getState().toggle({ column: 4, row: 6 });
     expect(batchPlantingStore.getState().selected).toHaveLength(limit - 1);
   });
   it.each([[74, 6], [95, 8]])("shows %i%% happiness and caps selection at %i fields", (happiness, limit) => {

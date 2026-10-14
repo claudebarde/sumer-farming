@@ -7,11 +7,11 @@ import { getBuildingFootprint, validateBuildingPlacement, describeBuildingPlacem
 import { preservesBuildingAccess } from "../../src/game-core/farm/buildingAccess";
 
 describe("roadside farm layout", () => {
-  it.each([{ column: -1, row: 1 }, { column: 7, row: 1 }, { column: 3, row: -1 }, { column: 3, row: 8 }, { column: 8, row: 2 }])(
+  it.each([{ column: -5, row: 1 }, { column: 11, row: 1 }, { column: 3, row: -1 }, { column: 3, row: 4 }, { column: 8, row: 6 }])(
     "rejects an oven crossing the plot edge at $column,$row even beside a road", target => {
       expect(getBuildingFootprint("breadOven", target).some(p => !isInsideBuildingPlot(p))).toBe(true);
       expect(validateBuildingPlacement({ building: "breadOven", target, existingBuildings: [], occupiedCoordinates: new Set(),
-        carriedItem: null, availableMaterials: { reed: 4, clay: 6, bakingTools: 2 }, roads: [{ column: target.column - 1, row: target.row }] })).toEqual({ type: "outside_arable_plot" });
+        carriedItem: null, availableMaterials: { reed: 4, clay: 6, bakingTools: 2 }, roads: [{ column: target.column - 1, row: target.row }] })).toEqual({ type: "outside_building_ground" });
     }
   );
   it("identifies the screenshot's farm overlap and permits a genuinely empty roadside oven", () => {

@@ -4,7 +4,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
 import { hasFarmerPopup } from "../../src/client/game/phaser/isometricTilePopup";
-import IsometricTilePopup from "../../src/client/components/IsometricTilePopup";
+import FarmerPopupStatus from "../../src/client/components/FarmerPopupStatus";
 
 const id = "00000000-0000-4000-8000-000000000001";
 const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shekelBalance: 0 },
@@ -13,23 +13,25 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
   inventory: [], objects: [], groundItems: [], crops: [], improvements: [], buildings: [] });
 afterEach(() => vi.unstubAllGlobals());
 
-it("only enables farmer hit-testing when his popup has barley content", () => {
+it("keeps household status available regardless of carried goods", () => {
   const farm = snapshot();
-  expect(hasFarmerPopup(farm)).toBe(false);
+  expect(hasFarmerPopup(farm)).toBe(true);
   farm.farm.carriedItem = { itemKey: "barley", quantity: 2, expiresAt: null };
   expect(hasFarmerPopup(farm)).toBe(true);
   farm.farm.carriedItem = { itemKey: "barley", quantity: 0, expiresAt: null };
-  expect(hasFarmerPopup(farm)).toBe(false);
+  expect(hasFarmerPopup(farm)).toBe(true);
   farm.farm.carriedItem = { itemKey: "clay", quantity: 1, expiresAt: null };
-  expect(hasFarmerPopup(farm)).toBe(false);
+  expect(hasFarmerPopup(farm)).toBe(true);
 });
 
-it("does not render a name-only popup from a stale farmer anchor after unloading", () => {
-  vi.stubGlobal("window", { location: { href: "http://localhost/?view=isometric-farm" } });
-  const noop = () => {};
-  expect(renderToStaticMarkup(createElement(IsometricTilePopup, {
-    snapshot: snapshot(), anchor: { kind: "farmer", cell: { column: 1, row: 5 }, x: 100, y: 100 }, now: 100,
-    onClose: noop, onSelect: noop, onWalk: noop, onDrop: noop, onPickup: noop, onGather: noop,
-    onBuildIrrigation: noop, onBuildRoad: noop, onStore: noop,
-  }))).toBe("");
+it("renders the shared happiness and meal meters with empty hands", () => {
+  const farm = snapshot();
+  farm.farm.household.nextBarleyConsumptionAt = new Date(3600000).toISOString();
+  const html = renderToStaticMarkup(createElement(FarmerPopupStatus, { snapshot: farm, now: 0 }));
+  expect(html).not.toContain("head-and-shoulders portrait");
+  expect(html).toContain('aria-label="Farmer happiness"');
+  expect(html).toContain('aria-valuenow="70"');
+  expect(html).toContain("Next meal in 1 hours and 0 minutes");
+  farm.farm.household.hungrySince = new Date(0).toISOString();
+  expect(renderToStaticMarkup(createElement(FarmerPopupStatus, { snapshot: farm, now: 0 }))).toContain("Hungry: a meal is needed now");
 });

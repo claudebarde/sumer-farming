@@ -50,6 +50,28 @@
   text-align: center;
 }
 
+.farmer-headshot {
+  position: relative;
+  width: min(100%, 72px);
+  aspect-ratio: 1;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: 2px solid #dcc08c;
+  border-radius: 8px;
+  background: #f0dfc0;
+
+  // Crop the approved full-body artwork just below the shoulders.
+  img {
+    position: absolute;
+    width: 110%;
+    max-width: none;
+    height: auto;
+    left: -5%;
+    top: -6%;
+    display: block;
+  }
+}
+
 .farmer-metrics {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -63,6 +85,7 @@
     text-align: center;
   }
 }
+
 
 .canvas {
   width: 100%;

@@ -6,11 +6,12 @@ import IsometricTest from "./components/IsometricTest";
 import IsometricFarm from "./components/IsometricFarm";
 
 function App() {
+  const view = new URLSearchParams(window.location.search).get("view");
   return (
     <>
       <Header />
-      {new URLSearchParams(window.location.search).get("view") === "isometric" ? <IsometricTest /> : new URLSearchParams(window.location.search).get("view") === "isometric-farm" ? <CityOnboarding><IsometricFarm /></CityOnboarding> : <CityOnboarding>
-        <GameCanvas />
+      {view === "isometric" ? <IsometricTest /> : <CityOnboarding>
+        {view === "isometric-farm" ? <IsometricFarm /> : <GameCanvas />}
         <TradeNotifications />
       </CityOnboarding>}
     </>

@@ -8,6 +8,7 @@ import { productionIsPreparing } from "../../../game-data/productionPreparation"
 import { positionAlongPorterPath } from "./porterPresentation";
 import { isoPoint, type IsoCell } from "./isometricProjection";
 import { buildingFacingLeft } from "./buildingFacing";
+import { WORKER_MOVE_DURATION_PER_TILE } from "../../../game-data/movement";
 
 export type PlantingPose = { readonly type: "walking" | "sowing" | "idle" | "done"; readonly position: IsoCell; readonly seeds: number; readonly elapsed: number; readonly distance: number; readonly facingLeft: boolean; readonly completedFields: number };
 
@@ -47,7 +48,12 @@ export const isometricPlantingPose = (saved: BatchPlanting, now: number): Planti
     const path = collecting ? batch.collectionPath : batch.travelPaths?.[0];
     if (!path?.length || !batch.nextStepAt || !batch.travelStartedAt) return pose("idle", 0);
     const start = Date.parse(batch.travelStartedAt), end = Date.parse(batch.nextStepAt);
-    const fraction = end <= start ? 1 : Math.min(1, Math.max(0, (now - start) / (end - start)));
+    // Legacy saves lack collectionTravelMs: infer their pace from a saved field
+    // journey, preserving any mood modifier instead of stretching a short walk.
+    const timedLeg = batch.travelPaths?.findIndex((leg, i) => leg.length > 1 && (batch.travelMs?.[i] ?? 0) > 0) ?? -1;
+    const stepMs = timedLeg >= 0 ? batch.travelMs![timedLeg]! / (batch.travelPaths![timedLeg]!.length - 1) : WORKER_MOVE_DURATION_PER_TILE;
+    const travel = collecting ? Math.min(end - start, batch.collectionTravelMs ?? (path.length - 1) * stepMs) : end - start;
+    const fraction = travel <= 0 ? 1 : Math.min(1, Math.max(0, (now - start) / travel));
     position = positionAlongPorterPath(path, fraction);
     if (now < end) {
       const previous = isoPoint(positionAlongPorterPath(path, Math.max(0, fraction - 0.001)));
@@ -55,8 +61,8 @@ export const isometricPlantingPose = (saved: BatchPlanting, now: number): Planti
       const distance = path.slice(1).reduce((sum, cell, i) => {
         const a = isoPoint(path[i]!), b = isoPoint(cell); return sum + Math.hypot(b.x - a.x, b.y - a.y);
       }, 0) * fraction;
-      const facingLeft = collecting && end - now <= 150 ? buildingFacingLeft(position, batch.source, current.x < previous.x) : current.x < previous.x;
-      return { ...pose(path.length > 1 ? "walking" : "idle", collecting ? batch.carriedSeeds?.quantity ?? 0 : batch.remaining.length), distance, facingLeft };
+      const facingLeft = collecting && fraction === 1 ? buildingFacingLeft(position, batch.source, current.x < previous.x) : current.x < previous.x;
+      return { ...pose(path.length > 1 && fraction < 1 ? "walking" : "idle", collecting ? batch.carriedSeeds?.quantity ?? 0 : batch.remaining.length), distance, facingLeft };
     }
     if (collecting) {
       batch = { ...batch, phase: { type: "ready" }, travelStartedAt: new Date(end).toISOString(), nextStepAt: new Date(end + (batch.travelMs?.[0] ?? 0)).toISOString() };

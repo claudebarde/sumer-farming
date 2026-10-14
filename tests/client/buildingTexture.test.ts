@@ -2,6 +2,15 @@ import { afterEach, expect, it, vi } from "vitest";
 import { prepareBuildingTexture } from "../../src/client/game/phaser/buildingTexture";
 
 afterEach(() => vi.unstubAllGlobals());
+it.each([[138, 99, 64, 46], [258, 232, 96, 86]])("prepares a %s×%s prop close to display resolution", (width, height, maxSize, outputHeight) => {
+  vi.stubGlobal("document", { createElement: () => {
+    const canvas = { width: 0, height: 0, getContext: () => ({ drawImage: vi.fn(),
+      getImageData: () => ({ data: new Uint8ClampedArray(canvas.width * canvas.height * 4) }), putImageData: vi.fn() }) };
+    return canvas;
+  } });
+  const result = prepareBuildingTexture({ naturalWidth: width, naturalHeight: height } as HTMLImageElement, { maxSize, sharpen: 0.45 });
+  expect([result.width, result.height]).toEqual([maxSize, outputHeight]);
+});
 it("progressively reduces the full building frame without cropping or changing aspect ratio", () => {
   const canvases: HTMLCanvasElement[] = [];
   const draws: ReturnType<typeof vi.fn>[] = [];

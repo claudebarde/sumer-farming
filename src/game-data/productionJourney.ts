@@ -11,6 +11,8 @@ export const ProductionJourneySchema = z.object({
   stepDurationMs: z.number().positive(),
   path: z.array(WorkerPositionSchema).min(1),
   supplyIndex: z.int().nonnegative(),
+  supplyStops: z.array(z.object({ index: z.int().nonnegative(), quantity: z.int().positive(),
+    buildingId: z.string().nullable(), column: z.int(), row: z.int() })).optional(),
   donkeyPickupIndex: z.int().nonnegative().optional(),
   donkeyDropIndex: z.int().nonnegative().optional()
 });

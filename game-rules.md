@@ -4,7 +4,22 @@ This is the living, player-facing reference for the game's implemented rules. Us
 
 ## Starting your farm
 
-When you have enough construction materials for a building explicitly required by your next estate level, a **Ready to build…** toast appears once for that building: granary at level 2 (2 reeds, 3 clay), mill at level 5 (2 reeds, 4 clay), and warehouse at level 8 (4 reeds, 6 clay). Stored materials and ground stacks count; carried goods must first be deposited. Completed buildings and those under construction do not trigger it, and optional buildings do not qualify. The notification is remembered on the farm across reloads/devices. It confirms material availability, not valid placement or farmer availability; normal construction rules still apply. On the farm screen, **Open Build** opens the Build tab in Manage estate.
+In the isometric farm, click the farmer to see his saved name, **Happiness** and
+**Next meal** meters, whether or not he is carrying goods. Happiness is the
+existing wellbeing measure; there is no separate health statistic. Carried goods
+are listed beneath the meters, with available storage actions below.
+
+Idle strolling is also available in the isometric farm. It pauses while a tile
+popup or placement/field selection is open and is disabled by reduced-motion
+preferences. It avoids crops and dropped goods as well as impassable tiles;
+this does not change where the player may explicitly direct the farmer to walk.
+
+Gathered clay and reeds remain carried cargo until dropped or deposited. In the
+isometric view, a material drop's readiness toast waits until the farmer finishes
+walking and placing the pile, then checks supplies automatically—no further click
+is needed. Dropping does not also add the same material to stored inventory.
+
+When you have enough construction materials for an unlocked building type you have not built, a **Ready to build…** toast appears. This covers the granary, mill, brewery, bread oven, warehouse and small shrine, including any required brewing jars or baking tools. Stored materials and ground stacks count; carried goods must first be deposited or dropped. Completed buildings and those under construction do not trigger it. Each building is announced once while its materials remain sufficient, remembered across reloads/devices. If available materials fall below its cost, the notification re-arms and appears again when supplies become sufficient. It confirms material availability, not valid placement or farmer availability; normal construction rules still apply. On the farm screen, **Open Build** opens the Build tab in Manage estate.
 
 When idle and empty-handed, the farmer waits 60–120 seconds before a slow one-tile stroll. He follows roads, or takes safe short steps toward a nearby road, staying within two tiles of where he last finished a task. He avoids buildings, crops, reeds, the river and the resting porter. If no safe nearby route exists, he stays put. New work interrupts the stroll immediately; carrying goods or waiting on a delivery prevents wandering. This is cosmetic, with no happiness or production effects. The same browser remembers each farm's idle position; returning after an absence allows at most one small repositioning, without replaying missed walks. This cosmetic position is not synchronized between devices, and saved work always takes precedence.
 
@@ -59,13 +74,13 @@ entrance, storage rules and interactions remain unchanged. The market's return-t
 building uses the same stage. Intermediate visual upgrades are not implemented yet.
 
 - Start at **level 1 — First plot**, with a farm building, two barley bundles on the ground, empty inventory, and zero shekels.
-- The estate has an 8 × 9 plot, extending one row toward the river. Buildings, roads, canals, and the level signpost occupy space that cannot also be planted.
+- Farmland is **8 tiles wide and 4 tiles deep**, entirely south of the main road and extending to the riverbank. There is no arable ground north of the road. Roads, canals and existing buildings occupy space that cannot also be planted. Gradual farmland expansion through farm levels is a future idea, not an implemented rule.
 - The road crosses the sixth row from the top. Irrigation canals can cross it using a bridge.
 - The default farm sits immediately right of the level signpost, above the road. The farmer starts on the road at the farm entrance; farm deliveries use this entrance too. Keep this entrance clear of other buildings' loading points and canals.
 - Click a ground or arable tile beside the main road or a player-built branch and choose **Build road**. Dirt roads are free and take five seconds of work after the farmer arrives. The server saves the completion time and reloading resumes unfinished work. Every new tile must share an edge with a completed road (diagonal contact is not enough). Roads stay within the farm map and cannot cross the river or replace fields, canals, buildings, reeds, or ground items.
 - Roads and irrigation canals can replace decorative rocks and bushes/trees: construction clears that scenery permanently. Reeds still block both, as do planted crops (including date palms). Normal connectivity and other placement requirements still apply; failed construction does not clear scenery.
-- Newly created farms start with 6–8 randomly placed decorations, including at least 3 rocks and 3 bushes. They occupy distinct non-arable tiles on the farm's side of the river, avoiding the main road and reeds. Existing farms are not regenerated, and cleared scenery does not respawn.
-- New buildings must border a road and reserve one exclusive, unoccupied road tile as their loading point. Placement highlights this tile. Finished flour, groats, beer, and bread appear there until collected; loading points remain walkable. New canals cannot replace loading points or player-built roads.
+- Newly created farms start with 6–8 randomly placed decorations, including at least 3 rocks and 3 bushes, plus two riverbank reed sources. All occupy distinct non-arable tiles above the river, avoiding the main road and permanent buildings. Reeds, bushes and rocks cannot occupy farmland. On existing farms, scenery displaced by the expanded southern farmland moves to vacant non-arable ground; reeds remain beside the river. Existing goods, buildings and work are preserved; cleared scenery does not respawn.
+- New buildings occupy ordinary ground **north of the main road**, across the available map width, rather than farmland. Their entire footprint must be empty and border a connected road, reserving one exclusive, unoccupied road tile as their loading point. Placement highlights this tile. Loading points remain walkable. New canals cannot replace loading points or player-built roads.
 - Finished flour/groats bags, beer jars, and bread baskets appear in the bottom-left tile inside their producing building's 2×2 footprint, drawn above the building with their quantity chip. They do not occupy surrounding road tiles. The farmer collects them from the building's road loading tile rather than walking onto the goods or into the building.
 - The farmer prefers connected roads, including for deliveries, but can leave them to reach fields and existing buildings. Buildings from older saves remain usable without road access and retain their existing output-placement fallback.
 - Barley is both a crop and its own seed: keep some for planting rather than consuming or selling everything.
@@ -91,7 +106,7 @@ Leveling up is **manual**, not automatic. Meet every listed requirement, then pr
 | 3 — Grain trader | Complete a granary; have 10 barley stored in granaries | 10 granary barley | Market entry and barley trading |
 | 4 — River provider | Sell at least 5 barley; complete at least 50 crop harvests during level 3; have a full granary (15 barley), plus at least 1 unexpired ground barley or an already-planted barley field | 15 barley from the full granary | Fishing, fish storage, and normal happiness management |
 | 5 — Caring household | Have 3 stored fish and 15 barley in completed granaries; have fed the farmer at least 1 fish; retain spare seed or an already-planted barley field | 3 stored fish and 15 granary barley | Mill, barley processing and hired porter |
-| 6 — Brewer or Baker? | Complete a Mill; harvest 100 crop plantings over your lifetime (double the level-4 target); process 4 barley into either output; hold 2 processed goods in any combination | 2 Flour or Brewer's Groats, combined (Flour used first) | Brewery, Bread Oven, brewing supplies, bread making, beer and bread trading |
+| 6 — Brewer or Baker? | Complete a Mill; harvest 50 crop plantings during level 5; process 4 barley into either output; hold 2 processed goods in any combination | 2 Flour or Brewer's Groats, combined (Flour used first) | Brewery, Bread Oven, brewing supplies, bread making, beer and bread trading |
 | 7 — Trusted supplier | During level 6, produce at least 15 bread or beer combined and sell at least 10 bread or beer combined; have 5 stored bread/beer combined | 5 bread/beer in any combination (bread used first) | Merchant requests, 20-barley capacity per granary, and the mill donkey (30 shekels) |
 | 8 — Growing estate | Fulfil at least 3 merchant requests; have 20 barley stored in a completed granary; purchase a mill donkey; retain spare seed or an already-planted barley field | 20 granary barley | Warehouse and Small shrine |
 | 9 — Established producer | Complete a warehouse; during level 8, harvest 100 barley and produce 30 beer/bread combined; store 10 bread or 10 beer | 10 bread, otherwise 10 beer (not mixed) | Date palms, dates treats, and bread oven and brewery upgrades to building level 2 |
@@ -102,14 +117,22 @@ For level 4, the ground barley or planted field is retained. Farm-stored or carr
 
 Every playable level-up consumes resources. Reaching level 7 consumes 5 stored bread/beer in any combination, taking bread first and beer for the remainder. Pending, carried and listed goods do not count. Existing farms at level 7 or higher are not charged retroactively; retries do not consume the offering again.
 
-A successful level claim shows a congratulatory toast in the top-left corner with your new level, its name, and the unlocked features. It disappears after 8 seconds or can be dismissed manually.
+Every successful level claim in either the isometric or legacy flat farm shows a congratulatory toast in the top-left corner with your new level, its name, and a short summary of unlocked features. It appears alongside the isometric procession without blocking play, disappears after 8 seconds, or can be dismissed manually. Reloading does not replay level-up toasts.
+
+In the isometric farm, a successful claim also closes the level dialog and starts
+a single celebratory procession: five evenly spaced lyre musicians cross the main
+road from left to right in about 18 seconds. From the leader, positions 1, 3 and 5
+are male and positions 2 and 4 are female. They do not block tiles, intercept clicks
+or interrupt the farmer. Leaving the farm ends the procession; returning or
+reloading does not replay it. There is no music yet; future music will respect
+the game's sound settings.
 
 ### How requirements are counted
 
 - Level 8 checks current granary stock and permanent donkey ownership when claimed, alongside lifetime merchant requests. Farm storage, carried barley, ground barley, and unfinished granaries do not count toward the 20-barley offering. Claiming consumes 20 granary barley and keeps the donkey. Retain spare seed or an already-planted barley field, as with other barley offerings. Existing level-8 farms keep their level and are not charged retroactively.
 
-- Lifetime totals are retained for harvests, harvested barley, production, fish fed, sales, and fulfilled requests. Level 4 counts only crop harvests completed during level 3; level 7 counts only production and sales during level 6; level 9 counts only barley harvested and bread/beer produced during level 8. Bread and beer production can be mixed freely.
-- The level-4 crop-harvest counter starts at zero when entering level 3 and increases once per harvested field, not per seed planted or unit of barley. Existing level-3 saves without an entry baseline start at zero on their first load after this update; earlier history cannot be reconstructed. Reloading does not reset it. The level-6 lifetime harvest requirement remains unchanged.
+- Lifetime totals are retained for harvests, harvested barley, production, fish fed, sales, and fulfilled requests. Level 4 counts only crop harvests completed during level 3; level 6 counts only crop harvests completed during level 5; level 7 counts only production and sales during level 6; level 9 counts only barley harvested and bread/beer produced during level 8. Bread and beer production can be mixed freely.
+- The level-4 crop-harvest counter starts at zero when entering level 3 and increases once per harvested field, not per seed planted or unit of barley. Existing level-3 saves without an entry baseline start at zero on their first load after this update; earlier history cannot be reconstructed. Reloading does not reset it. The level-6 requirement similarly counts 50 fields harvested during level 5. Existing level-5 saves without a baseline start at zero on first load after this update; reloads preserve subsequent progress.
 - Level 9 requires 100 barley (not 100 fields) harvested and 30 bread/beer produced after the level-7-to-8 claim. Existing level-8 saves without a baseline start the missing counter on their first load after this update; historical level-8 totals cannot be reconstructed. Adding the production baseline preserves existing barley progress and lifetime totals. The offering requires 10 of one kind in shared estate stock: bread is used first if at least 10 are available, otherwise beer. Pending or carried goods do not count toward the offering, and 5 bread plus 5 beer is not enough. Only the food offering is consumed; the warehouse is kept.
 - Existing level-6 saves without a level-entry record start these two counters at zero when first loaded after this update; their lifetime totals and inventory are preserved. This one-time reset avoids treating older lifetime activity as current-level progress.
 - Goods required as an offering must still be available in the specified location when you claim.
@@ -143,7 +166,18 @@ These future levels cannot be claimed yet, even if their previewed milestones ha
 
 ## Barley, irrigation, and storage
 
+Seed collection uses the same walking pace as field-to-field planting travel,
+including any applicable farmer wellbeing modifier. Short collection trips keep
+their remaining collection time as a stationary pause at storage, not a slower
+walk. Carrying some barley already does not change the travel speed.
+
 - Batch planting uses the same happiness tiers as harvesting: **4 fields at 0–50%, 6 at above 50–90%, and 8 above 90%**. The available seed supply can reduce this limit. Selection and server validation both enforce it; unselected fields turn red when either limit is reached. Happiness is checked when starting the batch, so later changes do not shrink an accepted queue. Existing planting queues are preserved. This is a per-batch limit, not a limit on the estate's total planted fields.
+
+The isometric harvest selection counter displays selected fields out of the
+smaller of the happiness-based capacity and the number of currently ripe,
+harvestable barley fields. For example, capacity 6 with 4 ripe fields shows
+`1 / 4 fields` after selecting one. Once harvesting starts, progress uses the
+accepted batch's total instead; the server's happiness limits are unchanged.
 
 - Planting consumes 1 barley seed. Sowing takes 10 seconds, growth takes 30 minutes, and harvesting takes 10 seconds. A completed harvest yields 2 barley.
 - **Plant barley** opens field selection, including when only one empty irrigated field is available. It replaces the separate single-field planting button and is hidden on unirrigated tiles, even if other fields can be planted. Select one or more eligible fields (they need not touch), then confirm. Yellow stripes mark available fields; selected fields are green. Once all available carried and stored seeds are assigned, remaining fields turn red and cannot be selected until another is deselected.
@@ -182,7 +216,7 @@ These future levels cannot be claimed yet, even if their previewed milestones ha
 - Warehouse removal must not reduce capacity below existing shared stocks. All dates must be used or removed first if this is the only warehouse. No stored inventory is silently discarded.
 - Unused supplies inside an idle brewery are lost with it. Destroying a shrine ends its blessing. Both losses are stated in the confirmation dialog.
 - The server checks ownership, the latest farm version, storage and work state again on confirmation. The initial farm and other players' buildings cannot be removed through the API.
-- Granaries can be rebuilt through Manage → Build in the isometric farm, paying the full construction cost again. Other building placement remains planned.
+- Granaries and mills can be built or rebuilt through Manage → Build in the isometric farm, paying the full construction cost. The mill unlocks at level 5, occupies 2×2 tiles and costs 2 reed and 4 clay; construction takes 2 minutes. Choose a green placement beside a completed connected road, then confirm. Cancelling placement spends nothing. The farmer walks to the loading tile and works with his pickaxe; the saved construction timer continues after reloading. Other building placement remains planned.
 
 Buildings occupy a 2 × 2 footprint, except the Small shrine (1 × 1). All require suitable free space.
 
@@ -231,7 +265,7 @@ Bread baskets and finished beer jars show a disabled **No storage space** button
 
 The same rule applies to flour and groats at the mill. For mixed stacks, **Store** remains available if either resource present can fit; it shows **No storage space** only when none of the available bags can be stored.
 
-The warehouse uses four free arable tiles (2×2) and a connected road, just like other large buildings. It replaces the second granary unlock. Existing second granaries convert in place, retaining their barley and construction progress.
+The warehouse uses four free northern ground tiles (2×2) and a connected road, just like other large buildings. It replaces the second granary unlock. Existing second granaries convert in place, retaining their barley and construction progress.
 
 | Resource | Before warehouse | With completed warehouse |
 | --- | --- | --- |
@@ -249,13 +283,16 @@ Farm and warehouse popups use matching compact stock/capacity tables: bread, bee
 
 Storage deliveries animate visits to available buildings in this order: barley goes to the granary, then warehouse, then farm; flour, groats, bread, beer, reed and clay go to the warehouse, then farm. Only completed buildings contribute storage. Split loads continue to the next building, with remaining production cargo retained between stops and across reloads. Fish remains farm-only. References below to delivering goods to the farm mean estate storage, using these priorities.
 
-Starting a reed or clay gathering action reserves one storage slot for that material during gathering. Gathering is unavailable when no unreserved storage slot is free. Gathering completes from saved time even while away, leaves one material in the farmer's hands, and releases the reservation; it does not credit inventory automatically. In the isometric farm, click riverbank reeds to **Collect reeds**, or empty ground immediately above the river to **Collect clay**. The farmer approaches the source and uses harvesting movements for reeds or the pickaxe for clay. Once finished, select an empty arable tile to **Drop reeds** or **Drop clay**; he walks there before the visual drop. Materials can be picked up again, and dropped piles count toward construction materials. Drops never expire and cannot occupy roads, crops, canals or buildings. Resources shows only the stored total, without an outside counter. Construction consumes stored materials first, then ground piles. All current buildings, including the warehouse, fit within the initial 6-reed and 6-clay limits. The old flat interface still directs a deposit after gathering; isometric gathering leaves the drop decision to the player.
+Starting a reed or clay gathering action reserves one storage slot for that material during gathering. Gathering is unavailable when no unreserved storage slot is free. Gathering completes from saved time even while away, leaves one material in the farmer's hands, and releases the reservation; it does not credit inventory automatically. In the isometric farm, click riverbank reeds to **Collect reeds**, or empty ground immediately above the river to **Collect clay**. The farmer approaches the source and uses harvesting movements for reeds or the pickaxe for clay. Once finished, select any empty ground tile (arable or non-arable) to **Drop reeds** or **Drop clay**; he walks there before the visual drop. Materials can be picked up again, and dropped piles count toward construction materials. Material drops never expire and cannot occupy water, roads, crops, canals, scenery, buildings or another ground item, or lie outside the map. Barley drops still require arable ground. Resources shows only the stored total, without an outside counter. Construction consumes stored materials first, then ground piles. All current buildings, including the warehouse, fit within the initial 6-reed and 6-clay limits. The old flat interface still directs a deposit after gathering; isometric gathering leaves the drop decision to the player.
 
 When all material storage slots are occupied or reserved, the ground popup disables clay collection and displays **Clay storage is full**, and the river-reeds popup disables reed collection and displays **Reed storage is full**. Each check uses that resource's independent capacity, including completed warehouse capacity.
 
 The farm remains the delivery point for materials and processed goods after building a warehouse. Finished products stay at their building until collected. Collection takes only what fits in the relevant resource's storage; remaining goods keep their sprite and chip. If space changes during delivery, excess goods return to the building's pending stock. Market purchases and listing returns also require storage space.
 
-To clear unwanted materials from arable tiles, click a ground reed bundle or clay pile and choose **Destroy**. This immediately and permanently removes the selected pile's entire quantity, with no refund or transfer into storage. Resource totals update accordingly. Other piles and separately stored or carried materials are not removed. River reed plants are not destroyed by this action.
+To clear unwanted materials from ground tiles, click a dropped reed bundle or clay pile and choose **Destroy reeds** or **Destroy clay** in its popup. This immediately and permanently removes the selected pile's entire quantity, with no refund or transfer into storage. Resource totals update accordingly. Other piles and separately stored or carried materials are not removed. River reed plants are not destroyed by this action.
+
+In the isometric map, **Collect clay** is offered only on empty non-arable
+riverbank ground, not on arable tiles beside the river.
 
 ## Farmer happiness and feeding
 
@@ -349,6 +386,12 @@ Rankings use the latest saved server progress when opened, changed or refreshed;
 
 ## Fishing
 
+- Fishing messages and **Stop fishing** use the shared lower action container. The marked area is red while preparing or cooling down, and green when ready to cast. Short countdowns show the fish's approach and the retry cooldown; clicks outside the area prompt you to tap inside it. Reduced-motion settings do not prevent fishing from becoming ready.
+
+- The isometric river is two rows wide, extended one row south. The farm-side bank, farmland and irrigation connections remain unchanged. The ambient fish gently swims north and south between both rows while roaming east and west, staying inside the banks.
+
+- Isometric fishing: from level 4, **Go fishing** on either river row walks the empty-handed farmer to the nearest reachable farm-side bank tile to the selected water. He casts once on arrival; the fish swims into the marked area. Once it arrives, tap ahead of the fish in that area to cast, or use arrow keys to aim and Space to cast. Each attempt animates the rod, including retries after a miss. The existing server rules decide catches after 0.4 seconds and enforce the 2-second retry cooldown. A catch ends fishing and leaves the farmer visibly holding 1 fish. Click the farm to **Store fish**, or the river to **Release fish**; he walks there to deliver it. **Stop fishing** cancels without a catch. Reloading restores an active session without replaying the arrival cast. River tiles stay opaque and the fish stays at 75% opacity.
+
 - Fishing unlocks at level 4. Click the river with the farmer's hands empty and choose **Go fishing**.
 - Before level 4, the Fish treat block in the Farmer tab uses the disabled-button colours and shows its unlock level. It returns to its normal colours when unlocked.
 - Resources shows usable stored totals. The farm popup shows its own quantities/capacities; contextual fish-delivery controls also show available fish space.
@@ -381,7 +424,35 @@ start offline.
 
 ### Manual milling
 
-The Mill unlocks at level 5 and occupies 2×2 tiles. Each milling job consumes 2 barley and produces either 1 Flour or 1 Brewer's Groats after 5 minutes, plus preparation. The farmer visually visits a completed granary with barley by preference, otherwise the farm if it has barley, then carries the barley to the Mill. This single collection stop represents combined storage even when the granary has only one barley. Barley is deducted when the server accepts the job: carried barley first, then completed granaries or warehouses, then farm storage. Carrying one barley means only one additional barley is taken from storage. If both required barley are already carried and storage is empty, the farmer goes straight to the Mill. Exposed ground barley must be picked up or stored first. Both outputs wait at the Mill until collected and delivered to the farm building.
+Flour and groats each reserve their own estate storage space. Stored stock,
+finished bags waiting across all mills, bags being delivered by the farmer or
+porter, and the full output of an accepted milling job together cannot exceed
+**10 per resource with the farm alone**, or **20 with a completed warehouse**.
+For example, 3 stored flour leave room for at most 7 flour bags outside storage;
+groats have a separate allowance. A new batch requires room for its entire output
+(1 bag with the farmer, 3 with the donkey). Unavailable recipe buttons are hidden.
+Market purchases and cancelled sale listings cannot take these reserved spaces,
+and warehouse removal cannot strand reserved mill goods. Collecting bags moves
+their reservation into storage rather than freeing space; using or selling stored
+goods frees space. Existing saves above the limit retain their goods, but cannot
+produce or buy more of that resource until enough space is available.
+
+In the isometric farm, a completed mill offers **Make flour**, followed by
+**Make groats**, when the farmer is available and empty-handed. If combined
+completed storage has fewer than 2 barley, both are replaced by the disabled
+**You don't have enough barley** button. The saved trip visits stocked granaries
+before farm storage when topping up. On arrival, the farmer pushes the lever and
+a small progress bar shows milling progress. Finished batches display the existing
+bag sprite with their total count; the popup lists flour and groats separately.
+Click the bags to select their yellow footprint tile and choose **Store**.
+The farmer walks empty-handed to the mill's loading tile, collects the bags,
+then carries them to storage and faces the building while unloading. With only
+the farm available, he delivers there. Existing warehouse-first storage allocation
+is preserved when a warehouse exists, with a farm stop for any remaining bags.
+An interrupted delivery remains saved; **Store bags** in the farmer or farm popup
+resumes it. Pending bags become usable inventory only when delivered.
+
+The Mill unlocks at level 5 and occupies 2×2 tiles. Each milling job consumes 2 barley and produces either 1 Flour or 1 Brewer's Groats after 5 minutes, plus preparation. The farmer visually visits a completed granary with barley by preference, otherwise the farm if it has barley, then carries the barley to the Mill. If the granary has too little barley, the farmer collects what it has and then visits the farm for the remainder before going to the Mill. Barley is deducted when the server accepts the job: carried barley first, then completed granaries or warehouses, then farm storage. Carrying one barley means only one additional barley is taken from storage. If both required barley are already carried and storage is empty, the farmer goes straight to the Mill. Exposed ground barley must be picked up or stored first. Both outputs wait at the Mill until collected and delivered to the farm building.
 
 Choose one recipe per job. The farmer walks to the Mill, then works inside it for the entire job. The busy Mill sprite indicates occupied labour: other farmer-dependent tasks, market visits, and fetch are unavailable until completion. Milling persists across reloads and completes while offline. Finished Flour and Brewer's Groats accumulate separately in a shared bag stack over the Mill's bottom-left footprint tile, with a chip showing the total count. Click the stack and choose **Store**: with empty hands, the farmer collects the bags that fit in storage and delivers them to the farm building, just like finished bread and beer. Remaining bags stay at the Mill. No granary is required. Only on delivery are the goods added to Resources and available for level offerings, trading, or production. Further batches can be made before collecting. Delivery survives reloads and uses each resource's independent estate capacity, not barley storage. Flour and groats are traded at their respective markets; baking and brewing unlock at level 6.
 
@@ -401,7 +472,7 @@ Brewing unlocks at level 6 and consumes Brewer's Groats rather than raw barley.
 ## Donkey-powered milling (level 7)
 
 - Buy one donkey for **30 shekels** in the baking stand's **NPC Buy** tab. Ownership is permanent; donkeys cannot be sold or listed in the player market. Each farm can own at most one.
-- After purchase the donkey waits beside the farmer in the market and follows him along the road when returning home. On the farm it grazes between free tiles outside the 8×9 arable plot, avoiding the river, buildings, objects, and goods. It rests for 30 seconds before its first grazing move and after each move finishes.
+- After purchase the donkey waits beside the farmer in the market and follows him along the road when returning home. On the farm it grazes between free non-arable tiles, avoiding the river, buildings, objects, and goods. It rests for 30 seconds before its first grazing move and after each move finishes.
 - Manual milling remains available. **Use donkey · Flour** and **Use donkey · Brewer's Groats** each process **6 barley into 3 bags in 15 minutes**. This triples batch size and duration, not output per minute or yield per barley.
 - The farmer fetches the donkey, leads it to the mill, then collects barley from storage and delivers it. The donkey disappears inside the mill and the donkey-powered mill sprite shows production in progress.
 - While being led to the mill, the donkey trails slightly behind on the same route: behind horizontally, above the farmer when walking down, and below him when walking up. This spacing is visual only and does not change production timing.
@@ -540,7 +611,7 @@ A no-brewery fallback offers 3, 2, and 4 barley for 5, 3, and 6 shekels respecti
 
 ## Small shrine (level 8)
 
-Build one **Small shrine** per farm at level 8. It occupies one empty arable tile beside a connected road, costs **2 reeds and 4 clay**, and takes **2 minutes** to build.
+Build one **Small shrine** per farm at level 8. It occupies one empty northern ground tile beside a connected road, costs **2 reeds and 4 clay**, and takes **2 minutes** to build.
 
 - Choose **Offer 2 bread** or **Offer 2 beer**. With empty hands, the farmer walks to the farm building, collects the chosen goods, and carries them to the shrine. The offering is charged and its blessing begins when delivery succeeds. Reloading before delivery cancels the uncharged trip; choose the offering again.
 - The blessing slows natural happiness decay by **25% for 12 hours**, including time offline. It does not restore happiness, replace barley meals, prevent hunger, or change treat cooldowns.
@@ -576,8 +647,7 @@ Crop growth, brewing, construction, happiness, and merchant schedules use elapse
 In **Isometric farm (preview)**, choose **Plant barley**, select the highlighted
 irrigated fields, then confirm **Plant barley**. The usual seed costs, happiness-based
 field limit and farmer availability apply. The farmer collects any needed stored
-seeds, walks to each field and sows it. **Stop after this field** stops the saved queue
-using the existing unused-seed return rules. Accepted planting continues while away;
+seeds, walks to each field and sows it. Accepted planting continues while away;
 reloading shows the current saved progress, not a restarted animation.
 
 Choose **Harvest barley**, select ripe fields and confirm. The same happiness-based
@@ -587,13 +657,17 @@ granary. Only what fits is deposited; if barley remains and the farm has room,
 he continues there and stores what fits. Any further surplus remains in his hands.
 If no granary is reachable, he stays at the final field with the harvest.
 Accepted harvesting and delivery continue while away, without replaying completed
-work on return. **Stop after this field** finishes the active field and delivers
-what has already been harvested.
+work on return.
 
 Tap a tile or building for its popup. Crop popups start planting/harvest selection;
 farm and storage popups show current stocks.
-Once sowing starts in the isometric view, its panel shows progress without a stop
+Once sowing or harvesting starts in the isometric view, its panel shows progress without a stop
 button. You can still cancel field selection before starting.
+Sowing and harvesting share the same work display: action name, completed fields
+out of the selected total (excluding the current unfinished field), and a circular
+percentage meter. Total work time is the per-field duration multiplied by the
+selected total; walking is excluded. Harvesting switches to “Storing barley…”
+during delivery, retaining the completed-field count and work meter.
 Isometric tile popups show only actions currently available for the selected target,
 without disabled alternatives or their blocker messages. A small pointer identifies
 the selected tile; unavailable actions reappear when their conditions are met.

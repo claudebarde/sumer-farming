@@ -11,8 +11,8 @@ export const INITIAL_FARM_CONFIG = {
   plotBounds: {
     minimumColumn: 0,
     maximumColumn: 7,
-    minimumRow: 0,
-    maximumRow: 8
+    minimumRow: 6,
+    maximumRow: 9
   },
   buildingBounds: {
     minimumColumn: 1,
@@ -42,8 +42,8 @@ export const INITIAL_FARM_GROUND_ITEMS: readonly {
   readonly column: number;
   readonly row: number;
 }[] = [
-  { itemKey: "barley", quantity: 1, column: 2, row: 0 },
-  { itemKey: "barley", quantity: 1, column: 2, row: 1 }
+  { itemKey: "barley", quantity: 1, column: 2, row: 8 },
+  { itemKey: "barley", quantity: 1, column: 3, row: 8 }
 ];
 
 export type InitialFarmObject = {

@@ -1,6 +1,7 @@
 import type { FarmSnapshot } from "../../schemas/farm";
 import { activeBuildingUpgrade } from "../../game-data/buildingUpgrades";
 import { estateResourceCapacity } from "../../game-data/storage";
+import { millStorageReserved } from "./millStorage";
 
 /** Shared UI/server guard. The initial home is not a player-built building. */
 export const buildingDemolitionReason = (snapshot: FarmSnapshot, buildingId: string, now: number): string | null => {
@@ -20,6 +21,10 @@ export const buildingDemolitionReason = (snapshot: FarmSnapshot, buildingId: str
     return "Finish production and collect the goods first.";
   if (building.type === "warehouse") {
     const remaining = snapshot.buildings.filter(b => b.id !== buildingId);
+    if ((["flour", "brewersGroats"] as const).some(item =>
+      (snapshot.inventory.find(entry => entry.itemKey === item)?.quantity ?? 0) + millStorageReserved(farm, item)
+        > estateResourceCapacity(item, remaining, now)))
+      return "Use or sell the mill goods that need warehouse storage first.";
     if (snapshot.inventory.some(item => item.quantity > estateResourceCapacity(item.itemKey, remaining, now)))
       return "Reduce stored goods to fit without the warehouse first.";
   }

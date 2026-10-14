@@ -11,9 +11,9 @@ import smallShrineImage from "../../assets/sprite_assets/pngs/v2/isometric-test/
 import { MARKET_ITEM_DEFINITIONS } from "../../game-data/marketItems";
 import EstateBuildingCard from "./EstateBuildingCard";
 import styles from "../styles/GameCanvas.module.scss";
-import { granaryBuildBlocker } from "../game/phaser/isometricBuildingPlacement";
+import { buildingBuildBlocker, type PlaceableBuilding } from "../game/phaser/isometricBuildingPlacement";
 
-export default function IsometricBuildingCatalogue({ snapshot, now, onBuildGranary }: { readonly snapshot: FarmSnapshot; readonly now: number; readonly onBuildGranary?: () => void }) {
+export default function IsometricBuildingCatalogue({ snapshot, now, onBuild }: { readonly snapshot: FarmSnapshot; readonly now: number; readonly onBuild?: (type: PlaceableBuilding) => void }) {
   const level = snapshot.farm.progression?.level ?? 1;
   const catalogue = [
     { type: "granary", name: "Granary", image: granaryImage, unlockLevel: 2, button: "Build granary",
@@ -41,14 +41,16 @@ export default function IsometricBuildingCatalogue({ snapshot, now, onBuildGrana
         const limit = type === "granary" ? granaryLimitForLevel(level) : 1;
         const count = snapshot.buildings.filter(building => building.type === type).length;
         const built = count > 0 && count >= limit;
+        const supported = type === "granary" || type === "mill";
+        const blocker = supported ? buildingBuildBlocker(snapshot, now, type) : null;
         return <EstateBuildingCard key={type} name={name} image={image}>
           <p>{definition.footprint.columns}×{definition.footprint.rows} · {definition.constructionDurationMs / 60000} minutes · {available("reed")}/{definition.materials.reed} reed · {available("clay")}/{definition.materials.clay} clay
             {type === "brewery" && <> · {snapshot.inventory.find(item => item.itemKey === "brewingVessels")?.quantity ?? 0}/{FARM_BUILDING_DEFINITIONS.brewery.materials.brewingVessels} brewing jars</>}
             {type === "breadOven" && <> · {snapshot.inventory.find(item => item.itemKey === "bakingTools")?.quantity ?? 0}/{FARM_BUILDING_DEFINITIONS.breadOven.materials.bakingTools} baking tools</>}
           </p>
           <p>{description}</p>
-          {type === "granary" && !built && level >= 2 && granaryBuildBlocker(snapshot, now) && <p>{granaryBuildBlocker(snapshot, now)}</p>}
-          <button disabled={type !== "granary" || !onBuildGranary || !!granaryBuildBlocker(snapshot, now)} onClick={type === "granary" ? onBuildGranary : undefined}>{built ? "Already built" : level < unlockLevel ? `Unlock at level ${unlockLevel}` : button}</button>
+          {supported && !built && level >= unlockLevel && blocker && <p>{blocker}</p>}
+          <button disabled={!supported || !onBuild || !!blocker} onClick={() => { if (supported) onBuild?.(type); }}>{built ? "Already built" : level < unlockLevel ? `Unlock at level ${unlockLevel}` : button}</button>
         </EstateBuildingCard>;
       })}
     </ul>

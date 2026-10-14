@@ -1,5 +1,6 @@
 import { and, asc, eq, lte, sql, inArray } from "drizzle-orm";
 import { getRiverConnectedCanals } from "../../game-core/farm/irrigation";
+import { migrateFarmLand } from "./farmLandMigration";
 
 import { BARLEY_CONSUMPTION_INTERVAL_MS } from "../../game-data/household";
 import { BEER_RECIPE } from "../../game-data/brewing";
@@ -61,6 +62,7 @@ export const advanceFarmLifecycle = async (
   farm: FarmRecord,
   now: Date
 ): Promise<FarmRecord> => {
+  farm = await migrateFarmLand(transaction, farm, now);
   // Gathering completes from saved time, including while the tab is closed.
   // Leave the material in the farmer's hands for a player-directed drop/deposit.
   if (farm.gatheringItemKey && farm.gatheringCompletesAt && farm.gatheringCompletesAt <= now && !farm.carriedItemKey) {
@@ -86,6 +88,15 @@ export const advanceFarmLifecycle = async (
   if (farm.level === 3 && !farm.progressionStats.level3Baseline) {
     const progressionStats = { ...farm.progressionStats,
       level3Baseline: { harvests: farm.progressionStats.harvests }
+    };
+    await transaction.update(farms).set({ progressionStats }).where(eq(farms.id, farm.id));
+    farm = { ...farm, progressionStats };
+  }
+  // Older level-5 saves lack an entry count. Initialize once under the farm lock,
+  // before new work completes; preserve lifetime totals and existing baselines.
+  if (farm.level === 5 && !farm.progressionStats.level5Baseline) {
+    const progressionStats = { ...farm.progressionStats,
+      level5Baseline: { harvests: farm.progressionStats.harvests }
     };
     await transaction.update(farms).set({ progressionStats }).where(eq(farms.id, farm.id));
     farm = { ...farm, progressionStats };

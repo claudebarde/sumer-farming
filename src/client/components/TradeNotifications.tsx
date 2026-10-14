@@ -10,7 +10,8 @@ import { notificationStore, type GameNotification } from "../stores/notification
 import { LEVEL_NAMES, LEVEL_UNLOCKS } from "../../game-data/progression";
 import styles from "../styles/TradeNotifications.module.scss";
 import { MARKET_ITEM_DEFINITIONS } from "../../game-data/marketItems";
-import { buildingReadinessText, readyProgressionBuilding } from "../../game-core/farm/buildingReadiness";
+import { buildingReadinessText } from "../../game-core/farm/buildingReadiness";
+import { buildingReadinessCandidate } from "../features/buildingReadiness";
 import { claimBuildingReadiness, OPEN_BUILD_DRAWER } from "../api/buildingReadiness";
 import { marketUiStore } from "../stores/marketUiStore";
 
@@ -68,24 +69,32 @@ export default function TradeNotifications() {
   useEffect(() => {
     if (!playerId) return;
     let requesting = false;
+    let recheck = false;
     const check = async () => {
+      if (requesting) { recheck = true; return; }
       const state = farmStore.getState().farm;
-      if (requesting || document.visibilityState !== "visible" || state.type !== "ready" || state.snapshot.farm.playerId !== playerId) return;
-      const building = readyProgressionBuilding(state.snapshot);
-      if (!building || notificationStore.getState().announced.has(`building-ready:${state.snapshot.farm.id}:${building}`)) return;
+      if (document.visibilityState !== "visible" || state.type !== "ready" || state.snapshot.farm.playerId !== playerId) return;
+      const building = buildingReadinessCandidate(state.snapshot, notificationStore.getState().materialDropFarmId);
+      if (!building) return;
       requesting = true;
       try {
         const claimed = await claimBuildingReadiness();
-        if (claimed) notificationStore.getState().notifyBuilding(playerId, state.snapshot.farm.id, claimed);
+        if (claimed) notificationStore.getState().notifyBuilding(playerId, state.snapshot.farm.id, claimed, state.snapshot.farm.version);
       } catch (error) { console.error("Building readiness notification failed", error); }
-      finally { requesting = false; }
+      finally {
+        requesting = false;
+        if (recheck) { recheck = false; void check(); }
+      }
     };
     // The player effect below establishes notification ownership before this microtask.
     void Promise.resolve().then(check);
     const unsubscribe = farmStore.subscribe(() => { void check(); });
+    const unsubscribeDrop = notificationStore.subscribe((next, previous) => {
+      if (previous.materialDropFarmId && !next.materialDropFarmId) void check();
+    });
     const onVisible = () => { void check(); };
     document.addEventListener("visibilitychange", onVisible);
-    return () => { unsubscribe(); document.removeEventListener("visibilitychange", onVisible); };
+    return () => { unsubscribe(); unsubscribeDrop(); document.removeEventListener("visibilitychange", onVisible); };
   }, [playerId]);
 
   useEffect(() => {

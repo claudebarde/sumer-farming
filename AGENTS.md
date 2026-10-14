@@ -18,10 +18,12 @@ player explanations and rule questions; retain technical details in `docs/`.
 Track todos in the Todoist project `Sumer Farm Tracker` (project ID
 `6hgM5pCFx353hh8f`), not in a repository Markdown checklist.
 
-Create new Todoist tasks only when the user explicitly asks. Do not automatically
-create tasks for requested changes or fixes. Continue applying the workflow below
-when working on an existing task; if no matching task exists, do the work without
-creating one.
+Use Todoist only when the user explicitly asks to record work there or asks to work
+on an existing Todoist task. Reserve it for multi-step work requiring verification.
+Routine changes and fixes do not need a task: do not automatically create one,
+attach them to a broader task, or ask to split out a task merely to record approval.
+Apply the workflow below when explicitly working on an existing tracked task;
+otherwise implement and acknowledge approval without Todoist bookkeeping.
 
 When the user asks to check outstanding tasks or what to tackle next, fetch the
 project's current tasks from Todoist, including all result pages. Recommend one
@@ -39,7 +41,7 @@ for features that can wait. Additional labels may be added when useful. Keep tas
 details in descriptions, preserve existing priorities unless reprioritization is
 requested.
 
-Apply workflow labels automatically to tasks we work on in this project:
+Apply workflow labels automatically when working on an explicitly tracked task:
 
 - Before implementation, find the matching Todoist task (avoid duplicates) and
   add `In progress`, removing `Needs review` if reworking it.

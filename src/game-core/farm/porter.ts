@@ -12,11 +12,11 @@ export type PorterStack = { buildingId: string; itemKey: PorterItem; quantity: n
 export const PORTER_HOME: Position = { column: 3, row: INITIAL_FARM_CONFIG.roadRow };
 
 /** Persist the actual road-preferred route, so offline deadlines and animation agree. */
-export const porterPath = (buildings: readonly PorterBuilding[], roads: readonly FarmRoad[], from: Position, to: Position, now: number): readonly Position[] | null => {
+export const porterPath = (buildings: readonly PorterBuilding[], roads: readonly FarmRoad[], from: Position, to: Position, now: number, obstacles: readonly Position[] = []): readonly Position[] | null => {
   const bounds = INITIAL_FARM_CONFIG.worldBounds;
   const local = (p: Position) => ({ column: p.column - bounds.minimumColumn, row: p.row });
   const key = (p: Position) => `${p.column}:${p.row}`;
-  const blocked = buildings.flatMap(b => getBuildingFootprint(b.type, b));
+  const blocked = [...buildings.flatMap(b => getBuildingFootprint(b.type, b)), ...obstacles];
   const home = INITIAL_FARM_CONFIG.buildingBounds;
   for (let row = home.minimumRow; row <= home.maximumRow; row++) for (let column = home.minimumColumn; column <= home.maximumColumn; column++) blocked.push({ column, row });
   const roadTiles = roads.filter(r => (r.completesAt ?? 0) <= now).map(local);

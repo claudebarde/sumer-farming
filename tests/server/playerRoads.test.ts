@@ -101,14 +101,15 @@ describe("player-built roads", () => {
     expect(findLoadingTile(getBuildingFootprint("mill", { column: 5, row: 2 }), roads, [], new Set())).toBeNull();
     expect(() => assertFarmerAvailable({ roads, carriedItemKey: null, fishing: null })).toThrow(/building a road/);
   });
-  it("requires cardinal connectivity and vacant arable land, including the ninth row", () => {
+  it("requires cardinal connectivity and supports farmland up to the riverbank", () => {
     expect(validateRoadPlacement({ column: 5, row: 4 }, [], new Set())).toBeNull();
     expect(validateRoadPlacement({ column: 5, row: 3 }, [], new Set())).toMatch(/Connect/);
     expect(validateRoadPlacement({ column: 4, row: 3 }, [{ column: 5, row: 4 }], new Set())).toMatch(/Connect/);
     expect(validateRoadPlacement({ column: 5, row: 4 }, [], new Set(["5:4"]))).toMatch(/empty/);
     expect(validateRoadPlacement({ column: 12, row: 5 }, [], new Set())).toMatch(/inside/);
     expect(isInsideArablePlot({ column: 7, row: 8 })).toBe(true);
-    expect(isInsideArablePlot({ column: 7, row: 9 })).toBe(false);
+    expect(isInsideArablePlot({ column: 7, row: 9 })).toBe(true);
+    expect(isInsideArablePlot({ column: 7, row: 10 })).toBe(false);
   });
   it("allows ordinary ground branches but rejects diagonal-only links and water", () => {
     expect(validateRoadPlacement({ column: -1, row: 4 }, [], new Set())).toBeNull();

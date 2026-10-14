@@ -1,7 +1,8 @@
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { plantableFields, harvestableFields, plantingSelectionLimit } from "../../../game-core/farm/batchPlanting";
 import { FARMER_CARRY_CAPACITY, granaryCapacityForLevel } from "../../../game-data/storage";
-import { buildingAt, buildingNames, farmOrigin, insidePlot, sameCell, tileInformation } from "./isometricFarm";
+import { buildingAt, buildingNames, farmOrigin, sameCell, tileInformation } from "./isometricFarm";
+import { isItemDropGround } from "../../../game-core/farm/land";
 import { footprintContains, type IsoCell } from "./isometricProjection";
 import { plantingBlocker } from "./isometricPlanting";
 import { harvestingBlocker } from "./isometricHarvesting";
@@ -11,10 +12,11 @@ import { roadBuildBlocker } from "./isometricRoads";
 import { previewWalkable } from "./isometricWalking";
 import { gatherableResource, transferBlocker } from "./isometricGathering";
 import { buildingLevel } from "../../../game-data/buildingUpgrades";
+import { canStartIsometricFishing } from "./isometricFishing";
 
-/** The farmer currently has popup content only when carrying barley. */
+/** Household status is available even when the farmer's hands are empty. */
 export const hasFarmerPopup = (snapshot: FarmSnapshot): boolean =>
-  snapshot.farm.carriedItem?.itemKey === "barley" && snapshot.farm.carriedItem.quantity > 0;
+  !!snapshot.farm.household;
 
 export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: number) => {
   const building = buildingAt(snapshot, cell);
@@ -33,6 +35,13 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
     details.push(crop.harvestCompletesAt ? "Harvesting…" : Date.parse(crop.plantedAt) > now ? "Sowing…" : Date.parse(end) > now ? `Ready in ${Math.max(1, Math.ceil((Date.parse(end) - now) / 60_000))}m` : "Ready to harvest");
   } else if (building) {
     if (Date.parse(building.completesAt) > now) details.push("Under construction");
+    else if (building.type === "mill") {
+      const job = snapshot.farm.milling;
+      if (job?.buildingId === building.id) details.push(Date.parse(job.startedAt) > now ? "Collecting barley…" : "Milling…");
+      const bags = snapshot.farm.millGoods.pending[building.id];
+      if (bags?.flour) details.push(`${bags.flour} flour ${bags.flour === 1 ? "bag" : "bags"} ready`);
+      if (bags?.brewersGroats) details.push(`${bags.brewersGroats} groats ${bags.brewersGroats === 1 ? "bag" : "bags"} ready`);
+    }
     else if (building.type === "granary") details.push(`${building.storedBarley} / ${granaryCapacityForLevel(snapshot.farm.progression?.level ?? 1)} barley stored`);
   } else if (!home) {
     details.push(...tileInformation(snapshot, cell, now).split(" · ").slice(1));
@@ -42,7 +51,9 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
   const harvest = home || canHarvestHere;
   const plantDisabled = plantingBlocker(snapshot, now) ?? (plantingSelectionLimit(snapshot, now) === 0 ? "No barley seeds" : !plantable.length ? "No irrigated fields" : null);
   const harvestDisabled = harvestingBlocker(snapshot, now) ?? (!ripe.length ? "No ripe barley" : null);
-  const drop = title === "Arable ground" && insidePlot(cell) &&
+  const drop = (title === "Arable ground" || title === "Ground") &&
+    isItemDropGround(cell, snapshot.farm.carriedItem?.itemKey ?? "") &&
+    !snapshot.improvements.some(item => sameCell(item, cell)) &&
     !snapshot.groundItems.some(item => sameCell(item, cell)) &&
     !!snapshot.farm.carriedItem && ["barley", "reed", "clay"].includes(snapshot.farm.carriedItem.itemKey) && snapshot.farm.carriedItem.quantity > 0;
   const dropDisabled = transferBlocker(snapshot, now);
@@ -57,6 +68,9 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
   const road = irrigation;
   const roadDisabled = roadBuildBlocker(snapshot, cell, now);
   const actions = {
+    destroyMaterial: !!groundItem && (groundItem.itemKey === "reed" || groundItem.itemKey === "clay") &&
+      !transferBlocker(snapshot, now) && snapshot.farm.carriedItem?.itemKey !== "fish" && !snapshot.farm.production.materialDelivery,
+    fish: canStartIsometricFishing(snapshot, cell, now),
     gather: gatherableResource(snapshot, cell, now),
     pickup: pickup && !pickupDisabled,
     irrigation: irrigation && !irrigationDisabled,

@@ -15,6 +15,7 @@ import {
 import { shekelTransactions } from "../db/schema";
 import { removeCompletedImprovementDestructions } from "./farmImprovementLifecycle";
 import { advanceFarmLifecycle } from "./farmLifecycle";
+import { readyBuildings } from "../../game-core/farm/buildingReadiness";
 
 type FarmRecord = typeof farms.$inferSelect;
 
@@ -123,6 +124,16 @@ export const readFarmSnapshot = async (
     .where(eq(farmBuildings.farmId, currentFarm.id))
     .orderBy(asc(farmBuildings.row), asc(farmBuildings.column));
 
+  // Re-arm immediately on every material-changing command's returned snapshot,
+  // even if no browser observes the intermediate insufficient-material state.
+  const ready = readyBuildings({ inventory, groundItems, buildings }, currentFarm.level);
+  const announced = currentFarm.progressionStats.buildingReadyAnnounced ?? [];
+  const retained = announced.filter(building => ready.includes(building));
+  const progressionStats = retained.length === announced.length ? currentFarm.progressionStats
+    : { ...currentFarm.progressionStats, buildingReadyAnnounced: retained };
+  if (progressionStats !== currentFarm.progressionStats) {
+    await transaction.update(farms).set({ progressionStats }).where(eq(farms.id, currentFarm.id));
+  }
   const [achievements] = await transaction.select({
     breadSold: sql<number>`coalesce(sum(case when ${shekelTransactions.type} = 'market_sale' and ${shekelTransactions.itemKey} = 'bread' then ${shekelTransactions.itemQuantity} else 0 end), 0)::int`,
     barleySold: sql<number>`coalesce(sum(case when ${shekelTransactions.type} = 'market_sale' and ${shekelTransactions.itemKey} = 'barley' then ${shekelTransactions.itemQuantity} else 0 end), 0)::int`,
@@ -138,7 +149,7 @@ export const readFarmSnapshot = async (
       milling: currentFarm.milling,
       production: currentFarm.production,
       millGoods: currentFarm.millGoods,
-      progression: { level: currentFarm.level, stats: currentFarm.progressionStats, ...achievements! },
+      progression: { level: currentFarm.level, stats: progressionStats, ...achievements! },
       id: currentFarm.id,
       playerId: currentFarm.playerId,
       version: currentFarm.version,

@@ -17,6 +17,8 @@ export const BatchPlantingSchema = z.object({
   travelMs: z.array(z.number().nonnegative()).optional(),
   travelPaths: z.array(z.array(FieldCoordinateSchema).min(1)).optional(),
   collectionPath: z.array(FieldCoordinateSchema).min(1).optional(),
+  // Walking time only; any remaining collection phase is a stationary pause.
+  collectionTravelMs: z.number().nonnegative().optional(),
   travelStartedAt: z.iso.datetime().optional(),
   lastHarvested: FieldCoordinateSchema.optional(),
   source: FieldCoordinateSchema.extend({ type: z.enum(["farm", "granary"]) }),

@@ -31,7 +31,7 @@ it("rebuilds a demolished granary, consuming materials and persisting its constr
     { farmId: f.farm.id, itemKey: "clay", quantity: 3 }
   ]);
   const result = await Effect.runPromise(buildFarmBuilding(db, { building: "granary", playerId: f.input.playerId,
-    target: { column: 4, row: 6 }, expectedFarmVersion: demolished.farm.version }));
+    target: { column: 4, row: 3 }, expectedFarmVersion: demolished.farm.version }));
   expect(result.buildings).toHaveLength(1);
   const building = result.buildings[0]!;
   expect(building.loadingTile).toEqual({ column: 4, row: 5 });

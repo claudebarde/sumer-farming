@@ -1,4 +1,5 @@
 import { match } from "ts-pattern";
+import { isBuildingGround, isFixedBuildingGround } from "./land";
 import { findLoadingTile, isRoad, type RoadCoordinate } from "./roads";
 
 import {
@@ -18,7 +19,7 @@ export type BuildingCoordinate = {
 export type BuildingPlacementRule =
   | { readonly type: "building_limit"; readonly limit: number }
   | { readonly type: "valid" }
-  | { readonly type: "outside_arable_plot" }
+  | { readonly type: "outside_building_ground" }
   | { readonly type: "footprint_occupied"; readonly occupant?: "farm" }
   | { readonly type: "hands_not_empty" }
   | { readonly type: "access_blocked" }
@@ -42,20 +43,7 @@ export const getBuildingFootprint = (
   }));
 };
 
-export const isInsideBuildingPlot = ({
-  column,
-  row
-}: BuildingCoordinate): boolean => {
-  const { plotBounds } = INITIAL_FARM_CONFIG;
-
-  return (
-    row !== INITIAL_FARM_CONFIG.roadRow &&
-    column >= plotBounds.minimumColumn &&
-    column <= plotBounds.maximumColumn &&
-    row >= plotBounds.minimumRow &&
-    row <= plotBounds.maximumRow
-  );
-};
+export const isInsideBuildingPlot = isBuildingGround;
 
 const coordinateKey = ({ column, row }: BuildingCoordinate): string =>
   `${column}:${row}`;
@@ -82,7 +70,7 @@ export const validateBuildingPlacement = (context: {
   }
 
   if (!footprint.every(isInsideBuildingPlot)) {
-    return { type: "outside_arable_plot" };
+    return { type: "outside_building_ground" };
   }
 
   const farm = INITIAL_FARM_CONFIG.buildingBounds;
@@ -92,7 +80,7 @@ export const validateBuildingPlacement = (context: {
   }
 
   if (
-    footprint.some(coordinate =>
+    footprint.some(coordinate => isFixedBuildingGround(coordinate) ||
       context.occupiedCoordinates.has(coordinateKey(coordinate)) || isRoad(coordinate, context.roads ?? []) || context.roads?.some(r => coordinateKey(r) === coordinateKey(coordinate))
     )
   ) {
@@ -131,14 +119,14 @@ export const describeBuildingPlacementRule = (
     .with({ type: "access_blocked" }, () => "Keep a clear path for the farmer and access to every building.")
     .with({ type: "road_access_required" }, () => "Build beside a connected road, with a free road tile for this building's loading point.")
     .with(
-      { type: "outside_arable_plot" },
-      () => "The building must fit entirely inside the 8×9 arable plot."
+      { type: "outside_building_ground" },
+      () => "Build entirely on the ground north of the main road."
     )
     .with(
       { type: "footprint_occupied" },
       rule => rule.occupant === "farm"
-        ? "This placement overlaps the Farm's 2×2 footprint. Move the building to empty arable tiles."
-        : "All arable tiles in the building footprint must be empty."
+        ? "This placement overlaps the Farm's 2×2 footprint. Move the building to empty ground."
+        : "All tiles in the building footprint must be empty."
     )
     .with(
       { type: "hands_not_empty" },

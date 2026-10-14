@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
 import { Dialog } from "radix-ui";
 import { Cross2Icon, LockClosedIcon } from "@radix-ui/react-icons";
@@ -16,7 +16,8 @@ import { notificationStore } from "../stores/notificationStore";
 import { marketUiStore } from "../stores/marketUiStore";
 import styles from "../styles/GameCanvas.module.scss";
 
-export default function FarmLevelDialog() {
+export default function FarmLevelDialog({ onLevelClaimed }: { onLevelClaimed?: (farmId: string, level: number) => void } = {}) {
+  const claiming = useRef(false);
   const farm = useStore(farmStore, state => state.farm);
   const isOpen = useStore(levelUiStore, state => state.isOpen);
   const location = useStore(marketUiStore, state => state.location);
@@ -34,7 +35,8 @@ export default function FarmLevelDialog() {
   if (farm.type !== "ready") return null;
   const progress = evaluateProgression(farm.snapshot, clock);
   const claim = async () => {
-    if (pending || !progress.canClaim) return;
+    if (claiming.current || !progress.canClaim) return;
+    claiming.current = true;
     setPending(true);
     setMessage(null);
     try {
@@ -57,6 +59,7 @@ export default function FarmLevelDialog() {
               snapshot.farm.id,
               snapshot.farm.progression!.level
             );
+          onLevelClaimed?.(snapshot.farm.id, snapshot.farm.progression!.level);
         }
         setMessage(
           `Level ${snapshot.farm.progression!.level} reached! Unlocked: ${LEVEL_UNLOCKS[snapshot.farm.progression!.level]}.${snapshot.farm.progression!.level === HAPPINESS_MANAGEMENT_LEVEL ? " Your farmer now needs occasional treats to stay happy. Catch a fish and feed him to boost happiness." : ""}`
@@ -69,6 +72,7 @@ export default function FarmLevelDialog() {
           : "The level could not be claimed."
       );
     } finally {
+      claiming.current = false;
       setPending(false);
       setClock(Date.now());
     }

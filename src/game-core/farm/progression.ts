@@ -45,7 +45,7 @@ export const evaluateProgression = (snapshot: FarmSnapshot, now: number) => {
       requirement("Ground barley or an already-planted barley field", groundBarley > 0 || plantedBarley ? 1 : 0, 1)])
     .with(4, () => [requirement("Stored fish (offering)", snapshot.inventory.find(i => i.itemKey === "fish")?.quantity ?? 0, 3), requirement("Fish given to the farmer", stats.fishFed, 1), requirement("Barley in granaries (offering)", granaryBarley, LEVEL_5_BARLEY_OFFERING)])
     .with(5, () => [requirement("Completed Mills", completed.filter(b => b.type === "mill").length, 1),
-      requirement("Crop plantings harvested", stats.harvests, LEVEL_6_REQUIRED_HARVESTS),
+      requirement("Crop plantings harvested", Math.max(0, stats.harvests - (stats.level5Baseline?.harvests ?? stats.harvests)), LEVEL_6_REQUIRED_HARVESTS),
       requirement("Barley processed into Flour or Brewer's Groats", stats.processedBarley ?? 0, LEVEL_6_PROCESSED_BARLEY),
       requirement("Flour or Brewer's Groats (combined offering)", snapshot.inventory.filter(i => i.itemKey === "flour" || i.itemKey === "brewersGroats").reduce((sum, i) => sum + i.quantity, 0), LEVEL_6_PROCESSED_GOODS_OFFERING)])
     .with(6, () => [requirement("Bread or beer produced at level 6", level6Produced, LEVEL_7_REQUIRED_PRODUCTION), requirement("Bread or beer sold at level 6", level6Sold, LEVEL_7_REQUIRED_SALES),

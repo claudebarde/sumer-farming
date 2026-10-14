@@ -68,6 +68,7 @@ describe("batch barley planting", () => {
       targets, farmerPosition: origin, expectedFarmVersion: 1 }));
     const job = started.farm.production.planting!;
     expect(job.collectionPath?.[0]).toEqual(origin);
+    expect(job.collectionTravelMs).toBe((job.collectionPath!.length - 1) * 180);
     expect(job.collectionPath?.at(-1)).toEqual(job.travelPaths?.[0]?.[0]);
     expect(job.travelPaths?.[0]?.at(-1)).toEqual(job.remaining[0]);
     expect(job.travelPaths?.[1]?.[0]).toEqual(job.remaining[0]);
@@ -88,7 +89,7 @@ describe("batch barley planting", () => {
       carriedItemKey: "barley", carriedItemQuantity: 8, carriedItemExpiresAt: new Date(Date.now() + 86400000)
     }).where(eq(farms.id, f.farmId));
     await db.insert(farmImprovements).values([3, 4, 5, 6, 7].map(row => ({ farmId: f.farmId, type: "irrigation" as const, column: 5, row, startedAt: new Date(0), completesAt: new Date(1000) })));
-    const fields = [3, 4, 6, 7].flatMap(row => [4, 6].map(column => ({ column, row })));
+    const fields = [6, 7, 8, 9].flatMap(row => [4, 6].map(column => ({ column, row })));
     const tooMany = [...fields, { column: 7, row: 9 }].slice(0, limit + 1);
     expect(await Effect.runPromise(Effect.flip(f.start(tooMany)))).toMatchObject({ _tag: "BatchPlantingError" });
     const [unchanged] = await db.select().from(farms).where(eq(farms.id, f.farmId));

@@ -32,8 +32,8 @@ it("creates independent farms and never restores fixture money on refresh", asyn
   expect(a.inventory).toHaveLength(0);
   expect(a.crops).toHaveLength(0);
   expect(a.groundItems.map(({ itemKey, quantity, column, row }) => ({ itemKey, quantity, column, row }))).toEqual([
-    { itemKey: "barley", quantity: 1, column: 2, row: 0 },
-    { itemKey: "barley", quantity: 1, column: 2, row: 1 }
+    { itemKey: "barley", quantity: 1, column: 2, row: 8 },
+    { itemKey: "barley", quantity: 1, column: 3, row: 8 }
   ]);
   expect(CROP_DEFINITIONS.barley.growthDurationMs).toBe(30 * 60_000);
   expect(b.inventory).toEqual([]);

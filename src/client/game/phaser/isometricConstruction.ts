@@ -20,7 +20,7 @@ export const constructionApproachPath = (snapshot: FarmSnapshot, from: IsoCell, 
 
 export const activeConstruction = (snapshot: FarmSnapshot, now: number) => {
   const road = snapshot.farm.roads.find(r => (r.completesAt ?? 0) > now);
-  const building = snapshot.buildings.find(b => b.type === "granary" && Date.parse(b.startedAt) <= now && Date.parse(b.completesAt) > now);
+  const building = snapshot.buildings.find(b => Date.parse(b.startedAt) <= now && Date.parse(b.completesAt) > now);
   if (building) return { target: { column: building.column, row: building.row }, workPosition: building.loadingTile,
     startedAt: Date.parse(building.startedAt), completesAt: Date.parse(building.completesAt) };
   if (road) return { target: { column: road.column, row: road.row }, startedAt: road.completesAt! - ROAD_CONSTRUCTION_DURATION_MS, completesAt: road.completesAt! };

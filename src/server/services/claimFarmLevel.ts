@@ -73,6 +73,10 @@ export const claimFarmLevel = (database: Database, input: {
             produced: snapshot.farm.progression!.stats.beerProduced + snapshot.farm.progression!.stats.breadProduced
           }
         } } : {}),
+        ...(farm.level === 4 ? { progressionStats: {
+          ...snapshot.farm.progression!.stats,
+          level5Baseline: { harvests: snapshot.farm.progression!.stats.harvests }
+        } } : {}),
         ...(farm.level === 5 ? { progressionStats: {
           ...snapshot.farm.progression!.stats,
           level6Baseline: {

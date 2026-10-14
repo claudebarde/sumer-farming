@@ -10,6 +10,36 @@ const image = () => ({
   setDepth(depth: number) { this.depth = depth; return this; },
 });
 afterEach(() => vi.restoreAllMocks());
+it("celebrates a claimed level once and does not replay it after leaving", () => {
+  const render = vi.fn();
+  const scene = Object.assign(Object.create(IsometricFarmScene.prototype), {
+    ready: true, lastCelebratedLevel: 0, processionStartedAt: null,
+    musicians: [], renderProcession: render,
+  }) as {
+    ready: boolean; processionStartedAt: number | null; musicians: { destroy(): void }[];
+    celebrateLevel(level: number): void; stopProcession(): void;
+  };
+  vi.spyOn(Date, "now").mockReturnValue(1234);
+  // Merely loading a scene doesn't start any celebration.
+  expect(scene.processionStartedAt).toBeNull();
+  scene.celebrateLevel(4);
+  expect(scene.processionStartedAt).toBe(1234);
+  scene.celebrateLevel(4);
+  expect(render).toHaveBeenCalledTimes(1);
+  const destroy = vi.fn();
+  scene.musicians = [{ destroy }];
+  scene.stopProcession(); // shared sleep/shutdown cleanup
+  expect(destroy).toHaveBeenCalledOnce();
+  expect(scene.processionStartedAt).toBeNull();
+  scene.celebrateLevel(4);
+  expect(scene.processionStartedAt).toBeNull();
+  scene.celebrateLevel(5);
+  expect(render).toHaveBeenCalledTimes(2);
+  scene.stopProcession();
+  scene.ready = false;
+  scene.celebrateLevel(6);
+  expect(scene.processionStartedAt).toBeNull();
+});
 it("keeps all musicians in front of buildings throughout travel and after rebuilding the display", () => {
   const scene = Object.create(IsometricFarmScene.prototype) as {
     processionStartedAt: number; musicians: ReturnType<typeof image>[];

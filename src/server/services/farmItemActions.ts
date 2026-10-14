@@ -4,7 +4,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
 
-import { isInsideArablePlot } from "../../game-core/farm/cultivation";
+import { isItemDropGround } from "../../game-core/farm/land";
 import { getBuildingFootprint } from "../../game-core/farm/buildings";
 import type { FarmCoordinate } from "../../game-core/farm/irrigation";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
@@ -44,6 +44,7 @@ type FarmItemRule =
   | { readonly type: "ground_item_not_found" }
   | { readonly type: "not_carrying" }
   | { readonly type: "outside_arable_plot" }
+  | { readonly type: "invalid_drop_ground" }
   | { readonly type: "ground_tile_occupied" }
   | { readonly type: "farm_storage_full" }
   | { readonly type: "granary_not_found" }
@@ -351,10 +352,10 @@ const executeFarmItemAction = (
                 };
               }
 
-              if (!isInsideArablePlot(input.target) || farm.roads.some(r => r.column === input.target.column && r.row === input.target.row)) {
+              if (!isItemDropGround(input.target, farm.carriedItemKey) || farm.roads.some(r => r.column === input.target.column && r.row === input.target.row)) {
                 return {
                   type: "rule_error",
-                  rule: { type: "outside_arable_plot" }
+                  rule: { type: farm.carriedItemKey === "reed" || farm.carriedItemKey === "clay" ? "invalid_drop_ground" : "outside_arable_plot" }
                 };
               }
 
