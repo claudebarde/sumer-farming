@@ -56,6 +56,8 @@ it.each(["reed", "clay"] as const)("offers %s drops on empty land, not water, ro
     expect(isometricTilePopup(s, cell, 1000).actions.drop).toBe(false);
   }
   s.groundItems = [{ id, column: -2, row: 2, itemKey, quantity: 1, expiresAt: null }];
+  expect(isometricTilePopup(s, { column: -2, row: 2 }, 1000).actions.drop).toBe(true);
+  s.groundItems[0]!.quantity = 5;
   expect(isometricTilePopup(s, { column: -2, row: 2 }, 1000).actions.drop).toBe(false);
   s.groundItems = [];
   s.farm.carriedItem = { itemKey: "barley", quantity: 1, expiresAt: null };

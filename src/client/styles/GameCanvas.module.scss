@@ -87,6 +87,36 @@
 }
 
 
+.farmer-popup-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+}
+
+.farmer-activity {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8em;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  img { width: 44px; height: 44px; object-fit: contain; }
+}
+
+.farmer-activity-count {
+  position: absolute;
+  right: -4px;
+  bottom: 0;
+  padding: 0 3px;
+  border-radius: 5px;
+  background: #fff1cf;
+  font-size: 12px;
+}
+
 .canvas {
   width: 100%;
   height: 100%;
@@ -467,6 +497,44 @@
   > h2 {
     margin-top: 0;
   }
+}
+
+.building-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.building-accordion-header {
+  margin: 0;
+}
+
+.building-accordion-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+
+  svg {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    transition: transform 150ms ease;
+  }
+
+  &[data-state="open"] svg { transform: rotate(180deg); }
+  @media (prefers-reduced-motion: reduce) {
+    svg { transition: none; }
+  }
+}
+
+.building-accordion-content {
+  padding: 0 8px;
+
+  &[data-state="closed"] { display: none; }
+  > .building-list { padding-left: 0; }
 }
 
 .building-list {

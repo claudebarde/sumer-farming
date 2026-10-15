@@ -7,7 +7,7 @@ import { getBuildingFootprint, validateBuildingPlacement, describeBuildingPlacem
 import { preservesBuildingAccess } from "../../src/game-core/farm/buildingAccess";
 
 describe("roadside farm layout", () => {
-  it.each([{ column: -5, row: 1 }, { column: 11, row: 1 }, { column: 3, row: -1 }, { column: 3, row: 4 }, { column: 8, row: 6 }])(
+  it.each([{ column: -5, row: 1 }, { column: 11, row: 1 }, { column: 3, row: -1 }, { column: 3, row: 4 }, { column: 7, row: 6 }, { column: 8, row: 9 }])(
     "rejects an oven crossing the plot edge at $column,$row even beside a road", target => {
       expect(getBuildingFootprint("breadOven", target).some(p => !isInsideBuildingPlot(p))).toBe(true);
       expect(validateBuildingPlacement({ building: "breadOven", target, existingBuildings: [], occupiedCoordinates: new Set(),

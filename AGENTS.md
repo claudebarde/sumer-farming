@@ -2,6 +2,16 @@
 
 Before making architectural decisions or implementing features, read `PROJECT.md`.
 
+## Feature discovery
+
+When the user asks for questions about a proposed feature, read and follow
+`docs/skills/feature-discovery/SKILL.md`. Consult it before implementing every new
+animation and clarify missing essential requirements. Reuse answers already
+provided; narrow tweaks to approved features do not require a fresh interview.
+Maintain its question catalogue by feature type as real discussions reveal new
+information needs, including previously unlisted edge cases. Discovery alone
+does not authorize implementation or Todoist task creation.
+
 Golden rule: production must never wait for on-screen animations. Persist a
 validated production job and reserve its ingredients as soon as the player starts
 it. The server owns preparation/start/completion timestamps (estimated travel is

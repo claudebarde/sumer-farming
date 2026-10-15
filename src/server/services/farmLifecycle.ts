@@ -63,6 +63,12 @@ export const advanceFarmLifecycle = async (
   now: Date
 ): Promise<FarmRecord> => {
   farm = await migrateFarmLand(transaction, farm, now);
+  const roads = farm.roads.filter(road => !road.removing || (road.completesAt ?? 0) > now.getTime());
+  if (roads.length !== farm.roads.length) {
+    const [updated] = await transaction.update(farms).set({ roads, updatedAt: now })
+      .where(eq(farms.id, farm.id)).returning();
+    farm = updated ?? farm;
+  }
   // Gathering completes from saved time, including while the tab is closed.
   // Leave the material in the farmer's hands for a player-directed drop/deposit.
   if (farm.gatheringItemKey && farm.gatheringCompletesAt && farm.gatheringCompletesAt <= now && !farm.carriedItemKey) {

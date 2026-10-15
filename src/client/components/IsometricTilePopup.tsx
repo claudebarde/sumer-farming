@@ -18,8 +18,9 @@ import { FISH_CAPACITY } from "../../game-data/fishing";
 import MapCuneiformLabel from "./MapCuneiformLabel";
 import { farmerNameCuneiform } from "../../game-data/farmerNameCuneiform";
 import { canPickupMillBags } from "../game/phaser/isometricMillDelivery";
+import { evaluateProgression } from "../../game-core/farm/progression";
 
-export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onSelect, onWalk, onDrop, onPickup, onGather, onFish, onFishTransfer, onBuildIrrigation, onBuildRoad, onStore, onDestroyBuilding, onDestroyMaterial, onMill, onPickupMill }: {
+export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onSelect, onWalk, onDrop, onPickup, onGather, onFish, onFishTransfer, onBuildIrrigation, onDestroyIrrigation, onDestroyRoad, onBuildRoad, onStore, onDestroyBuilding, onDestroyMaterial, onMill, onPickupMill, onClaimLevel }: {
   snapshot: FarmSnapshot; anchor: IsometricTileAnchor; now: number; onClose: () => void;
   onSelect: (mode: "plant" | "harvest", initial?: IsometricTileAnchor["cell"]) => void; onWalk: () => void; onDrop: () => void; onPickup: () => void; onBuildIrrigation: () => void; onBuildRoad: () => void;
   onStore: (granaryId?: string) => void;
@@ -28,12 +29,16 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
   onFishTransfer?: (action: "store" | "release") => void;
   onDestroyBuilding: (buildingId: string) => void;
   onDestroyMaterial: () => void;
+  onDestroyIrrigation: () => void;
+  onDestroyRoad?: () => void;
   onMill?: (recipe: MillRecipe) => void;
   onPickupMill?: (id: string) => void;
+  onClaimLevel?: () => void;
 }) {
   const content = isometricTilePopup(snapshot, anchor.cell, now);
   const farmer = anchor.kind === "farmer";
   const bags = anchor.kind === "millBags";
+  const progress = evaluateProgression(snapshot, now);
   const demolitionReason = content.building ? buildingDemolitionReason(snapshot, content.building.id, now) : null;
   const title = bags ? "Mill bags" : farmer ? snapshot.farm.farmerProfile?.identity.name ?? "Farmer" : content.title;
   const nameCuneiform = farmer ? farmerNameCuneiform(title) : "";
@@ -55,13 +60,13 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
       </div>
       <Popover.Close className={styles.popupClose} aria-label="Close tile popup"><span aria-hidden="true">×</span></Popover.Close>
       {farmer ? <>
-        <FarmerPopupStatus snapshot={snapshot} now={now} />
-        {snapshot.farm.carriedItem && <p>Carrying {snapshot.farm.carriedItem.quantity} {materialLabel(snapshot.farm.carriedItem.itemKey)}</p>}
+        <FarmerPopupStatus snapshot={snapshot} now={now} walking={anchor.walking} />
       </> : content.details.map(detail => <p key={detail}>{detail}</p>)}
       {!farmer && (content.home || content.building?.type === "warehouse") && <BuildingStorageTables location={content.home ? "farm" : "warehouse"} inventory={snapshot.inventory}
         barley={content.home ? snapshot.inventory.find(i => i.itemKey === "barley")?.quantity ?? 0 : content.building?.storedBarley ?? 0}
         warehouseComplete={warehouseComplete} showFish={(snapshot.farm.progression?.level ?? 1) >= 4} showDates={(snapshot.farm.progression?.level ?? 1) >= 9} />}
       <div className={styles.popupActions}>
+        {!farmer && !bags && content.home && progress.canClaim && onClaimLevel && <button onClick={onClaimLevel}>Claim level {progress.nextLevel}</button>}
         {bags && content.building && onPickupMill && canPickupMillBags(snapshot, content.building.id, now) && <button onClick={() => onPickupMill(content.building!.id)}>Store</button>}
         {!bags && <>
         {(farmer || content.home) && snapshot.farm.millGoods.delivery && onPickupMill && <button onClick={() => onPickupMill(snapshot.farm.millGoods.delivery!.millId)}>Store bags</button>}
@@ -79,7 +84,9 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
         {content.actions.gather && <button onClick={() => onGather(content.actions.gather!)}>Collect {materialLabel(content.actions.gather)}</button>}
         {content.actions.pickup && <button onClick={onPickup}>Pick up {materialLabel(content.groundItem!.itemKey)}</button>}
         {content.actions.irrigation && <button onClick={onBuildIrrigation}>Build irrigation canal</button>}
+        {content.actions.destroyIrrigation && <button onClick={onDestroyIrrigation}>Destroy</button>}
         {content.actions.road && <button onClick={onBuildRoad}>Build road</button>}
+        {content.actions.destroyRoad && <button onClick={onDestroyRoad}>Destroy</button>}
         {content.actions.drop && <button onClick={onDrop}>Drop {materialLabel(snapshot.farm.carriedItem!.itemKey)}</button>}
         {content.actions.plant && <button onClick={() => onSelect("plant", content.home ? undefined : anchor.cell)}>Plant barley</button>}
         {content.actions.harvest && <button onClick={() => onSelect("harvest", content.home ? undefined : anchor.cell)}>Harvest barley</button>}

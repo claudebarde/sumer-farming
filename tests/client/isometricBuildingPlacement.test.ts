@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
-import { mockGranaryPlacement, granaryBuildBlocker, granaryPlacement, buildingBuildBlocker, buildingPlacement } from "../../src/client/game/phaser/isometricBuildingPlacement";
+import { mockGranaryPlacement, granaryBuildBlocker, granaryPlacement, buildingBuildBlocker, buildingPlacement, constructionCommands, constructionSummary } from "../../src/client/game/phaser/isometricBuildingPlacement";
 
 const id = "00000000-0000-4000-8000-000000000001";
 const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shekelBalance: 0 },
@@ -9,6 +9,62 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
   inventory: [], objects: [], groundItems: [], crops: [], improvements: [], buildings: [] });
 const farmer = { column: 1, row: 5 };
 const target = { column: 4, row: 3 };
+
+it.each(["granary", "mill", "breadOven", "brewery"] as const)("allows southern non-arable %s placement but rejects any farmland overlap", type => {
+  const s = snapshot();
+  for (const column of [-4, -2, 8, 10]) {
+    expect(mockGranaryPlacement(s, { column, row: 6 }, farmer, 1000, false, type).rule.type).toBe("valid");
+  }
+  for (const column of [-1, 0, 6, 7]) {
+    expect(mockGranaryPlacement(s, { column, row: 6 }, farmer, 1000, false, type).rule.type).toBe("outside_building_ground");
+  }
+  expect(mockGranaryPlacement(s, { column: 8, row: 8 }, farmer, 1000, false, type).rule.type).toBe("road_access_required");
+  s.farm.roads = [{ column: 9, row: 6 }, { column: 9, row: 7 }];
+  expect(mockGranaryPlacement(s, { column: 8, row: 8 }, farmer, 1000, false, type).rule.type).toBe("valid");
+  s.farm.roads = [{ column: -3, row: 6 }, { column: -3, row: 7 }];
+  expect(mockGranaryPlacement(s, { column: -4, row: 8 }, farmer, 1000, false, type).rule.type).toBe("valid");
+});
+
+it("checks brewery unlock, availability, materials and stored brewing jars", () => {
+  const s = snapshot();
+  expect(buildingBuildBlocker(s, 1000, "brewery")).toBe("Unlock at level 6");
+  s.farm.progression = { level: 6, breadSold: 0, barleySold: 0, beerSold: 0, requestsDelivered: 0,
+    stats: { breadProduced: 0, processedBarley: 0, harvestedBarley: 0, harvests: 0, beerProduced: 0, fishFed: 0 } };
+  expect(buildingBuildBlocker(s, 1000, "brewery")).toContain("hands");
+  s.farm.carriedItem = null;
+  expect(buildingBuildBlocker(s, 1000, "brewery")).toContain("Gather");
+  s.inventory = [{ itemKey: "reed", quantity: 4 }, { itemKey: "clay", quantity: 6 }, { itemKey: "emptyBeerJar", quantity: 2 }];
+  expect(buildingBuildBlocker(s, 1000, "brewery")).toBe("Buy 2 brewing jars at the beer market.");
+  expect(buildingPlacement(s, target, farmer, 1000, "brewery").rule.type).toBe("missing_material");
+  s.inventory.push({ itemKey: "brewingVessels", quantity: 2 });
+  expect(buildingBuildBlocker(s, 1000, "brewery")).toBeNull();
+  expect(buildingPlacement(s, { column: 8, row: 6 }, farmer, 1000, "brewery")).toMatchObject({ rule: { type: "valid" }, loading: { column: 8, row: 5 } });
+  expect(constructionCommands.brewery).toBe("build_brewery");
+  expect(constructionSummary("brewery")).toBe("Build brewery · 4 reed · 6 clay · 2 brewing jars · 3 minutes");
+  s.farm.roads = [{ column: 5, row: 4, completesAt: 6000 }];
+  expect(buildingBuildBlocker(s, 1000, "brewery")).not.toBeNull();
+});
+
+it("builds the level-6 bread oven with its exact materials, tools and road access", () => {
+  const s = snapshot();
+  expect(buildingBuildBlocker(s, 1000, "breadOven")).toBe("Unlock at level 6");
+  s.farm.progression = { level: 6, breadSold: 0, barleySold: 0, beerSold: 0, requestsDelivered: 0,
+    stats: { breadProduced: 0, processedBarley: 0, harvestedBarley: 0, harvests: 0, beerProduced: 0, fishFed: 0 } };
+  expect(buildingBuildBlocker(s, 1000, "breadOven")).toContain("hands");
+  s.farm.carriedItem = null;
+  s.inventory = [{ itemKey: "reed", quantity: 4 }, { itemKey: "clay", quantity: 5 }];
+  expect(buildingBuildBlocker(s, 1000, "breadOven")).toContain("6 clay");
+  s.groundItems = [{ id, itemKey: "clay", quantity: 1, expiresAt: null, column: 8, row: 2 }];
+  expect(buildingBuildBlocker(s, 1000, "breadOven")).toContain("baking tools");
+  expect(buildingPlacement(s, target, farmer, 1000, "breadOven").rule.type).toBe("missing_material");
+  s.inventory.push({ itemKey: "bakingTools", quantity: 2 });
+  expect(buildingBuildBlocker(s, 1000, "breadOven")).toBeNull();
+  expect(buildingPlacement(s, target, farmer, 1000, "breadOven")).toMatchObject({ rule: { type: "valid" }, loading: { column: 4, row: 5 } });
+  expect(buildingPlacement(s, target, target, 1000, "breadOven").rule.type).toBe("footprint_occupied");
+  expect(buildingPlacement(s, { column: 4, row: 0 }, farmer, 1000, "breadOven").rule.type).toBe("road_access_required");
+  expect(constructionCommands.breadOven).toBe("build_bread_oven");
+  expect(constructionSummary("breadOven")).toBe("Build bread oven · 4 reed · 6 clay · 2 baking tools · 3 minutes");
+});
 
 it("enables mill placement at level 5 with dropped materials and empty hands", () => {
   const s = snapshot();

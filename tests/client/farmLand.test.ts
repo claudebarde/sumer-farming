@@ -12,7 +12,7 @@ describe("separate farming and building land", () => {
       expect(isArableGround(cell)).toBe(expected);
       expect(insidePlot(cell)).toBe(expected);
       if (expected) arable++;
-      expect(isBuildingGround(cell)).toBe(row < 5);
+      expect(isBuildingGround(cell)).toBe(!expected && ![5, 10, 11].includes(row));
     }
     expect(arable).toBe(32);
   });

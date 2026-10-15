@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
 import { farmerBuildTexture, FARMER_BUILD_SOURCES } from "../../src/client/game/phaser/farmerBuild";
-import { activeConstruction, isometricConstructionPose, constructionApproachPath } from "../../src/client/game/phaser/isometricConstruction";
+import { activeConstruction, isometricConstructionPose, constructionApproachPath, savedRoadApproach } from "../../src/client/game/phaser/isometricConstruction";
 import { pickupPose } from "../../src/client/game/phaser/isometricPickup";
 import { previewWalkable } from "../../src/client/game/phaser/isometricWalking";
 
@@ -12,13 +12,46 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
   inventory: [], objects: [], groundItems: [], crops: [], improvements: [], buildings: [] });
 
 describe("construction work presentation", () => {
-  it.each(["granary", "mill"])("resumes %s work at its loading tile and never replays completed construction", type => {
+  it.each([false, true])("walks before road work and resumes saved travel (removing=%s)", removing => {
     const s = snapshot();
+    const path = [{ column: 3, row: 5 }, { column: 4, row: 5 }, { column: 5, row: 5 }];
+    s.farm.roads = [{ column: 5, row: 4, removing, approachPath: path, completesAt: 6360 }];
+    const approach = savedRoadApproach(s, 1090)!;
+    expect(approach.startedAt).toBe(1000);
+    expect(pickupPose(approach.path, approach.startedAt, 1090)).toMatchObject({ walking: true, position: { column: 3.5, row: 5 } });
+    expect(savedRoadApproach(s, 1270)).toEqual(approach);
+    expect(pickupPose(approach.path, approach.startedAt, 1360).walking).toBe(false);
+    expect(activeConstruction(s, 1360)?.startedAt).toBe(1360);
+    expect(isometricConstructionPose(s, 1360)?.position).toEqual(path.at(-1));
+    expect(savedRoadApproach(s, 6360)).toBeNull();
+  });
+  it("keeps blocked road removal selectable for an explanatory toast", async () => {
+    const { isometricTilePopup } = await import("../../src/client/game/phaser/isometricTilePopup");
+    const s = snapshot();
+    s.farm.roads = [{ column: 5, row: 4 }, { column: 5, row: 3 }];
+    expect(isometricTilePopup(s, s.farm.roads[0]!, 1000).actions.destroyRoad).toBe(true);
+    expect(isometricTilePopup(s, { column: 5, row: 5 }, 1000).actions.destroyRoad).toBe(false);
+    s.farm.roads[0] = { column: 5, row: 4, removing: true, completesAt: 6000, approachPath: [{ column: 5, row: 5 }] };
+    expect(isometricTilePopup(s, s.farm.roads[0], 1000).actions.destroyRoad).toBe(false);
+    expect(isometricConstructionPose(s, 2000)?.position).toEqual({ column: 5, row: 5 });
+    expect(activeConstruction(s, 6000)).toBeNull();
+  });
+  it("resumes canal demolition with the same work pose and stops at its saved deadline", () => {
+    const s = snapshot();
+    s.improvements = [{ id, type: "irrigation", column: 3, row: 9, startedAt: date(0), completesAt: date(1), destroyStartedAt: date(1000), destroyCompletesAt: date(6000) }];
+    expect(activeConstruction(s, 4000)).toMatchObject({ startedAt: 1000, completesAt: 6000 });
+    expect(isometricConstructionPose(s, 4000)?.elapsed).toBe(3000);
+    expect(isometricConstructionPose(s, 6000)).toBeNull();
+  });
+  it.each(["granary", "mill", "breadOven", "brewery"])("resumes %s work at its loading tile and never replays completed construction", type => {
+    const s = snapshot();
+    const deadline = type === "breadOven" || type === "brewery" ? 181000 : 121000;
     s.buildings = FarmSnapshotSchema.parse({ ...s, buildings: [{ id, type, column: 4, row: 3,
       storedBarley: 0, brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0,
-      loadingTile: { column: 4, row: 5 }, startedAt: date(1000), completesAt: date(121000) }] }).buildings;
+      loadingTile: { column: 4, row: 5 }, startedAt: date(1000), completesAt: date(deadline) }] }).buildings;
     expect(isometricConstructionPose(s, 5000)?.position).toEqual({ column: 4, row: 5 });
-    expect(isometricConstructionPose(s, 121000)).toBeNull();
+    expect(isometricConstructionPose(s, deadline - 1)).not.toBeNull();
+    expect(isometricConstructionPose(s, deadline)).toBeNull();
     expect(isometricConstructionPose(s, 999999)).toBeNull();
   });
   it("walks to the closest reachable neighbour without crossing the excavation", () => {

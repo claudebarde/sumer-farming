@@ -1,5 +1,6 @@
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { ROAD_CONSTRUCTION_DURATION_MS } from "../../../game-data/roads";
+import { WORKER_MOVE_DURATION_PER_TILE } from "../../../game-data/movement";
 import { previewWalkable, previewWalkPath } from "./isometricWalking";
 import { isoPoint, type IsoCell } from "./isometricProjection";
 import { sameCell } from "./isometricFarm";
@@ -8,6 +9,15 @@ const constructionNeighbours = (target: IsoCell): readonly IsoCell[] => [
   { column: target.column - 1, row: target.row }, { column: target.column, row: target.row - 1 },
   { column: target.column + 1, row: target.row }, { column: target.column, row: target.row + 1 },
 ];
+
+/** Reconcile both road jobs from their saved route, including after a reload. */
+export const savedRoadApproach = (snapshot: FarmSnapshot, now: number) => {
+  const road = snapshot.farm.roads.find(r => r.approachPath?.length && (r.completesAt ?? 0) > now);
+  return road?.approachPath && road.completesAt ? {
+    path: road.approachPath, completesAt: road.completesAt,
+    startedAt: road.completesAt - ROAD_CONSTRUCTION_DURATION_MS - (road.approachPath.length - 1) * WORKER_MOVE_DURATION_PER_TILE
+  } : null;
+};
 
 /** Walk to a reachable neighbour, never through the tile being excavated. */
 export const constructionApproachPath = (snapshot: FarmSnapshot, from: IsoCell, target: IsoCell, now: number): readonly IsoCell[] | null => {
@@ -23,7 +33,11 @@ export const activeConstruction = (snapshot: FarmSnapshot, now: number) => {
   const building = snapshot.buildings.find(b => Date.parse(b.startedAt) <= now && Date.parse(b.completesAt) > now);
   if (building) return { target: { column: building.column, row: building.row }, workPosition: building.loadingTile,
     startedAt: Date.parse(building.startedAt), completesAt: Date.parse(building.completesAt) };
-  if (road) return { target: { column: road.column, row: road.row }, startedAt: road.completesAt! - ROAD_CONSTRUCTION_DURATION_MS, completesAt: road.completesAt! };
+  if (road) return { target: { column: road.column, row: road.row }, workPosition: road.approachPath?.at(-1), startedAt: road.completesAt! - ROAD_CONSTRUCTION_DURATION_MS, completesAt: road.completesAt! };
+  const demolition = snapshot.improvements.find(i => i.destroyStartedAt !== null && i.destroyCompletesAt !== null &&
+    Date.parse(i.destroyStartedAt) <= now && Date.parse(i.destroyCompletesAt) > now);
+  if (demolition) return { target: { column: demolition.column, row: demolition.row },
+    startedAt: Date.parse(demolition.destroyStartedAt!), completesAt: Date.parse(demolition.destroyCompletesAt!) };
   const canal = snapshot.improvements.find(i => i.destroyCompletesAt === null && Date.parse(i.startedAt) <= now && Date.parse(i.completesAt) > now);
   return canal ? { target: { column: canal.column, row: canal.row }, startedAt: Date.parse(canal.startedAt), completesAt: Date.parse(canal.completesAt) } : null;
 };

@@ -4,6 +4,49 @@ This is the living, player-facing reference for the game's implemented rules. Us
 
 ## Starting your farm
 
+The former level-signpost tile beside the farm is ordinary ground. Roads, canals
+and other ground actions follow their usual rules there; it is no longer reserved.
+
+Clay and reeds can be dropped onto an existing pile of the same material, up to
+five units per tile. Each drop adds one unit; mixed piles and barley stacking are
+not allowed. Every clay or reed pile shows a small quantity-only chip, including
+`1` for a single item, to indicate that it can be stacked. Picking up or
+destroying materials removes one unit, removing the pile when its last unit is gone.
+Picking up or destroying clay and reeds requires empty hands. Those buttons are
+hidden while carrying any item; dropping onto a matching pile remains available.
+
+At level 6, Manage → Build Bread Oven uses the shared isometric placement and
+confirmation flow. It needs a free 2×2 footprint beside a connected completed road
+with loading access, 4 reeds, 6 clay and 2 stored baking tools. Construction takes
+three minutes, with the existing farmer pickaxe animation, semi-transparent oven
+and progress bar. Its saved timer continues offline. This isometric migration
+currently covers construction and the completed building popup; baking controls
+and the busy oven animation are not yet connected in this view.
+
+The farm building popup shows **Claim level [number]** only when all requirements
+and offerings for the next level are ready. It uses the same claim, offering costs,
+unlock toast and celebration as the farm level dialog; otherwise the button is hidden.
+
+In the isometric farm, after 10 seconds without input, an idle, empty-handed farmer
+anywhere on the reachable map walks to the nearest of the farm's two front road
+tiles and sweeps, alternating between both tiles. Mouse movement, clicks, keyboard
+input or scrolling stops sweeping immediately. It is cosmetic: no resources,
+rewards or saved work timers change. The dog walks off the two sweeping tiles and
+keeps clear while sweeping continues. It does not run while the page is hidden or
+reduced motion is enabled. Sweeping begins only after he arrives; if there is no
+clear route, he waits and retries rather than teleporting. Sweeping takes priority
+over the older idle strolling behaviour whenever the front road tiles are reachable.
+
+After 20 seconds without player input, the dog wanders within three tiles of the
+farmer's current position, including while the farmer works. It uses its normal
+walking speed, pauses for 2–6 seconds, and avoids obstacles, crops, ground items
+and the farmer's work area. Mouse movement, clicks, keyboard input, scrolling or
+touch ends wandering and restores following, keeping clear of ongoing work.
+The dog uses position-based depth sorting like the farmer: visible in front of
+buildings and hidden when behind them. He still walks around their footprints.
+Blocked routes are retried without teleporting. Wandering is cosmetic, resets
+when leaving the scene, and is disabled while hidden or with reduced motion.
+
 In the isometric farm, click the farmer to see his saved name, **Happiness** and
 **Next meal** meters, whether or not he is carrying goods. Happiness is the
 existing wellbeing measure; there is no separate health statistic. Carried goods
@@ -77,10 +120,11 @@ building uses the same stage. Intermediate visual upgrades are not implemented y
 - Farmland is **8 tiles wide and 4 tiles deep**, entirely south of the main road and extending to the riverbank. There is no arable ground north of the road. Roads, canals and existing buildings occupy space that cannot also be planted. Gradual farmland expansion through farm levels is a future idea, not an implemented rule.
 - The road crosses the sixth row from the top. Irrigation canals can cross it using a bridge.
 - The default farm sits immediately right of the level signpost, above the road. The farmer starts on the road at the farm entrance; farm deliveries use this entrance too. Keep this entrance clear of other buildings' loading points and canals.
-- Click a ground or arable tile beside the main road or a player-built branch and choose **Build road**. Dirt roads are free and take five seconds of work after the farmer arrives. The server saves the completion time and reloading resumes unfinished work. Every new tile must share an edge with a completed road (diagonal contact is not enough). Roads stay within the farm map and cannot cross the river or replace fields, canals, buildings, reeds, or ground items.
+- Click a ground or arable tile beside the main road or a player-built branch and choose **Build road**. Dirt roads are free. The farmer walks from his current position to a reachable tile beside the site at his normal 180 ms per tile, then works with his pickaxe for five seconds. The server saves the approach route and completion time; reloading resumes elapsed travel or unfinished work instead of restarting it. Every new tile must share an edge with a completed road (diagonal contact is not enough). Roads stay within the farm map and cannot cross the river or replace fields, canals, buildings, reeds, or ground items.
+- Completed player-built roads offer **Destroy** when the farmer is available and empty-handed. The main road is permanent. Removal is refused with an explanatory toast if any remaining road would lose its edge-connected route to the main road, or if a building would lose its reserved loading tile. The server checks these rules too. The farmer walks to the road, then uses his pickaxe for five seconds; saved removal completes even after reloading. Free roads provide no refund.
 - Roads and irrigation canals can replace decorative rocks and bushes/trees: construction clears that scenery permanently. Reeds still block both, as do planted crops (including date palms). Normal connectivity and other placement requirements still apply; failed construction does not clear scenery.
 - Newly created farms start with 6–8 randomly placed decorations, including at least 3 rocks and 3 bushes, plus two riverbank reed sources. All occupy distinct non-arable tiles above the river, avoiding the main road and permanent buildings. Reeds, bushes and rocks cannot occupy farmland. On existing farms, scenery displaced by the expanded southern farmland moves to vacant non-arable ground; reeds remain beside the river. Existing goods, buildings and work are preserved; cleared scenery does not respawn.
-- New buildings occupy ordinary ground **north of the main road**, across the available map width, rather than farmland. Their entire footprint must be empty and border a connected road, reserving one exclusive, unoccupied road tile as their loading point. Placement highlights this tile. Loading points remain walkable. New canals cannot replace loading points or player-built roads.
+- New buildings can occupy ordinary **non-arable ground on either side of the main road**. Every tile of their footprint must be non-arable, empty and inside the map; even partial overlap with farmland, roads or water is forbidden. A free 2×2 footprint must border a completed connected road, reserving one exclusive, unoccupied road tile as its loading point. Placement highlights this tile. Loading points remain walkable. New canals cannot replace loading points or player-built roads. Existing saved buildings are not moved by this placement rule.
 - Finished flour/groats bags, beer jars, and bread baskets appear in the bottom-left tile inside their producing building's 2×2 footprint, drawn above the building with their quantity chip. They do not occupy surrounding road tiles. The farmer collects them from the building's road loading tile rather than walking onto the goods or into the building.
 - The farmer prefers connected roads, including for deliveries, but can leave them to reach fields and existing buildings. Buildings from older saves remain usable without road access and retain their existing output-placement fallback.
 - Barley is both a crop and its own seed: keep some for planting rather than consuming or selling everything.
@@ -186,6 +230,12 @@ accepted batch's total instead; the server's happiness limits are unchanged.
 - Clicking growing barley shows a small horizontal progress bar beneath its description, indicating progress from planting to harvest readiness.
 - Planting requires suitable irrigated ground. Connect canals to the river; an isolated canal does not provide a working water supply.
 - Canal construction and removal each take 5 seconds.
+- Select a completed canal and choose **Destroy** to have the farmer approach and
+  use his pickaxe to remove it. The farmer must be idle and empty-handed. The
+  button is hidden while any cardinally adjacent field contains crops (sown,
+  growing or ripe), or if removal would disconnect another canal from the river.
+  These crop/connectivity checks are also enforced by the server. Removal uses
+  saved timestamps and completes even if the page is closed or reloaded.
 - Exposed barley on the ground or carried by the farmer perishes after **3 days**. Store it to protect it.
 - The farm popup has no manual barley-withdrawal button. It shows a storage action when carrying barley, disabled if the farm is full; task-driven collection from farm storage remains available.
 - Ordinary pickups allow up to 2 barley at once. **Harvest multiple fields** allows **4 ripe fields at happiness 50% or below, 6 above 50% through 90%, and 8 above 90%**, not necessarily adjacent. The compact selection panel shows the selected count/limit and time estimate; its **Info** button opens a dialog with current happiness, capacity tiers, selection instructions, and harvesting details. Yellow stripes mark candidates and green stripes mark selected fields. At the limit, remaining ripe fields turn red; deselecting below the limit turns those candidates yellow again.
@@ -216,7 +266,7 @@ accepted batch's total instead; the server's happiness limits are unchanged.
 - Warehouse removal must not reduce capacity below existing shared stocks. All dates must be used or removed first if this is the only warehouse. No stored inventory is silently discarded.
 - Unused supplies inside an idle brewery are lost with it. Destroying a shrine ends its blessing. Both losses are stated in the confirmation dialog.
 - The server checks ownership, the latest farm version, storage and work state again on confirmation. The initial farm and other players' buildings cannot be removed through the API.
-- Granaries and mills can be built or rebuilt through Manage → Build in the isometric farm, paying the full construction cost. The mill unlocks at level 5, occupies 2×2 tiles and costs 2 reed and 4 clay; construction takes 2 minutes. Choose a green placement beside a completed connected road, then confirm. Cancelling placement spends nothing. The farmer walks to the loading tile and works with his pickaxe; the saved construction timer continues after reloading. Other building placement remains planned.
+- Granaries, mills, bread ovens and breweries can be built through Manage → Build in the isometric farm, paying the full construction cost. The mill unlocks at level 5, occupies 2×2 tiles and costs 2 reed and 4 clay; construction takes 2 minutes. The brewery unlocks at level 6, occupies 2×2 non-arable tiles and costs 4 reed, 6 clay and 2 stored brewing jars (not empty beer jars); construction takes 3 minutes. Its button checks materials, farmer availability and existing ownership like the bread oven. Choose a green placement beside a completed connected road, then confirm. Cancelling placement spends nothing. The farmer walks to the loading tile and works with his pickaxe; the saved construction timer continues after reloading. Brewery production controls and active artwork in the isometric view remain a separate migration step; other building placement remains planned.
 
 Buildings occupy a 2 × 2 footprint, except the Small shrine (1 × 1). All require suitable free space.
 
@@ -265,7 +315,7 @@ Bread baskets and finished beer jars show a disabled **No storage space** button
 
 The same rule applies to flour and groats at the mill. For mixed stacks, **Store** remains available if either resource present can fit; it shows **No storage space** only when none of the available bags can be stored.
 
-The warehouse uses four free northern ground tiles (2×2) and a connected road, just like other large buildings. It replaces the second granary unlock. Existing second granaries convert in place, retaining their barley and construction progress.
+The warehouse uses four free non-arable ground tiles (2×2) and a connected road, just like other large buildings. It replaces the second granary unlock. Existing second granaries convert in place, retaining their barley and construction progress.
 
 | Resource | Before warehouse | With completed warehouse |
 | --- | --- | --- |
@@ -289,7 +339,7 @@ When all material storage slots are occupied or reserved, the ground popup disab
 
 The farm remains the delivery point for materials and processed goods after building a warehouse. Finished products stay at their building until collected. Collection takes only what fits in the relevant resource's storage; remaining goods keep their sprite and chip. If space changes during delivery, excess goods return to the building's pending stock. Market purchases and listing returns also require storage space.
 
-To clear unwanted materials from ground tiles, click a dropped reed bundle or clay pile and choose **Destroy reeds** or **Destroy clay** in its popup. This immediately and permanently removes the selected pile's entire quantity, with no refund or transfer into storage. Resource totals update accordingly. Other piles and separately stored or carried materials are not removed. River reed plants are not destroyed by this action.
+To clear unwanted materials from ground tiles, click a dropped reed bundle or clay pile and choose **Destroy reeds** or **Destroy clay** in its popup. This immediately and permanently removes one unit, with no refund or transfer into storage; the pile disappears when empty. Resource totals update accordingly. Other piles and separately stored or carried materials are not removed. River reed plants are not destroyed by this action.
 
 In the isometric map, **Collect clay** is offered only on empty non-arable
 riverbank ground, not on arable tiles beside the river.
@@ -444,7 +494,9 @@ completed storage has fewer than 2 barley, both are replaced by the disabled
 before farm storage when topping up. On arrival, the farmer pushes the lever and
 a small progress bar shows milling progress. Finished batches display the existing
 bag sprite with their total count; the popup lists flour and groats separately.
-Click the bags to select their yellow footprint tile and choose **Store**.
+Click the bags to highlight their silhouette with a warm yellow outline and choose **Store**.
+Selected barley bundles, reeds and clay lying on the ground use the same yellow
+silhouette outline instead of highlighting the tile underneath.
 The farmer walks empty-handed to the mill's loading tile, collects the bags,
 then carries them to storage and faces the building while unloading. With only
 the farm available, he delivers there. Existing warehouse-first storage allocation
@@ -611,7 +663,7 @@ A no-brewery fallback offers 3, 2, and 4 barley for 5, 3, and 6 shekels respecti
 
 ## Small shrine (level 8)
 
-Build one **Small shrine** per farm at level 8. It occupies one empty northern ground tile beside a connected road, costs **2 reeds and 4 clay**, and takes **2 minutes** to build.
+Build one **Small shrine** per farm at level 8. It occupies one empty non-arable ground tile beside a connected road, costs **2 reeds and 4 clay**, and takes **2 minutes** to build.
 
 - Choose **Offer 2 bread** or **Offer 2 beer**. With empty hands, the farmer walks to the farm building, collects the chosen goods, and carries them to the shrine. The offering is charged and its blessing begins when delivery succeeds. Reloading before delivery cancels the uncharged trip; choose the offering again.
 - The blessing slows natural happiness decay by **25% for 12 hours**, including time offline. It does not restore happiness, replace barley meals, prevent hunger, or change treat cooldowns.

@@ -8,7 +8,6 @@ import {
   type FarmBuildingType
 } from "../../game-data/buildings";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
-import { isProgressionSignpost } from "../../game-data/progression";
 import type { InventoryItemKey } from "../../game-data/inventoryItems";
 
 export type BuildingCoordinate = {
@@ -65,10 +64,6 @@ export const validateBuildingPlacement = (context: {
   }
   const footprint = getBuildingFootprint(context.building, context.target);
 
-  if (footprint.some(isProgressionSignpost)) {
-    return { type: "footprint_occupied" };
-  }
-
   if (!footprint.every(isInsideBuildingPlot)) {
     return { type: "outside_building_ground" };
   }
@@ -120,7 +115,7 @@ export const describeBuildingPlacementRule = (
     .with({ type: "road_access_required" }, () => "Build beside a connected road, with a free road tile for this building's loading point.")
     .with(
       { type: "outside_building_ground" },
-      () => "Build entirely on the ground north of the main road."
+      () => "Build entirely on non-arable ground, away from roads and water."
     )
     .with(
       { type: "footprint_occupied" },

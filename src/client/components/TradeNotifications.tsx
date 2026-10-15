@@ -44,10 +44,10 @@ function TradeToast({ trade }: { readonly trade: GameNotification }) {
       onPointerUp={event => event.stopPropagation()}
     >
       <Toast.Title className={styles.title}>
-        {trade.type === "building_ready" ? buildingReadinessText(trade.building).title : trade.type === "level_up" ? `Congratulations! Farm level ${trade.level}!` : trade.type === "building_upgrade" ? "Building upgrade started" : trade.type === "porter_hire" ? "Porter hired" : trade.type === "request_reward" ? "Request delivered" : trade.type === "market_sale" ? "Sale completed" : "Purchase completed"}
+        {trade.type === "action_error" ? "Road cannot be removed" : trade.type === "building_ready" ? buildingReadinessText(trade.building).title : trade.type === "level_up" ? `Congratulations! Farm level ${trade.level}!` : trade.type === "building_upgrade" ? "Building upgrade started" : trade.type === "porter_hire" ? "Porter hired" : trade.type === "request_reward" ? "Request delivered" : trade.type === "market_sale" ? "Sale completed" : "Purchase completed"}
       </Toast.Title>
       <Toast.Description className={styles.description}>
-        {trade.type === "building_ready" ? buildingReadinessText(trade.building).description : trade.type === "level_up" ? <>{LEVEL_NAMES[trade.level]}<span>Unlocked: {LEVEL_UNLOCKS[trade.level]}.</span></> : <>
+        {trade.type === "action_error" ? trade.message : trade.type === "building_ready" ? buildingReadinessText(trade.building).description : trade.type === "level_up" ? <>{LEVEL_NAMES[trade.level]}<span>Unlocked: {LEVEL_UNLOCKS[trade.level]}.</span></> : <>
           {trade.type === "building_upgrade" ? `Paid ${trade.total} shekels.` : trade.type === "porter_hire" ? `Automatic collection for 24 hours · ${trade.total} shekels.` : trade.type === "request_reward" ? `${trade.requestCustomer}: earned ${trade.total} shekels.` : <>{trade.type === "market_sale" ? "Sold" : "Bought"} {trade.quantity} {trade.itemKey === "beer" ? (trade.quantity === 1 ? "beer jar" : "beer jars") : trade.itemKey === "brewingVessels" || trade.itemKey === "emptyBeerJar" ? MARKET_ITEM_DEFINITIONS[trade.itemKey].label.toLowerCase() : trade.itemKey} for {trade.total} {trade.total === 1 ? "shekel" : "shekels"}.</>}
           <span>{trade.type === "porter_hire" || trade.type === "building_upgrade" ? "Estate service" : trade.source === "npc" ? "NPC market" : "Player market"}</span>
         </>}

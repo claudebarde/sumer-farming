@@ -1477,9 +1477,30 @@ cuneiform labels. This cap does not apply to full dialogs such as markets or far
 
 ## 34. Build drawer convention
 
+Group the isometric catalogue in a Radix Accordion: Available, Already built,
+and Future unlocks. Only Available starts open. Unlocked buildings remain there
+when missing materials or when the farmer is busy; existing construction sites
+count as already built. Keep each group in unlock-level order and let the player
+expand or collapse sections independently.
+Already built cards show only the building image, name and description. Omit
+dimensions, construction time, material requirements, status and action buttons.
+Future unlock cards also omit dimensions, construction time and materials, but
+retain the disabled `Unlock at level [level]` button.
+
 List buildings in unlock-level order. Each entry shows its sprite and name,
 then footprint, construction time and required materials, then its description,
 and finally its build button.
+
+In the isometric catalogue, show construction requirements as compact visual
+rows: material icon, name, available/required quantity and horizontal progress.
+Place footprint and building time above those rows. Use the full card width
+inside the existing drawer/accordion bounds; do not widen the drawer. Clamp
+progress fills at 100% while retaining the actual available quantity. Reuse the
+same inventory eligibility as construction, including dropped reeds/clay but
+excluding carried materials.
+Do not repeat material shortages as Gather/Buy reminders below these rows.
+Keep material validation on Build buttons; only non-material availability status
+(such as occupied farmer or full hands) needs an additional message.
 
 Level-locked building buttons use exactly `Unlock at level [level]`, including
 future buildings. Use the relevant upgrade level for additional buildings (for

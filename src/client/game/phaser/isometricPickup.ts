@@ -24,7 +24,8 @@ export type GroundTransfer = {
 export const transferGroundItems = (items: FarmSnapshot["groundItems"], transfer: GroundTransfer | null) => {
   if (!transfer || transfer.type === "store") return items;
   const other = items.filter(item => item.id !== transfer.item.id);
-  return transfer.type === "pickup" ? [...other, transfer.item] : other;
+  return transfer.type === "pickup" ? [...other, transfer.item]
+    : transfer.item.quantity > 1 ? [...other, { ...transfer.item, quantity: transfer.item.quantity - 1 }] : other;
 };
 
 /** Presentation only. The server has already committed the pickup or drop. */

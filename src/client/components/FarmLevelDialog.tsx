@@ -9,10 +9,9 @@ import {
   LEVEL_UNLOCK_ITEMS
 } from "../../game-data/progression";
 import { HAPPINESS_MANAGEMENT_LEVEL } from "../../game-data/household";
-import { executeGameCommand } from "../api/gameActions";
+import { claimFarmLevel } from "../api/claimFarmLevel";
 import { farmStore } from "../stores/farmStore";
 import { levelUiStore } from "../stores/levelUiStore";
-import { notificationStore } from "../stores/notificationStore";
 import { marketUiStore } from "../stores/marketUiStore";
 import styles from "../styles/GameCanvas.module.scss";
 
@@ -40,27 +39,9 @@ export default function FarmLevelDialog({ onLevelClaimed }: { onLevelClaimed?: (
     setPending(true);
     setMessage(null);
     try {
-      const snapshot = await executeGameCommand({
-        type: "claim_farm_level",
-        expectedLevel: progress.level,
-        expectedFarmVersion: farm.snapshot.farm.version
-      });
-      const current = farmStore.getState().farm;
-      if (
-        current.type === "ready" &&
-        current.snapshot.farm.id === snapshot.farm.id
-      ) {
-        farmStore.getState().setReady(snapshot);
-        if (snapshot.farm.progression!.level > progress.level) {
-          notificationStore
-            .getState()
-            .notifyLevel(
-              snapshot.farm.playerId,
-              snapshot.farm.id,
-              snapshot.farm.progression!.level
-            );
-          onLevelClaimed?.(snapshot.farm.id, snapshot.farm.progression!.level);
-        }
+      const snapshot = await claimFarmLevel();
+      if (snapshot) {
+        onLevelClaimed?.(snapshot.farm.id, snapshot.farm.progression!.level);
         setMessage(
           `Level ${snapshot.farm.progression!.level} reached! Unlocked: ${LEVEL_UNLOCKS[snapshot.farm.progression!.level]}.${snapshot.farm.progression!.level === HAPPINESS_MANAGEMENT_LEVEL ? " Your farmer now needs occasional treats to stay happy. Catch a fish and feed him to boost happiness." : ""}`
         );

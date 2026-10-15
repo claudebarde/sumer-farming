@@ -23,6 +23,8 @@ import {
 import { advanceFarmLifecycle } from "../../src/server/services/farmLifecycle";
 import {
   depositCarriedItem,
+  dropCarriedItem,
+  pickupGroundItem,
   destroyGroundMaterial,
   depositCarriedItemInGranary,
   withdrawBarleyFromGranary,
@@ -338,8 +340,8 @@ describe.sequential("farm item storage actions", () => {
     expect(exposedBarley).toHaveLength(0);
   });
 
-  it.each(["reed", "clay"] as const)("destroys only the selected ground %s pile permanently", async itemKey => {
-    const f = await createFixture({ carriedItem: { itemKey, quantity: 1 } });
+  it.each(["reed", "clay"] as const)("destroys one unit of the selected ground %s pile", async itemKey => {
+    const f = await createFixture({});
     const [pile, other] = await database.insert(farmGroundItems).values([
       { farmId: f.farmId, itemKey, quantity: 2, column: 1, row: 2 },
       { farmId: f.farmId, itemKey, quantity: 1, column: 2, row: 2 }
@@ -347,13 +349,43 @@ describe.sequential("farm item storage actions", () => {
     await database.insert(farmInventory).values({ farmId: f.farmId, itemKey, quantity: 3 });
     const input = { playerId: f.playerId, groundItemId: pile!.id, expectedFarmVersion: 1 };
     const snapshot = await Effect.runPromise(destroyGroundMaterial(database, input));
-    expect(snapshot.groundItems.map(i => i.id)).toEqual([other!.id]);
+    expect(snapshot.groundItems.find(i => i.id === pile!.id)?.quantity).toBe(1);
+    expect(snapshot.groundItems.find(i => i.id === other!.id)?.quantity).toBe(1);
     expect(snapshot.inventory).toContainEqual({ itemKey, quantity: 3 });
-    expect(snapshot.farm.carriedItem).toMatchObject({ itemKey, quantity: 1 });
+    expect(snapshot.farm.carriedItem).toBeNull();
     expect(snapshot.farm.version).toBe(2);
     await expect(Effect.runPromise(Effect.flip(destroyGroundMaterial(database, input))))
       .resolves.toMatchObject({ rule: { type: "version_conflict" } });
-    expect(await database.select().from(farmGroundItems).where(eq(farmGroundItems.id, pile!.id))).toHaveLength(0);
+    const final = await Effect.runPromise(destroyGroundMaterial(database, { ...input, expectedFarmVersion: 2 }));
+    expect(final.groundItems.map(i => i.id)).toEqual([other!.id]);
+  });
+
+  it.each(["reed", "clay"] as const)("caps matching %s piles at five and rejects mixed drops", async itemKey => {
+    const f = await createFixture({ carriedItem: { itemKey, quantity: 2 } });
+    const target = { column: 4, row: 2 };
+    await database.insert(farmGroundItems).values({ farmId: f.farmId, itemKey, quantity: 4, ...target });
+    const input = { playerId: f.playerId, target, expectedFarmVersion: 1 };
+    const next = await Effect.runPromise(dropCarriedItem(database, input));
+    expect(next.groundItems.find(i => i.column === 4 && i.row === 2)?.quantity).toBe(5);
+    expect(next.farm.carriedItem?.quantity).toBe(1);
+    await expect(Effect.runPromise(Effect.flip(dropCarriedItem(database, { ...input, expectedFarmVersion: next.farm.version }))))
+      .resolves.toMatchObject({ rule: { type: "ground_tile_occupied" } });
+    await database.update(farmGroundItems).set({ itemKey: itemKey === "reed" ? "clay" : "reed", quantity: 1 })
+      .where(eq(farmGroundItems.farmId, f.farmId));
+    await expect(Effect.runPromise(Effect.flip(dropCarriedItem(database, { ...input, expectedFarmVersion: next.farm.version }))))
+      .resolves.toMatchObject({ rule: { type: "ground_tile_occupied" } });
+  });
+
+  it.each(["reed", "clay"] as const)("rejects %s pickup and destruction while carrying goods", async itemKey => {
+    const f = await createFixture({ carriedItem: { itemKey, quantity: 1 } });
+    const target = { column: 4, row: 2 };
+    const [pile] = await database.insert(farmGroundItems).values({ farmId: f.farmId, itemKey, quantity: 3, ...target }).returning();
+    await expect(Effect.runPromise(Effect.flip(pickupGroundItem(database, { playerId: f.playerId, target, expectedFarmVersion: 1 }))))
+      .resolves.toMatchObject({ rule: { type: "farmer_hands_not_empty" } });
+    await expect(Effect.runPromise(Effect.flip(destroyGroundMaterial(database, { playerId: f.playerId, groundItemId: pile!.id, expectedFarmVersion: 1 }))))
+      .resolves.toMatchObject({ rule: { type: "farmer_hands_not_empty" } });
+    const [unchanged] = await database.select().from(farmGroundItems).where(eq(farmGroundItems.id, pile!.id));
+    expect(unchanged?.quantity).toBe(3);
   });
 
   it("cannot destroy another farm's materials or barley", async () => {

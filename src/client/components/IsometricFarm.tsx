@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Phaser from "phaser";
+import { roadRemovalReason } from "../../game-core/farm/roads";
 import type { FarmSnapshot } from "../../schemas/farm";
 import { fetchDevelopmentFarm } from "../api/developmentPlayer";
 import { executeGameCommand } from "../api/gameActions";
@@ -22,6 +23,8 @@ import { canVisitIsometricMarket, isometricTradeScope } from "../game/phaser/iso
 import styles from "../styles/IsometricTest.module.scss";
 import MarketDialog from "./MarketDialog";
 import FarmLevelDialog from "./FarmLevelDialog";
+import { constructionCommands, constructionNames, constructionSummary } from "../game/phaser/isometricBuildingPlacement";
+import { claimFarmLevel } from "../api/claimFarmLevel";
 import BarleyWorkProgress from "./BarleyWorkProgress";
 import { sowingProgress } from "../game/phaser/isometricPlanting";
 import { harvestingProgress } from "../game/phaser/isometricHarvesting";
@@ -185,7 +188,7 @@ export default function IsometricFarm() {
     if (check.rule.type !== "valid") return;
     submitting.current = true; setPending(true); setBuildingError(null);
     try {
-      const next = await executeGameCommand({ type: buildingType === "granary" ? "build_granary" : "build_mill", target: buildingTarget, expectedFarmVersion: farm.farm.version });
+      const next = await executeGameCommand({ type: constructionCommands[buildingType], target: buildingTarget, expectedFarmVersion: farm.farm.version });
       if (!mounted.current) return;
       const building = next.buildings.find(b => b.type === buildingType && sameCell(b, buildingTarget));
       renderer.endBuildingPlacement(); setPlacingBuilding(false); setBuildingTarget(null);
@@ -412,13 +415,17 @@ export default function IsometricFarm() {
       if (mounted.current) { setPending(false); renderer.setPlantingSelection(null, false); refresh.current(); }
     }
   };
-  const tileAction = async (type: "pickup_ground_item" | "drop_carried_item" | "build_irrigation" | "build_road" | "destroy_ground_material") => {
+  const tileAction = async (type: "pickup_ground_item" | "drop_carried_item" | "build_irrigation" | "destroy_irrigation" | "build_road" | "destroy_road" | "destroy_ground_material") => {
     const farm = current.current;
     if (!farm || !information || submitting.current) return;
     const target = information.cell;
     const action = isometricTilePopup(farm, target, Date.now());
-    const allowed = { destroy_ground_material: action.actions.destroyMaterial, pickup_ground_item: action.pickup && !action.pickupDisabled, drop_carried_item: action.drop && !action.dropDisabled, build_irrigation: action.irrigation && !action.irrigationDisabled, build_road: action.road && !action.roadDisabled };
+    const allowed = { destroy_road: action.actions.destroyRoad, destroy_irrigation: action.actions.destroyIrrigation, destroy_ground_material: action.actions.destroyMaterial, pickup_ground_item: action.pickup && !action.pickupDisabled, drop_carried_item: action.drop && !action.dropDisabled, build_irrigation: action.irrigation && !action.irrigationDisabled, build_road: action.road && !action.roadDisabled };
     if (!allowed[type]) return;
+    if (type === "destroy_road") {
+      const reason = roadRemovalReason(target, farm.farm.roads, farm.buildings.flatMap(b => b.loadingTile ? [b.loadingTile] : []), Date.now());
+      if (reason) { notificationStore.getState().notifyError(reason); return; }
+    }
     const materialDrop = type === "drop_carried_item" &&
       (farm.farm.carriedItem?.itemKey === "reed" || farm.farm.carriedItem?.itemKey === "clay");
     if (materialDrop) notificationStore.getState().setMaterialDrop(farm.farm.id);
@@ -428,21 +435,28 @@ export default function IsometricFarm() {
       const transfer = type === "pickup_ground_item" ? "pickup" : type === "drop_carried_item" ? "drop" : null;
       const path = transfer ? pickupPath(farm, scene.current?.farmerPosition() ?? target, target, Date.now()) : null;
       if (transfer && !path) throw new Error("No clear path to this tile.");
-      const approach = type === "build_irrigation" ? constructionApproachPath(farm, scene.current?.farmerPosition() ?? target, target, Date.now()) : null;
-      if (type === "build_irrigation" && !approach) throw new Error("No clear path to this construction site.");
+      const constructionWork = type === "build_irrigation" || type === "destroy_irrigation" || type === "destroy_road" || type === "build_road";
+      const approach = constructionWork ? constructionApproachPath(farm, scene.current?.farmerPosition() ?? target, target, Date.now()) : null;
+      if (constructionWork && !approach) throw new Error("No clear path to this construction site.");
       const next = await executeGameCommand(type === "destroy_ground_material"
         ? { type, groundItemId: action.groundItem!.id, expectedFarmVersion: farm.farm.version }
+        : type === "destroy_road" || type === "build_road" ? { type, target, farmerPosition: scene.current?.farmerPosition(), expectedFarmVersion: farm.farm.version }
         : { type, target, expectedFarmVersion: farm.farm.version });
       if (!mounted.current) return;
       const item = (transfer === "drop" ? next : farm).groundItems.find(item => item.column === target.column && item.row === target.row);
       const canal = approach ? next.improvements.find(i => i.column === target.column && i.row === target.row) : undefined;
-      const duration = approach && canal ? scene.current?.presentConstructionApproach(approach, Date.parse(canal.completesAt)) ?? 0
+      const road = approach ? next.farm.roads.find(r => r.column === target.column && r.row === target.row) : undefined;
+      const duration = approach && road?.completesAt ? scene.current?.presentConstructionApproach(road.approachPath ?? approach, road.completesAt) ?? 0 : approach && canal ? scene.current?.presentConstructionApproach(approach, Date.parse(canal.destroyCompletesAt ?? canal.completesAt)) ?? 0
         : transfer && path && item ? scene.current?.presentGroundTransfer(transfer, path, item, farm.farm.carriedItem?.quantity ?? 0) ?? 0 : 0;
       accept.current(next); scene.current?.clearSelection();
       // Only locks local controls. Never defer the server command to animation completion.
       if (duration) await new Promise<void>(resolve => window.setTimeout(resolve, duration));
     } catch (cause) {
-      if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not complete the action. Refresh before retrying.");
+      if (mounted.current) {
+        const message = cause instanceof Error ? cause.message : "Could not complete the action. Refresh before retrying.";
+        if (type === "destroy_road") notificationStore.getState().notifyError(message);
+        else setError(message);
+      }
     } finally {
       submitting.current = false;
       if (materialDrop && notificationStore.getState().materialDropFarmId === farm.farm.id) notificationStore.getState().setMaterialDrop(null);
@@ -477,9 +491,9 @@ export default function IsometricFarm() {
       renderer.celebrateLevel(level);
     }} />
     {placingBuilding && <aside className={styles.planting} aria-label={`${buildingType} placement`}>
-      <p role="status">{buildingError ?? buildReason ?? (buildingTarget ? `Build ${buildingType} · 2 reed · ${buildingType === "granary" ? 3 : 4} clay · 2 minutes` : `Choose a location for the ${buildingType}`)}</p>
+      <p role="status">{buildingError ?? buildReason ?? (buildingTarget ? constructionSummary(buildingType) : `Choose a location for the ${constructionNames[buildingType]}`)}</p>
       <div>
-        {buildingTarget && !buildReason && <button disabled={pending} onClick={() => void constructBuilding()}>{pending ? "Building…" : `Build ${buildingType}`}</button>}
+        {buildingTarget && !buildReason && <button disabled={pending} onClick={() => void constructBuilding()}>{pending ? "Building…" : `Build ${constructionNames[buildingType]}`}</button>}
         {buildingTarget && <button disabled={pending} onClick={() => beginBuilding(buildingType)}>Choose another location</button>}
         <button disabled={pending} onClick={cancelBuilding}>Cancel</button>
       </div>
@@ -507,6 +521,16 @@ export default function IsometricFarm() {
           else if (!scene.current?.goToMarket()) setError("Cannot reach the market right now.");
         }} />
       : <IsometricTilePopup snapshot={snapshot} anchor={information} now={clock}
+      onClaimLevel={() => {
+        setPending(true);
+        void claimFarmLevel().then(next => {
+          if (!mounted.current || !next || current.current?.farm.id !== next.farm.id) return;
+          scene.current?.clearSelection(); setInformation(null);
+          if (activeScene.current === scene.current) scene.current?.celebrateLevel(next.farm.progression!.level);
+        }).catch(cause => {
+          if (mounted.current) setError(cause instanceof Error ? cause.message : "The level could not be claimed.");
+        }).finally(() => { if (mounted.current) setPending(false); });
+      }}
       onDestroyBuilding={id => { scene.current?.clearSelection(); setInformation(null); setDemolitionId(id); }}
       onStore={granaryId => void storeBarley(granaryId)}
       onGather={itemKey => void gather(itemKey)}
@@ -516,7 +540,7 @@ export default function IsometricFarm() {
       onFishTransfer={action => void transferFish(action)}
       onPickup={() => void tileAction("pickup_ground_item")}
       onDestroyMaterial={() => void tileAction("destroy_ground_material")}
-      onClose={() => scene.current?.clearSelection()} onSelect={beginSelection} onWalk={() => scene.current?.walkTo(information.cell)} onDrop={() => void tileAction("drop_carried_item")} onBuildIrrigation={() => void tileAction("build_irrigation")} onBuildRoad={() => void tileAction("build_road")} />)}
+      onClose={() => scene.current?.clearSelection()} onSelect={beginSelection} onWalk={() => scene.current?.walkTo(information.cell)} onDrop={() => void tileAction("drop_carried_item")} onBuildIrrigation={() => void tileAction("build_irrigation")} onDestroyIrrigation={() => void tileAction("destroy_irrigation")} onBuildRoad={() => void tileAction("build_road")} onDestroyRoad={() => void tileAction("destroy_road")} />)}
     {!(location === "farm" && snapshot?.farm.fishing) && <p className={styles.status}>{selection !== null ? "Tap yellow fields to select · Green fields are selected" : "Tap a tile for actions · Drag to pan"}</p>}
   </section>;
 }

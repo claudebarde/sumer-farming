@@ -18,7 +18,7 @@ export const FarmSnapshotSchema = z.object({
   }),
   farm: z.object({
     farmerProfile: FarmerProfileSchema.nullish(),
-    roads: z.array(z.object({ column: z.int(), row: z.int(), completesAt: z.number().optional() })).default([]),
+    roads: z.array(z.object({ column: z.int(), row: z.int(), completesAt: z.number().optional(), removing: z.boolean().optional(), approachPath: z.array(z.object({ column: z.int(), row: z.int() })).optional() })).default([]),
     production: ProductionStateSchema.default(emptyProductionState),
     milling: MillingJobSchema.nullable().default(null),
     millGoods: MillGoodsSchema.default(emptyMillGoods),

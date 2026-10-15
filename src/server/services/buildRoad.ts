@@ -4,17 +4,20 @@ import { farmDecorationTypes, isClearableScenery } from "../../game-data/farmObj
 import { ROAD_CONSTRUCTION_DURATION_MS, roadIsComplete } from "../../game-data/roads";
 import { Data, Effect } from "effect";
 import { getBuildingFootprint } from "../../game-core/farm/buildings";
-import { roadKey, validateRoadPlacement } from "../../game-core/farm/roads";
+import { roadKey, roadRemovalReason, validateRoadPlacement } from "../../game-core/farm/roads";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import type { GameCommand } from "../../schemas/gameCommands";
 import type { Database } from "../db/client";
 import { farms, farmObjects } from "../db/schema";
 import { readFarmSnapshot } from "./farmSnapshot";
+import { porterPath } from "../../game-core/farm/porter";
+import { roadNeighbors } from "../../game-core/farm/roads";
+import { WORKER_MOVE_DURATION_PER_TILE } from "../../game-data/movement";
 
 export class RoadRuleError extends Data.TaggedError("RoadRuleError")<{ readonly message: string }> {}
 export class RoadPersistenceError extends Data.TaggedError("RoadPersistenceError")<{ readonly cause: unknown }> {}
 
-export const buildRoad = (database: Database, input: Extract<GameCommand, { type: "build_road" }> & { readonly playerId: string }) => Effect.gen(function* () {
+export const buildRoad = (database: Database, input: Extract<GameCommand, { type: "build_road" | "destroy_road" }> & { readonly playerId: string }) => Effect.gen(function* () {
   const result = yield* Effect.tryPromise({
     try: () => database.transaction(async tx => {
       const fail = (message: string) => new RoadRuleError({ message });
@@ -32,13 +35,31 @@ export const buildRoad = (database: Database, input: Extract<GameCommand, { type
         ...snapshot.buildings.flatMap(b => getBuildingFootprint(b.type, b)),
         ...getBuildingFootprint("granary", { column: INITIAL_FARM_CONFIG.buildingBounds.minimumColumn, row: INITIAL_FARM_CONFIG.buildingBounds.minimumRow })
       ].map(roadKey));
-      const reason = validateRoadPlacement(input.target, snapshot.farm.roads, occupied);
+      const reason = input.type === "destroy_road"
+        ? roadRemovalReason(input.target, snapshot.farm.roads, snapshot.buildings.flatMap(b => b.loadingTile ? [b.loadingTile] : []), now)
+        : validateRoadPlacement(input.target, snapshot.farm.roads, occupied, now);
       if (reason) return fail(reason);
+      const buildings = snapshot.buildings.map(b => ({ ...b, completesAt: Date.parse(b.completesAt) }));
+      const obstacles = [...snapshot.objects, ...snapshot.improvements.filter(i => i.row !== INITIAL_FARM_CONFIG.roadRow), input.target];
+      const paths = roadNeighbors(input.target).flatMap(tile => {
+        const path = porterPath(buildings, snapshot.farm.roads, input.farmerPosition ?? INITIAL_FARM_CONFIG.farmerSpawn, tile, now, obstacles);
+        return path ? [path] : [];
+      });
+      const approachPath = paths.sort((a, b) => a.length - b.length)[0];
+      if (!approachPath) return fail("The farmer cannot reach this road tile.");
+      const completesAt = now + (approachPath.length - 1) * WORKER_MOVE_DURATION_PER_TILE + ROAD_CONSTRUCTION_DURATION_MS;
+      if (input.type === "destroy_road") {
+        const roads = snapshot.farm.roads.map(road => roadKey(road) === roadKey(input.target)
+          ? { ...road, removing: true, approachPath, completesAt } : road);
+        const [updated] = await tx.update(farms).set({ roads, version: sql`${farms.version} + 1`, updatedAt: new Date(now) })
+          .where(eq(farms.id, farm.id)).returning();
+        return readFarmSnapshot(tx, updated!, false);
+      }
       await tx.delete(farmObjects).where(and(
         eq(farmObjects.farmId, farm.id), eq(farmObjects.column, input.target.column),
         eq(farmObjects.row, input.target.row), inArray(farmObjects.type, [...farmDecorationTypes])
       ));
-      const [updated] = await tx.update(farms).set({ roads: [...snapshot.farm.roads, { ...input.target, completesAt: now + ROAD_CONSTRUCTION_DURATION_MS }], version: sql`${farms.version} + 1`, updatedAt: new Date(now) }).where(eq(farms.id, farm.id)).returning();
+      const [updated] = await tx.update(farms).set({ roads: [...snapshot.farm.roads, { ...input.target, approachPath, completesAt }], version: sql`${farms.version} + 1`, updatedAt: new Date(now) }).where(eq(farms.id, farm.id)).returning();
       return readFarmSnapshot(tx, updated!, false);
     }), catch: cause => new RoadPersistenceError({ cause })
   });

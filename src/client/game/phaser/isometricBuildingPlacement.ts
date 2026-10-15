@@ -8,17 +8,35 @@ import type { IsoCell } from "./isometricProjection";
 import { granaryLimitForLevel } from "../../../game-data/progression";
 import { plantingBlocker } from "./isometricPlanting";
 
-export type PlaceableBuilding = "granary" | "mill";
-export const buildingBuildBlocker = (snapshot: FarmSnapshot, now: number, type: PlaceableBuilding): string | null => {
-  const unlock = type === "granary" ? 2 : 5;
+export type PlaceableBuilding = "granary" | "mill" | "breadOven" | "brewery";
+export const constructionNames = { granary: "granary", mill: "mill", breadOven: "bread oven", brewery: "brewery" } as const;
+export const constructionCommands = { granary: "build_granary", mill: "build_mill", breadOven: "build_bread_oven", brewery: "build_brewery" } as const;
+export const constructionSummary = (type: PlaceableBuilding) => {
+  const definition = FARM_BUILDING_DEFINITIONS[type];
+  return `Build ${constructionNames[type]} · ${Object.entries(definition.materials).map(([key, quantity]) => `${quantity} ${key === "bakingTools" ? "baking tools" : key === "brewingVessels" ? "brewing jars" : key}`).join(" · ")} · ${definition.constructionDurationMs / 60000} minutes`;
+};
+const availableMaterials = (snapshot: FarmSnapshot) => ({
+  reed: [...snapshot.inventory, ...snapshot.groundItems].filter(i => i.itemKey === "reed").reduce((sum, i) => sum + i.quantity, 0),
+  clay: [...snapshot.inventory, ...snapshot.groundItems].filter(i => i.itemKey === "clay").reduce((sum, i) => sum + i.quantity, 0),
+  bakingTools: snapshot.inventory.find(i => i.itemKey === "bakingTools")?.quantity ?? 0,
+  brewingVessels: snapshot.inventory.find(i => i.itemKey === "brewingVessels")?.quantity ?? 0,
+});
+/** Non-material status; material shortages are already shown by the requirement rows. */
+export const buildingAvailabilityBlocker = (snapshot: FarmSnapshot, now: number, type: PlaceableBuilding): string | null => {
+  const unlock = { granary: 2, mill: 5, breadOven: 6, brewery: 6 }[type];
   if ((snapshot.farm.progression?.level ?? 1) < unlock) return `Unlock at level ${unlock}`;
   if (snapshot.buildings.filter(b => b.type === type).length >= (type === "granary" ? granaryLimitForLevel(snapshot.farm.progression?.level ?? 1) : 1)) return "Already built";
   if (snapshot.farm.carriedItem) return "Empty the farmer’s hands first.";
-  const busy = plantingBlocker(snapshot, now);
-  if (busy) return busy;
+  return plantingBlocker(snapshot, now);
+};
+export const buildingBuildBlocker = (snapshot: FarmSnapshot, now: number, type: PlaceableBuilding): string | null => {
+  const availability = buildingAvailabilityBlocker(snapshot, now, type);
+  if (availability) return availability;
   for (const [key, required] of Object.entries(FARM_BUILDING_DEFINITIONS[type].materials)) {
-    const available = [...snapshot.inventory, ...snapshot.groundItems].filter(i => i.itemKey === key).reduce((sum, i) => sum + i.quantity, 0);
-    if (available < required) return `Gather 2 reed and ${FARM_BUILDING_DEFINITIONS[type].materials.clay} clay.`;
+    const available = availableMaterials(snapshot)[key as keyof ReturnType<typeof availableMaterials>];
+    if (available < required) return key === "bakingTools" ? `Buy ${required} baking tools at the baking market.`
+      : key === "brewingVessels" ? `Buy ${required} brewing jars at the beer market.`
+      : `Gather ${FARM_BUILDING_DEFINITIONS[type].materials.reed} reed and ${FARM_BUILDING_DEFINITIONS[type].materials.clay} clay.`;
   }
   return null;
 };
@@ -38,10 +56,7 @@ export const mockGranaryPlacement = (snapshot: FarmSnapshot, target: IsoCell, fa
   const validation = validateBuildingPlacement({ building: type, target,
     existingBuildings: real ? snapshot.buildings : [], granaryLimit: real ? granaryLimitForLevel(snapshot.farm.progression?.level ?? 1) : undefined,
     occupiedCoordinates: occupied, carriedItem: real ? snapshot.farm.carriedItem?.itemKey ?? null : null,
-    availableMaterials: real ? {
-      reed: [...snapshot.inventory, ...snapshot.groundItems].filter(i => i.itemKey === "reed").reduce((sum, i) => sum + i.quantity, 0),
-      clay: [...snapshot.inventory, ...snapshot.groundItems].filter(i => i.itemKey === "clay").reduce((sum, i) => sum + i.quantity, 0)
-    } : FARM_BUILDING_DEFINITIONS[type].materials,
+    availableMaterials: real ? availableMaterials(snapshot) : FARM_BUILDING_DEFINITIONS[type].materials,
     roads: snapshot.farm.roads, reservedLoadingTiles: reserved });
   const rule: BuildingPlacementRule = validation.type === "valid" &&
     !preservesBuildingAccess({ buildings: [...snapshot.buildings, { ...target, type }] })

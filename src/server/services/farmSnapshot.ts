@@ -145,7 +145,7 @@ export const readFarmSnapshot = async (
     player,
     farm: {
       farmerProfile: currentFarm.farmerProfile,
-      roads: [...currentFarm.roads],
+      roads: currentFarm.roads.map(road => ({ ...road, approachPath: road.approachPath ? [...road.approachPath] : undefined })),
       milling: currentFarm.milling,
       production: currentFarm.production,
       millGoods: currentFarm.millGoods,

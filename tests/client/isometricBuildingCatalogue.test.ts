@@ -31,31 +31,76 @@ const snapshot = () =>
     buildings: []
   });
 
-it("shows all six isometric buildings with the original descriptions and unlock labels", () => {
-  const html = renderToStaticMarkup(
-    createElement(IsometricBuildingCatalogue, { snapshot: snapshot(), now: 0 })
-  );
-  expect(html).toContain("granary-isometric-test.png");
-  expect(html).toContain("mill-isometric.png");
+const render = (s: ReturnType<typeof snapshot>) => renderToStaticMarkup(
+  createElement(IsometricBuildingCatalogue, { snapshot: s, now: 0, onBuild: () => {} })
+);
+const atLevel = (level: number) => {
+  const s = snapshot();
+  s.farm.progression = { level, breadSold: 0, barleySold: 0, beerSold: 0, requestsDelivered: 0,
+    stats: { breadProduced: 0, processedBarley: 0, harvestedBarley: 0, harvests: 0, beerProduced: 0, fishFed: 0 } };
+  return s;
+};
+
+it("starts with only Available open and future buildings collapsed", () => {
+  const html = render(snapshot());
+  expect(html).toContain("Available (0)");
+  expect(html).toContain("Already built (0)");
+  expect(html).toContain("Future unlocks (6)");
+  expect(html.match(/aria-expanded="true"/g)).toHaveLength(1);
+  expect(html.match(/aria-expanded="false"/g)).toHaveLength(2);
+  expect(html).toContain("No buildings available.");
+  expect(html).not.toContain('alt="Mill"');
+});
+
+it("keeps unlocked buildings available when materials are missing", () => {
+  const html = render(atLevel(6));
+  expect(html).toContain("Available (4)");
+  expect(html).toContain("Future unlocks (2)");
   expect(html).toContain("brewery-isometric.png");
   expect(html).toContain("bread-oven-isometric.png");
+  expect(html).toContain('aria-label="Brewing jars"');
+  expect(html).toContain('aria-label="Baking tools"');
+  expect(html).toContain("Building time: 3 minutes");
+  expect(html).toContain("Build brewery");
+  expect(html).not.toContain('alt="Warehouse"');
+  expect(html).not.toContain("Gather ");
+  expect(html.match(/<button disabled=""/g)).toHaveLength(4);
+});
+
+it("omits equipment-shortage reminders but preserves farmer status", () => {
+  const s = atLevel(6);
+  s.inventory = [{ itemKey: "reed", quantity: 10 }, { itemKey: "clay", quantity: 10 }];
+  const html = render(s);
+  expect(html).not.toContain("Buy 2 brewing jars at the beer market.");
+  expect(html).not.toContain("Buy 2 baking tools at the baking market.");
+  expect(html).toContain('aria-label="Brewing jars"');
+  s.farm.carriedItem = { itemKey: "clay", quantity: 1, expiresAt: null };
+  expect(render(s)).toContain("Empty the farmer’s hands first.");
+});
+
+it("groups existing buildings, including construction sites, outside Available", () => {
+  const s = atLevel(6);
+  s.buildings = FarmSnapshotSchema.parse({ ...s, buildings: [{
+    id: s.farm.id, type: "mill", column: 4, row: 3, storedBarley: 0,
+    brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0,
+    loadingTile: { column: 4, row: 5 }, startedAt: new Date(0).toISOString(), completesAt: new Date(120000).toISOString()
+  }] }).buildings;
+  const html = render(s);
+  expect(html).toContain("Available (3)");
+  expect(html).toContain("Already built (1)");
+  expect(html).not.toContain('alt="Mill"');
+  s.buildings = [];
+  expect(render(s)).toContain("Available (4)");
+});
+
+it("shows all unlocked building cards with their original artwork and descriptions", () => {
+  const html = render(atLevel(8));
+  expect(html).toContain("Available (6)");
+  expect(html).toContain("Future unlocks (0)");
+  expect(html.match(/width="160" height="160"/g)).toHaveLength(6);
+  expect(html).toContain("The farmer is occupied during milling.");
+  expect(html).toContain("Turn Flour into bread.");
   expect(html).toContain("warehouse-isometric.png");
   expect(html).toContain("small-shrine-isometric.png");
-  expect(html.match(/width="160" height="160"/g)).toHaveLength(6);
-  expect(html).toContain("Store and protect up to 15 additional barley.");
-  expect(html).toContain("The farmer is occupied during milling.");
-  expect(html).toContain("Unlock at level 2");
-  expect(html).toContain("Unlock at level 5");
-  expect(html).toContain("Unlock at level 6");
-  expect(html).toContain("0/2 brewing jars");
-  expect(html).toContain("Brew beer to trade or give the farmer as a happiness treat.");
-  expect(html).toContain("0/2 baking tools");
-  expect(html).toContain("Turn Flour into bread.");
-  expect(html.match(/Unlock at level 6/g)).toHaveLength(2);
-  expect(html.match(/Unlock at level 8/g)).toHaveLength(2);
-  expect(html).toContain("1×1 · 2 minutes · 0/2 reed · 0/4 clay");
-  expect(html).toContain("Offer 2 bread or 2 beer to slow happiness decay by 25% for 12 hours. One shrine per farm.");
-  expect(html).toContain("Stores 20 barley. Adds 10 storage each for bread, beer, flour, groats, reed and clay.");
-  expect(html.match(/<button disabled=""/g)).toHaveLength(6);
-  expect(html).toContain("Other building placement coming soon.");
+  expect(html).toContain("Construction coming soon.");
 });

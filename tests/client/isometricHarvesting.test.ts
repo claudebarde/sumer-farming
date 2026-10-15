@@ -8,6 +8,7 @@ import { farmerHarvestTexture } from "../../src/client/game/phaser/farmerHarvest
 import { isometricTilePopup } from "../../src/client/game/phaser/isometricTilePopup";
 import { irrigationBuildBlocker } from "../../src/client/game/phaser/isometricIrrigation";
 import { roadBuildBlocker } from "../../src/client/game/phaser/isometricRoads";
+import { INITIAL_FARM_CONFIG } from "../../src/game-data/initialFarm";
 
 const id = "00000000-0000-4000-8000-000000000001";
 const date = (n: number) => new Date(n).toISOString();
@@ -23,6 +24,18 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
 const delivery = () => harvestDeliveryPlan({ buildings: snapshot().buildings.map(b => ({ ...b, completesAt: 0 })), roads: [], from: second, at: 21540, happiness: 70, hungry: false, level: 1 })!;
 
 describe("isometric harvest presentation", () => {
+  it("omits carried goods from scenery and water popups but retains them on ground", () => {
+    const s = snapshot();
+    s.farm.carriedItem = { itemKey: "barley", quantity: 4 };
+    const cell = { column: 4, row: 9 };
+    for (const type of ["bush", "rock", "reeds"] as const) {
+      s.objects = [{ id, type, ...cell }];
+      expect(isometricTilePopup(s, cell, 1000).details).not.toContain("Carrying 4 barley");
+    }
+    expect(isometricTilePopup(s, { column: 4, row: INITIAL_FARM_CONFIG.riverRow }, 1000).details).not.toContain("Carrying 4 barley");
+    s.objects = [];
+    expect(isometricTilePopup(s, cell, 1000).details).toContain("Carrying 4 barley");
+  });
   it("counts completed fields and work time without counting travel", () => {
     const s = snapshot();
     s.farm.production.planting = batch();
@@ -272,5 +285,11 @@ describe("isometric interaction popup model", () => {
     const model = isometricTilePopup(s, { column: 1, row: 3 }, 1000);
     expect(model).toMatchObject({ title: "Farm", home: true, harvestDisabled: "Empty your hands first" });
     expect(model.details).toContain("Carrying 3 barley");
+  });
+  it("omits planting and harvesting from the farm popup even with ripe fields", () => {
+    const s = snapshot();
+    s.crops = [{ id, ...first, cropKey: "barley", sowingStartedAt: date(0), plantedAt: date(10), growthCompletesAt: date(1000), harvestStartedAt: null, harvestCompletesAt: null }];
+    expect(isometricTilePopup(s, { column: 1, row: 3 }, 1000).actions).toMatchObject({ plant: false, harvest: false });
+    expect(isometricTilePopup(s, first, 1000).harvest).toBe(true);
   });
 });

@@ -6,7 +6,7 @@ import { buildingAt, farmOrigin, GROUND_ITEM_ORIGIN, insidePlot, presentCanals, 
 import { footprintContains, type IsoCell } from "./isometricProjection";
 import { pickupPath, pickupPose } from "./isometricPickup";
 
-export const materialLabel = (key: string) => key === "reed" ? "reeds" : key;
+export const materialLabel = (key: string, quantity?: number) => key === "reed" && quantity !== 1 ? "reeds" : key;
 /** Clay-only visual trial: equivalent to the approved ground-item origin at 64px. */
 export const gatheringOffsetY = (itemKey: "reed" | "clay", walking: boolean) =>
   itemKey === "clay" && !walking ? (120 / 128 - GROUND_ITEM_ORIGIN.y) * 64 : 0;

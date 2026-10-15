@@ -1,5 +1,7 @@
 import type { FarmSnapshot } from "../../schemas/farm";
-import { FARM_BUILDING_DEFINITIONS } from "../../game-data/buildings";
+import { Accordion } from "radix-ui";
+import { ChevronDownIcon } from "@radix-ui/react-icons";
+import BuildingRequirements from "./BuildingRequirements";
 import { granaryCapacityForLevel } from "../../game-data/storage";
 import { granaryLimitForLevel } from "../../game-data/progression";
 import granaryImage from "../../assets/sprite_assets/pngs/v2/isometric-test/granary-isometric-test.png";
@@ -11,7 +13,7 @@ import smallShrineImage from "../../assets/sprite_assets/pngs/v2/isometric-test/
 import { MARKET_ITEM_DEFINITIONS } from "../../game-data/marketItems";
 import EstateBuildingCard from "./EstateBuildingCard";
 import styles from "../styles/GameCanvas.module.scss";
-import { buildingBuildBlocker, type PlaceableBuilding } from "../game/phaser/isometricBuildingPlacement";
+import { buildingAvailabilityBlocker, buildingBuildBlocker, type PlaceableBuilding } from "../game/phaser/isometricBuildingPlacement";
 
 export default function IsometricBuildingCatalogue({ snapshot, now, onBuild }: { readonly snapshot: FarmSnapshot; readonly now: number; readonly onBuild?: (type: PlaceableBuilding) => void }) {
   const level = snapshot.farm.progression?.level ?? 1;
@@ -29,30 +31,47 @@ export default function IsometricBuildingCatalogue({ snapshot, now, onBuild }: {
     { type: "smallShrine", name: "Small shrine", image: smallShrineImage, unlockLevel: 8, button: "Build Small shrine",
       description: "Offer 2 bread or 2 beer to slow happiness decay by 25% for 12 hours. One shrine per farm." }
   ] as const;
-  const available = (key: "reed" | "clay") => [...snapshot.inventory, ...snapshot.groundItems]
-    .filter(item => item.itemKey === key).reduce((total, item) => total + item.quantity, 0);
+  const group = (entry: typeof catalogue[number]) => snapshot.buildings.some(b => b.type === entry.type)
+    ? "built" : level < entry.unlockLevel ? "future" : "available";
+  const sections = [
+    { id: "available", title: "Available", empty: "No buildings available." },
+    { id: "built", title: "Already built", empty: "No buildings built yet." },
+    { id: "future", title: "Future unlocks", empty: "All buildings unlocked." }
+  ] as const;
   return <>
-    <h2>Available buildings</h2>
-    <p>Place buildings beside a road. Each building needs its own free road tile for loading goods.</p>
-    <p>Other building placement coming soon.</p>
-    <ul className={styles["building-list"]}>
-      {catalogue.map(({ type, name, image, unlockLevel, description, button }) => {
-        const definition = FARM_BUILDING_DEFINITIONS[type];
+    <h2>Buildings</h2>
+    <Accordion.Root type="multiple" defaultValue={["available"]} className={styles["building-accordion"]}>
+    {sections.map(section => {
+      const entries = catalogue.filter(entry => group(entry) === section.id);
+      return <Accordion.Item key={section.id} value={section.id}>
+        <Accordion.Header className={styles["building-accordion-header"]}>
+          <Accordion.Trigger className={styles["building-accordion-trigger"]}>
+            <span>{section.title} ({entries.length})</span><ChevronDownIcon aria-hidden />
+          </Accordion.Trigger>
+        </Accordion.Header>
+        <Accordion.Content className={styles["building-accordion-content"]}>
+        {entries.length === 0 ? <p>{section.empty}</p> : <ul className={styles["building-list"]}>
+      {entries.map(({ type, name, image, unlockLevel, description, button }) => {
         const limit = type === "granary" ? granaryLimitForLevel(level) : 1;
         const count = snapshot.buildings.filter(building => building.type === type).length;
         const built = count > 0 && count >= limit;
-        const supported = type === "granary" || type === "mill";
+        const supported = type === "granary" || type === "mill" || type === "breadOven" || type === "brewery";
         const blocker = supported ? buildingBuildBlocker(snapshot, now, type) : null;
+        const status = supported ? buildingAvailabilityBlocker(snapshot, now, type) : null;
         return <EstateBuildingCard key={type} name={name} image={image}>
-          <p>{definition.footprint.columns}×{definition.footprint.rows} · {definition.constructionDurationMs / 60000} minutes · {available("reed")}/{definition.materials.reed} reed · {available("clay")}/{definition.materials.clay} clay
-            {type === "brewery" && <> · {snapshot.inventory.find(item => item.itemKey === "brewingVessels")?.quantity ?? 0}/{FARM_BUILDING_DEFINITIONS.brewery.materials.brewingVessels} brewing jars</>}
-            {type === "breadOven" && <> · {snapshot.inventory.find(item => item.itemKey === "bakingTools")?.quantity ?? 0}/{FARM_BUILDING_DEFINITIONS.breadOven.materials.bakingTools} baking tools</>}
-          </p>
           <p>{description}</p>
-          {supported && !built && level >= unlockLevel && blocker && <p>{blocker}</p>}
+          {section.id !== "built" && <>
+          {section.id === "available" && <BuildingRequirements snapshot={snapshot} building={type} />}
+          {!supported && !built && level >= unlockLevel && <p>Construction coming soon.</p>}
+          {supported && !built && level >= unlockLevel && status && <p>{status}</p>}
           <button disabled={!supported || !onBuild || !!blocker} onClick={() => { if (supported) onBuild?.(type); }}>{built ? "Already built" : level < unlockLevel ? `Unlock at level ${unlockLevel}` : button}</button>
+          </>}
         </EstateBuildingCard>;
       })}
-    </ul>
+        </ul>}
+        </Accordion.Content>
+      </Accordion.Item>;
+    })}
+    </Accordion.Root>
   </>;
 }

@@ -20,7 +20,6 @@ import { upgradeBuilding, BuildingUpgradeRuleError, BuildingUpgradePersistenceEr
 import { destroyBuilding, BuildingDemolitionRuleError, BuildingDemolitionPersistenceError } from "./services/destroyBuilding";
 import { batchPlantingAction, BatchPlantingError, BatchPlantingPersistenceError } from "./services/batchPlanting";
 import { buildRoad, RoadRuleError, RoadPersistenceError } from "./services/buildRoad";
-import { isProgressionSignpost } from "../game-data/progression";
 import { claimFarmLevel, LevelClaimRuleError, LevelClaimPersistenceError } from "./services/claimFarmLevel";
 import { Hono } from "hono";
 import { Client } from "pg";
@@ -508,13 +507,13 @@ app.post("/api/game/action", async c => {
     const requiredLevel = commandUnlockLevel(command, order?.itemKey);
     // Levels only increase. The service still validates resources/version under its farm lock.
     if (progressFarm && progressFarm.level < requiredLevel) return c.json({ error: { type: "level_locked", message: `Reach farm level ${requiredLevel} to unlock this action.` } }, 422);
-    if ("target" in command && isProgressionSignpost(command.target)) return c.json({ error: { type: "tile_occupied", message: "This tile is reserved for the farm's level signpost." } }, 422);
     const result = await Effect.runPromise(
       Effect.either(
         match(command)
           .returnType<GameActionEffect>()
           .with({ type: P.union("start_batch_planting", "start_batch_harvesting", "advance_batch_planting") }, command => batchPlantingAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "build_road" }, command => buildRoad(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: "destroy_road" }, command => buildRoad(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "start_milling" }, command => startMilling(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "mill_delivery" }, command => deliverMillGoods(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "claim_farm_level" }, command => claimFarmLevel(database, { ...command, playerId: c.get("developmentPlayer").id }))
@@ -933,7 +932,7 @@ app.post("/api/game/action", async c => {
             error: {
               type: "irrigation_has_dependents",
               message:
-                "This canal cannot be destroyed while other canals depend on it"
+                "This canal cannot be destroyed while neighbouring fields have crops or other canals depend on it"
             }
           },
           422

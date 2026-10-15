@@ -1,0 +1,70 @@
+@use "./variables" as *;
+
+.requirements {
+  grid-column: 1 / -1;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-bottom: 10px;
+  font-size: 0.9em;
+}
+
+ul.materials {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+
+  li.row {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) max-content minmax(40px, 1fr);
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 6px;
+    border-radius: 8px;
+    background: $color-parchment;
+    font-size: 0.9em;
+  }
+}
+
+.row img { width: 40px; height: 40px; object-fit: contain; }
+.name { overflow-wrap: anywhere; }
+.quantity { white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+.row progress {
+  appearance: none;
+  width: 100%;
+  min-width: 0;
+  height: 14px;
+  overflow: hidden;
+  border: 1px solid $color-stone;
+  border-radius: 7px;
+  background: $color-parchment-light;
+  color: $color-barley;
+  &::-webkit-progress-bar { background: $color-parchment-light; }
+  &::-webkit-progress-value { background: $color-barley; }
+  &::-moz-progress-bar { background: $color-barley; }
+}
+
+.row[data-ready="true"] progress {
+  color: $color-leaf;
+  &::-webkit-progress-value { background: $color-leaf; }
+  &::-moz-progress-bar { background: $color-leaf; }
+}
+
+@media (max-width: 420px) {
+  ul.materials li.row {
+    grid-template-columns: 32px minmax(0, 1fr) max-content minmax(32px, 0.8fr);
+    gap: 5px;
+    padding: 4px;
+  }
+  .row img { width: 32px; height: 32px; }
+}

@@ -36,6 +36,58 @@ const finishRoads = async (farmId: string) => {
 };
 
 describe("player-built roads", () => {
+  it("rejects farmland footprints server-side and permits southern non-arable construction", async () => {
+    const input = await fixture();
+    await db.insert(farmGroundItems).values([
+      { farmId: input.farmId, itemKey: "reed", quantity: 2, column: 0, row: 0 },
+      { farmId: input.farmId, itemKey: "clay", quantity: 3, column: 1, row: 0 }
+    ]);
+    for (const column of [0, 7]) {
+      const rejected = await Effect.runPromise(Effect.flip(buildFarmBuilding(db, { ...input, building: "granary", target: { column, row: 6 } })));
+      expect(rejected).toMatchObject({ rule: { type: "outside_building_ground" } });
+    }
+    expect(await db.select().from(farmGroundItems).where(eq(farmGroundItems.farmId, input.farmId))).toHaveLength(2);
+    const built = await Effect.runPromise(buildFarmBuilding(db, { ...input, building: "granary", target: { column: 8, row: 6 } }));
+    expect(built.buildings[0]).toMatchObject({ column: 8, row: 6, loadingTile: { column: 8, row: 5 } });
+  });
+  it("saves construction travel from the farmer's position before five seconds of work", async () => {
+    const input = await fixture();
+    const farmerPosition = { column: 0, row: 5 };
+    const before = Date.now();
+    const result = await Effect.runPromise(buildRoad(db, { ...input, farmerPosition }));
+    const road = result.farm.roads[0]!;
+    expect(road.approachPath?.[0]).toEqual(farmerPosition);
+    expect(road.approachPath?.at(-1)).toEqual({ column: 5, row: 5 });
+    expect(road.approachPath).not.toContainEqual(input.target);
+    expect(road.completesAt).toBeGreaterThanOrEqual(before + 5 * 180 + 5000);
+    const [saved] = await db.select().from(farms).where(eq(farms.id, input.farmId));
+    expect(saved!.roads[0]).toEqual(road);
+  });
+  it("removes a road after travel and five seconds of saved work", async () => {
+    const input = await fixture();
+    await db.update(farms).set({ roads: [input.target] }).where(eq(farms.id, input.farmId));
+    const before = Date.now();
+    const result = await Effect.runPromise(buildRoad(db, { ...input, type: "destroy_road" }));
+    const road = result.farm.roads[0]!;
+    expect(road.removing).toBe(true);
+    expect(road.completesAt).toBeGreaterThanOrEqual(before + 5000);
+    expect(road.approachPath?.length).toBeGreaterThan(0);
+    expect(() => assertFarmerAvailable({ roads: result.farm.roads, carriedItemKey: null, fishing: null })).toThrow();
+    await finishRoads(input.farmId);
+    const rebuilt = await Effect.runPromise(buildRoad(db, { ...input, expectedFarmVersion: result.farm.version }));
+    expect(rebuilt.farm.roads).toHaveLength(1);
+    expect(rebuilt.farm.roads[0]?.removing).toBeUndefined();
+  });
+  it("rejects disconnection on the server without changing roads", async () => {
+    const input = await fixture();
+    const roads = [input.target, { column: 5, row: 3 }];
+    await db.update(farms).set({ roads }).where(eq(farms.id, input.farmId));
+    const result = await Effect.runPromise(Effect.flip(buildRoad(db, { ...input, type: "destroy_road" })));
+    expect(result).toMatchObject({ _tag: "RoadRuleError", message: expect.stringContaining("disconnect 1 road tile") });
+    const [farm] = await db.select().from(farms).where(eq(farms.id, input.farmId));
+    expect(farm!.roads).toEqual(roads);
+    expect(farm!.version).toBe(1);
+  });
   it.each(["rock", "bush"] as const)("clears %s when building roads and preserves nearby scenery", async type => {
     const input = await fixture();
     await db.insert(farmObjects).values([

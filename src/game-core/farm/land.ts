@@ -16,8 +16,11 @@ export const isArableGround = ({ column, row }: Cell): boolean => {
   return column >= b.minimumColumn && column <= b.maximumColumn && row >= b.minimumRow && row <= b.maximumRow;
 };
 export const isBuildingGround = ({ column, row }: Cell): boolean =>
+  Number.isInteger(column) && Number.isInteger(row) &&
   column >= config.worldBounds.minimumColumn && column <= config.worldBounds.maximumColumn &&
-  row >= config.worldBounds.minimumRow && row < config.roadRow;
+  row >= config.worldBounds.minimumRow && row <= config.worldBounds.maximumRow &&
+  row !== config.roadRow && row !== config.riverRow && row !== config.riverRow + 1 &&
+  !isArableGround({ column, row });
 
 /** Permanent farmhouse and market footprints, independent of cultivated land. */
 export const isFixedBuildingGround = ({ column, row }: Cell): boolean => {

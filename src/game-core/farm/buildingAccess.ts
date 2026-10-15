@@ -28,8 +28,11 @@ export const preservesBuildingAccess = (context: {
   const blocked = new Set(footprints.flat().map(key));
   const inside = ({ column, row }: BuildingCoordinate): boolean =>
     column >= bounds.minimumColumn && column <= bounds.maximumColumn && row >= 0 && row < riverRow;
-  const start = { column: bounds.minimumColumn, row: riverRow - 1 };
-  if (!inside(start) || blocked.has(key(start))) return false;
+  const start = Array.from({ length: riverRow * (bounds.maximumColumn - bounds.minimumColumn + 1) }, (_, i) => ({
+    column: bounds.minimumColumn + i % (bounds.maximumColumn - bounds.minimumColumn + 1),
+    row: Math.floor(i / (bounds.maximumColumn - bounds.minimumColumn + 1))
+  })).find(tile => !blocked.has(key(tile)));
+  if (!start) return false;
   const queue: BuildingCoordinate[] = [start];
   const reached = new Set([key(start)]);
   for (let index = 0; index < queue.length; index++) {

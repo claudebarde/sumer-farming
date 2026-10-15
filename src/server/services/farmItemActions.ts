@@ -5,6 +5,7 @@ import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
 
 import { isItemDropGround } from "../../game-core/farm/land";
+import { canStackMaterial } from "../../game-core/farm/materialPiles";
 import { getBuildingFootprint } from "../../game-core/farm/buildings";
 import type { FarmCoordinate } from "../../game-core/farm/irrigation";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
@@ -103,7 +104,8 @@ const isInsideFarmBuilding = (coordinate: FarmCoordinate): boolean => {
 const isGroundTileOccupied = async (
   transaction: DatabaseTransaction,
   farmId: string,
-  coordinate: FarmCoordinate
+  coordinate: FarmCoordinate,
+  stackingId?: string
 ): Promise<boolean> => {
   if (isInsideFarmBuilding(coordinate)) {
     return true;
@@ -166,7 +168,7 @@ const isGroundTileOccupied = async (
   ]);
 
   return (
-    [groundItems, crops, improvements, objects].some(
+    [groundItems.filter(item => item.id !== stackingId), crops, improvements, objects].some(
       occupants => occupants.length > 0
     ) ||
     buildings.some(building =>
@@ -248,12 +250,16 @@ const executeFarmItemAction = (
           return match(action)
             .returnType<Promise<DatabaseOutcome>>()
             .with({ type: "destroy_material" }, async ({ input }) => {
-              const removed = await transaction.delete(farmGroundItems).where(and(
+              if (farm.carriedItemKey !== null) return { type: "rule_error", rule: { type: "farmer_hands_not_empty" } };
+              const condition = and(
                 eq(farmGroundItems.id, input.groundItemId),
                 eq(farmGroundItems.farmId, farm.id),
                 inArray(farmGroundItems.itemKey, ["reed", "clay"])
-              )).returning({ id: farmGroundItems.id });
-              if (removed.length === 0) return { type: "rule_error", rule: { type: "ground_item_not_found" } };
+              );
+              const [pile] = await transaction.select().from(farmGroundItems).where(condition).for("update");
+              if (!pile) return { type: "rule_error", rule: { type: "ground_item_not_found" } };
+              if (pile.quantity > 1) await transaction.update(farmGroundItems).set({ quantity: pile.quantity - 1 }).where(condition);
+              else await transaction.delete(farmGroundItems).where(condition);
               const [updated] = await transaction.update(farms)
                 .set({ version: sql`${farms.version} + 1`, updatedAt: now })
                 .where(eq(farms.id, farm.id)).returning();
@@ -281,6 +287,9 @@ const executeFarmItemAction = (
                 };
               }
 
+              if (farm.carriedItemKey !== null && (groundItem.itemKey === "reed" || groundItem.itemKey === "clay")) {
+                return { type: "rule_error", rule: { type: "farmer_hands_not_empty" } };
+              }
               if (
                 farm.carriedItemKey !== null &&
                 farm.carriedItemKey !== groundItem.itemKey
@@ -359,11 +368,17 @@ const executeFarmItemAction = (
                 };
               }
 
+              const [existing] = await transaction.select().from(farmGroundItems).where(and(
+                eq(farmGroundItems.farmId, farm.id), eq(farmGroundItems.column, input.target.column),
+                eq(farmGroundItems.row, input.target.row)
+              )).for("update");
+              const stacking = existing && canStackMaterial(farm.carriedItemKey, existing);
               if (
                 await isGroundTileOccupied(
                   transaction,
                   farm.id,
-                  input.target
+                  input.target,
+                  stacking ? existing.id : undefined
                 )
               ) {
                 return {
@@ -372,7 +387,8 @@ const executeFarmItemAction = (
                 };
               }
 
-              const [droppedItem] = await transaction
+              const [droppedItem] = stacking ? await transaction.update(farmGroundItems)
+                .set({ quantity: existing.quantity + 1 }).where(eq(farmGroundItems.id, existing.id)).returning({ id: farmGroundItems.id }) : await transaction
                 .insert(farmGroundItems)
                 .values({
                   farmId: farm.id,

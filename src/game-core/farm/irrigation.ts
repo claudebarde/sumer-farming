@@ -1,5 +1,4 @@
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
-import { isProgressionSignpost } from "../../game-data/progression";
 
 export type FarmCoordinate = {
   readonly column: number;
@@ -37,7 +36,7 @@ export const validateIrrigationLocation = (
     return { type: "river" };
   }
 
-  if (isProgressionSignpost(coordinate) ||
+  if (
     (coordinate.column >= buildingBounds.minimumColumn && coordinate.column <= buildingBounds.maximumColumn && coordinate.row >= buildingBounds.minimumRow && coordinate.row <= buildingBounds.maximumRow) ||
     (coordinate.column === farmerSpawn.column && coordinate.row === farmerSpawn.row)) {
     return { type: "reserved_tile" };
@@ -96,3 +95,8 @@ export const getRiverConnectedCanals = (
 export const areAllCanalsConnectedToRiver = (
   canals: readonly FarmCoordinate[]
 ): boolean => getRiverConnectedCanals(canals).length === canals.length;
+
+/** Planted neighbouring fields protect their canal, even with another supply. */
+export const irrigationRemovalBlocked = (target: FarmCoordinate, canals: readonly FarmCoordinate[], crops: readonly FarmCoordinate[]): boolean =>
+  crops.some(crop => areCardinallyAdjacent(crop, target)) ||
+  !areAllCanalsConnectedToRiver(canals.filter(canal => coordinateKey(canal) !== coordinateKey(target)));

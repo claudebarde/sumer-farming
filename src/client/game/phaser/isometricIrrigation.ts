@@ -1,12 +1,19 @@
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { INITIAL_FARM_CONFIG } from "../../../game-data/initialFarm";
 import { isClearableScenery } from "../../../game-data/farmObjects";
-import { isConnectedToIrrigationSource, validateIrrigationLocation } from "../../../game-core/farm/irrigation";
+import { irrigationRemovalBlocked, isConnectedToIrrigationSource, validateIrrigationLocation } from "../../../game-core/farm/irrigation";
 import { isRoadIntersection } from "../../../game-core/farm/roads";
 import { buildingAt, presentCanals, sameCell } from "./isometricFarm";
 import { plantingBlocker } from "./isometricPlanting";
 import type { IsoCell } from "./isometricProjection";
 import { ROAD_CONNECTIONS } from "./isometricRoads";
+
+export const canDestroyIrrigation = (snapshot: FarmSnapshot, cell: IsoCell, now: number): boolean => {
+  const canal = snapshot.improvements.find(c => sameCell(c, cell));
+  return !!canal && Date.parse(canal.completesAt) <= now && canal.destroyCompletesAt === null &&
+    !snapshot.farm.carriedItem && !plantingBlocker(snapshot, now) &&
+    !irrigationRemovalBlocked(cell, snapshot.improvements.filter(c => c.destroyCompletesAt === null), snapshot.crops);
+};
 
 /** Same NW/NE/SE/SW texture masks as roads; river edges act as canal connections. */
 export const canalConnectionMask = (cell: IsoCell, canals: FarmSnapshot["improvements"], now: number): number =>

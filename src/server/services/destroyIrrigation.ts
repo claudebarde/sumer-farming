@@ -4,11 +4,10 @@ import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
 
 import {
-  areAllCanalsConnectedToRiver,
+  irrigationRemovalBlocked,
   type FarmCoordinate
 } from "../../game-core/farm/irrigation";
-import { isIrrigatedByCanals } from "../../game-core/farm/cultivation";
-import { FARM_IMPROVEMENT_DEFINITIONS } from "../../game-data/farmImprovements";
+import { FARM_IMPROVEMENT_DEFINITIONS, improvementWorkActive } from "../../game-data/farmImprovements";
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { Database } from "../db/client";
 import { farmCrops, farmImprovements, farms } from "../db/schema";
@@ -65,11 +64,6 @@ type DestroyDatabaseOutcome =
   | { readonly type: "irrigation_not_complete" }
   | { readonly type: "already_being_destroyed" }
   | { readonly type: "has_dependents" };
-
-const isSameCoordinate = (
-  first: FarmCoordinate,
-  second: FarmCoordinate
-): boolean => first.column === second.column && first.row === second.row;
 
 export const destroyIrrigation = (
   database: Database,
@@ -145,6 +139,14 @@ export const destroyIrrigation = (
             return { type: "irrigation_not_complete" };
           }
 
+          const current = await readFarmSnapshot(transaction, farm, false);
+          if (current.farm.carriedItem || current.farm.gathering ||
+            current.improvements.some(i => improvementWorkActive(i, currentTimeMillis)) ||
+            current.buildings.some(b => Date.parse(b.completesAt) > currentTimeMillis) ||
+            current.crops.some(c => Date.parse(c.plantedAt) > currentTimeMillis || c.harvestStartedAt !== null)) {
+            throw new FarmerUnavailableError({ message: "The farmer must be idle and empty-handed to destroy a canal." });
+          }
+
           const [activeCanals, crops] = await Promise.all([
             transaction
               .select({
@@ -168,19 +170,7 @@ export const destroyIrrigation = (
               .from(farmCrops)
               .where(eq(farmCrops.farmId, farm.id))
           ]);
-          const remainingCanals = activeCanals.filter(
-            canal => !isSameCoordinate(canal, input.target)
-          );
-          const completedRemainingCanals = remainingCanals.filter(
-            canal => canal.completesAt <= startedAt
-          );
-
-          if (
-            !areAllCanalsConnectedToRiver(remainingCanals) ||
-            crops.some(
-              crop => !isIrrigatedByCanals(crop, completedRemainingCanals)
-            )
-          ) {
+          if (irrigationRemovalBlocked(input.target, activeCanals, crops)) {
             return { type: "has_dependents" };
           }
 

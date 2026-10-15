@@ -5,7 +5,7 @@ import type { FarmBuildingType } from "../../game-data/buildings";
 export type TradeNotification = TradeHistory["trades"][number];
 export type LevelNotification = { readonly id: string; readonly type: "level_up"; readonly level: number };
 export type BuildingReadyNotification = { readonly id: string; readonly type: "building_ready"; readonly building: FarmBuildingType };
-export type GameNotification = TradeNotification | LevelNotification | BuildingReadyNotification;
+export type GameNotification = TradeNotification | LevelNotification | BuildingReadyNotification | { readonly id: string; readonly type: "action_error"; readonly message: string };
 
 type State = {
   readonly playerId: string | null;
@@ -18,10 +18,12 @@ type State = {
   readonly notifyLevel: (playerId: string, farmId: string, level: number) => void;
   readonly notifyBuilding: (playerId: string, farmId: string, building: FarmBuildingType, version?: number) => void;
   readonly dismiss: (id: string) => void;
+  readonly notifyError: (message: string) => void;
 };
 
 export const createNotificationStore = () => createStore<State>()(set => ({
   playerId: null,
+  notifyError: message => set(state => ({ pending: [{ id: crypto.randomUUID(), type: "action_error", message }, ...state.pending] })),
   pending: [],
   announced: new Set(),
   materialDropFarmId: null,
