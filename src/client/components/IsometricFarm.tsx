@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { SHADOW_PRESETS, type ShadowPreset } from "../game/phaser/daylightShadows";
 import Phaser from "phaser";
 import { roadRemovalReason } from "../../game-core/farm/roads";
 import type { FarmSnapshot } from "../../schemas/farm";
@@ -56,6 +57,8 @@ export default function IsometricFarm() {
   const marketScene = useRef<IsometricMarketScene | null>(null);
   const activeScene = useRef<IsometricFarmScene | IsometricMarketScene | null>(null);
   const [location, setLocation] = useState<"farm" | "market">("farm");
+  const [shadowPreset, setShadowPreset] = useState<ShadowPreset>("local");
+  const shadowPresetRef = useRef<ShadowPreset>("local");
   useEffect(() => {
     marketUiStore.getState().setLocation(location);
     levelUiStore.getState().setOpen(false);
@@ -262,6 +265,8 @@ export default function IsometricFarm() {
         renderer.setFishingCastHandler(aim => void castFish(aim));
         renderer.setFishingStatusHandler(setFishingStatus);
         scene.current = renderer;
+        renderer.shadowPreset = shadowPresetRef.current;
+        market.shadowPreset = shadowPresetRef.current;
         marketScene.current = market; activeScene.current = renderer;
         game = new Phaser.Game({ type: Phaser.AUTO, parent: parent.current, backgroundColor: "#f4e5c7", scene: [renderer, market],
           scale: { mode: Phaser.Scale.RESIZE, width: "100%", height: "100%" }, input: { windowEvents: false }, render: { antialias: true } });
@@ -481,6 +486,18 @@ export default function IsometricFarm() {
       <button onClick={() => activeScene.current?.zoomBy(1.2)} aria-label="Zoom in">+</button>
       <button onClick={() => activeScene.current?.zoomBy(1 / 1.2)} aria-label="Zoom out">−</button>
       <button onClick={() => activeScene.current?.fit()}>Fit</button>
+      <label>Shadows <select aria-label="Shadow time preview" value={shadowPreset} onChange={event => {
+        const preset = SHADOW_PRESETS.find(value => value === event.target.value) ?? "local";
+        setShadowPreset(preset); shadowPresetRef.current = preset;
+        if (scene.current) scene.current.shadowPreset = preset;
+        if (marketScene.current) marketScene.current.shadowPreset = preset;
+      }}>
+        <option value="local">Local time</option>
+        <option value="morning">Morning · 09:00</option>
+        <option value="midday">Midday · 14:00</option>
+        <option value="evening">Evening · 19:00</option>
+        <option value="night">Night · 22:00</option>
+      </select></label>
     </div>
     <div ref={parent} className={styles.canvas} />
     <MarketDialog />

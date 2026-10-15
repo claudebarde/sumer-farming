@@ -1,4 +1,6 @@
 import Phaser from "phaser";
+import { createShadowLayer } from "../shadowLayer";
+import type { ShadowPreset } from "../daylightShadows";
 import { INITIAL_FARM_CONFIG as config } from "../../../../game-data/initialFarm";
 import { WORKER_MOVE_DURATION_PER_TILE } from "../../../../game-data/movement";
 import { farmerTravelTexture } from "../farmerCarry";
@@ -35,6 +37,8 @@ export class IsometricMarketScene extends Phaser.Scene {
   private approaching: typeof stands[number] | null = null;
   private actor!: Phaser.GameObjects.Image;
   private shadow!: Phaser.GameObjects.Ellipse;
+  shadowPreset: ShadowPreset = "local";
+  private daylightShadows!: ReturnType<typeof createShadowLayer>;
   private returnFarm!: Phaser.GameObjects.Image;
   private readonly farmLevel: () => number;
   private merchants: { sprite: Phaser.GameObjects.Image; cell: IsoCell; facing: MerchantFacing }[] = [];
@@ -69,8 +73,11 @@ export class IsometricMarketScene extends Phaser.Scene {
     const front = footprintFront(marketReturnOrigin, 2, 2);
     this.returnFarm = this.add.image(front.x, front.y + 19, farmAppearance(this.farmLevel()).texture).setOrigin(0.5, 1).setDisplaySize(232, 232)
       .setDepth(front.y - 24).setData("returnFarm", true).setInteractive({ pixelPerfect: true });
+    this.daylightShadows = createShadowLayer(this, { ...config.worldBounds, minimumRow: 0, maximumRow: marketLastRow });
+    this.daylightShadows.addBuilding(this.returnFarm);
     stands.forEach(stand => this.drawStand(stand));
-    this.shadow = this.add.ellipse(0, 0, 23, 8, 0x624728, 0.18);
+    this.shadow = this.add.ellipse(0, 0, 23, 8, 0x624728, 0).setAlpha(0);
+    this.daylightShadows.add(() => this.shadow, 23, 48);
     this.actor = this.add.image(0, 0, "farmer-idle").setOrigin(0.5, 120 / 128).setDisplaySize(64, 64);
     this.speechBackground = this.add.graphics();
     this.speechText = this.add.text(0, 0, "", { fontFamily: "Georgia, serif", fontSize: "18px",
@@ -119,13 +126,14 @@ export class IsometricMarketScene extends Phaser.Scene {
     const size = 232, depth = front.y - 24;
     const merchant = isoPoint(stand.merchant);
     // Keep the stationary merchant fully visible in front, just off the walking road.
-    this.add.ellipse(merchant.x, merchant.y, 23, 8, 0x624728, 0.18).setDepth(merchant.y);
+    this.daylightShadows.add(() => merchant, 23, 48);
     const sprite = this.add.image(merchant.x, merchant.y, "farmer-idle")
       .setOrigin(0.5, 120 / 128).setDisplaySize(64, 64).setFlipX(true).setDepth(merchant.y + 1)
       .setName(`${stand.scope}-merchant-preview`).setData("marketScope", stand.scope).setInteractive({ pixelPerfect: true, useHandCursor: true });
     this.merchants.push({ sprite, cell: stand.merchant, facing: initialMerchantFacing() });
-    this.add.image(front.x, front.y, `market-${stand.scope}`).setOrigin(0.5, 0.9).setDisplaySize(size, size)
+    const building = this.add.image(front.x, front.y, `market-${stand.scope}`).setOrigin(0.5, 0.9).setDisplaySize(size, size)
       .setDepth(depth).setName(`${stand.scope}-stand-preview`).setData("marketScope", stand.scope).setInteractive({ pixelPerfect: true, useHandCursor: true });
+    this.daylightShadows.addBuilding(building);
   }
   clearSelection() { this.approaching = null; this.selected = null; this.reportedAnchor = ""; this.report(null); }
   private merchantEntrance(stand: typeof stands[number]): IsoCell {
@@ -207,6 +215,7 @@ export class IsometricMarketScene extends Phaser.Scene {
       }
     }
     this.renderFarmer(this.path.length > 0); this.publishAnchor();
+    this.daylightShadows.render(this.shadowPreset);
     this.renderGreeting(Date.now());
     for (const merchant of this.merchants) {
       const facing = advanceMerchantFacing(merchant.facing, merchant.cell, this.position, delta);

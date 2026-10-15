@@ -9,7 +9,7 @@ const image = () => ({
   setDepth(value: number) { this.depth = value; return this; },
   setFlipX(value: boolean) { this.flipX = value; return this; },
   setTexture(value: string) { this.texture = value; return this; },
-  setDisplaySize() { return this; }, setVisible() { return this; },
+  setDisplaySize() { return this; }, setVisible() { return this; }, setOrigin() { return this; },
 });
 afterEach(() => vi.restoreAllMocks());
 

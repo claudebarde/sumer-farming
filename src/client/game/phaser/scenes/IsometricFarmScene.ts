@@ -1,4 +1,6 @@
 import Phaser from "phaser";
+import { createShadowLayer } from "../shadowLayer";
+import type { ShadowPreset } from "../daylightShadows";
 import type { FarmSnapshot } from "../../../../schemas/farm";
 import { INITIAL_FARM_CONFIG as config } from "../../../../game-data/initialFarm";
 import { WORKER_MOVE_DURATION_PER_TILE } from "../../../../game-data/movement";
@@ -11,7 +13,7 @@ import { initialWandering, stepWandering } from "../dogWandering";
 import granaryUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/granary-isometric-test.png";
 import breadOvenUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-isometric.png";
 import breweryUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery-isometric.png";
-import { MILL_ANIMATION_SOURCES, prepareMillAnimation, renderMillAnimation, millWorkerForegroundDepths, type MillAnimationImages } from "../millAnimation";
+import { MILL_ANIMATION_SOURCES, prepareMillAnimation, renderMillAnimation, millShadowCasters, millWorkerForegroundDepths, type MillAnimationImages } from "../millAnimation";
 import { millingJourneyPose, millingProgress } from "../isometricMilling";
 import { buildingOutputTile, isometricMillOutputPosition } from "../buildingOutputPlacement";
 import millOutputBagsUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.png";
@@ -132,6 +134,8 @@ export class IsometricFarmScene extends Phaser.Scene {
   private facingBuilding: IsoCell | null = null;
   private actor!: Phaser.GameObjects.Image;
   private actorShadow!: Phaser.GameObjects.Ellipse;
+  shadowPreset: ShadowPreset = "local";
+  private daylightShadows!: ReturnType<typeof createShadowLayer>;
   private cargo!: Phaser.GameObjects.Text;
   private cargoBackground!: Phaser.GameObjects.Graphics;
   private plantingSelection: readonly IsoCell[] | null = null;
@@ -589,7 +593,9 @@ export class IsometricFarmScene extends Phaser.Scene {
     }
   }
   private draw() {
+    this.daylightShadows?.destroy();
     this.children.removeAll(true);
+    this.daylightShadows = createShadowLayer(this, config.worldBounds);
     this.millPreviewParts = [];
     this.musicians = [];
     this.mockFootprint = undefined; this.mockBuilding = undefined;
@@ -686,6 +692,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       // Keep saved southern decorations intact while previewing the wider water.
       if (isIsometricRiverRow(object.row)) continue;
       const p = isoPoint(object);
+      this.daylightShadows.add(() => p, object.type === "rock" ? 34 : 30, object.type === "reeds" ? 40 : 28);
       const variant = Math.abs(object.column + object.row) % 2 === 0 ? "01" : "02";
       const key = object.type === "rock" ? `rocks${variant}` : object.type === "bush" ? `bush${variant}` : "reeds";
       this.add.image(p.x, p.y, key).setOrigin(0.5, object.type === "reeds" ? 120 / 128 : 106 / 128).setDisplaySize(72, 72).setDepth(p.y)
@@ -694,6 +701,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     const front = footprintFront(farmOrigin, 2, 2);
     const appearance = farmAppearance(snapshot.farm.progression?.level);
     this.buildingImages.push(this.add.image(front.x, front.y + 19, appearance.texture).setOrigin(0.5, 1).setDisplaySize(232, 232).setDepth(front.y - 24).setData("tile", farmOrigin).setInteractive({ pixelPerfect: true }));
+    this.daylightShadows.addBuilding(this.buildingImages[this.buildingImages.length - 1]!);
     // Anchor on the visible roof, not the transparent top of the source frame.
     const storageSnapshot = this.pickup?.type === "store" ? this.pickup.before : snapshot;
     this.drawStorageChip("farm", front.x, front.y + appearance.storageChipY, storageSnapshot.inventory.find(item => item.itemKey === "barley")?.quantity ?? 0);
@@ -711,6 +719,7 @@ export class IsometricFarmScene extends Phaser.Scene {
           this.buildingImages.push(image.setAlpha(Date.parse(building.completesAt) > now ? 0.5 : 1)
             .setData("tile", { column: building.column, row: building.row }).setInteractive({ pixelPerfect: true }));
         }
+        for (const caster of millShadowCasters(mill)) this.daylightShadows.addBuilding(caster);
         const bags = snapshot.farm.millGoods.pending[building.id];
         const quantity = bags ? bags.flour + bags.brewersGroats : 0;
         const output = isometricMillOutputPosition(building);
@@ -721,11 +730,13 @@ export class IsometricFarmScene extends Phaser.Scene {
             // same visible 43×39px size as the tightly cropped idle bags.
             .setDisplaySize(74, 74).setDepth(p.y + 5).setData("tile", buildingOutputTile(building, size)).setData("millBags", true).setInteractive({ pixelPerfect: true });
           this.millOutputSprites.push(sprite);
+          this.daylightShadows.add(() => ({ x: sprite.x, y: sprite.y + 12, visible: sprite.visible }), 32, 24);
           if (this.selectedMillBags && this.selected && sameCell(buildingOutputTile(building, size), this.selected)) this.outlineItem(sprite);
         }
       } else this.buildingImages.push(this.add.image(p.x, p.y + (granary ? -12 : 0), building.type).setOrigin(0.5, granary ? 1 : 120 / 128)
         .setDisplaySize(granary ? 240 : 150, granary ? 240 : 150).setDepth(p.y - 24)
         .setAlpha(Date.parse(building.completesAt) > now ? 0.5 : 1).setData("tile", { column: building.column, row: building.row }).setInteractive({ pixelPerfect: true }));
+      if (building.type !== "mill") this.daylightShadows.addBuilding(this.buildingImages[this.buildingImages.length - 1]!);
       if (granary && Date.parse(building.completesAt) <= now) {
         this.drawStorageChip(building.id, p.x, p.y - 145, storageSnapshot.buildings.find(b => b.id === building.id)?.storedBarley ?? building.storedBarley);
       }
@@ -740,6 +751,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.buildingImages.push(this.add.image(marketFront.x, marketFront.y, "market-preview")
       .setOrigin(0.5, 5 / 6).setDisplaySize(232, 232).setDepth(marketFront.y - 24)
       .setData("tile", marketOrigin).setInteractive({ pixelPerfect: true }));
+    this.daylightShadows.addBuilding(this.buildingImages[this.buildingImages.length - 1]!);
     const groundItems = transferGroundItems(snapshot.groundItems, this.pickup);
     let outlinedGroundItem = false;
     for (const item of groundItems) {
@@ -747,6 +759,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       const material = item.itemKey === "reed" || item.itemKey === "clay";
       if (material && item.quantity > 0) this.drawStorageChip(`pile:${item.id}`, p.x, p.y - 30, item.quantity, "");
       if (item.itemKey in fallback) {
+        this.daylightShadows.add(() => ({ x: p.x, y: p.y + 10 }), 22, 22);
         const sprite = this.add.image(p.x, p.y, item.itemKey)
           .setOrigin(GROUND_ITEM_ORIGIN.x, GROUND_ITEM_ORIGIN.y)
           .setDisplaySize(52, 52).setDepth(groundItemDepth(p.y, item.itemKey));
@@ -766,7 +779,15 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.dog = this.add.image(dogPoint.x, dogPoint.y, dogTexture(this.dogState))
       .setOrigin(0.5, 108 / 128).setDisplaySize(56, 56)
       .setDepth(dogPoint.y + 2).setFlipX(this.dogState.flip);
-    this.actorShadow = this.add.ellipse(0, 0, 23, 8, 0x624728, 0.18);
+    // Retain the existing pose-specific feet anchor, but use the shared shadow renderer.
+    this.actorShadow = this.add.ellipse(0, 0, 23, 8, 0x624728, 0).setAlpha(0);
+    this.daylightShadows.add(() => this.actorShadow, 23, 48);
+    this.daylightShadows.add(() => this.dog, 22, 25);
+    for (const mill of this.mills) this.daylightShadows.add(() => {
+      const worker = mill.images.farmer;
+      const feet = worker.getBottomCenter();
+      return { x: feet.x, y: feet.y - 5, visible: worker.visible };
+    }, 23, 48);
     this.heldMaterial = this.add.image(0, 0, "reed").setDisplaySize(26, 26).setVisible(false);
     this.actor = this.add.image(0, 0, "farmer-idle").setOrigin(0.5, 120 / 128).setDisplaySize(64, 64)
       .setData("farmer", true);
@@ -1249,6 +1270,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       }
     }
     if (this.heldMaterial?.visible) this.heldMaterial.setDepth(this.actor.depth + 0.1);
+    this.daylightShadows.render(this.shadowPreset);
     if (this.marketTrip && !this.walkPath.length && sameCell(this.farmerCell, marketEntrance)) {
       this.marketTrip = false;
       this.enterMarket();

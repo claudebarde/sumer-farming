@@ -68,6 +68,9 @@ export type MillAnimationImages = {
   bowl: Phaser.GameObjects.Image; bags: Phaser.GameObjects.Image;
   farmer: Phaser.GameObjects.Image; flour: Phaser.GameObjects.Graphics;
 };
+/** Shadow trial: the stationary mill body and idle bags only, never bowl/lever. */
+export const millShadowCasters = (images: MillAnimationImages) => [images.base, images.bags] as const;
+
 export const renderMillAnimation = (scene: Phaser.Scene, images: MillAnimationImages | null, cell: { column: number; row: number }, elapsed: number | null): MillAnimationImages => {
   const p = isoPoint({ column: cell.column + 0.5, row: cell.row + 0.5 });
   const active = elapsed !== null;

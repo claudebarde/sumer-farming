@@ -1564,3 +1564,36 @@ placement, timings, quantities and interactions. Retain explicitly approved
 isometric artwork, anchors and rendering settings. Finished building goods use
 the shared `buildingOutputTile` placement inside the lower-left footprint tile,
 not a decorative offset outside the building.
+
+## 39. Approved isometric shadow baseline
+
+The player approved the morning/evening building silhouettes and midday contact
+ovals on 2026-10-15. Reuse `shadowLayer.ts`, `buildingShadows.ts` and the pure
+`buildingShadowProjection.ts` helpers for future buildings; do not retune existing
+buildings when adding one. This is cosmetic only, with no sprite relighting or
+effect on server time, economy or production.
+
+Use device-local time: daylight 08:00–20:00, high sun 14:00, half-hour dawn/dusk
+fades. Preserve the current brown-grey colour (#504739), opacity (0.10 night to
+0.20 daylight), ground clipping and below-artwork depth. Characters and small
+items use the existing narrow-feathered ovals.
+
+Buildings use alpha-derived morning/evening silhouettes. Anchor to visible
+ground contact, never transparent canvas margins or the lowest foreground prop.
+For isometric corners, use the per-column base contour so matching corners stay
+attached (farmhouse/market baseline). Otherwise calibrate an artwork-specific
+contact row (approved oven: 0.76). Preserve source framing, sprite scale and origin.
+At 14:00 use a shallow oval sized to visible artwork, with six-world-pixel side
+and southern margins; blend smoothly between 11:00 and 17:00. Keep the existing
+morning and evening settings unchanged. Night retains faint contact shadows.
+
+Register new building images with `addBuilding`; composite buildings register
+only intended casting parts. Cache pixel analysis, respect visibility/alpha,
+release generated textures on redraw/shutdown, and do not upload them every frame.
+Verify all time presets, ground corners, map-edge clipping, construction opacity
+and active/idle visibility before requesting player approval. The temporary
+Shadows time selector remains until the user asks to remove it.
+The mill casts from its body and idle bags only, excluding bowl and lever.
+Its midday and evening settings are approved. Its morning uses simple ellipses
+with the shared sun-length scale and visible artwork height (excluding transparent
+padding). Preserve the approved settings for other buildings.

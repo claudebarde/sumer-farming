@@ -1,7 +1,7 @@
 import { expect, it, vi } from "vitest";
 vi.mock("phaser", () => ({ default: {} }));
 import type Phaser from "phaser";
-import { millWorkerForegroundDepths } from "../../src/client/game/phaser/millAnimation";
+import { millShadowCasters, millWorkerForegroundDepths } from "../../src/client/game/phaser/millAnimation";
 import { renderMillAnimation, millAnimationPose, millFlourParticles, MILL_ACTIVE_SIZE, MILL_WORKER_SIZE, MILL_CYCLE_MS, MILL_ANIMATION_SOURCES } from "../../src/client/game/phaser/millAnimation";
 
 it("keeps the base and bowl fixed while swapping bags for the worker and resetting the idle lever", () => {
@@ -9,6 +9,10 @@ it("keeps the base and bowl fixed while swapping bags for the worker and resetti
   const scene = { add: { image: vi.fn(sprite), graphics: vi.fn(sprite) } } as unknown as Phaser.Scene;
   const cell = { column: 5, row: 2 };
   const images = renderMillAnimation(scene, null, cell, null);
+  expect(millShadowCasters(images)).toEqual([images.base, images.bags]);
+  expect(millShadowCasters(images)).not.toContain(images.bowl);
+  expect(millShadowCasters(images)).not.toContain(images.lever);
+  expect(millShadowCasters(images)).not.toContain(images.farmer);
   for (const elapsed of [1400, 4200, null]) renderMillAnimation(scene, images, cell, elapsed);
   for (const part of [images.base, images.bowl]) {
     for (const method of [part.setPosition, part.setOrigin, part.setDisplaySize]) {

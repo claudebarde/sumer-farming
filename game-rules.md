@@ -4,6 +4,22 @@ This is the living, player-facing reference for the game's implemented rules. Us
 
 ## Starting your farm
 
+Farm and market shadows subtly follow your device's local time. The sun travels
+east through north to west between 08:00 and 20:00, with the shortest shadows at
+14:00. Directional shadows fade in/out over the first/last half-hour; at night,
+only faint contact shadows remain. This is cosmetic: sprites, production and
+gameplay are unchanged. The temporary Shadows selector previews Morning (09:00),
+Midday (14:00), Evening (19:00) and Night (22:00); Local time restores your clock.
+Reloading returns to Local time, and returning to the tab uses the current time.
+Buildings use flattened shadows shaped from their visible
+artwork in morning and evening. Around midday, these become shallow contact
+ovals beneath the buildings, extending slightly to the sides and south.
+Characters and small objects retain their existing simple oval shadows.
+The mill uses simple morning ellipses with the same sun-based length scale as
+other shadows, retaining its midday contact ovals and evening silhouettes.
+The mill shadow uses its stone body and visible idle bags; the bowl and moving
+lever are excluded. Its bags' shadow disappears when the bags are hidden during work.
+
 The former level-signpost tile beside the farm is ordinary ground. Roads, canals
 and other ground actions follow their usual rules there; it is no longer reserved.
 
