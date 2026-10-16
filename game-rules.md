@@ -31,13 +31,23 @@ destroying materials removes one unit, removing the pile when its last unit is g
 Picking up or destroying clay and reeds requires empty hands. Those buttons are
 hidden while carrying any item; dropping onto a matching pile remains available.
 
+Manage → Buildings opens Available by default when that section contains buildings,
+including those missing materials. Otherwise it opens Already built instead.
+The other sections start collapsed and can still be opened manually.
+
 At level 6, Manage → Build Bread Oven uses the shared isometric placement and
 confirmation flow. It needs a free 2×2 footprint beside a connected completed road
 with loading access, 4 reeds, 6 clay and 2 stored baking tools. Construction takes
 three minutes, with the existing farmer pickaxe animation, semi-transparent oven
-and progress bar. Its saved timer continues offline. This isometric migration
-currently covers construction and the completed building popup; baking controls
-and the busy oven animation are not yet connected in this view.
+and progress bar. Its saved timer continues offline. The completed oven popup
+offers **Bake bread** when the farmer is available, empty-handed and has two
+stored flour. The farmer collects flour at the farm and carries it to the oven.
+The approved paddle animation, orange glow, white smoke and building progress bar
+follow the real saved job. The table shows two dough portions during the first
+third, one during the second third, and none during the final third.
+On completion the farmer becomes idle, the oven returns to its inactive artwork,
+and a selectable bread basket with a quantity chip remains until collected.
+The toolbar test button and accelerated preview cycle have been removed.
 
 The farm building popup shows **Claim level [number]** only when all requirements
 and offerings for the next level are ready. It uses the same claim, offering costs,
@@ -58,6 +68,10 @@ farmer's current position, including while the farmer works. It uses its normal
 walking speed, pauses for 2–6 seconds, and avoids obstacles, crops, ground items
 and the farmer's work area. Mouse movement, clicks, keyboard input, scrolling or
 touch ends wandering and restores following, keeping clear of ongoing work.
+During baking it uses this same walk–pause–walk routine around the oven's loading
+point. The oven's 2×2 working footprint stays off limits, while nearby roads stay
+available for wandering. The usual 20-second inactivity delay and 2–6-second
+pauses apply; flour collection and the return to idle retain normal following.
 The dog uses position-based depth sorting like the farmer: visible in front of
 buildings and hidden when behind them. He still walks around their footprints.
 Blocked routes are retried without teleporting. Wandering is cosmetic, resets
@@ -141,7 +155,7 @@ building uses the same stage. Intermediate visual upgrades are not implemented y
 - Roads and irrigation canals can replace decorative rocks and bushes/trees: construction clears that scenery permanently. Reeds still block both, as do planted crops (including date palms). Normal connectivity and other placement requirements still apply; failed construction does not clear scenery.
 - Newly created farms start with 6–8 randomly placed decorations, including at least 3 rocks and 3 bushes, plus two riverbank reed sources. All occupy distinct non-arable tiles above the river, avoiding the main road and permanent buildings. Reeds, bushes and rocks cannot occupy farmland. On existing farms, scenery displaced by the expanded southern farmland moves to vacant non-arable ground; reeds remain beside the river. Existing goods, buildings and work are preserved; cleared scenery does not respawn.
 - New buildings can occupy ordinary **non-arable ground on either side of the main road**. Every tile of their footprint must be non-arable, empty and inside the map; even partial overlap with farmland, roads or water is forbidden. A free 2×2 footprint must border a completed connected road, reserving one exclusive, unoccupied road tile as its loading point. Placement highlights this tile. Loading points remain walkable. New canals cannot replace loading points or player-built roads. Existing saved buildings are not moved by this placement rule.
-- Finished flour/groats bags, beer jars, and bread baskets appear in the bottom-left tile inside their producing building's 2×2 footprint, drawn above the building with their quantity chip. They do not occupy surrounding road tiles. The farmer collects them from the building's road loading tile rather than walking onto the goods or into the building.
+- Finished flour/groats bags and bread baskets choose B or C inside the producing building's 2×2 footprint, whichever is nearest a connected adjacent road (ties prefer saved loading access, then B). Beer jars retain their bottom-left position. Goods show a quantity chip and do not occupy roads. Mill bags and bread are collected from the chosen nearby road; beer retains its saved loading tile.
 - The farmer prefers connected roads, including for deliveries, but can leave them to reach fields and existing buildings. Buildings from older saves remain usable without road access and retain their existing output-placement fallback.
 - Barley is both a crop and its own seed: keep some for planting rather than consuming or selling everything.
 
@@ -522,15 +536,35 @@ resumes it. Pending bags become usable inventory only when delivered.
 
 The Mill unlocks at level 5 and occupies 2×2 tiles. Each milling job consumes 2 barley and produces either 1 Flour or 1 Brewer's Groats after 5 minutes, plus preparation. The farmer visually visits a completed granary with barley by preference, otherwise the farm if it has barley, then carries the barley to the Mill. If the granary has too little barley, the farmer collects what it has and then visits the farm for the remainder before going to the Mill. Barley is deducted when the server accepts the job: carried barley first, then completed granaries or warehouses, then farm storage. Carrying one barley means only one additional barley is taken from storage. If both required barley are already carried and storage is empty, the farmer goes straight to the Mill. Exposed ground barley must be picked up or stored first. Both outputs wait at the Mill until collected and delivered to the farm building.
 
-Choose one recipe per job. The farmer walks to the Mill, then works inside it for the entire job. The busy Mill sprite indicates occupied labour: other farmer-dependent tasks, market visits, and fetch are unavailable until completion. Milling persists across reloads and completes while offline. Finished Flour and Brewer's Groats accumulate separately in a shared bag stack over the Mill's bottom-left footprint tile, with a chip showing the total count. Click the stack and choose **Store**: with empty hands, the farmer collects the bags that fit in storage and delivers them to the farm building, just like finished bread and beer. Remaining bags stay at the Mill. No granary is required. Only on delivery are the goods added to Resources and available for level offerings, trading, or production. Further batches can be made before collecting. Delivery survives reloads and uses each resource's independent estate capacity, not barley storage. Flour and groats are traded at their respective markets; baking and brewing unlock at level 6.
+Choose one recipe per job. The farmer walks to the Mill, then works inside it for the entire job. The busy Mill sprite indicates occupied labour: other farmer-dependent tasks, market visits, and fetch are unavailable until completion. Milling persists across reloads and completes while offline. Finished Flour and Brewer's Groats accumulate separately in a shared bag stack over the Mill's B or C footprint tile nearest a connected road, with a chip showing the total count. Click the stack and choose **Store**: with empty hands, the farmer collects the bags that fit in storage and delivers them to the farm building, just like finished bread and beer. Remaining bags stay at the Mill. No granary is required. Only on delivery are the goods added to Resources and available for level offerings, trading, or production. Further batches can be made before collecting. Delivery survives reloads and uses each resource's independent estate capacity, not barley storage. Flour and groats are traded at their respective markets; baking and brewing unlock at level 6.
 
 ## Brewing beer
 
+The isometric brewery displays the current brewing-vessel inventory: zero vessels
+shows an empty courtyard, one shows one jar, and two or more shows two jars.
+Purchases update the display immediately. Empty packaging jars and finished beer
+do not count. This visual change does not alter the existing construction cost
+(which consumes two brewing vessels) or brewing requirements.
+The temporary orientation preview button has been removed. Construction still
+shows its transparent shell and 2×2 footprint. The shell switches with road access:
+B uses the original shell, C the opposite-facing shell. If multiple usable road
+connections exist, always prefer one supporting B and the more detailed original
+shell. Reserved or occupied loading tiles and unfinished or disconnected roads
+cannot supply this preference. The server saves the same preferred connection
+when constructing a brewery. This shows the original north of the main road and
+the second south of it when only that connection exists. No usable road defaults
+to the original shell, but placement remains invalid. Built breweries use their saved
+loading connection for orientation and finished beer placement.
+
 Brewing unlocks at level 6 and consumes Brewer's Groats rather than raw barley.
 
-**Recipe:** 2 stored Brewer's Groats + 2 water loads + 2 empty beer jars → 2 filled beer jars in **15 minutes**. Groats are deducted from estate inventory when brewing starts.
+**Recipe:** 2 stored Brewer's Groats + 2 water loads + 2 empty beer jars → 2 filled beer jars in **15 minutes**, plus travel and eight seconds of preparation (upgrades retain their fermentation-time reduction). All ingredients are reserved immediately when **Brew beer** is accepted.
 
 - Deliver water, stock jars, and start the batch through the brewery popup. Groats come directly from estate inventory.
+- Click the river to **Collect water**, then the brewery to **Deliver water**; repeat for two loads. Buy empty beer jars at the beer market and use **Stock empty jars** at the brewery.
+- With an available, empty-handed farmer and all ingredients supplied, **Brew beer** sends him to the farm for groats, then to the brewery. He stirs for eight seconds, including short pauses, and becomes available while fermentation continues with foam and a progress bar.
+- Timers persist immediately and progress while the tab is hidden or closed. Returning does not restart preparation or consume ingredients again.
+- Finished jars appear with a quantity chip on B for the original shell or C for the opposite shell. Click them and choose **Store** to carry them to the farm (or warehouse when appropriate). Interrupted deliveries can be resumed from the farmer/farm popup. Goods enter usable inventory only upon delivery; full storage prevents pickup.
 - Each brewery can hold at most 2 water loads and 10 empty beer jars.
 - Brewing jars are permanent brewing equipment used to construct the brewery, not the empty packaging jars consumed for every batch.
 - Collect finished beer into estate inventory before starting another batch. Beer served directly from the ready batch reduces the amount left to collect.
@@ -546,20 +580,29 @@ Brewing unlocks at level 6 and consumes Brewer's Groats rather than raw barley.
 - While being led to the mill, the donkey trails slightly behind on the same route: behind horizontally, above the farmer when walking down, and below him when walking up. This spacing is visual only and does not change production timing.
 - If milling finishes while you are watching the farm, the donkey walks back along its escort route to its resting tile. If it finishes while you are away, it appears at rest when you return, without replaying the journey. Production never waits for this animation.
 - Once the saved preparation route ends, the farmer is free for other work, including baking or visiting the market, even if the trip animation was paused or skipped. Only one milling job (including preparation) can run at a time.
-- Ownership and active jobs survive reloads. The donkey returns to grazing when its job finishes. Finished bags still wait over the mill's bottom-left footprint tile and must be collected and delivered to the farm before becoming usable resources.
+- Ownership and active jobs survive reloads. The donkey returns to grazing when its job finishes. Finished bags still wait over the mill's B or C footprint tile nearest a connected road and must be collected and delivered to the farm before becoming usable resources.
 
 ## Baking bread
 
 The Bread Oven unlocks at level 6. Each batch uses **2 stored Flour → 2 Bread in 5 minutes**.
 The farmer visually collects flour from the farm building and carries it to the oven. Flour is deducted
-when the job is accepted, and baking starts when the saved supply route reaches the oven. The farmer disappears inside and stays occupied
+when the job is accepted, and baking starts when the saved supply route reaches the oven. The farmer works at the oven and stays occupied
 for the entire batch: other physical tasks, market visits, and fetch are unavailable. The oven
-uses its busy sprite and shows production progress, returning to its idle sprite when finished.
+uses its baking animation and shows production progress, returning to its idle sprite when finished.
 The job persists across reloads and completes while offline.
 
-Finished bread appears as a basket with a count over the bottom-left tile of the oven, while the farmer
-reappears outside the building. Click the basket and choose **Store**
-to collect and deliver it to the farm. Bread is added to Resources only upon delivery.
+Finished bread appears as a basket with a count inside the oven footprint, while
+the farmer becomes idle outside. Only footprint squares B and C can hold the
+basket. Choose whichever is closest to a completed road touching the oven and
+connected to the main road. Equal distances prefer the valid saved loading side,
+then B. The farmer collects from the road tile selected for that basket position.
+Without connected road access, the basket stays on B until access is restored.
+Click the basket and choose **Store** to collect and deliver it to available estate
+storage (the farm, or warehouse when available). Bread becomes usable only upon
+delivery. Interrupted carried deliveries can resume with **Store bread**.
+Mill flour/groats bags use the same B/C placement and pickup-road rule. While bags
+wait on C and the mill is inactive, its decorative barley bags and bowl are hidden.
+They return after collection or if output moves to B. Active milling is unchanged.
 
 Unlike baking, **15-minute beer brewing does not occupy the farmer**. Start beer first, then bake
 or perform other tasks while it brews.

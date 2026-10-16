@@ -62,7 +62,7 @@ export const mockGranaryPlacement = (snapshot: FarmSnapshot, target: IsoCell, fa
     !preservesBuildingAccess({ buildings: [...snapshot.buildings, { ...target, type }] })
     ? { type: "access_blocked" } : validation;
   return { footprint, rule, loading: rule.type === "valid"
-    ? findLoadingTile(footprint, snapshot.farm.roads, reserved, occupied) : null };
+    ? findLoadingTile(footprint, snapshot.farm.roads, reserved, occupied, { building: type, now }) : null };
 };
 
 export const granaryPlacement = (snapshot: FarmSnapshot, target: IsoCell, farmer: IsoCell, now: number) =>

@@ -166,7 +166,7 @@ export const advanceFarmLifecycle = async (
     }
     for (const [id, job] of readyBakes) pending[id] = { itemKey: "bread", quantity: (pending[id]?.quantity ?? 0) + job.output };
     const [updated] = await transaction.update(farms).set({
-      production: { ...farm.production, pending, baking: Object.fromEntries(Object.entries(farm.production.baking).filter(([, job]) => Date.parse(job.completesAt) > now.getTime())) },
+      production: { ...farm.production, pending, brewing: Object.fromEntries(Object.entries(farm.production.brewing ?? {}).filter(([id]) => !readyBreweries.some(b => b.id === id))), baking: Object.fromEntries(Object.entries(farm.production.baking).filter(([, job]) => Date.parse(job.completesAt) > now.getTime())) },
       progressionStats: { ...farm.progressionStats, beerProduced: farm.progressionStats.beerProduced + beerProduced,
         breadProduced: (farm.progressionStats.breadProduced ?? 0) + readyBakes.reduce((sum, [, job]) => sum + job.output, 0) },
       version: sql`${farms.version} + 1`, updatedAt: now

@@ -16,7 +16,7 @@ const snapshot = FarmSnapshotSchema.parse({
     brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0 }]
 });
 describe("one saved preparation timeline", () => {
-  it.each(["baking", "milling", "donkeyMilling"] as const)("%s arrives exactly at production start, including after reload", kind => {
+  it.each(["baking", "brewing", "milling", "donkeyMilling"] as const)("%s arrives exactly at production start, including after reload", kind => {
     const journey = planProductionJourney(snapshot, targetId, 10_000,
       { farmerPosition: { column: 6, row: 5 }, donkeyPosition: { column: 7, row: 2 } }, kind)!;
     expect(journey).not.toBeNull();

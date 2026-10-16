@@ -45,8 +45,20 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
       if (bags?.brewersGroats) details.push(`${bags.brewersGroats} groats ${bags.brewersGroats === 1 ? "bag" : "bags"} ready`);
     }
     else if (building.type === "granary") details.push(`${building.storedBarley} / ${granaryCapacityForLevel(snapshot.farm.progression?.level ?? 1)} barley stored`);
-    else if (building.type === "breadOven") details.push("Turn flour into bread.");
-    else if (building.type === "brewery") details.push("Brew beer from groats.");
+    else if (building.type === "breadOven") {
+      const job = snapshot.farm.production.baking[building.id];
+      if (job) details.push(Date.parse(job.startedAt) > now ? "Collecting flour…" : "Baking bread…");
+      const bread = snapshot.farm.production.pending[building.id];
+      if (bread) details.push(`${bread.quantity} bread ready`);
+    }
+    else if (building.type === "brewery") {
+      const job = snapshot.farm.production.brewing?.[building.id];
+      if (job && now < Date.parse(job.startedAt)) details.push(now < Date.parse(job.arrivedAt) ? "Collecting groats…" : "Preparing beer…");
+      else if (building.beerReadyAt) details.push(`Fermenting · ${Math.max(0, Math.ceil((Date.parse(building.beerReadyAt) - now) / 60000))}m`);
+      details.push(`${snapshot.inventory.find(i => i.itemKey === "brewersGroats")?.quantity ?? 0}/2 groats · ${building.brewingWater}/2 water · ${building.emptyBeerJars}/2 empty jars`);
+      const beer = snapshot.farm.production.pending[building.id];
+      if (beer) details.push(`${beer.quantity} beer ready`);
+    }
   } else if (!home) {
     details.push(...tileInformation(snapshot, cell, now).split(" · ").slice(1));
   }

@@ -84,6 +84,12 @@ it("collects mixed mill bags via the loading tile and delivers to the farm", () 
   expect(canPickupMillBags(s, id, 1000)).toBe(false);
 });
 
+it("collects mill output from the road nearest C rather than the old A-side loading point", () => {
+  const s = snapshot();
+  s.buildings[0] = { ...s.buildings[0]!, column: 4, row: 6, loadingTile: { column: 4, row: 5 } };
+  expect(millPickupPath(s, id, INITIAL_FARM_CONFIG.farmerSpawn, 1000)?.at(-1)).toEqual({ column: 5, row: 5 });
+});
+
 it("restores partial supply collection and starts work only at saved arrival", () => {
   const s = snapshot();
   s.farm.milling = { buildingId: id, recipe: "flour", worker: "farmer", barley: 2, output: 1, startedAt: date(3000), completesAt: date(303000),

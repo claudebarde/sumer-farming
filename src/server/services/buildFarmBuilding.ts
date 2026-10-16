@@ -265,7 +265,7 @@ export const buildFarmBuilding = (
             .values({
               farmId: farm.id,
               type: buildingType,
-              loadingTile: findLoadingTile(getBuildingFootprint(buildingType, input.target), farm.roads, buildings.flatMap(b => b.loadingTile ? [b.loadingTile] : []), occupiedCoordinates),
+              loadingTile: findLoadingTile(getBuildingFootprint(buildingType, input.target), farm.roads, buildings.flatMap(b => b.loadingTile ? [b.loadingTile] : []), occupiedCoordinates, { building: buildingType }),
               column: input.target.column,
               row: input.target.row,
               startedAt,

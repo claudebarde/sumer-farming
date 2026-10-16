@@ -2,6 +2,7 @@ import type { FarmSnapshot } from "../../schemas/farm";
 import { activeBuildingUpgrade } from "../../game-data/buildingUpgrades";
 import { estateResourceCapacity } from "../../game-data/storage";
 import { millStorageReserved } from "./millStorage";
+import { farmerProductionJob } from "./farmerProduction";
 
 /** Shared UI/server guard. The initial home is not a player-built building. */
 export const buildingDemolitionReason = (snapshot: FarmSnapshot, buildingId: string, now: number): string | null => {
@@ -12,7 +13,7 @@ export const buildingDemolitionReason = (snapshot: FarmSnapshot, buildingId: str
   if (building.storedBarley > 0) return "Empty the building’s barley storage first.";
   const { farm } = snapshot;
   // Pending journeys may refer to a source, destination or route around buildings.
-  if (farm.production.planting || farm.production.delivery || farm.millGoods.delivery || farm.production.materialDelivery ||
+  if (farmerProductionJob(farm, now) || farm.production.planting || farm.production.delivery || farm.millGoods.delivery || farm.production.materialDelivery ||
     farm.production.porter?.job || farm.gathering || farm.fishing || farm.milling ||
     Object.keys(farm.production.baking).length > 0 || (farm.production.cropWork && !farm.production.cropWork.settled))
     return "Finish active work and deliveries first.";
@@ -38,6 +39,7 @@ export const withoutBuildingState = (snapshot: FarmSnapshot, buildingId: string)
     production: { ...snapshot.farm.production,
       pending: omit(snapshot.farm.production.pending),
       baking: omit(snapshot.farm.production.baking),
+      brewing: omit(snapshot.farm.production.brewing ?? {}),
       buildingUpgrades: omit(snapshot.farm.production.buildingUpgrades ?? {}),
       shrineBlessing: snapshot.farm.production.shrineBlessing?.buildingId === buildingId ? null : snapshot.farm.production.shrineBlessing },
     millGoods: { ...snapshot.farm.millGoods, pending: omit(snapshot.farm.millGoods.pending) }

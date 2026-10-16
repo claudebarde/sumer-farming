@@ -41,15 +41,34 @@ const atLevel = (level: number) => {
   return s;
 };
 
-it("starts with only Available open and future buildings collapsed", () => {
+it("opens Already built when no buildings are available, even before the first unlock", () => {
   const html = render(snapshot());
   expect(html).toContain("Available (0)");
   expect(html).toContain("Already built (0)");
   expect(html).toContain("Future unlocks (6)");
   expect(html.match(/aria-expanded="true"/g)).toHaveLength(1);
   expect(html.match(/aria-expanded="false"/g)).toHaveLength(2);
-  expect(html).toContain("No buildings available.");
+  expect(html).toContain("No buildings built yet.");
+  expect(html).not.toContain("No buildings available.");
   expect(html).not.toContain('alt="Mill"');
+});
+
+it("opens Already built after all currently unlocked buildings have been built", () => {
+  const s = atLevel(6);
+  s.buildings = FarmSnapshotSchema.parse({ ...s, buildings:
+    ["granary", "mill", "brewery", "breadOven"].map((type, i) => ({
+      id: `00000000-0000-4000-8000-00000000000${i + 2}`, type, column: i * 3, row: 3,
+      storedBarley: 0, brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0,
+      beerReadyAt: null, beerServed: 0, loadingTile: { column: i * 3, row: 5 },
+      startedAt: new Date(0).toISOString(), completesAt: new Date(120000).toISOString()
+    })) }).buildings;
+  const html = render(s);
+  expect(html).toContain("Available (0)");
+  expect(html).toContain("Already built (4)");
+  expect(html).toContain('<h3>Brewery</h3>');
+  expect(html).not.toContain("No buildings available.");
+  expect(html).not.toContain('<h3>Warehouse</h3>');
+  expect(html.match(/aria-expanded="true"/g)).toHaveLength(1);
 });
 
 it("keeps unlocked buildings available when materials are missing", () => {

@@ -56,12 +56,28 @@ describe("production without animation callbacks", () => {
       const running = await read(); // No client arrival/start command was sent.
       expect(kind === "bread" ? running.farm.production.baking[building!.id] : running.farm.milling).toEqual(job);
       expect(farmerProductionJob(running.farm) === null).toBe(kind === "donkey");
+    } else {
+      const brew = queued.farm.production.brewing![building!.id]!;
+      expect(Date.parse(brew.arrivedAt)).toBe(productionArrivalAt(brew.preparation));
+      expect(Date.parse(brew.startedAt) - Date.parse(brew.arrivedAt)).toBe(8000);
+      expect(Date.parse(brew.completesAt) - Date.parse(brew.startedAt)).toBe(15 * 60000);
+      expect(queued.buildings[0]!.beerReadyAt).toBe(brew.completesAt);
+      expect(farmerProductionJob(queued.farm, now)?.type).toBe("brewing");
+      vi.setSystemTime(Date.parse(brew.arrivedAt) + 4000);
+      const stirring = await read();
+      expect(stirring.farm.production.brewing![building!.id]).toEqual(brew);
+      expect(farmerProductionJob(stirring.farm)?.type).toBe("brewing");
+      vi.setSystemTime(Date.parse(brew.startedAt));
+      const fermenting = await read();
+      expect(farmerProductionJob(fermenting.farm)).toBeNull();
+      expect(fermenting.buildings[0]).toMatchObject({ brewingWater: 0, emptyBeerJars: 0 });
     }
     vi.setSystemTime(now + 3 * 60 * 60_000);
     for (let repeat = 0; repeat < 2; repeat++) {
       const finished = await read();
       expect(finished.farm.milling).toBeNull();
       expect(finished.farm.production.baking).toEqual({});
+      if (kind === "beer") expect(finished.farm.production.brewing).toEqual({});
       expect(finished.inventory.find(i => i.itemKey === input)?.quantity).toBe(0);
       if (kind === "manual" || kind === "donkey") expect(finished.farm.millGoods.pending[building!.id]?.flour).toBe(kind === "donkey" ? 3 : 1);
       else expect(finished.farm.production.pending[building!.id]).toEqual({ itemKey: kind, quantity: 2 });

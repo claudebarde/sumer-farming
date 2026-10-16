@@ -1,10 +1,10 @@
 import { sharpenFarmerPixels } from "./farmerTexture";
 
 /** Average fine outlines before GPU minification; retain the complete source frame. */
-export const prepareBuildingTexture = (source: HTMLImageElement, { maxSize = 256, sharpen = 0.35 }: { readonly maxSize?: number; readonly sharpen?: number } = {}): HTMLCanvasElement => {
+export const prepareBuildingTexture = (source: HTMLImageElement | HTMLCanvasElement, { maxSize = 256, sharpen = 0.35 }: { readonly maxSize?: number; readonly sharpen?: number } = {}): HTMLCanvasElement => {
   let current = document.createElement("canvas");
-  current.width = source.naturalWidth;
-  current.height = source.naturalHeight;
+  current.width = "naturalWidth" in source ? source.naturalWidth : source.width;
+  current.height = "naturalHeight" in source ? source.naturalHeight : source.height;
   current.getContext("2d")!.drawImage(source, 0, 0);
   // The granary displays at 256 world pixels. Successive halving integrates thin
   // outline pixels instead of sampling intermittently from the 1024px source.

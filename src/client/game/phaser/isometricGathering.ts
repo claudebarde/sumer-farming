@@ -16,7 +16,7 @@ export const materialCarry = (snapshot: FarmSnapshot) => {
 };
 /** Carrying materials permits walking/dropping/storing, but not another job. */
 export const transferBlocker = (snapshot: FarmSnapshot, now: number) => plantingBlocker({ ...snapshot,
-  farm: { ...snapshot.farm, carriedItem: materialCarry(snapshot) || snapshot.farm.carriedItem?.itemKey === "fish" ? null : snapshot.farm.carriedItem,
+    farm: { ...snapshot.farm, carriedItem: materialCarry(snapshot) || snapshot.farm.carriedItem?.itemKey === "fish" || snapshot.farm.carriedItem?.itemKey === "water" ? null : snapshot.farm.carriedItem,
     production: { ...snapshot.farm.production, materialDelivery: materialCarry(snapshot) ? false : snapshot.farm.production.materialDelivery } } }, now);
 
 export const gatherableResource = (snapshot: FarmSnapshot, cell: IsoCell, now: number): "reed" | "clay" | null => {

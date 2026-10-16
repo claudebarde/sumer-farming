@@ -10,7 +10,7 @@ type Position = { column: number; row: number };
 export const planProductionJourney = (
   snapshot: FarmSnapshot, targetId: string, now: number,
   hints: { farmerPosition?: Position; donkeyPosition?: Position },
-  kind: "baking" | "milling" | "donkeyMilling"
+  kind: "baking" | "brewing" | "milling" | "donkeyMilling"
 ): ProductionJourney | null => {
   const buildings = snapshot.buildings.map(b => ({ ...b, completesAt: Date.parse(b.completesAt) }));
   const obstacles = [...snapshot.objects, ...snapshot.improvements.filter(i =>
@@ -45,7 +45,7 @@ export const planProductionJourney = (
   }
   const carried = snapshot.farm.carriedItem?.itemKey === "barley" ? snapshot.farm.carriedItem.quantity : 0;
   const supplyStops: NonNullable<ProductionJourney["supplyStops"]> = [];
-  if (kind === "baking") {
+  if (kind === "baking" || kind === "brewing") {
     if (!append(home)) return null;
   } else {
     let remaining = Math.max(0, (kind === "donkeyMilling" ? 6 : 2) - carried);

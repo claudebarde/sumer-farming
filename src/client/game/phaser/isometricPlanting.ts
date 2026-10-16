@@ -15,7 +15,7 @@ export type PlantingPose = { readonly type: "walking" | "sowing" | "idle" | "don
 export const plantingBlocker = (snapshot: FarmSnapshot, now: number): string | null => {
   const farm = snapshot.farm;
   if (farm.carriedItem && farm.carriedItem.itemKey !== "barley") return "Empty your hands first";
-  if (farm.production.planting || farmerProductionJob(farm) || productionIsPreparing(farm.milling, now) || farm.fishing || farm.gathering ||
+  if (farm.production.planting || farmerProductionJob(farm, now) || productionIsPreparing(farm.milling, now) || farm.fishing || farm.gathering ||
     farm.production.materialDelivery || farm.production.delivery || farm.millGoods.delivery ||
     (farm.production.cropWork && !farm.production.cropWork.settled) ||
     farm.roads.some(r => r.completesAt && r.completesAt > now) ||

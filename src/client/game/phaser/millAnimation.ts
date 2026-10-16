@@ -71,7 +71,7 @@ export type MillAnimationImages = {
 /** Shadow trial: the stationary mill body and idle bags only, never bowl/lever. */
 export const millShadowCasters = (images: MillAnimationImages) => [images.base, images.bags] as const;
 
-export const renderMillAnimation = (scene: Phaser.Scene, images: MillAnimationImages | null, cell: { column: number; row: number }, elapsed: number | null): MillAnimationImages => {
+export const renderMillAnimation = (scene: Phaser.Scene, images: MillAnimationImages | null, cell: { column: number; row: number }, elapsed: number | null, outputOnC = false): MillAnimationImages => {
   const p = isoPoint({ column: cell.column + 0.5, row: cell.row + 0.5 });
   const active = elapsed !== null;
   const size = MILL_ACTIVE_SIZE;
@@ -89,9 +89,9 @@ export const renderMillAnimation = (scene: Phaser.Scene, images: MillAnimationIm
     .setPosition(centre.x, centre.y).setDisplaySize(size, size).setDepth(p.y);
   // Props are tightly cropped: preserve their native aspect ratios.
   sprites.bowl.setOrigin(0.5, 0.5).setPosition(p.x - 45, p.y + 20)
-    .setDisplaySize(25, 25 * 99 / 138).setDepth(p.y + 3);
+    .setDisplaySize(25, 25 * 99 / 138).setDepth(p.y + 3).setVisible(active || !outputOnC);
   sprites.bags.setOrigin(0.5, 1).setPosition(p.x + 28, p.y + 12)
-    .setDisplaySize(43, 43 * 232 / 258).setDepth(p.y + 1).setVisible(!active);
+    .setDisplaySize(43, 43 * 232 / 258).setDepth(p.y + 1).setVisible(!active && !outputOnC);
   const pose = millAnimationPose(elapsed ?? 0);
   sprites.lever.setVisible(true).setOrigin(550 / 1024, 505 / 1024).setPosition(centre.x, centre.y)
     .setDisplaySize(size * pose.leverScale, size * pose.leverScale).setRotation(pose.leverRotation).setDepth(p.y + pose.leverDepth);

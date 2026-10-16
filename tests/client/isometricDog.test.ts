@@ -3,6 +3,7 @@ import { FarmSnapshotSchema } from "../../src/schemas/farm";
 import { DOG_SOURCES, initialDog, stepDog, dogTexture, dogClear } from "../../src/client/game/phaser/isometricDog";
 import { SWEEP_TILES } from "../../src/client/game/phaser/farmerSweeping";
 import { initialWandering, stepWandering } from "../../src/client/game/phaser/dogWandering";
+import { bakingDogArea } from "../../src/client/game/phaser/isometricBaking";
 const id = "00000000-0000-4000-8000-000000000001";
 const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shekelBalance: 0 },
   farm: { id, playerId: id, version: 1, carriedItem: null, gathering: null,
@@ -109,4 +110,31 @@ it("caps hidden-tab elapsed time and leaves the prior state untouched", () => {
   const next = stepDog(state, s, { column: 6, row: 5 }, 3600000, 3600000, null);
   expect(next.position.column).toBeLessThan(0.1);
   expect(JSON.stringify(state)).toBe(before);
+});
+
+it("walks, pauses and walks again beside a baking oven without blocking the road", () => {
+  const s = snapshot();
+  s.buildings.push({ id, type: "breadOven", column: -2, row: 6, startedAt: new Date(0).toISOString(), completesAt: new Date(1).toISOString(),
+    storedBarley: 0, brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0, loadingTile: { column: -2, row: 5 } });
+  s.farm.production.baking[id] = { startedAt: new Date(1000).toISOString(), completesAt: new Date(301000).toISOString(), output: 2 };
+  expect(bakingDogArea(s, 999)).toBeNull();
+  expect(bakingDogArea(s, 301000)).toBeNull();
+  const area = bakingDogArea(s, 1000)!;
+  expect(area.anchor).toEqual({ column: -2, row: 5 });
+  expect(area.reserved).toHaveLength(4);
+  expect(area.reserved.some(p => p.row === 5)).toBe(false);
+  let result = { dog: { ...initialDog(s, area.anchor, 1000), position: { column: -3, row: 5 } }, state: initialWandering() };
+  let paused = false, walkedAfterPause = false;
+  for (let elapsed = 0; elapsed < 60000; elapsed += 50) {
+    result = stepWandering(result.dog, result.state, s, area.anchor, 50, 1000 + elapsed, null, area.reserved, true, () => 0.5);
+    if (elapsed < 19950) expect(result.state.goal).toBeNull();
+    if (result.state.pauseMs > 0) { paused = true; expect(result.state.pauseMs).toBeLessThanOrEqual(6000); }
+    if (paused && result.dog.walking) walkedAfterPause = true;
+    expect(area.reserved.some(p => p.column === Math.round(result.dog.position.column) && p.row === Math.round(result.dog.position.row))).toBe(false);
+    expect(Math.hypot(result.dog.position.column - area.anchor.column, result.dog.position.row - area.anchor.row)).toBeLessThanOrEqual(3.001);
+  }
+  expect(paused).toBe(true);
+  expect(walkedAfterPause).toBe(true);
+  const interrupted = stepWandering(result.dog, initialWandering(), s, area.anchor, 50, 62000, 100, area.reserved);
+  expect(interrupted.state.goal).toBeNull();
 });

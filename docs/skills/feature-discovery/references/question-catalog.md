@@ -91,6 +91,27 @@ Use the common and animation sections alongside these construction-specific chec
   also include production controls, upgrades, demolition and output handling?
   Resolve what the completed-building popup should expose during staged migration.
 
+## Building production animations
+
+Use alongside the common and animation sections; inspect existing recipes first.
+
+- **Parity and labour:** Which recipe, upgrade-adjusted duration, supply sources,
+  worker occupation and offline-completion rules must remain unchanged?
+- **Attended versus unattended phases:** Does the worker only prepare the batch,
+  or remain throughout production? When is the worker released, what keeps moving
+  afterward, and can new commands interrupt a cosmetic preparation sequence?
+- **Work cycle:** Continuous work or short motions separated by pauses? Which
+  effects run throughout production versus only during worker motions?
+- **Composite artwork:** Which building parts stay fixed, which props move, and
+  which foreground edges must cover the worker or tool? Is a separate active
+  base or opening overlay needed to avoid baked-in props or duplicated actors?
+- **Working space:** Must the worker/tool stay within the building footprint,
+  or may they occupy the loading tile? Check neighbouring buildings and roads.
+- **Output and completion:** Where do finished goods appear, what happens to
+  the worker and ambient effects, and is collection included in this slice?
+- **Progress feedback:** Reuse building progress, a lower activity container,
+  or both? Keep preparation/travel distinct from production progress.
+
 ## Adding a feature type
 
 When a real discussion introduces an uncovered type, add a named section with

@@ -5327,7 +5327,7 @@ export class MainScene extends Phaser.Scene {
       if (productionJob) {
         if (farmerCommandStore.getState().status.type !== productionJob.type)
           farmerCommandStore.getState().setStatus({
-            type: productionJob.type,
+            type: productionJob.type === "brewing" ? "inspecting" : productionJob.type,
             commandId: productionJob.buildingId
           });
         return;

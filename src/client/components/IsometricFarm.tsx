@@ -40,6 +40,12 @@ import IsometricBuildingCatalogue from "./IsometricBuildingCatalogue";
 import DestroyBuildingDialog from "./DestroyBuildingDialog";
 import { buildingBuildBlocker, buildingPlacement, type PlaceableBuilding } from "../game/phaser/isometricBuildingPlacement";
 import type { MillRecipe } from "../../game-data/milling";
+import { roadsideOutputPlacement } from "../game/phaser/buildingOutputPlacement";
+import { canBakeBread, canStoreBread } from "../game/phaser/isometricBaking";
+import { breweryOutputPlacement, canSupplyBrewery } from "../game/phaser/isometricBrewing";
+import type { BrewerySupplyAction } from "../../game-core/farm/brewerySupplies";
+import { sharedDeliveryStop } from "../../game-core/farm/storageDelivery";
+import { porterReserved } from "../../game-data/porter";
 import { buildingAt } from "../game/phaser/isometricFarm";
 import { millPopupState } from "../game/phaser/isometricMilling";
 import { canPickupMillBags, millPickupPath, millDeliveryDestination } from "../game/phaser/isometricMillDelivery";
@@ -141,6 +147,93 @@ export default function IsometricFarm() {
       submitting.current = false;
       if (mounted.current) { setPending(false); renderer.setPlantingSelection(null, false); refresh.current(); }
     }
+  };
+  const storeBread = async (id: string) => {
+    let farm = current.current;
+    const renderer = scene.current;
+    if (!farm || !renderer || submitting.current) return;
+    if (!farm.farm.production.delivery && !canStoreBread(farm, id, Date.now())) return;
+    const oven = farm.buildings.find(b => b.id === id);
+    if (!oven) return;
+    const itemKey = oven.type === "brewery" ? "beer" : "bread";
+    submitting.current = true; setPending(true); setError(null);
+    renderer.setPlantingSelection(null, true); renderer.clearSelection();
+    const travel = async (target: IsoCell, building: IsoCell, carrying: boolean) => {
+      const path = pickupPath(current.current!, renderer.farmerPosition(), target, Date.now());
+      if (!path) throw new Error("No clear path to the loading tile.");
+      await new Promise<void>(resolve => window.setTimeout(resolve, renderer.presentMillDeliveryLeg(path, building, carrying)));
+      if (mounted.current) renderer.finishMillDeliveryLeg();
+    };
+    try {
+      if (!farm.farm.production.delivery) {
+        const pickup = (oven.type === "brewery" ? breweryOutputPlacement(oven) : roadsideOutputPlacement(oven, farm.farm.roads, Date.now())).pickup;
+        if (!pickup) throw new Error("Connect the bread oven to a completed road before collecting bread.");
+        await travel(pickup, oven, false);
+        if (!mounted.current) return;
+        farm = await executeGameCommand({ type: "production_delivery", action: "pickup", buildingId: id, expectedFarmVersion: current.current!.farm.version });
+        accept.current(farm);
+      }
+      for (let stop = 0; stop < 2 && farm.farm.production.delivery; stop++) {
+        const warehouse = farm.buildings.find(b => b.type === "warehouse" && Date.parse(b.completesAt) <= Date.now());
+        const destination = sharedDeliveryStop(itemKey, (farm.inventory.find(i => i.itemKey === itemKey)?.quantity ?? 0) + porterReserved(farm.farm.production.porter, itemKey), !!warehouse);
+        const building = destination.location === "warehouse" ? warehouse! : farmOrigin;
+        const target = destination.location === "warehouse" ? warehouse!.loadingTile ?? { column: building.column, row: building.row + 2 } : INITIAL_FARM_CONFIG.farmerSpawn;
+        await travel(target, building, true);
+        if (!mounted.current) return;
+        farm = await executeGameCommand({ type: "production_delivery", action: "store", buildingId: id, expectedFarmVersion: current.current!.farm.version });
+        accept.current(farm);
+      }
+    } catch (cause) {
+      if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not store the goods.");
+    } finally {
+      submitting.current = false;
+      if (mounted.current) { setPending(false); renderer.setPlantingSelection(null, false); refresh.current(); }
+    }
+  };
+  const breweryAction = async (action: BrewerySupplyAction) => {
+    const farm = current.current, renderer = scene.current;
+    if (!farm || !renderer || !information || submitting.current) return;
+    const building = buildingAt(farm, information.cell);
+    let target = building ?? information.cell;
+    if (action === "collect_water") target = { column: target.column, row: INITIAL_FARM_CONFIG.riverRow };
+    if (!canSupplyBrewery(farm, target, action, Date.now())) return;
+    submitting.current = true; setPending(true); setError(null);
+    const farmerPosition = renderer.farmerPosition();
+    renderer.clearSelection(); renderer.setPlantingSelection(null, true);
+    try {
+      // Starting production is immediate; only supply transfers wait for their walk.
+      if (action !== "start_brewing") {
+        const destination = action === "collect_water" || action === "pour_water" ? fishingApproach(farm, farmerPosition, target, Date.now())?.bank
+          : building?.loadingTile ?? target;
+        const path = destination && pickupPath(farm, farmerPosition, destination, Date.now());
+        if (!path) throw new Error("No clear path to the loading point.");
+        await new Promise<void>(resolve => window.setTimeout(resolve, renderer.presentMillDeliveryLeg(path, target, false)));
+        if (!mounted.current) return;
+        renderer.finishMillDeliveryLeg();
+      }
+      const next = await executeGameCommand({ type: "brewery_supply", action, target, farmerPosition, expectedFarmVersion: current.current!.farm.version });
+      if (mounted.current) accept.current(next);
+    } catch (cause) {
+      if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not supply the brewery.");
+    } finally {
+      submitting.current = false;
+      if (mounted.current) { setPending(false); renderer.setPlantingSelection(null, false); refresh.current(); }
+    }
+  };
+  const startBaking = async () => {
+    const farm = current.current, renderer = scene.current;
+    if (!farm || !renderer || !information || submitting.current) return;
+    const oven = buildingAt(farm, information.cell);
+    if (!oven || !canBakeBread(farm, oven.id, Date.now())) return;
+    submitting.current = true; setPending(true); setError(null);
+    const farmerPosition = renderer.farmerPosition();
+    renderer.clearSelection();
+    try {
+      const next = await executeGameCommand({ type: "start_baking", buildingId: oven.id, farmerPosition, expectedFarmVersion: farm.farm.version });
+      if (mounted.current) accept.current(next);
+    } catch (cause) {
+      if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not start baking.");
+    } finally { submitting.current = false; if (mounted.current) { setPending(false); refresh.current(); } }
   };
   const startMill = async (recipe: MillRecipe) => {
     const farm = current.current, renderer = scene.current;
@@ -273,7 +366,8 @@ export default function IsometricFarm() {
       }
       clearTimeout(deadline);
       const now = Date.now();
-      const due = [...[next.farm.milling?.startedAt, next.farm.milling?.completesAt, next.farm.gathering?.completesAt, next.farm.production.planting?.nextStepAt, ...next.buildings.map(b => b.completesAt), ...next.improvements.filter(i => improvementWorkActive(i, now)).map(i => i.destroyCompletesAt ?? i.completesAt)]
+      const due = [...[...Object.values(next.farm.production.baking).flatMap(job => [job.startedAt, job.completesAt]), next.farm.milling?.startedAt, next.farm.milling?.completesAt, next.farm.gathering?.completesAt, next.farm.production.planting?.nextStepAt, ...next.buildings.map(b => b.completesAt), ...next.improvements.filter(i => improvementWorkActive(i, now)).map(i => i.destroyCompletesAt ?? i.completesAt)]
+        .concat(Object.values(next.farm.production.brewing ?? {}).flatMap(job => [job.arrivedAt, job.startedAt, job.completesAt]), next.buildings.map(b => b.beerReadyAt ?? undefined))
         .filter((value): value is string => !!value).map(Date.parse), ...next.farm.roads.map(r => r.completesAt ?? 0)].filter(time => time > now);
       if (due.length) deadline = setTimeout(() => refresh.current(), Math.max(100, Math.min(...due) - now + 25));
     };
@@ -307,6 +401,7 @@ export default function IsometricFarm() {
   }, []);
 
   const batch = snapshot?.farm.production.planting;
+  const preparingBread = Object.values(snapshot?.farm.production.baking ?? {}).some(job => Date.parse(job.startedAt) > clock);
   const fishingActive = location === "farm" && !!snapshot?.farm.fishing;
   const harvesting = batch ? batch.mode === "harvest" : mode === "harvest";
   const blocker = snapshot ? (harvesting ? harvestingBlocker : plantingBlocker)(snapshot, clock) : "Loading…";
@@ -517,14 +612,14 @@ export default function IsometricFarm() {
     </aside>}
     {demolitionId && snapshot && <DestroyBuildingDialog key={demolitionId} snapshot={snapshot} buildingId={demolitionId} now={clock}
       onClose={() => setDemolitionId(null)} onDestroyed={next => accept.current(next)} />}
-    {(selection !== null || batch || error || fishingActive) && <aside className={styles.planting} aria-label={fishingActive ? "Fishing" : harvesting ? "Barley harvesting" : "Barley planting"}>
-      {fishingActive ? <p role="status">{fishingMessage && `${fishingMessage} `}{fishingStatus}</p>
+    {(selection !== null || batch || error || fishingActive || preparingBread) && <aside className={styles.planting} aria-label={preparingBread ? "Preparing bread" : fishingActive ? "Fishing" : harvesting ? "Barley harvesting" : "Barley planting"}>
+      {preparingBread ? <p role="status">Collecting flour for baking…</p> : fishingActive ? <p role="status">{fishingMessage && `${fishingMessage} `}{fishingStatus}</p>
         : batch && snapshot ? <BarleyWorkProgress action={harvesting ? "Harvesting" : "Sowing"} total={batch.total}
         progress={harvesting ? harvestingProgress(snapshot, clock) : sowingProgress(batch, clock)} delivering={batch.phase.type === "delivering"} />
         : <p role="status">{selection !== null ? `${selection.length} / ${selectionMaximum} fields${harvesting ? "" : ` · ${snapshot ? availablePlantingBarley(snapshot, clock) : 0} barley available`}` : ""}</p>}
       {error && <p role="alert">{error}</p>}
       {fishingActive ? <button disabled={pending} onClick={() => void fish(true)}>Stop fishing</button>
-        : !batch && <div>
+        : !batch && !preparingBread && <div>
         {selection !== null && <button disabled={pending || !valid || !!blocker} onClick={() => void submit()}>
           {pending ? "Please wait…" : harvesting ? "Harvest barley" : "Plant barley"}
         </button>}
@@ -552,6 +647,9 @@ export default function IsometricFarm() {
       onStore={granaryId => void storeBarley(granaryId)}
       onGather={itemKey => void gather(itemKey)}
       onMill={recipe => void startMill(recipe)}
+      onBake={() => void startBaking()}
+      onBreweryAction={action => void breweryAction(action)}
+      onStoreBread={id => void storeBread(id)}
       onPickupMill={id => void collectMillBags(id)}
       onFish={() => void fish()}
       onFishTransfer={action => void transferFish(action)}

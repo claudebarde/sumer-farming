@@ -1,6 +1,7 @@
 export const BREWERY_WATER_CAPACITY = 2;
 export const BREWERY_EMPTY_JAR_CAPACITY = 10;
 export const WATER_LOAD_QUANTITY = 1;
+export const BREWING_PREPARATION_MS = 8000;
 
 export const BEER_RECIPE = {
   barley: 2,

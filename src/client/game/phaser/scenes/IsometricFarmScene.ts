@@ -1,6 +1,9 @@
 import Phaser from "phaser";
 import { createShadowLayer } from "../shadowLayer";
 import type { ShadowPreset } from "../daylightShadows";
+import { BAKING_SOURCES, prepareBakingAnimation, createBakingAnimation } from "../breadOvenAnimation";
+import { BREWING_WORKER_SOURCES, BREWING_STOOL_SOURCE, prepareBrewingAnimation, createBrewingTest } from "../breweryAnimation";
+import { bakingDogArea, bakingJourneyPose, bakingProgress } from "../isometricBaking";
 import type { FarmSnapshot } from "../../../../schemas/farm";
 import { INITIAL_FARM_CONFIG as config } from "../../../../game-data/initialFarm";
 import { WORKER_MOVE_DURATION_PER_TILE } from "../../../../game-data/movement";
@@ -12,10 +15,15 @@ import { DOG_SOURCES, initialDog, dogTexture, type DogState } from "../isometric
 import { initialWandering, stepWandering } from "../dogWandering";
 import granaryUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/granary-isometric-test.png";
 import breadOvenUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-isometric.png";
-import breweryUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery-isometric.png";
+import breweryUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-left-bottom-shell.png";
+import breweryRightTopUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-right-top-shell.png";
+import breweryJarUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-left-bottom-jar.png";
+import { prepareBreweryLayout, breweryVesselCount, breweryVesselTexture } from "../breweryLayout";
+import { breweryOrientationTexture } from "../breweryOrientation";
+import { activeBrewingPreparation, breweryOutputPlacement } from "../isometricBrewing";
 import { MILL_ANIMATION_SOURCES, prepareMillAnimation, renderMillAnimation, millShadowCasters, millWorkerForegroundDepths, type MillAnimationImages } from "../millAnimation";
 import { millingJourneyPose, millingProgress } from "../isometricMilling";
-import { buildingOutputTile, isometricMillOutputPosition } from "../buildingOutputPlacement";
+import { roadsideOutputPlacement, isometricOutputPosition } from "../buildingOutputPlacement";
 import millOutputBagsUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.png";
 import { mockGranaryPlacement, buildingPlacement, buildingBuildBlocker, type PlaceableBuilding } from "../isometricBuildingPlacement";
 import marketUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/market-isometric-test.png";
@@ -76,11 +84,11 @@ import { farmerObscured, hiddenFarmerBounce, type OcclusionSprite } from "../far
 import { canVisitIsometricMarket, isMarketTile, marketOrigin, marketEntrance } from "../isometricMarket";
 import { gatheringOffsetY, gatheringPose, materialCarry, materialLabel, transferBlocker } from "../isometricGathering";
 
-export type IsometricTileAnchor = { cell: IsoCell; x: number; y: number; walking?: boolean; kind?: "farmer" | "tile" | "millBags" | "market" | "farmReturn" | "barleyMarket" | "beerMarket" | "bakingMarket" };
+export type IsometricTileAnchor = { cell: IsoCell; x: number; y: number; walking?: boolean; kind?: "farmer" | "tile" | "millBags" | "breadBasket" | "beerJars" | "market" | "farmReturn" | "barleyMarket" | "beerMarket" | "bakingMarket" };
 
 const scenery = { bush01, bush02, rocks01, rocks02 };
 const crops = { sown, growing, ripe };
-const fallback = { reeds: FARM_SPRITES.reeds, barley: FARM_SPRITES.harvestedBarley, reed: FARM_SPRITES.reedBundle, clay: FARM_SPRITES.brickPile,
+const fallback = { beer: FARM_SPRITES.beerJars, water: FARM_SPRITES.water, reeds: FARM_SPRITES.reeds, barley: FARM_SPRITES.harvestedBarley, reed: FARM_SPRITES.reedBundle, clay: FARM_SPRITES.brickPile,
   datePalmSapling: FARM_SPRITES.datePalmSapling, datePalmGrowing: FARM_SPRITES.datePalmGrowing, datePalmReady: FARM_SPRITES.datePalmReady,
   mill: FARM_SPRITES.mill, brewery: breweryUrl, breadOven: breadOvenUrl, warehouse: FARM_SPRITES.warehouse, smallShrine: FARM_SPRITES.smallShrine };
 
@@ -135,6 +143,10 @@ export class IsometricFarmScene extends Phaser.Scene {
   private actor!: Phaser.GameObjects.Image;
   private actorShadow!: Phaser.GameObjects.Ellipse;
   shadowPreset: ShadowPreset = "local";
+  private breweries: { id: string; animation: ReturnType<typeof createBrewingTest> }[] = [];
+  private selectedBeer = false;
+  private ovens: { id: string; animation: ReturnType<typeof createBakingAnimation> }[] = [];
+  private selectedBread = false;
   private daylightShadows!: ReturnType<typeof createShadowLayer>;
   private cargo!: Phaser.GameObjects.Text;
   private cargoBackground!: Phaser.GameObjects.Graphics;
@@ -176,6 +188,10 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.farmerCell = snapshot.farm.production.lastHarvestDelivery?.target ?? config.farmerSpawn;
   }
   preload() {
+    this.load.image("source-brewery-right-top", breweryRightTopUrl);
+    BREWING_WORKER_SOURCES.forEach((url, i) => this.load.image(`source-brewing-worker-${i}`, url));
+    this.load.image("source-brewing-stool", BREWING_STOOL_SOURCE);
+    this.load.image("source-brewery-vessel", breweryJarUrl);
     SWEEP_SOURCES.forEach((url, index) => this.load.image(`source-farmer-sweep-${index}`, url));
     for (const [key, url] of Object.entries(FARMER_FISH_SOURCES)) this.load.image(`source-${key}`, url);
     for (const [key, url] of Object.entries(FARMER_FLOUR_SOURCES)) this.load.image(`source-${key}`, url);
@@ -185,6 +201,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.load.image("source-granary", granaryUrl);
     this.load.image("source-mill-output-bags", millOutputBagsUrl);
     for (const { key, url } of MILL_ANIMATION_SOURCES) this.load.image(`source-${key}`, url);
+    BAKING_SOURCES.forEach((url, i) => this.load.image(`source-baking-${i}`, url));
     for (const [key, url] of Object.entries(DOG_SOURCES)) this.load.image(`source-dog-${key}`, url);
     this.load.image("source-market-preview", marketUrl);
     this.load.image("source-non-arable-ground", groundUrl);
@@ -318,11 +335,23 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.textures.addCanvas("market-preview", prepareBuildingTexture(this.textures.get("source-market-preview").getSourceImage() as HTMLImageElement))
       ?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     prepareMillAnimation(this);
+    prepareBakingAnimation(this);
+    prepareBrewingAnimation(this);
+    for (const rightTop of [false, true]) for (const count of [0, 1, 2]) {
+      this.textures.addCanvas(breweryVesselTexture(rightTop, count), prepareBreweryLayout(
+        this.textures.get(rightTop ? "source-brewery-right-top" : "source-brewery").getSourceImage() as HTMLImageElement,
+        this.textures.get("source-brewery-vessel").getSourceImage() as HTMLImageElement, rightTop, count))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    }
+    this.events.once("shutdown", () => {
+      this.breweries.forEach(b => b.animation.destroy()); this.breweries = [];
+    });
+    this.events.once("shutdown", () => { this.ovens.forEach(o => o.animation.destroy()); this.ovens = []; });
     for (const key of Object.keys({ ...scenery, ...crops, ...fallback })) {
+      if (key === "brewery") continue;
       const source = this.textures.get(`source-${key}`).getSourceImage() as HTMLImageElement;
       const isCrop = key in crops;
       const bounds = isCrop ? farmerPlantBounds(512) : key in scenery ? { left: 0, top: 0, right: 511, bottom: 511 } : undefined;
-      this.textures.addCanvas(key, key === "breadOven" || key === "brewery" ? prepareBuildingTexture(source)
+      this.textures.addCanvas(key, key === "breadOven" ? prepareBuildingTexture(source)
         : prepareFarmerTexture(source, isCrop ? 0.6 : 0.15, bounds))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
     this.ready = true; this.draw(); this.fit();
@@ -371,6 +400,8 @@ export class IsometricFarmScene extends Phaser.Scene {
         return !!sprite && visibleSpriteHit(sprite.visible, sprite.alpha, sprite.getBounds(), world);
       });
       this.selectedMillBags = !this.selectedFarmer && objects.some(object => object.getData("millBags") === true);
+      this.selectedBread = !this.selectedFarmer && objects.some(object => object.getData("breadBasket") === true);
+      this.selectedBeer = !this.selectedFarmer && objects.some(object => object.getData("beerJars") === true);
       this.selected = this.selectedFarmer ? this.farmerCell : insideWorld(cell) ? cell : null; this.draw();
       this.publishAnchor();
     });
@@ -420,7 +451,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     if (!this.mockPlacement) return;
     const preview = this.realPlacement
       ? buildingPlacement(this.snapshot, this.mockPlacement, this.farmerCell, Date.now(), this.placementBuilding)
-      : mockGranaryPlacement(this.snapshot, this.mockPlacement, this.farmerCell, Date.now());
+      : mockGranaryPlacement(this.snapshot, this.mockPlacement, this.farmerCell, Date.now(), false, this.placementBuilding);
     const colour = preview.rule.type === "valid" && (!this.realPlacement || !buildingBuildBlocker(this.snapshot, Date.now(), this.placementBuilding)) ? 0x55ce75 : 0xe65c5c;
     this.mockFootprint = this.add.graphics().setDepth(10000);
     for (const cell of preview.footprint) this.diamond(this.mockFootprint, cell, colour, 0.55);
@@ -435,10 +466,18 @@ export class IsometricFarmScene extends Phaser.Scene {
       [mill.base, ...this.millPreviewParts].forEach((image, index) => image.setDepth(10001 + index).setTint(colour).setAlpha(0.65));
       return;
     }
-    this.mockBuilding = this.add.image(p.x, p.y + (granary ? -12 : 0), this.placementBuilding).setOrigin(0.5, granary ? 1 : 120 / 128)
+    const texture = this.placementBuilding === "brewery"
+      ? breweryVesselTexture(breweryOrientationTexture({ ...this.mockPlacement, loadingTile: preview.loading }, this.snapshot.farm.roads, Date.now()) === "brewery-right-top", breweryVesselCount(this.snapshot.inventory))
+      : this.placementBuilding;
+    this.mockBuilding = this.add.image(p.x, p.y + (granary ? -12 : 0), texture).setOrigin(0.5, granary ? 1 : 120 / 128)
       .setDisplaySize(granary ? 240 : 150, granary ? 240 : 150).setDepth(10001).setTint(colour).setAlpha(0.65);
   }
   setSnapshot(snapshot: FarmSnapshot) {
+    if (activeBrewingPreparation(snapshot, Date.now())) { this.walkPath = []; this.walkProgress = 0; }
+    for (const [id, job] of Object.entries(this.snapshot.farm.production.baking)) {
+      if (!snapshot.farm.production.baking[id]) this.farmerCell = job.preparation?.path.at(-1) ?? this.farmerCell;
+    }
+    if (Object.keys(snapshot.farm.production.baking).length) { this.walkPath = []; this.walkProgress = 0; }
     if (!isometricIdleEligible(snapshot, Date.now())) this.stopSweeping();
     if (!isometricIdleEligible(snapshot, Date.now())) this.farmerIdle?.cancel();
     if (this.snapshot.farm.milling && !snapshot.farm.milling) {
@@ -550,7 +589,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.facingLeft = buildingFacingLeft(this.farmerCell, this.millDeliveryLeg.building, this.facingLeft);
     this.millDeliveryLeg = null;
   }
-  clearSelection() { this.farmerIdle?.cancel(); this.selected = null; this.selectedFarmer = false; this.selectedMillBags = false; this.reportedAnchor = ""; this.report(null); if (this.ready) this.draw(); }
+  clearSelection() { this.farmerIdle?.cancel(); this.selected = null; this.selectedFarmer = false; this.selectedMillBags = false; this.selectedBread = false; this.selectedBeer = false; this.reportedAnchor = ""; this.report(null); if (this.ready) this.draw(); }
   walkTo(cell: IsoCell) {
     if (this.marketTrip || this.commandPending || this.plantingSelection !== null || transferBlocker(this.snapshot, Date.now()) || this.walkPath.length) return;
     this.farmerIdle?.cancel();
@@ -572,7 +611,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     if (!this.selected) return;
     const p = this.selectedFarmer ? { x: this.actor.x, y: this.actor.y - 55 } : isoPoint(this.selected), camera = this.cameras.main, origin = camera.getWorldPoint(0, 0);
     const x = Math.round((p.x - origin.x) * camera.zoom), y = Math.round((p.y - origin.y) * camera.zoom);
-    const kind = this.selectedFarmer ? "farmer" : this.selectedMillBags ? "millBags" : isMarketTile(this.selected) ? "market" : "tile";
+    const kind = this.selectedFarmer ? "farmer" : this.selectedBeer ? "beerJars" : this.selectedBread ? "breadBasket" : this.selectedMillBags ? "millBags" : isMarketTile(this.selected) ? "market" : "tile";
     const walking = this.walkPath.length > 0 || this.idleWalking;
     const key = `${kind}:${fieldKey(this.selected)}:${x}:${y}:${walking}`;
     if (key !== this.reportedAnchor) { this.reportedAnchor = key; this.report({ cell: this.selectedFarmer ? this.farmerCell : this.selected, x, y, kind, walking }); }
@@ -593,6 +632,8 @@ export class IsometricFarmScene extends Phaser.Scene {
     }
   }
   private draw() {
+    this.breweries.forEach(b => b.animation.destroy()); this.breweries = [];
+    this.ovens.forEach(o => o.animation.destroy()); this.ovens = [];
     this.daylightShadows?.destroy();
     this.children.removeAll(true);
     this.daylightShadows = createShadowLayer(this, config.worldBounds);
@@ -722,21 +763,53 @@ export class IsometricFarmScene extends Phaser.Scene {
         for (const caster of millShadowCasters(mill)) this.daylightShadows.addBuilding(caster);
         const bags = snapshot.farm.millGoods.pending[building.id];
         const quantity = bags ? bags.flour + bags.brewersGroats : 0;
-        const output = isometricMillOutputPosition(building);
+        const outputTile = roadsideOutputPlacement(building, snapshot.farm.roads, now).tile;
+        const output = isometricOutputPosition(outputTile);
         this.drawStorageChip(`mill-output:${building.id}`, output.x, output.y - 42, quantity, quantity === 1 ? "bag" : "bags");
         if (quantity > 0) {
           const sprite = this.add.image(output.x, output.y, "mill-output-bags").setOrigin(GROUND_ITEM_ORIGIN.x, GROUND_ITEM_ORIGIN.y)
             // The flour frame has transparent margins; 74px gives roughly the
             // same visible 43×39px size as the tightly cropped idle bags.
-            .setDisplaySize(74, 74).setDepth(p.y + 5).setData("tile", buildingOutputTile(building, size)).setData("millBags", true).setInteractive({ pixelPerfect: true });
+            .setDisplaySize(74, 74).setDepth(p.y + 5).setData("tile", outputTile).setData("millBags", true).setInteractive({ pixelPerfect: true });
           this.millOutputSprites.push(sprite);
           this.daylightShadows.add(() => ({ x: sprite.x, y: sprite.y + 12, visible: sprite.visible }), 32, 24);
-          if (this.selectedMillBags && this.selected && sameCell(buildingOutputTile(building, size), this.selected)) this.outlineItem(sprite);
+          if (this.selectedMillBags && this.selected && sameCell(outputTile, this.selected)) this.outlineItem(sprite);
         }
-      } else this.buildingImages.push(this.add.image(p.x, p.y + (granary ? -12 : 0), building.type).setOrigin(0.5, granary ? 1 : 120 / 128)
+      } else this.buildingImages.push(this.add.image(p.x, p.y + (granary ? -12 : 0), building.type === "brewery" ? breweryVesselTexture(breweryOrientationTexture(building, snapshot.farm.roads, now) === "brewery-right-top", breweryVesselCount(snapshot.inventory)) : building.type).setOrigin(0.5, granary ? 1 : 120 / 128)
         .setDisplaySize(granary ? 240 : 150, granary ? 240 : 150).setDepth(p.y - 24)
         .setAlpha(Date.parse(building.completesAt) > now ? 0.5 : 1).setData("tile", { column: building.column, row: building.row }).setInteractive({ pixelPerfect: true }));
       if (building.type !== "mill") this.daylightShadows.addBuilding(this.buildingImages[this.buildingImages.length - 1]!);
+      if (building.type === "brewery" && Date.parse(building.completesAt) <= now) {
+        const animation = createBrewingTest(this, this.buildingImages[this.buildingImages.length - 1]!, breweryOrientationTexture(building, snapshot.farm.roads, now) === "brewery-right-top", breweryVesselCount(snapshot.inventory));
+        this.breweries.push({ id: building.id, animation });
+        this.daylightShadows.add(animation.shadowAnchor, 23, 48);
+        const placement = breweryOutputPlacement(building);
+        const output = isometricOutputPosition(placement.tile);
+        const quantity = snapshot.farm.production.pending[building.id]?.quantity ?? 0;
+        this.drawStorageChip(`beer-output:${building.id}`, output.x, output.y - 35, quantity, "beer");
+        if (quantity > 0) {
+          const jars = this.add.image(output.x, output.y, "beer").setOrigin(GROUND_ITEM_ORIGIN.x, GROUND_ITEM_ORIGIN.y)
+            .setDisplaySize(64, 64).setDepth(p.y + 5).setData("tile", placement.tile).setData("beerJars", true).setInteractive({ pixelPerfect: true });
+          this.millOutputSprites.push(jars);
+          if (this.selectedBeer && this.selected && sameCell(this.selected, placement.tile)) this.outlineItem(jars);
+        }
+      }
+      if (building.type === "breadOven" && Date.parse(building.completesAt) <= now) {
+        const animation = createBakingAnimation(this, this.buildingImages[this.buildingImages.length - 1]!);
+        this.ovens.push({ id: building.id, animation });
+        this.daylightShadows.add(animation.shadowAnchor, 23, 48);
+        const placement = roadsideOutputPlacement(building, snapshot.farm.roads, now);
+        const output = isometricOutputPosition(placement.tile);
+        const quantity = snapshot.farm.production.pending[building.id]?.quantity ?? 0;
+        this.drawStorageChip(`bread-output:${building.id}`, output.x, output.y - 35, quantity, "bread");
+        if (quantity > 0) {
+          const basket = this.add.image(output.x, output.y, "baking-8").setOrigin(GROUND_ITEM_ORIGIN.x, GROUND_ITEM_ORIGIN.y)
+            .setDisplaySize(64, 64).setDepth(p.y + 5).setData("tile", placement.tile)
+            .setData("breadBasket", true).setInteractive({ pixelPerfect: true });
+          this.millOutputSprites.push(basket);
+          if (this.selectedBread && this.selected && sameCell(this.selected, placement.tile)) this.outlineItem(basket);
+        }
+      }
       if (granary && Date.parse(building.completesAt) <= now) {
         this.drawStorageChip(building.id, p.x, p.y - 145, storageSnapshot.buildings.find(b => b.id === building.id)?.storedBarley ?? building.storedBarley);
       }
@@ -807,7 +880,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.renderProcession();
     this.cloudSprites = Array.from({ length: 3 }, () => this.add.image(0, 0, CLOUD_TEXTURES[0]).setDepth(10010));
     this.renderClouds();
-    if (this.selected && !this.selectedFarmer && !this.selectedMillBags && !outlinedGroundItem) {
+    if (this.selected && !this.selectedFarmer && !this.selectedMillBags && !this.selectedBread && !this.selectedBeer && !outlinedGroundItem) {
       const highlight = this.add.graphics().setDepth(-800);
       const building = buildingAt(snapshot, this.selected);
       const origin = building ?? (footprintContains(farmOrigin, 2, 2, this.selected) ? farmOrigin
@@ -868,11 +941,44 @@ export class IsometricFarmScene extends Phaser.Scene {
       const leg = this.millDeliveryLeg, pose = pickupPose(leg.path, leg.startedAt, Date.now(), leg.building);
       const point = isoPoint(pose.position);
       this.actor.setOrigin(0.5, 120 / 128).setPosition(point.x, point.y + pose.dip).setDepth(point.y + 1)
-        .setTexture(leg.carrying ? farmerFlourCarryTexture(pose.distance, pose.walking) : farmerTravelTexture(pose.distance, 0, pose.walking))
+        .setTexture(leg.carrying && !this.snapshot.farm.production.delivery ? farmerFlourCarryTexture(pose.distance, pose.walking) : farmerTravelTexture(pose.distance, 0, pose.walking))
         .setDisplaySize(64, 64 - pose.dip).setFlipX(pose.facingLeft);
       this.actorShadow.setPosition(point.x, point.y).setDepth(point.y);
       this.heldMaterial.setVisible(false); this.cargo.setVisible(false); this.cargoBackground.setVisible(false);
       if (pose.done) { this.farmerCell = leg.path.at(-1)!; this.facingLeft = pose.facingLeft; this.millDeliveryLeg = null; }
+      if (leg.carrying && this.snapshot.farm.production.delivery?.itemKey === "bread") this.renderHeldMaterial("baking-8", 1);
+      if (leg.carrying && this.snapshot.farm.production.delivery?.itemKey === "beer") this.renderHeldMaterial("beer", 1);
+      if (this.snapshot.farm.carriedItem?.itemKey === "water") this.renderHeldMaterial("water", 1);
+      return;
+    }
+    const brewing = activeBrewingPreparation(this.snapshot, Date.now());
+    const baking = Object.values(this.snapshot.farm.production.baking)[0];
+    const bakingTrip = bakingJourneyPose(baking ?? (brewing ? { ...brewing, output: 2, startedAt: brewing.arrivedAt } : undefined), Date.now());
+    if (bakingTrip) {
+      this.farmerCell = bakingTrip.position;
+      const p = isoPoint(bakingTrip.position);
+      this.actor.setOrigin(0.5, 120 / 128).setPosition(p.x, p.y).setDepth(p.y + 1).setFlipX(bakingTrip.facingLeft)
+        .setTexture(bakingTrip.carrying ? farmerFlourCarryTexture(bakingTrip.distance, true) : farmerTravelTexture(bakingTrip.distance, 0, true)).setDisplaySize(64, 64);
+      this.actorShadow.setPosition(p.x, p.y).setDepth(p.y);
+      this.heldMaterial.setVisible(false); this.cargo.setVisible(false); this.cargoBackground.setVisible(false);
+      return;
+    }
+    if (baking) {
+      this.farmerCell = baking.preparation?.path.at(-1) ?? this.farmerCell;
+      if (bakingProgress(baking, Date.now())) {
+        const p = isoPoint(this.farmerCell);
+        this.actor.setPosition(p.x, p.y).setVisible(false); this.actorShadow.setVisible(false);
+        this.heldMaterial.setVisible(false); this.cargo.setVisible(false); this.cargoBackground.setVisible(false);
+        return;
+      }
+    }
+    if (brewing) {
+      this.farmerCell = brewing.preparation.path.at(-1) ?? this.farmerCell;
+      const p = isoPoint(this.farmerCell);
+      const noVessel = breweryVesselCount(this.snapshot.inventory) === 0;
+      this.actor.setPosition(p.x, p.y).setTexture("farmer-idle").setDisplaySize(64, 64).setVisible(noVessel);
+      this.actorShadow.setPosition(p.x, p.y).setVisible(noVessel);
+      this.heldMaterial.setVisible(false); this.cargo.setVisible(false); this.cargoBackground.setVisible(false);
       return;
     }
     const milling = this.snapshot.farm.milling;
@@ -1018,6 +1124,9 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.actorShadow.setPosition(x, y).setDepth(y);
     const material = materialCarry(this.snapshot);
     if (material) this.renderHeldMaterial(material.itemKey, material.quantity);
+    if (this.snapshot.farm.production.delivery?.itemKey === "bread") this.renderHeldMaterial("baking-8", 1);
+    if (this.snapshot.farm.production.delivery?.itemKey === "beer") this.renderHeldMaterial("beer", 1);
+    if (carry?.itemKey === "water") this.renderHeldMaterial("water", 1);
     this.renderCargo(x, y - 62, carry?.quantity ?? 0, carry?.itemKey ?? "barley");
   }
   private renderHeldMaterial(key: string, quantity: number) {
@@ -1052,6 +1161,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     }).setOrigin(0.5, 1).setDepth(9999);
     this.drawChipBackground(background, text);
     this.storageChips.push({ state, x, bottom, background, text });
+    return { background, text };
   }
   private renderStorageChips() {
     const now = Date.now();
@@ -1083,7 +1193,10 @@ export class IsometricFarmScene extends Phaser.Scene {
   private renderMills() {
     for (const { building, images, progress } of this.mills) {
       const state = millingProgress(this.snapshot, building.id, Date.now());
-      renderMillAnimation(this, images, building, state?.farmer ? this.reducedMotion?.matches ? 0 : state.elapsed : null);
+      const bags = this.snapshot.farm.millGoods.pending[building.id];
+      const outputOnC = !!bags && bags.flour + bags.brewersGroats > 0 &&
+        roadsideOutputPlacement(building, this.snapshot.farm.roads, Date.now()).tile.column === building.column + 1;
+      renderMillAnimation(this, images, building, state?.farmer ? this.reducedMotion?.matches ? 0 : state.elapsed : null, outputOnC);
       progress.clear();
       if (state) {
         const p = footprintFront(building, 2, 2);
@@ -1234,11 +1347,12 @@ export class IsometricFarmScene extends Phaser.Scene {
       const mousePresent = mouse?.event && !this.input.activePointer.wasTouch;
       if (mousePresent) mouse.updateWorldPoint(this.cameras.main);
       // Inverse projection without rounding follows the farmer's actual animated feet.
-      const farmer = { column: this.actor.x / ISO_WIDTH + this.actor.y / ISO_HEIGHT,
+      const bakingArea = bakingDogArea(this.snapshot, Date.now());
+      const farmer = bakingArea?.anchor ?? { column: this.actor.x / ISO_WIDTH + this.actor.y / ISO_HEIGHT,
         row: this.actor.y / ISO_HEIGHT - this.actor.x / ISO_WIDTH };
       const working = !isometricIdleEligible(this.snapshot, Date.now());
-      const reserved = this.sweeping ? [...SWEEP_TILES] : [];
-      if (working) {
+      const reserved = bakingArea ? [...bakingArea.reserved] : this.sweeping ? [...SWEEP_TILES] : [];
+      if (working && !bakingArea) {
         for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
           reserved.push({ column: Math.round(farmer.column) + dc, row: Math.round(farmer.row) + dr });
         }
@@ -1270,6 +1384,16 @@ export class IsometricFarmScene extends Phaser.Scene {
       }
     }
     if (this.heldMaterial?.visible) this.heldMaterial.setDepth(this.actor.depth + 0.1);
+    for (const oven of this.ovens) oven.animation.render(this.snapshot.farm.production.baking[oven.id], Date.now(), !!this.reducedMotion?.matches);
+    for (const brewery of this.breweries) {
+      const job = this.snapshot.farm.production.brewing?.[brewery.id];
+      const now = Date.now();
+      const active = !!job && now >= Date.parse(job.arrivedAt) && now < Date.parse(job.completesAt);
+      brewery.animation.render(active ? now - Date.parse(job.arrivedAt) : null, !!this.reducedMotion?.matches,
+        active && now >= Date.parse(job.startedAt) ? (now - Date.parse(job.startedAt)) / (Date.parse(job.completesAt) - Date.parse(job.startedAt)) : undefined);
+    }
+    // Resolve active building artwork first, including immediately after draw()
+    // recreates idle sprites. Otherwise shadows flash the idle silhouette for a frame.
     this.daylightShadows.render(this.shadowPreset);
     if (this.marketTrip && !this.walkPath.length && sameCell(this.farmerCell, marketEntrance)) {
       this.marketTrip = false;

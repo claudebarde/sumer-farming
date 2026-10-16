@@ -1478,7 +1478,8 @@ cuneiform labels. This cap does not apply to full dialogs such as markets or far
 ## 34. Build drawer convention
 
 Group the isometric catalogue in a Radix Accordion: Available, Already built,
-and Future unlocks. Only Available starts open. Unlocked buildings remain there
+and Future unlocks. Only Available starts open when it contains buildings;
+otherwise only Already built starts open. Unlocked buildings remain in Available
 when missing materials or when the farmer is busy; existing construction sites
 count as already built. Keep each group in unlock-level order and let the player
 expand or collapse sections independently.
@@ -1563,7 +1564,8 @@ Adapt coordinates to the isometric projection, preserving the same logical tile
 placement, timings, quantities and interactions. Retain explicitly approved
 isometric artwork, anchors and rendering settings. Finished building goods use
 the shared `buildingOutputTile` placement inside the lower-left footprint tile,
-not a decorative offset outside the building.
+not a decorative offset outside the building. Approved exception: bread baskets
+and mill output use the nearest connected-road B/C rule in section 40.
 
 ## 39. Approved isometric shadow baseline
 
@@ -1582,7 +1584,9 @@ Buildings use alpha-derived morning/evening silhouettes. Anchor to visible
 ground contact, never transparent canvas margins or the lowest foreground prop.
 For isometric corners, use the per-column base contour so matching corners stay
 attached (farmhouse/market baseline). Otherwise calibrate an artwork-specific
-contact row (approved oven: 0.76). Preserve source framing, sprite scale and origin.
+contact row (approved active oven: 0.76). The idle oven without sack/bowl uses
+its per-column base contour for evening corner alignment, not the old fixed row.
+Preserve source framing, sprite scale and origin.
 At 14:00 use a shallow oval sized to visible artwork, with six-world-pixel side
 and southern margins; blend smoothly between 11:00 and 17:00. Keep the existing
 morning and evening settings unchanged. Night retains faint contact shadows.
@@ -1597,3 +1601,115 @@ The mill casts from its body and idle bags only, excluding bowl and lever.
 Its midday and evening settings are approved. Its morning uses simple ellipses
 with the shared sun-length scale and visible artwork height (excluding transparent
 padding). Preserve the approved settings for other buildings.
+
+## 40. Building work animation footprint
+
+Keep workers and their tools within the building's 2×2 footprint as far as
+possible, preserving normal character proportions and avoiding neighbouring
+buildings. Active/idle bases must share framing, scale and position.
+The bread oven uses its saved production job: two push/pull strokes
+over three seconds followed by a 2.2-second rest, gentle orange glow and three
+staggered white wisps. Its progress bar follows server start/completion timestamps.
+The table and progress bar share the real batch duration: two doughs
+in the first third, one in the second third, and empty during the final third.
+Completion restores the idle oven, releases the farmer and displays saved bread.
+The paddle loop never resets batch progress. Table frames share
+512px framing, 128px preparation and 62px display size, anchored at oven +(22,-1).
+Reduced motion holds the resting pose and steady glow without smoke.
+The baking worker's full-frame texture is prepared at 140px with 0.15 RGB
+sharpening for its 70px display width; keep alpha and shared pose alignment.
+The working pose is lowered two world pixels and shifted two world pixels left
+from the first trial, keeping its scale and the oven's mask fixed. White smoke
+peaks at 42% opacity, with unchanged size, count and speed.
+Hidden-tab time is reconciled from the saved job. Objects/masks are cleaned up on redraw and shutdown.
+Resolve active building textures before rendering daylight shadows, including
+the first frame after periodic redraw, to avoid flashing the idle silhouette.
+The baking worker uses the regular farmer's 23×48 shadow profile in the
+shared daylight layer, anchored at his feet (oven offset -44,-21). It is visible
+only with the working farmer, including pauses, and follows the same time preset.
+Saved pending bread uses `isometricOutputPosition` and `GROUND_ITEM_ORIGIN`, at 64px
+with shared storage-chip styling. It is selectable with a warm yellow outline
+and Store action, and remains below the farmer and dog.
+For 2×2 footprint discussions, A is upper left (origin), B lower left (row+1),
+C upper right (column+1), D lower right (column+1,row+1). Compare B/C using squared
+grid distance to completed, connected roads cardinally adjacent to the footprint.
+Equal distances prefer proximity to valid saved loading access, then B. Use the
+same chosen road for basket pickup; do not mutate the saved construction/supply
+loading tile. No connected road falls back to B with no pickup route. Preserve
+the approved within-tile offset/origin. Mill output uses this same shared
+`roadsideOutputPlacement` helper for artwork, selection and collection. While
+finished flour/groats bags occupy C and the mill is inactive, hide its decorative
+barley bags and bowl. Restore them when the output is collected or moves to B;
+keep active milling props unchanged. Hidden bags must not cast a shadow.
+Submit start_baking immediately, reserving flour and saving the server-planned
+supply route. Render that route with empty-handed then flour-carrying frames.
+Never dispatch production commands from animation callbacks. Finished bread uses
+the existing production_delivery pickup/store flow; interrupted deliveries remain
+persisted and resumable. No baking preview button or accelerated timer remains.
+
+The brewery courtyard uses the new
+`brewery-left-bottom-shell.png` and up to two copies of `brewery-left-bottom-jar.png`.
+`breweryLayout.ts` composes them once at texture preparation, repainting the low
+foreground wall over the vessels. Keep the existing 150px building scale and
+anchor, selection and shadow pipeline. The brewery shadow samples the new courtyard/vessel
+composite and uses its per-column base contour for evening alignment; the old
+roofed brewery's fixed 0.79 contact row is retired. Morning alone uses the current
+farmhouse silhouette, uniformly scaled to the brewery's visible artwork width
+and aligned to its ground-contact baseline, then shifted 4 world pixels upward
+at the 150px brewery scale to tuck under the vessels. Use the farmhouse's exact shared
+projection settings, opacity and blend into midday; no visible proxy building
+is created. The custom rear-wall polygon trial has been removed. Preserve the approved
+midday oval, evening contour and night settings; the foreground wall overlay is not
+a separate shadow caster. Vessel count follows the current `brewingVessels`
+inventory exactly, clamped to 0–2; never count packaging jars or finished beer.
+The first vessel occupies the approved left position; the second occupies the
+right position. Precompute all three counts for both shells and select on snapshot
+updates, including market purchases/reloads, without uploading textures each frame.
+Foam and worker placement follow visible vessels. This is presentation only;
+construction still consumes its existing equipment cost and brewing gates are unchanged.
+The brewing animation supports eight seconds of planted-foot
+stirring (three seconds moving, one second resting, twice), then hides the working
+worker and runs staggered cream foam caps. Its toolbar test control has been removed. The worker
+uses shared crop bounds and the normal 64px farmer tile/56px body height; no
+frame-specific resizing. During saved preparation the real farmer is occupied;
+his walking sprite is replaced by the working sprite while stirring. The stool raises his feet onto the existing stool sprite beside
+the selected vessel. The approved left-vessel preset is preserved in
+`BREWING_WORK_PLACEMENTS.left`: stool x=-30, farmer x=-27, seat y=-64,
+ground y=-40, stool size=40, relative to the brewery anchor. Production
+uses the right vessel, translating both sprites and their shadow +31.5px in x
+and +8px in y. Keep their scales, origins and relative alignment unchanged.
+Both stool and worker render above the jars; do not repaint
+the jar's front body over them. The worker renders above the stool.
+During preparation, a shell-only front-right wall overlay renders above the
+stool but below the farmer, hiding overlapping stool legs behind the masonry.
+It shares the brewery's exact scale/origin and does not cast a duplicate shadow.
+The thicker stirring shaft is now part of the replacement farmer sprites.
+The temporary Phaser shaft overlay and its per-frame coordinates were removed.
+The stool and worker disappear together after preparation. Their shared shadow
+remains anchored to the ground, not the elevated feet.
+All animation phases sample server-owned timestamps in `production.brewing`.
+Submit `brewery_supply/start_brewing` immediately; atomically reserve groats, water
+and packaging jars, save the farm-supply journey, arrival, fermentation start
+(arrival + eight seconds), and completion. `beerReadyAt` matches completion for
+the existing exactly-once lifecycle/porter settlement. The farmer is locked only
+until fermentation starts. Reloads and hidden tabs never postpone any phase.
+Reduced motion holds the rest pose and steady foam. Presentation objects are
+disposed on redraw/shutdown and the worker uses the shared farmer shadow.
+The temporary brewery orientation toolbar control and its state/scene entry point
+have been removed. Real construction retains the shared footprint preview. On every move,
+use the candidate loading tile: B selects the left/bottom shell, C the right/top
+shell. Brewery access is an exception to nearest-road output selection: whenever
+any eligible connected loading road supports B, prefer it and the detailed original
+shell over C. Shared `findLoadingTile` enforces this in the preview and server
+construction, excluding reserved/occupied access and unfinished/disconnected roads.
+`breweryLoadingCorner` determines B/C by distance to the two output corners.
+Respect the selected saved loading tile for orientation; no road defaults to B.
+This gives the original shell north of the main road and the second shell south.
+Built breweries also select their shell from saved loading access and use the same
+inventory-driven vessel composition, with a shell-specific foreground wall mask. Finished beer
+uses that orientation's B/C corner, the shared chip/outline, and `production_delivery`
+pickup/store flow. Deliveries resume from the farmer/farm popup and use estate
+storage capacity. Reuse the existing beer-jars asset for output and carrying;
+groat supply uses the approved flour-bag carrying frames. River collection and
+brewery water/jar supply controls preserve the existing recipe and capacities.
+Production is now playable.

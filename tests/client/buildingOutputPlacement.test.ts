@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { buildingOutputTile, isometricMillOutputPosition } from "../../src/client/game/phaser/buildingOutputPlacement";
+import { buildingOutputTile, roadsideOutputPlacement, isometricOutputPosition } from "../../src/client/game/phaser/buildingOutputPlacement";
 import { FARM_BUILDING_DEFINITIONS } from "../../src/game-data/buildings";
 import { isoPoint } from "../../src/client/game/phaser/isometricProjection";
 
 describe("finished building goods", () => {
-  it("lowers isometric mill bags within the lower-left tile regardless of loading side", () => {
-    const origin = { column: 3, row: 2 };
-    const tile = isoPoint(buildingOutputTile(origin, { rows: 2 }));
-    for (const loadingTile of [{ column: 2, row: 2 }, { column: 5, row: 2 }, { column: 3, row: 4 }]) {
-      const mill = { ...origin, loadingTile };
-      expect(isometricMillOutputPosition(mill)).toEqual({ x: tile.x, y: tile.y + 16 });
+  it("keeps the approved inset on either roadside output square", () => {
+    for (const row of [3, 6]) {
+      const placement = roadsideOutputPlacement({ column: 3, row }, [], 1000);
+      const tile = isoPoint(placement.tile);
+      expect(isometricOutputPosition(placement.tile)).toEqual({ x: tile.x, y: tile.y + 16 });
+      expect(placement.tile).toEqual(row === 3 ? { column: 3, row: 4 } : { column: 4, row: 6 });
     }
   });
   it("projects the mill output onto the lower-left isometric footprint tile", () => {

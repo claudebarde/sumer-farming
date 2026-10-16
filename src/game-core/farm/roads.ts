@@ -49,11 +49,9 @@ export const validateRoadPlacement = (target: RoadCoordinate, roads: readonly Ro
   return null;
 };
 
-// A permanent, exclusive loading point prevents workshops competing for output space.
-export const findLoadingTile = (footprint: readonly RoadCoordinate[], roads: readonly RoadCoordinate[], reserved: readonly RoadCoordinate[], occupied: ReadonlySet<string>): RoadCoordinate | null => {
+export const connectedRoadKeys = (roads: readonly RoadCoordinate[], now: number): ReadonlySet<string> => {
   // Only completed branches connected to the main road provide building access.
   // Do not accept isolated roads from old saves or links through unfinished roads.
-  const now = Date.now();
   const completed = roads.filter(r => roadIsComplete(r, now));
   const available = new Map(completed.map(r => [roadKey(r), r]));
   const connected = new Set<string>();
@@ -69,8 +67,23 @@ export const findLoadingTile = (footprint: readonly RoadCoordinate[], roads: rea
       }
     }
   }
+  return connected;
+};
+
+// A permanent, exclusive loading point prevents workshops competing for output space.
+export const breweryLoadingCorner = (origin: BuildingCoordinate, road: BuildingCoordinate): "B" | "C" => {
+  const distance = (column: number, row: number) => (road.column - column) ** 2 + (road.row - row) ** 2;
+  return distance(origin.column, origin.row + 1) <= distance(origin.column + 1, origin.row) ? "B" : "C";
+};
+
+export const findLoadingTile = (footprint: readonly RoadCoordinate[], roads: readonly RoadCoordinate[], reserved: readonly RoadCoordinate[], occupied: ReadonlySet<string>, options: { building?: string; now?: number } = {}): RoadCoordinate | null => {
+  const connected = connectedRoadKeys(roads, options.now ?? Date.now());
   const blocked = new Set([...footprint, ...reserved, INITIAL_FARM_CONFIG.farmerSpawn].map(roadKey));
-  return footprint.flatMap(roadNeighbors).find(p =>
+  const candidates = footprint.flatMap(roadNeighbors).filter(p =>
     (p.row === INITIAL_FARM_CONFIG.roadRow || connected.has(roadKey(p))) &&
-    !blocked.has(roadKey(p)) && !occupied.has(roadKey(p))) ?? null;
+    !blocked.has(roadKey(p)) && !occupied.has(roadKey(p)));
+  // Prefer the detailed original brewery whenever a usable B-side access exists.
+  const origin = footprint[0];
+  return (options.building === "brewery" && origin
+    ? candidates.find(p => breweryLoadingCorner(origin, p) === "B") : undefined) ?? candidates[0] ?? null;
 };

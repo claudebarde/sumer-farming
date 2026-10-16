@@ -27,6 +27,7 @@ export const farmerActivity = (snapshot: FarmSnapshot, now: number, walking = fa
   const job = farmerProductionJob(farm, now);
   if (job?.type === "milling") return farm.milling && Date.parse(farm.milling.startedAt) > now ? activity("Collecting", "barley") : activity("Milling", "flour");
   if (job?.type === "baking") return activity("Baking", "bread");
+  if (job?.type === "brewing") return activity("Brewing", "beer");
   if (farm.fishing) return activity("Fishing", "fish");
   if (farm.gathering) return activity("Collecting", farm.gathering.itemKey);
   if (snapshot.buildings.some(b => Date.parse(b.completesAt) > now)) return activity("Building", "pickaxe");

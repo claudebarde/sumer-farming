@@ -25,6 +25,15 @@ it("keeps the base and bowl fixed while swapping bags for the worker and resetti
   expect(vi.mocked(images.farmer.setVisible).mock.calls).toEqual([[false], [true], [true], [false]]);
   expect(images.lever.setRotation).toHaveBeenLastCalledWith(0);
   expect(scene.add.image).toHaveBeenCalledTimes(5);
+  renderMillAnimation(scene, images, cell, null, true);
+  expect(images.bags.setVisible).toHaveBeenLastCalledWith(false);
+  expect(images.bowl.setVisible).toHaveBeenLastCalledWith(false);
+  renderMillAnimation(scene, images, cell, 1400, true);
+  expect(images.bags.setVisible).toHaveBeenLastCalledWith(false);
+  expect(images.bowl.setVisible).toHaveBeenLastCalledWith(true);
+  renderMillAnimation(scene, images, cell, null, false);
+  expect(images.bags.setVisible).toHaveBeenLastCalledWith(true);
+  expect(images.bowl.setVisible).toHaveBeenLastCalledWith(true);
 });
 
 it("loads the base, lever and front/rear worker poses", () => {

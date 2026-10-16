@@ -7,6 +7,7 @@ import { plantingBlocker } from "./isometricPlanting";
 import { pickupPath } from "./isometricPickup";
 import { farmOrigin } from "./isometricFarm";
 import type { IsoCell } from "./isometricProjection";
+import { roadsideOutputPlacement } from "./buildingOutputPlacement";
 
 export const canPickupMillBags = (snapshot: FarmSnapshot, id: string, now: number) => {
   const bags = snapshot.farm.millGoods.pending[id];
@@ -19,9 +20,8 @@ export const canPickupMillBags = (snapshot: FarmSnapshot, id: string, now: numbe
 export const millPickupPath = (snapshot: FarmSnapshot, id: string, from: IsoCell, now: number) => {
   const mill = snapshot.buildings.find(b => b.id === id && b.type === "mill");
   if (!mill) return null;
-  const stops = [mill.loadingTile, { column: mill.column, row: mill.row + 2 },
-    { column: mill.column - 1, row: mill.row }, { column: mill.column + 2, row: mill.row }, { column: mill.column, row: mill.row - 1 }];
-  return stops.flatMap(stop => stop ? [pickupPath(snapshot, from, stop, now)] : []).find(path => path !== null) ?? null;
+  const stop = roadsideOutputPlacement(mill, snapshot.farm.roads, now).pickup;
+  return stop ? pickupPath(snapshot, from, stop, now) : null;
 };
 
 export const millDeliveryDestination = (snapshot: FarmSnapshot, from: IsoCell, now: number) => {

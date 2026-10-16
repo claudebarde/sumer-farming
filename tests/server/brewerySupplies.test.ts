@@ -236,7 +236,6 @@ describe("persistent brewery supplies", () => {
     await db.insert(farmInventory).values({ farmId: farm.id, itemKey: "brewersGroats", quantity: 3 });
     await db.update(farmBuildings).set({ brewingBarley: 0, brewingWater: 2, emptyBeerJars: 10 })
       .where(eq(farmBuildings.id, building.id));
-    await db.update(farms).set({ carriedItemKey: "reed", carriedItemQuantity: 1 }).where(eq(farms.id, farm.id));
     const before = Date.now();
     const started = await Effect.runPromise(supplyBrewery(db, command("start_brewing")));
     expect(started.inventory.find(i => i.itemKey === "brewersGroats")?.quantity).toBe(1);
@@ -244,8 +243,10 @@ describe("persistent brewery supplies", () => {
     expect(started.buildings[0]).toMatchObject({ brewingBarley: 0, brewingWater: 0, emptyBeerJars: 8 });
     const readyAt = Date.parse(started.buildings[0]!.beerReadyAt!);
     expect(readyAt).toBeGreaterThanOrEqual(before + BEER_RECIPE.durationMs);
-    expect(readyAt).toBeLessThanOrEqual(Date.now() + BEER_RECIPE.durationMs);
-    expect(started.farm.carriedItem).toMatchObject({ itemKey: "reed", quantity: 1 });
+    const brewing = started.farm.production.brewing![building.id]!;
+    expect(readyAt).toBe(Date.parse(brewing.startedAt) + BEER_RECIPE.durationMs);
+    expect(Date.parse(brewing.startedAt) - Date.parse(brewing.arrivedAt)).toBe(8000);
+    expect(started.farm.carriedItem).toBeNull();
     const reloaded = await db.transaction(async tx => {
       const [record] = await tx.select().from(farms).where(eq(farms.id, farm.id));
       return readFarmSnapshot(tx, record!, false);
@@ -254,9 +255,9 @@ describe("persistent brewery supplies", () => {
     await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("start_brewing")))))
       .resolves.toMatchObject({ type: "farm_version_conflict" });
     await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("start_brewing", 2)))))
-      .resolves.toMatchObject({ type: "batch_active" });
+      .resolves.toMatchObject({ type: "farmer_busy" });
     await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("collect_beer", 2)))))
-      .resolves.toMatchObject({ type: "beer_not_ready" });
+      .resolves.toMatchObject({ type: "farmer_busy" });
     await db.update(farmBuildings).set({ beerReadyAt: new Date(Date.now() - 500) }).where(eq(farmBuildings.id, building.id));
     await db.insert(farmInventory).values({ farmId: farm.id, itemKey: "beer", quantity: 3 });
     const ready = await refresh(farm.id);

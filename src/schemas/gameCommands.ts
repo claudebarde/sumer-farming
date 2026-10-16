@@ -62,6 +62,7 @@ export const GameCommandSchema = z.discriminatedUnion("type", [
     type: z.literal("brewery_supply"),
     action: z.enum(["collect_water", "pour_water", "deliver", "stock_jars", "start_brewing", "collect_beer", "give_beer"]),
     target: FarmCoordinateSchema,
+    farmerPosition: FarmCoordinateSchema.optional(),
     expectedFarmVersion: z.int().positive()
   }),
   z.object({

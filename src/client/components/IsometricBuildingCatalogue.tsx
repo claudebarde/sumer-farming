@@ -40,7 +40,7 @@ export default function IsometricBuildingCatalogue({ snapshot, now, onBuild }: {
   ] as const;
   return <>
     <h2>Buildings</h2>
-    <Accordion.Root type="multiple" defaultValue={["available"]} className={styles["building-accordion"]}>
+    <Accordion.Root type="multiple" defaultValue={[catalogue.some(entry => group(entry) === "available") ? "available" : "built"]} className={styles["building-accordion"]}>
     {sections.map(section => {
       const entries = catalogue.filter(entry => group(entry) === section.id);
       return <Accordion.Item key={section.id} value={section.id}>

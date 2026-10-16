@@ -1,5 +1,28 @@
 import { shadowEllipse, type daylightShadow } from "./daylightShadows";
 
+export const usesBreweryFarmShadow = (texture: string, hour: number) => (texture === "brewery" || /^brewery-[01]$/.test(texture)) && hour >= 8 && hour < 14;
+
+/** Fit the farmhouse's visible width to the brewery, keeping its proportions
+ * and aligning visible ground contact rather than transparent canvas margins. */
+export const breweryFarmShadowPlacement = (
+  brewery: Parameters<typeof middayBuildingOval>[0],
+  target: Parameters<typeof middayBuildingOval>[1],
+  farm: Parameters<typeof middayBuildingOval>[0],
+  source: Parameters<typeof middayBuildingOval>[1],
+) => {
+  const targetOval = middayBuildingOval(brewery, target);
+  const sourceOval = middayBuildingOval(farm, source);
+  if (!targetOval || !sourceOval) return null;
+  const scale = (targetOval.radiusX - 6) / (sourceOval.radiusX - 6);
+  const displayWidth = farm.displayWidth * scale, displayHeight = farm.displayHeight * scale;
+  const base = brewery.y + (target.bottom / target.height - brewery.originY) * brewery.displayHeight;
+  return { originX: farm.originX, originY: farm.originY, displayWidth, displayHeight,
+    x: targetOval.x - (sourceOval.x - farm.x) * scale,
+    // Slide the morning-only proxy slightly beneath the vessels (4 world px
+    // at the approved 150px brewery size), without changing its projection.
+    y: base - (source.bottom / source.height - farm.originY) * displayHeight - brewery.displayHeight * 4 / 150 };
+};
+
 export const usesMorningMillOval = (texture: string, hour: number) =>
   (texture === "mill-v1-base" || texture === "mill-v1-bags") && hour >= 8 && hour < 14;
 
@@ -50,7 +73,7 @@ export const middayBuildingOval = (
 };
 
 export const usesBuildingBaseContour = (texture: string) =>
-  texture.startsWith("farm-level-") || texture === "market-preview" || texture === "mill-v1-base" || texture === "mill-v1-bags";
+  texture.startsWith("farm-level-") || texture === "market-preview" || texture === "mill-v1-base" || texture === "mill-v1-bags" || texture === "breadOven" || texture === "brewery" || /^brewery-[01]$/.test(texture);
 
 /** A separate ground hinge for every visible column preserves isometric corners. */
 export const opaqueBaseContour = (rgba: Uint8ClampedArray, width: number, height: number): readonly number[] =>
@@ -72,9 +95,9 @@ export const buildingShadowContourBottom = (columnBottom: number, originalBottom
  * The mill body and bags use their individual base contours instead.
  */
 export const BUILDING_SHADOW_CONTACT_ROWS: Readonly<Record<string, number>> = {
-  breadOven: 0.76,
+  // Idle oven now uses its exposed base contour; retain the approved active base.
+  "baking-0": 0.76,
   granary: 0.84,
-  brewery: 0.79,
   "market-barley": 0.79,
   "market-beer": 0.79,
   "market-baking": 0.79,

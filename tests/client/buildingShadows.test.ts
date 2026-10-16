@@ -1,6 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { BUILDING_SHADOW_CONTACT_ROWS, buildingShadowBottom, buildingShadowContourBottom, buildingShadowTransform, opaqueBaseContour, opaqueBottom, usesBuildingBaseContour } from "../../src/client/game/phaser/buildingShadowProjection";
 import { daylightShadow } from "../../src/client/game/phaser/daylightShadows";
+import { breweryFarmShadowPlacement, usesBreweryFarmShadow, middayBuildingOval } from "../../src/client/game/phaser/buildingShadowProjection";
+
+it("fits a proportional farmhouse shadow to brewery width and ground contact, only in morning", () => {
+  const farm = { x: 0, y: 0, originX: 0.5, originY: 1, displayWidth: 232, displayHeight: 232 };
+  const brewery = { ...farm, x: 100, y: 200, originY: 120 / 128, displayWidth: 150, displayHeight: 150 };
+  const source = { width: 256, height: 256, bottom: 240, contour: Array.from({ length: 256 }, (_, x) => x >= 20 && x < 230 ? 240 : 0) };
+  const target = { ...source, bottom: 220 };
+  const proxy = breweryFarmShadowPlacement(brewery, target, farm, source)!;
+  expect(proxy.displayWidth / proxy.displayHeight).toBe(farm.displayWidth / farm.displayHeight);
+  expect(middayBuildingOval(proxy, source)!.radiusX).toBeCloseTo(middayBuildingOval(brewery, target)!.radiusX);
+  expect(middayBuildingOval(proxy, source)!.x).toBeCloseTo(middayBuildingOval(brewery, target)!.x);
+  expect(proxy.y + (source.bottom / 256 - proxy.originY) * proxy.displayHeight)
+    .toBeCloseTo(brewery.y + (target.bottom / 256 - brewery.originY) * brewery.displayHeight - 4);
+  expect(usesBreweryFarmShadow("brewery", 9)).toBe(true);
+  for (const hour of [7, 14, 19, 22]) expect(usesBreweryFarmShadow("brewery", hour)).toBe(false);
+  expect(usesBreweryFarmShadow("granary", 9)).toBe(false);
+});
 
 describe("artwork-shaped building shadows", () => {
   it("extracts the stepped ground contour without transparent padding or faint pixels", () => {
@@ -24,12 +41,34 @@ describe("artwork-shaped building shadows", () => {
     expect(buildingShadowContourBottom(180, 225, daylightShadow(22))).toBe(225);
   });
   it("uses contour hinges for the farmhouse, market and individual mill parts", () => {
-    for (const key of ["farm-level-1", "farm-level-3", "farm-level-4", "farm-level-9", "market-preview", "mill-v1-base", "mill-v1-bags"]) expect(usesBuildingBaseContour(key)).toBe(true);
-    for (const key of ["breadOven", "mill", "granary", "market-barley"]) expect(usesBuildingBaseContour(key)).toBe(false);
+    for (const key of ["farm-level-1", "farm-level-3", "farm-level-4", "farm-level-9", "market-preview", "mill-v1-base", "mill-v1-bags", "breadOven", "brewery"]) expect(usesBuildingBaseContour(key)).toBe(true);
+    for (const key of ["baking-0", "mill", "granary", "market-barley"]) expect(usesBuildingBaseContour(key)).toBe(false);
   });
-  it("anchors the evening oven to the masonry rather than the foreground bread tray", () => {
+  it("uses the courtyard's visible base instead of the retired brewery contact row", () => {
+    expect(BUILDING_SHADOW_CONTACT_ROWS.brewery).toBeUndefined();
+    expect(usesBuildingBaseContour("brewery")).toBe(true);
+    const sprite = { x: 100, y: 200, displayWidth: 150, displayHeight: 150, originX: 0.5, originY: 120 / 128 };
+    for (const [x, y] of [[43, 165], [128, 220], [216, 167]] as const) {
+      const sun = daylightShadow(19);
+      const bottom = buildingShadowContourBottom(y, 220, sun);
+      const m = buildingShadowTransform(sun, sprite, { width: 256, height: 256, bottom });
+      expect(m.a * x + m.c * y + m.e).toBeCloseTo(sprite.x + (x / 256 - sprite.originX) * 150);
+      expect(m.b * x + m.d * y + m.f).toBeCloseTo(sprite.y + (y / 256 - sprite.originY) * 150);
+    }
+  });
+  it("pins the exposed idle oven corner independently of the lower foreground tray", () => {
+    const sprite = { x: 0, y: 0, displayWidth: 150, displayHeight: 150, originX: 0.5, originY: 120 / 128 };
     const sun = daylightShadow(19);
-    expect(buildingShadowBottom("breadOven", 230, 256, sun)).toBeCloseTo(256 * 0.76);
+    const corner = { x: 53, y: 175 };
+    const bottom = buildingShadowContourBottom(corner.y, 230, sun);
+    const m = buildingShadowTransform(sun, sprite, { width: 256, height: 256, bottom });
+    expect(m.a * corner.x + m.c * corner.y + m.e).toBeCloseTo((corner.x / 256 - 0.5) * 150);
+    expect(m.b * corner.x + m.d * corner.y + m.f).toBeCloseTo((corner.y / 256 - 120 / 128) * 150);
+    expect(BUILDING_SHADOW_CONTACT_ROWS.breadOven).toBeUndefined();
+  });
+  it("preserves the active oven's approved evening masonry anchor", () => {
+    const sun = daylightShadow(19);
+    expect(buildingShadowBottom("baking-0", 230, 256, sun)).toBeCloseTo(256 * 0.76);
     expect(buildingShadowBottom("breadOven", 230, 256, daylightShadow(9))).toBe(230);
     expect(buildingShadowBottom("breadOven", 230, 256, daylightShadow(14))).toBe(230);
     expect(buildingShadowBottom("breadOven", 230, 256, daylightShadow(22))).toBe(230);
@@ -37,7 +76,7 @@ describe("artwork-shaped building shadows", () => {
     const sprite = { x: 0, y: 0, displayWidth: 150, displayHeight: 150, originX: 0.5, originY: 120 / 128 };
     const old = buildingShadowTransform(sun, sprite, { width: 256, height: 256, bottom: 230 });
     const corrected = buildingShadowTransform(sun, sprite, { width: 256, height: 256,
-      bottom: buildingShadowBottom("breadOven", 230, 256, sun) });
+      bottom: buildingShadowBottom("baking-0", 230, 256, sun) });
     expect(corrected.e).toBeLessThan(old.e);
     expect(corrected.f).toBeLessThan(old.f);
     expect(corrected.a).toBe(old.a); expect(corrected.d).toBe(old.d);
