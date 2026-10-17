@@ -1,6 +1,12 @@
 import { expect, it } from "vitest";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
-import { planSweeping, sweepingPose, sweepTexture, SWEEP_IDLE_DELAY, SWEEP_DWELL_MS } from "../../src/client/game/phaser/farmerSweeping";
+import { planSweeping, sweepingPose, sweepTexture, sweepStopDeadline, SWEEP_IDLE_DELAY, SWEEP_DWELL_MS } from "../../src/client/game/phaser/farmerSweeping";
+it("delays stopping by two seconds from the first input without extending on repeated input", () => {
+  const deadline = sweepStopDeadline(null, 1000);
+  expect(deadline).toBe(3000);
+  expect(sweepStopDeadline(deadline, 2500)).toBe(3000);
+  expect(sweepStopDeadline(null, 4000)).toBe(6000);
+});
 const id = "00000000-0000-4000-8000-000000000001";
 const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shekelBalance: 0 },
   farm: { id, playerId: id, version: 1, carriedItem: null, gathering: null,

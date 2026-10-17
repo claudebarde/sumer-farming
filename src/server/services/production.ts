@@ -2,6 +2,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { planProductionJourney, productionArrivalAt } from "../../game-core/farm/productionJourney";
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { sharedDeliveryStop } from "../../game-core/farm/storageDelivery";
+import { productionOutputFits, OUTPUT_FULL_MESSAGE } from "../../game-core/farm/productionOutputCapacity";
 import { porterReserved } from "../../game-data/porter";
 import { Data, Effect } from "effect";
 import { BREAD_RECIPE, type ProductionState } from "../../game-data/production";
@@ -56,6 +57,7 @@ export const productionAction = (database: Database, input: Extract<GameCommand,
       } else if (input.type === "start_baking") {
         const oven = snapshot.buildings.find(b => b.id === input.buildingId && b.type === "breadOven" && Date.parse(b.completesAt) <= now);
         if (!oven) return fail("Choose a completed Bread Oven.");
+        if (!productionOutputFits(snapshot.farm, oven.id, BREAD_RECIPE.output)) return fail(OUTPUT_FULL_MESSAGE);
         if (activeBuildingUpgrade(state.buildingUpgrades, oven.id, now)) return fail("The Bread Oven is upgrading.");
         if (state.baking[oven.id]) return fail("This oven is already baking.");
         const flour = snapshot.inventory.find(i => i.itemKey === "flour")?.quantity ?? 0;
@@ -70,10 +72,10 @@ export const productionAction = (database: Database, input: Extract<GameCommand,
         const stack = state.pending[input.buildingId];
         if (!stack) return fail("There are no finished goods to collect.");
         const stored = snapshot.inventory.find(i => i.itemKey === stack.itemKey)?.quantity ?? 0;
-        const quantity = Math.min(stack.quantity, Math.max(0, estateResourceCapacity(stack.itemKey, snapshot.buildings, now) - stored - porterReserved(state.porter, stack.itemKey)));
-        if (quantity === 0) return fail("Storage is full. Use or sell some goods first.");
+        const room = Math.max(0, estateResourceCapacity(stack.itemKey, snapshot.buildings, now) - stored - porterReserved(state.porter, stack.itemKey));
+        if (room < stack.quantity) return fail("Not enough storage for the whole pile. Use or sell some goods first.");
         const pending = Object.fromEntries(Object.entries(state.pending).filter(([id]) => id !== input.buildingId));
-        production = { ...state, pending: quantity < stack.quantity ? { ...pending, [input.buildingId]: { ...stack, quantity: stack.quantity - quantity } } : pending, delivery: { ...stack, quantity, buildingId: input.buildingId } };
+        production = { ...state, pending, delivery: { ...stack, buildingId: input.buildingId } };
       } else {
         const delivery = state.delivery;
         if (!delivery || delivery.buildingId !== input.buildingId) return fail("There is no matching delivery to store.");

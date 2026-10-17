@@ -42,7 +42,7 @@ import { buildingBuildBlocker, buildingPlacement, type PlaceableBuilding } from 
 import type { MillRecipe } from "../../game-data/milling";
 import { roadsideOutputPlacement } from "../game/phaser/buildingOutputPlacement";
 import { canBakeBread, canStoreBread } from "../game/phaser/isometricBaking";
-import { breweryOutputPlacement, canSupplyBrewery } from "../game/phaser/isometricBrewing";
+import { breweryOutputPlacement, canSupplyBrewery, waterPourTarget } from "../game/phaser/isometricBrewing";
 import type { BrewerySupplyAction } from "../../game-core/farm/brewerySupplies";
 import { sharedDeliveryStop } from "../../game-core/farm/storageDelivery";
 import { porterReserved } from "../../game-data/porter";
@@ -195,6 +195,12 @@ export default function IsometricFarm() {
     if (!farm || !renderer || !information || submitting.current) return;
     const building = buildingAt(farm, information.cell);
     let target = building ?? information.cell;
+    const pourFromFarmer = action === "pour_water" && information.kind === "farmer";
+    if (pourFromFarmer) {
+      const ground = waterPourTarget(farm, renderer.farmerPosition(), Date.now());
+      if (!ground) return;
+      target = ground;
+    }
     if (action === "collect_water") target = { column: target.column, row: INITIAL_FARM_CONFIG.riverRow };
     if (!canSupplyBrewery(farm, target, action, Date.now())) return;
     submitting.current = true; setPending(true); setError(null);
@@ -202,7 +208,19 @@ export default function IsometricFarm() {
     renderer.clearSelection(); renderer.setPlantingSelection(null, true);
     try {
       // Starting production is immediate; only supply transfers wait for their walk.
-      if (action !== "start_brewing") {
+      if (action === "stock_jars") {
+        const home = INITIAL_FARM_CONFIG.farmerSpawn;
+        const toFarm = pickupPath(farm, farmerPosition, home, Date.now());
+        const toBrewery = building?.loadingTile && pickupPath(farm, home, building.loadingTile, Date.now());
+        // Validate both legs before moving; inventory changes only on successful delivery.
+        if (!toFarm || !toBrewery) throw new Error("No clear path between the farm and brewery.");
+        await new Promise<void>(resolve => window.setTimeout(resolve, renderer.presentMillDeliveryLeg(toFarm, farmOrigin, false)));
+        if (!mounted.current) return;
+        renderer.finishMillDeliveryLeg();
+        await new Promise<void>(resolve => window.setTimeout(resolve, renderer.presentMillDeliveryLeg(toBrewery, target, true, true)));
+        if (!mounted.current) return;
+        renderer.finishMillDeliveryLeg();
+      } else if (action !== "start_brewing" && !pourFromFarmer) {
         const destination = action === "collect_water" || action === "pour_water" ? fishingApproach(farm, farmerPosition, target, Date.now())?.bank
           : building?.loadingTile ?? target;
         const path = destination && pickupPath(farm, farmerPosition, destination, Date.now());
@@ -216,6 +234,7 @@ export default function IsometricFarm() {
     } catch (cause) {
       if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not supply the brewery.");
     } finally {
+      if (mounted.current) renderer.finishMillDeliveryLeg();
       submitting.current = false;
       if (mounted.current) { setPending(false); renderer.setPlantingSelection(null, false); refresh.current(); }
     }

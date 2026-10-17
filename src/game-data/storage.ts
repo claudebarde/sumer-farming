@@ -11,6 +11,8 @@ export const estateResourceCapacity = (
   buildings: readonly { readonly type: FarmBuildingType; readonly completesAt: string | Date }[],
   now: number
 ): number => {
+  if (item === "brewingVessels") return FARM_BUILDING_DEFINITIONS.brewery.materials.brewingVessels;
+  if (item === "bakingTools") return FARM_BUILDING_DEFINITIONS.breadOven.materials.bakingTools;
   if (item === "donkey") return 1;
   if (item === "fish") return 5;
   if (item === "dates") return buildings.some(b => b.type === "warehouse" && new Date(b.completesAt).getTime() <= now) ? WAREHOUSE_DATE_BASKET_CAPACITY : 0;

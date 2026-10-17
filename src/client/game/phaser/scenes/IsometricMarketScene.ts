@@ -17,6 +17,12 @@ import type { IsoCell } from "../isometricProjection";
 import { advanceMerchantFacing, initialMerchantFacing, type MerchantFacing } from "../merchantFacing";
 import { advanceGreeting, greetingAppearance, initialGreetingState, merchantGreetings } from "../merchantGreeting";
 import { marketUiStore } from "../../../stores/marketUiStore";
+import merchant01 from "../../../../assets/sprite_assets/pngs/v2/isometric-test/merchant-01.png";
+import merchant02 from "../../../../assets/sprite_assets/pngs/v2/isometric-test/merchant-02.png";
+import { prepareFarmerTexture } from "../farmerTexture";
+
+const merchantSources = { "market-merchant-01": merchant01, "market-merchant-02": merchant02 };
+export const merchantTextures = { barley: "market-merchant-01", beer: "market-merchant-02", baking: "market-merchant-01" } as const;
 
 export const stands = [
   { scope: "barley", kind: "barleyMarket", url: barleyStandUrl, origin: { column: 2, row: 2 }, merchant: { column: 3, row: 4.5 } },
@@ -56,8 +62,13 @@ export class IsometricMarketScene extends Phaser.Scene {
   }
   preload() {
     stands.forEach(stand => this.load.image(`source-market-${stand.scope}`, stand.url));
+    for (const [key, url] of Object.entries(merchantSources)) this.load.image(`source-${key}`, url);
   }
   create() {
+    for (const key of Object.keys(merchantSources)) if (!this.textures.exists(key)) {
+      const source = this.textures.get(`source-${key}`).getSourceImage() as HTMLImageElement;
+      this.textures.addCanvas(key, prepareFarmerTexture(source))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    }
     this.merchants = [];
     this.greeting = initialGreetingState();
     this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -127,7 +138,7 @@ export class IsometricMarketScene extends Phaser.Scene {
     const merchant = isoPoint(stand.merchant);
     // Keep the stationary merchant fully visible in front, just off the walking road.
     this.daylightShadows.add(() => merchant, 23, 48);
-    const sprite = this.add.image(merchant.x, merchant.y, "farmer-idle")
+    const sprite = this.add.image(merchant.x, merchant.y, merchantTextures[stand.scope])
       .setOrigin(0.5, 120 / 128).setDisplaySize(64, 64).setFlipX(true).setDepth(merchant.y + 1)
       .setName(`${stand.scope}-merchant-preview`).setData("marketScope", stand.scope).setInteractive({ pixelPerfect: true, useHandCursor: true });
     this.merchants.push({ sprite, cell: stand.merchant, facing: initialMerchantFacing() });

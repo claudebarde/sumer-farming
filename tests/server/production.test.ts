@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { Client } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -46,6 +46,36 @@ const fixture = async (flour = 6, level = 6) => {
   };
   return { farm: farm!, oven: oven!, refresh, bake, delivery, finish };
 };
+
+it.each([4, 5, 6, 8])("checks space for a complete bread batch with %i waiting", async quantity => {
+  const f = await fixture();
+  await db.update(farms).set({ production: { ...emptyProductionState(), pending: { [f.oven.id]: { itemKey: "bread", quantity } } } }).where(eq(farms.id, f.farm.id));
+  const before = await f.refresh();
+  if (quantity === 4) {
+    const started = await Effect.runPromise(productionAction(db, f.bake(before.farm.version)));
+    expect(started.farm.production.baking[f.oven.id]?.output).toBe(2);
+    expect((await f.finish()).farm.production.pending[f.oven.id]?.quantity).toBe(6);
+  } else {
+    await expect(Effect.runPromise(Effect.flip(productionAction(db, f.bake(before.farm.version)))))
+      .resolves.toMatchObject({ message: "Store finished goods to make room" });
+    expect((await f.refresh()).inventory.find(i => i.itemKey === "flour")?.quantity).toBe(6);
+  }
+});
+
+it.each(["bread", "beer"] as const)("collects the whole %s pile or leaves it untouched", async itemKey => {
+  const f = await fixture();
+  await db.update(farms).set({ production: { ...emptyProductionState(), pending: { [f.oven.id]: { itemKey, quantity: 6 } } } }).where(eq(farms.id, f.farm.id));
+  await db.insert(farmInventory).values({ farmId: f.farm.id, itemKey, quantity: 5 });
+  const before = await f.refresh();
+  await expect(Effect.runPromise(Effect.flip(productionAction(db, f.delivery("pickup", before.farm.version)))))
+    .resolves.toMatchObject({ message: expect.stringContaining("whole pile") });
+  expect((await f.refresh()).farm.production.pending[f.oven.id]?.quantity).toBe(6);
+  await db.update(farmInventory).set({ quantity: 4 }).where(and(eq(farmInventory.farmId, f.farm.id), eq(farmInventory.itemKey, itemKey)));
+  const ready = await f.refresh();
+  const picked = await Effect.runPromise(productionAction(db, f.delivery("pickup", ready.farm.version)));
+  expect(picked.farm.production.delivery?.quantity).toBe(6);
+  expect(picked.farm.production.pending[f.oven.id]).toBeUndefined();
+});
 
 describe("baking and finished-goods delivery", () => {
   it("locks other physical actions until baking completes, including after reload", async () => {

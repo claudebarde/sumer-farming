@@ -1,4 +1,5 @@
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
+import { productionOutputFits, OUTPUT_FULL_MESSAGE } from "../../game-core/farm/productionOutputCapacity";
 import { planProductionJourney, productionArrivalAt } from "../../game-core/farm/productionJourney";
 import { BREWING_PREPARATION_MS } from "../../game-data/brewing";
 import { datesTreatErrors, validateDatesTreat, happinessAfterDates } from "../../game-core/farm/wellbeing";
@@ -106,7 +107,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           if (activeBuildingUpgrade(farm.production.buildingUpgrades, brewery.id, now.getTime())) return new BrewerySupplyRuleError({ type: "brewery_unavailable", message: "The Brewery is upgrading." });
           const brewingRule = validateBrewing(input.action, brewery, now.getTime(), groats);
           if (brewingRule !== null) return new BrewerySupplyRuleError({ type: brewingRule, message: brewingErrors[brewingRule] });
-          if (farm.production.pending[brewery.id]) return new BrewerySupplyRuleError({ type: "batch_active", message: brewingErrors.batch_active });
+          if (!productionOutputFits(snapshot.farm, brewery.id, BEER_RECIPE.output)) return new BrewerySupplyRuleError({ type: "batch_active", message: OUTPUT_FULL_MESSAGE });
           const preparation = planProductionJourney(snapshot, brewery.id, now.getTime(), input, "brewing");
           if (!preparation) return new BrewerySupplyRuleError({ type: "brewery_unavailable", message: "The brewery needs an accessible loading tile." });
           const arrivedAt = productionArrivalAt(preparation);

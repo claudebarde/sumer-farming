@@ -4,6 +4,9 @@ export type MarketScope = "barley" | "beer" | "bread";
 export const MARKET_TITLES: Record<MarketScope, string> = {
   barley: "Barley market", beer: "Beer market", bread: "Baking market"
 };
+/** Keep brewing equipment, packaging and finished beer together, in that order. */
+export const beerMarketBuyOrder = (itemKey: string): number =>
+  ({ brewingVessels: 0, emptyBeerJar: 1, beer: 2 }[itemKey] ?? 3);
 export const marketIncludesItem = (
   scope: MarketScope,
   itemKey: string,

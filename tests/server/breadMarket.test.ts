@@ -57,23 +57,48 @@ describe("bread markets", () => {
     const listed = await Effect.runPromise(createMarketSellOrder(db, { ...input, quantity: 1, unitPrice: 3, expectedFarmVersion: sold.farm.version, idempotencyKey: randomUUID() }));
     expect(listed).toBeDefined();
   });
-  it("buys two baking tools for 12 shekels and consumes them when building an oven", async () => {
+  it.each([
+    ["breadOven", "bakingTools"], ["brewery", "brewingVessels"]
+  ] as const)("retains permanent equipment when building %s", async (building, itemKey) => {
     const input = await fixture();
     await db.insert(farmGroundItems).values([
       { farmId: input.farmId, itemKey: "reed", quantity: 4, column: 0, row: 0 },
       { farmId: input.farmId, itemKey: "clay", quantity: 6, column: 1, row: 0 }
     ]);
-    const construction = { playerId: input.playerId, expectedFarmVersion: 1, building: "breadOven" as const, target: { column: 5, row: 3 } };
-    await expect(Effect.runPromise(Effect.flip(buildFarmBuilding(db, construction)))).resolves.toMatchObject({ rule: { type: "missing_material", itemKey: "bakingTools" } });
-    const purchase = { ...input, itemKey: "bakingTools" as const, expectedUnitPrice: 6 };
+    const construction = { playerId: input.playerId, expectedFarmVersion: 1, building, target: { column: 5, row: 3 } };
+    await expect(Effect.runPromise(Effect.flip(buildFarmBuilding(db, construction)))).resolves.toMatchObject({ rule: { type: "missing_material", itemKey } });
+    const purchase = { ...input, itemKey, expectedUnitPrice: 6 };
     const bought = await Effect.runPromise(buyFromNpcMarket(db, purchase));
     expect(bought.player.shekelBalance).toBe(8);
-    expect(bought.inventory.find(i => i.itemKey === "bakingTools")?.quantity).toBe(2);
+    expect(bought.inventory.find(i => i.itemKey === itemKey)?.quantity).toBe(2);
     const retry = await Effect.runPromise(buyFromNpcMarket(db, purchase));
     expect(retry.player.shekelBalance).toBe(8);
     const built = await Effect.runPromise(buildFarmBuilding(db, { ...construction, expectedFarmVersion: bought.farm.version }));
-    expect(built.buildings.some(b => b.type === "breadOven")).toBe(true);
-    expect(built.inventory.find(i => i.itemKey === "bakingTools")?.quantity ?? 0).toBe(0);
+    expect(built.buildings.some(b => b.type === building)).toBe(true);
+    expect(built.inventory.find(i => i.itemKey === itemKey)?.quantity).toBe(2);
+    // Simulate equipment consumed by an older save, then reconcile twice.
+    await db.delete(farmInventory).where(eq(farmInventory.farmId, input.farmId));
+    const restored = await Effect.runPromise(buyFromNpcMarket(db, { ...input, itemKey: "barley", expectedUnitPrice: 2, quantity: 1,
+      expectedFarmVersion: built.farm.version, idempotencyKey: randomUUID() }));
+    expect(restored.inventory.find(i => i.itemKey === itemKey)?.quantity).toBe(2);
+    const again = await Effect.runPromise(buyFromNpcMarket(db, { ...input, itemKey: "barley", expectedUnitPrice: 2, quantity: 1,
+      expectedFarmVersion: restored.farm.version, idempotencyKey: randomUUID() }));
+    expect(again.inventory.find(i => i.itemKey === itemKey)?.quantity).toBe(2);
+  });
+
+  it.each(["brewingVessels", "bakingTools"] as const)("caps %s at two and rejects all resale", async itemKey => {
+    const input = { ...await fixture(), itemKey, expectedUnitPrice: 6 };
+    await expect(Effect.runPromise(Effect.flip(buyFromNpcMarket(db, { ...input, quantity: 3 }))))
+      .resolves.toMatchObject({ rule: { type: "insufficient_storage" } });
+    const bought = await Effect.runPromise(buyFromNpcMarket(db, input));
+    const next = { ...input, quantity: 1, expectedFarmVersion: bought.farm.version, idempotencyKey: randomUUID() };
+    await expect(Effect.runPromise(Effect.flip(buyFromNpcMarket(db, next))))
+      .resolves.toMatchObject({ rule: { type: "insufficient_storage" } });
+    await expect(Effect.runPromise(Effect.flip(sellToNpcMarket(db, { ...next, expectedUnitPrice: 1 }))))
+      .resolves.toMatchObject({ rule: { type: "trade_unavailable" } });
+    await expect(Effect.runPromise(Effect.flip(createMarketSellOrder(db, { ...next, unitPrice: 6 }))))
+      .resolves.toMatchObject({ rule: { type: "sell_order_unavailable" } });
+    expect(await db.select().from(marketOrders).where(eq(marketOrders.playerId, input.playerId))).toHaveLength(0);
   });
 
   it("offers baking tools only in the NPC bread buy tab at level 6", () => {

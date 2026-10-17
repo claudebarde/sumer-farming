@@ -1,0 +1,41 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+.card {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 8px;
+  border: 1px solid #d8b77e;
+  border-radius: 10px;
+  background: #f6e9cf;
+  img { width: 36px; max-width: 100%; height: 36px; object-fit: contain; }
+  progress {
+    width: 100%; height: 8px; margin-top: auto;
+    appearance: none; border: 0; border-radius: 5px; overflow: hidden;
+    background: #e0d2b5; color: #7d8d48;
+    &::-webkit-progress-bar { background: #e0d2b5; border-radius: 5px; }
+    &::-webkit-progress-value { background: #7d8d48; border-radius: 5px; }
+    &::-moz-progress-bar { background: #7d8d48; border-radius: 5px; }
+  }
+}
+.itemHeading { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; width: 100%; }
+.name { min-width: 0; font-size: 0.85em; font-weight: bold; overflow-wrap: anywhere; }
+.quantity { flex-shrink: 0; font-size: 0.85em; font-variant-numeric: tabular-nums; }
+.horizontalCard {
+  flex-direction: row;
+  gap: 16px;
+  padding: 16px;
+  img { width: 64px; height: 64px; flex: 0 0 64px; }
+  .name, .quantity { font-size: 1em; }
+  progress { display: block; height: 10px; }
+}
+.storageInformation { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+@media (max-width: 420px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

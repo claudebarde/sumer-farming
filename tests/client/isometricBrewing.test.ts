@@ -1,7 +1,10 @@
 import { expect, it, vi } from "vitest";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import BrewingRequirements from "../../src/client/components/BrewingRequirements";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
 import { INITIAL_PROGRESSION_STATS } from "../../src/game-data/progression";
-import { canSupplyBrewery, breweryOutputPlacement, activeBrewingPreparation } from "../../src/client/game/phaser/isometricBrewing";
+import { canSupplyBrewery, breweryOutputPlacement, activeBrewingPreparation, waterPourTarget } from "../../src/client/game/phaser/isometricBrewing";
 import { canStoreBread } from "../../src/client/game/phaser/isometricBaking";
 import { farmerProductionJob } from "../../src/game-core/farm/farmerProduction";
 import { assertFarmerAvailable } from "../../src/server/services/farmerAvailability";
@@ -12,6 +15,34 @@ const fixture = () => FarmSnapshotSchema.parse({ created: false, player: { sheke
   inventory: [{ itemKey: "brewersGroats", quantity: 2 }, { itemKey: "emptyBeerJar", quantity: 2 }], objects: [], crops: [], groundItems: [], improvements: [],
   buildings: [{ id, type: "brewery", column: 4, row: 3, storedBarley: 0, brewingBarley: 0, brewingWater: 2, emptyBeerJars: 2, beerReadyAt: null, beerServed: 0,
     startedAt: new Date(0).toISOString(), completesAt: new Date(1).toISOString(), loadingTile: { column: 4, row: 5 } }] });
+
+it("shows compact recipe progress using estate groats but only delivered water and jars", () => {
+  const snapshot = fixture(), building = snapshot.buildings[0]!;
+  snapshot.inventory[0]!.quantity = 7;
+  building.brewingWater = 1;
+  building.emptyBeerJars = 0;
+  const html = renderToStaticMarkup(createElement(BrewingRequirements, { snapshot, building }));
+  expect(html).toContain('aria-label="Brewing ingredients"');
+  for (const quantity of ["2/2", "1/2", "0/2"]) expect(html).toContain(quantity);
+  expect(html).not.toContain("7/2");
+  expect(html.match(/<progress/g)).toHaveLength(3);
+  expect(html).toContain('value="2" max="2"');
+  expect(html).toContain('width="28"');
+  expect(html).toContain("beer-jars-empty-isometric.png");
+  expect(html).toContain("brewers-groats-icon.png");
+  expect(html).not.toContain("Building time");
+});
+
+it("can discard carried water near the farmer even with a full brewery", () => {
+  const snapshot = fixture();
+  snapshot.farm.carriedItem = { itemKey: "water", quantity: 1, expiresAt: null };
+  const target = waterPourTarget(snapshot, { column: 0, row: 2 }, 1000)!;
+  expect(target).toEqual({ column: 0, row: 2 });
+  expect(canSupplyBrewery(snapshot, target, "pour_water", 1000)).toBe(true);
+  expect(waterPourTarget(snapshot, { column: 1, row: 3 }, 1000)).not.toEqual({ column: 1, row: 3 });
+  snapshot.farm.carriedItem = null;
+  expect(waterPourTarget(snapshot, target, 1000)).toBeNull();
+});
 
 it("offers brewing only with the recipe, unlocked completed brewery and empty-handed available farmer", () => {
   const s = fixture(), b = s.buildings[0]!;
@@ -25,8 +56,14 @@ it("offers brewing only with the recipe, unlocked completed brewery and empty-ha
   expect(canSupplyBrewery(s, b, "deliver", 1000)).toBe(true);
   s.farm.carriedItem = null;
   expect(canSupplyBrewery(s, { column: 0, row: 10 }, "collect_water", 1000)).toBe(true);
+  expect(canSupplyBrewery(s, b, "stock_jars", 1000)).toBe(false);
+  b.emptyBeerJars = 1;
   expect(canSupplyBrewery(s, b, "stock_jars", 1000)).toBe(true);
+  b.emptyBeerJars = 2;
   s.farm.production.pending[id] = { itemKey: "beer", quantity: 2 };
+  b.brewingWater = 2;
+  expect(canSupplyBrewery(s, b, "start_brewing", 1000)).toBe(true);
+  s.farm.production.pending[id] = { itemKey: "beer", quantity: 6 };
   expect(canSupplyBrewery(s, b, "start_brewing", 1000)).toBe(false);
   expect(canStoreBread(s, id, 1000)).toBe(true);
   s.inventory.push({ itemKey: "beer", quantity: 10 });

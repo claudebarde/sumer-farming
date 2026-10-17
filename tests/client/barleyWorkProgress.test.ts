@@ -11,7 +11,9 @@ it.each(["Sowing", "Harvesting"] as const)("shows the shared %s work meter", act
   expect(html).toContain("1/4 fields");
   expect(html).toContain('role="progressbar"');
   expect(html).toContain('aria-valuenow="37"');
+  expect(html).toContain('viewBox="0 0 100 100"');
   expect(html).toContain('stroke-dashoffset="63"');
+  expect(html).toContain('>37%</span>');
   expect(html).toContain("40s");
 });
 it("retains the completed count and meter when storing barley", () => {

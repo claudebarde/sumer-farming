@@ -285,7 +285,7 @@ export const buildFarmBuilding = (
             FARM_BUILDING_DEFINITIONS[buildingType].materials
           ) as [InventoryItemKey, number][]) {
             if (itemKey === "brewingVessels" || itemKey === "bakingTools") {
-              await transaction.update(farmInventory).set({ quantity: sql`${farmInventory.quantity} - ${quantity}`, updatedAt: startedAt }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, itemKey)));
+              // Permanent equipment is required, but never consumed by construction.
               continue;
             }
             await consumeGroundMaterial(

@@ -8,18 +8,26 @@ import { plantingBlocker } from "./isometricPlanting";
 import { isoPoint } from "./isometricProjection";
 import { roadsideOutputPlacement } from "./buildingOutputPlacement";
 import { breweryOutputPlacement } from "./isometricBrewing";
+import { productionOutputFits } from "../../../game-core/farm/productionOutputCapacity";
 
 export type BakingJob = ProductionState["baking"][string];
-export const canStoreBread = (snapshot: FarmSnapshot, id: string, now: number) => {
+export const breadStorageBlocker = (snapshot: FarmSnapshot, id: string, now: number): string | null => {
   const oven = snapshot.buildings.find(b => b.id === id && (b.type === "breadOven" || b.type === "brewery"));
-  const item = snapshot.farm.production.pending[id]?.itemKey;
-  return !!oven && !!(oven.type === "brewery" ? breweryOutputPlacement(oven) : roadsideOutputPlacement(oven, snapshot.farm.roads, now)).pickup &&
-    !!item && !snapshot.farm.carriedItem && !plantingBlocker(snapshot, now) &&
-    estateResourceCapacity(item, snapshot.buildings, now) > (snapshot.inventory.find(i => i.itemKey === item)?.quantity ?? 0) + porterReserved(snapshot.farm.production.porter, item);
+  const pending = snapshot.farm.production.pending[id];
+  if (!oven || !pending?.quantity) return "No finished goods to store";
+  if (!(oven.type === "brewery" ? breweryOutputPlacement(oven) : roadsideOutputPlacement(oven, snapshot.farm.roads, now)).pickup) return "No connected road for pickup";
+  if (snapshot.farm.carriedItem) return "Empty your hands first";
+  const busy = plantingBlocker(snapshot, now);
+  if (busy) return busy;
+  const room = Math.max(0, estateResourceCapacity(pending.itemKey, snapshot.buildings, now) -
+    (snapshot.inventory.find(i => i.itemKey === pending.itemKey)?.quantity ?? 0) - porterReserved(snapshot.farm.production.porter, pending.itemKey));
+  return room < pending.quantity ? `Not enough storage: ${room} spaces free, ${pending.quantity} needed. Use or sell stored goods first.` : null;
 };
+export const canStoreBread = (snapshot: FarmSnapshot, id: string, now: number) => breadStorageBlocker(snapshot, id, now) === null;
 export const canBakeBread = (snapshot: FarmSnapshot, id: string, now: number) => {
   const oven = snapshot.buildings.find(b => b.id === id && b.type === "breadOven");
   return !!oven && Date.parse(oven.completesAt) <= now && (snapshot.farm.progression?.level ?? 1) >= 6 &&
+    productionOutputFits(snapshot.farm, id, BREAD_RECIPE.output) &&
     !snapshot.farm.carriedItem && !plantingBlocker(snapshot, now) &&
     !activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, id, now) &&
     (snapshot.inventory.find(i => i.itemKey === "flour")?.quantity ?? 0) >= BREAD_RECIPE.flour;

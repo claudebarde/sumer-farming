@@ -28,6 +28,10 @@
   .tilePopup[data-state="open"] { animation: none; }
 }
 .popupBody { box-sizing: border-box; padding: 20px; max-height: calc(var(--radix-popover-content-available-height) - 4px); overflow: auto; border-radius: inherit; }
+.inventoryBody {
+  > ul { margin-bottom: 0; }
+  > .popupActions:empty { display: none; }
+}
 .popupHeader { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 40px 16px 0;
   h2 { margin: 0; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
     :global(.cuneiforms) { white-space: nowrap; }

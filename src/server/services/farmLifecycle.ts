@@ -3,7 +3,8 @@ import { getRiverConnectedCanals } from "../../game-core/farm/irrigation";
 import { migrateFarmLand } from "./farmLandMigration";
 
 import { BARLEY_CONSUMPTION_INTERVAL_MS } from "../../game-data/household";
-import { BEER_RECIPE } from "../../game-data/brewing";
+import { BEER_RECIPE, BREWERY_EMPTY_JAR_CAPACITY } from "../../game-data/brewing";
+import { FARM_BUILDING_DEFINITIONS } from "../../game-data/buildings";
 import { advancePorterLifecycle } from "./porterLifecycle";
 import { advanceHappiness } from "../../game-core/farm/wellbeing";
 import { advanceBatchPlanting } from "./batchPlantingLifecycle";
@@ -63,6 +64,31 @@ export const advanceFarmLifecycle = async (
   now: Date
 ): Promise<FarmRecord> => {
   farm = await migrateFarmLand(transaction, farm, now);
+  // Return legacy overstock to free inventory; preserve the estate's total jars.
+  const jarStores = await transaction.select().from(farmBuildings)
+    .where(and(eq(farmBuildings.farmId, farm.id), eq(farmBuildings.type, "brewery"))).for("update");
+  const excessJars = jarStores.reduce((total, b) => total + Math.max(0, b.emptyBeerJars - BREWERY_EMPTY_JAR_CAPACITY), 0);
+  if (excessJars > 0) {
+    for (const building of jarStores.filter(b => b.emptyBeerJars > BREWERY_EMPTY_JAR_CAPACITY)) {
+      await transaction.update(farmBuildings).set({ emptyBeerJars: BREWERY_EMPTY_JAR_CAPACITY }).where(eq(farmBuildings.id, building.id));
+    }
+    await transaction.insert(farmInventory).values({ farmId: farm.id, itemKey: "emptyBeerJar", quantity: excessJars, updatedAt: now })
+      .onConflictDoUpdate({ target: [farmInventory.farmId, farmInventory.itemKey],
+        set: { quantity: sql`${farmInventory.quantity} + ${excessJars}`, updatedAt: now } });
+  }
+  // Restore equipment consumed by legacy construction, including unfinished sites.
+  // Reconciliation is idempotent: never add to an already-owned set.
+  const equippedBuildings = await transaction.select({ type: farmBuildings.type }).from(farmBuildings)
+    .where(and(eq(farmBuildings.farmId, farm.id), inArray(farmBuildings.type, ["brewery", "breadOven"])));
+  for (const [building, itemKey, quantity] of [
+    ["brewery", "brewingVessels", FARM_BUILDING_DEFINITIONS.brewery.materials.brewingVessels],
+    ["breadOven", "bakingTools", FARM_BUILDING_DEFINITIONS.breadOven.materials.bakingTools]
+  ] as const) {
+    if (!equippedBuildings.some(entry => entry.type === building)) continue;
+    await transaction.insert(farmInventory).values({ farmId: farm.id, itemKey, quantity, updatedAt: now })
+      .onConflictDoUpdate({ target: [farmInventory.farmId, farmInventory.itemKey],
+        set: { quantity, updatedAt: now }, setWhere: sql`${farmInventory.quantity} < ${quantity}` });
+  }
   const roads = farm.roads.filter(road => !road.removing || (road.completesAt ?? 0) > now.getTime());
   if (roads.length !== farm.roads.length) {
     const [updated] = await transaction.update(farms).set({ roads, updatedAt: now })

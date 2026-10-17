@@ -12,6 +12,9 @@ import { isoPoint, type IsoCell } from "./isometricProjection";
 import { positionAlongPorterPath } from "./porterPresentation";
 
 export const SWEEP_IDLE_DELAY = 10_000;
+export const SWEEP_STOP_DELAY = 2_000;
+// Repeated input must not keep extending an already-requested stop.
+export const sweepStopDeadline = (current: number | null, now: number) => current ?? now + SWEEP_STOP_DELAY;
 export const SWEEP_DWELL_MS = 4800;
 export const SWEEP_SOURCES = [sweep01, sweep02, sweep03, sweep04] as const;
 // Preserve the broom's full reach; feet are left of the full artwork's centre.

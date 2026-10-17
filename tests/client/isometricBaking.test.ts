@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
 import { INITIAL_PROGRESSION_STATS } from "../../src/game-data/progression";
-import { canBakeBread, canStoreBread } from "../../src/client/game/phaser/isometricBaking";
+import { canBakeBread, canStoreBread, breadStorageBlocker } from "../../src/client/game/phaser/isometricBaking";
 import { buildingDemolitionReason } from "../../src/game-core/farm/buildingDemolition";
 const id = "00000000-0000-4000-8000-000000000001";
 const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shekelBalance: 0 },
@@ -41,4 +41,16 @@ it("offers collection only with storage room and protects pending bread from dem
   s.inventory.pop();
   s.farm.production.delivery = { itemKey: "bread", quantity: 2, buildingId: id };
   expect(canStoreBread(s, id, 1000)).toBe(false);
+});
+
+it.each(["bread", "beer"] as const)("explains insufficient %s storage and clears the blocker once space is freed", itemKey => {
+  const s = snapshot();
+  s.buildings[0]!.type = itemKey === "beer" ? "brewery" : "breadOven";
+  s.farm.production.pending[id] = { itemKey, quantity: 4 };
+  s.inventory.push({ itemKey, quantity: 8 });
+  expect(canStoreBread(s, id, 1000)).toBe(false);
+  expect(breadStorageBlocker(s, id, 1000)).toBe("Not enough storage: 2 spaces free, 4 needed. Use or sell stored goods first.");
+  s.inventory.find(i => i.itemKey === itemKey)!.quantity = 6;
+  expect(breadStorageBlocker(s, id, 1000)).toBeNull();
+  expect(canStoreBread(s, id, 1000)).toBe(true);
 });

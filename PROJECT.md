@@ -1537,6 +1537,40 @@ persisted immediately; walking and work animations never gate completion.
 
 ## 36. Minimal player-facing text
 
+The default Destroy building icon is `BuildingActionIcon` with `kind="destroy"`:
+two copies of the pickaxe in a 36px box, one mirrored, each rotated 18 degrees,
+scaled to 0.9 and shifted 4px inward to cross at mid-handle. Preserve these approved
+settings. Icon buttons use left-aligned text, centered vertical alignment and a
+12px gap. Applied to mill, brewery and bread oven so far; extend other building UI only when requested.
+
+Use `brewery/brewers-groats-icon.png` for groats quantity UI (inventory,
+market previews, ingredient requirements and carried counts). Flour keeps its
+flour-bag icon. Do not replace mill output bags or carrying/work animation artwork.
+
+The isometric farm and warehouse popups preserve their titles and level badges and display local
+inventory as a four-column visual grid (two columns on narrow screens): existing
+36px item artwork, name with quantity/capacity beside it, and storage progress below.
+Both inventory popups are 560px wide, capped to the viewport minus 24px; other popup widths are
+unchanged. Reuse the existing
+farm/warehouse allocation and capacity rules; clamp bars, not quantities.
+Keep consistent 20px content padding without trailing grid or empty-action gaps.
+Legacy popup tables retain their layout unless explicitly approved.
+
+Market trade previews use side-by-side Current and After trade resource/currency
+blocks and labelled minus/input/plus quantity controls with compact unit-price
+panels to their right (wrapping on narrow screens). Player-buy listings retain
+their separate per-seller unit-price panels.
+Reuse these for every NPC resource and player listing. Listing creation shows
+After listing: goods reserved, no immediate proceeds. Never use a slash between
+resource quantities and shekel balances. Preserve all economic validation.
+
+When the user requests a UI change in one component, inspect other components
+with similar UI and ask whether they want the same change applied there too.
+Do not automatically expand the requested scope. If shared code would change
+other interfaces, flag those affected interfaces and confirm before applying
+the broader change. The explicitly requested component can proceed independently
+when practical.
+
 Keep interface text to a minimum. Prefer concise labels, quantities, visual states,
 and short contextual button messages over persistent explanations. Explain detailed
 rules and their rationale in the game rules, not in every gameplay popup. A blocked
@@ -1556,6 +1590,13 @@ Preserve owning-tile hit testing. Do not apply this anchor to carried items,
 characters, crops or buildings. New artwork should be framed to match this baseline.
 
 ## 38. Flat-to-isometric migration parity
+
+Approved production exception: mill, bread oven and brewery output is capped at
+six finished items per producer using shared `productionOutputFits` in UI and
+server start validation. Mill flour/groats share the cap, including donkey work.
+Never discard legacy excess; block until the next entire batch fits. Recipes
+and mill estate-storage reservations are unchanged. Output-cap blockers use a
+disabled `Store finished goods to make room` button (popup visibility exception).
 
 When migrating an existing flat-map feature, preserve its settings and behaviour
 exactly unless the player explicitly requests a change. Inspect and reuse the
@@ -1604,6 +1645,14 @@ padding). Preserve the approved settings for other buildings.
 
 ## 40. Building work animation footprint
 
+All isometric in-world action progress bars share `ACTION_PROGRESS` and
+`drawActionProgress`: 52×7 logical pixels, 2px inset, brown track and gold fill.
+Reuse these for mill, oven, brewery, construction and road/canal work; preserve
+each action's anchor. Exception: BarleyWorkProgress retains the approved round
+meter in the lower container for sowing and harvesting, with percentage inside
+and the field counter beside it. Status meters and
+material-availability bars are separate UI elements, not action timers.
+
 Keep workers and their tools within the building's 2×2 footprint as far as
 possible, preserving normal character proportions and avoiding neighbouring
 buildings. Active/idle bases must share framing, scale and position.
@@ -1614,7 +1663,8 @@ The table and progress bar share the real batch duration: two doughs
 in the first third, one in the second third, and empty during the final third.
 Completion restores the idle oven, releases the farmer and displays saved bread.
 The paddle loop never resets batch progress. Table frames share
-512px framing, 128px preparation and 62px display size, anchored at oven +(22,-1).
+512px framing, 128px preparation and 62px display size, anchored at oven +(22,9).
+The active table is lowered to match the idle table and clear the finished basket.
 Reduced motion holds the resting pose and steady glow without smoke.
 The baking worker's full-frame texture is prepared at 140px with 0.15 RGB
 sharpening for its 70px display width; keep alpha and shared pose alignment.
@@ -1666,7 +1716,7 @@ The first vessel occupies the approved left position; the second occupies the
 right position. Precompute all three counts for both shells and select on snapshot
 updates, including market purchases/reloads, without uploading textures each frame.
 Foam and worker placement follow visible vessels. This is presentation only;
-construction still consumes its existing equipment cost and brewing gates are unchanged.
+construction retains permanent equipment in inventory and brewing gates are unchanged.
 The brewing animation supports eight seconds of planted-foot
 stirring (three seconds moving, one second resting, twice), then hides the working
 worker and runs staggered cream foam caps. Its toolbar test control has been removed. The worker

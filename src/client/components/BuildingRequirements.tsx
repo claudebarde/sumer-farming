@@ -5,6 +5,7 @@ import clay from "../../assets/sprite_assets/pngs/brick-pile.png";
 import jars from "../../assets/sprite_assets/pngs/beer-jars.png";
 import tools from "../../assets/sprite_assets/pngs/wooden-baking-tools.png";
 import styles from "../styles/BuildingRequirements.module.scss";
+import MaterialRequirements from "./MaterialRequirements";
 
 const materials = {
   reed: { name: "Reeds", image: reed },
@@ -23,19 +24,11 @@ export default function BuildingRequirements({ snapshot, building }: {
       <span>Size: {definition.footprint.columns}×{definition.footprint.rows}</span>
       <span>Building time: {definition.constructionDurationMs / 60000} minutes</span>
     </div>
-    <ul className={styles.materials} aria-label="Construction materials">
-      {(Object.entries(definition.materials) as [keyof typeof materials, number][]).map(([key, required]) => {
+    <MaterialRequirements label="Construction materials" items={(Object.entries(definition.materials) as [keyof typeof materials, number][]).map(([key, required]) => {
         const material = materials[key];
         const quantity = snapshot.inventory.filter(item => item.itemKey === key).reduce((sum, item) => sum + item.quantity, 0)
           + (key === "reed" || key === "clay" ? snapshot.groundItems.filter(item => item.itemKey === key).reduce((sum, item) => sum + item.quantity, 0) : 0);
-        return <li key={key} className={styles.row} data-ready={quantity >= required}>
-          <img src={material.image} alt="" width={40} height={40} draggable={false} />
-          <span className={styles.name}>{material.name}</span>
-          <span className={styles.quantity}>{quantity}/{required}</span>
-          <progress value={Math.min(quantity, required)} max={required} aria-label={material.name}
-            aria-valuetext={`${quantity} of ${required} available`} />
-        </li>;
-      })}
-    </ul>
+        return { ...material, quantity, required };
+      })} />
   </div>;
 }

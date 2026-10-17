@@ -105,7 +105,7 @@ it("restores idle artwork at completion and cleans up objects and mask", () => {
   preview.render(job, 201000, true);
   expect(preview.shadowAnchor()).toEqual({ x: -44, y: -21, visible: true });
   expect(images[1]!.setTexture).toHaveBeenLastCalledWith("baking-7");
-  expect(images[1]!.setPosition).toHaveBeenLastCalledWith(22, -1);
+  expect(images[1]!.setPosition).toHaveBeenLastCalledWith(22, 9);
   preview.render(job, 301000, false);
   expect(preview.shadowAnchor().visible).toBe(false);
   expect(oven.setTexture).toHaveBeenLastCalledWith("breadOven");

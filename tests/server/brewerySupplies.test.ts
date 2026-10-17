@@ -13,6 +13,7 @@ import { loadMarketItemStorage } from "../../src/server/services/marketItemStora
 import { validateBrewerySupply } from "../../src/game-core/farm/brewerySupplies";
 import type { BrewerySupplyAction } from "../../src/game-core/farm/brewerySupplies";
 import { BEER_RECIPE } from "../../src/game-data/brewing";
+import { estateEmptyJars } from "../../src/game-core/farm/estateEmptyJars";
 import { getBrewingState, validateBrewing } from "../../src/game-core/farm/brewing";
 
 const client = new Client({ connectionString: process.env.TEST_DATABASE_URL ?? "postgres://sumer:sumer_dev@localhost:5432/sumer_farming" });
@@ -47,6 +48,27 @@ const refresh = (farmId: string) => db.transaction(async tx => {
 });
 
 describe("persistent brewery supplies", () => {
+  it.each([4, 5, 6, 8])("checks space for an entire beer batch with %i waiting", async quantity => {
+    const { farm, building, command } = await fixture();
+    await db.insert(farmInventory).values({ farmId: farm.id, itemKey: "brewersGroats", quantity: 2 });
+    await db.update(farmBuildings).set({ brewingWater: 2, emptyBeerJars: 2 }).where(eq(farmBuildings.id, building.id));
+    await db.update(farms).set({ production: { ...farm.production, pending: { [building.id]: { itemKey: "beer", quantity } } } }).where(eq(farms.id, farm.id));
+    const before = await refresh(farm.id);
+    if (quantity === 4) {
+      const started = await Effect.runPromise(supplyBrewery(db, command("start_brewing", before.farm.version)));
+      expect(started.farm.production.pending[building.id]?.quantity).toBe(4);
+      expect(started.buildings[0]?.beerReadyAt).not.toBeNull();
+      await db.update(farmBuildings).set({ beerReadyAt: new Date(Date.now() - 1) }).where(eq(farmBuildings.id, building.id));
+      expect((await refresh(farm.id)).farm.production.pending[building.id]?.quantity).toBe(6);
+      expect((await refresh(farm.id)).farm.production.pending[building.id]?.quantity).toBe(6);
+    } else {
+      await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("start_brewing", before.farm.version)))))
+        .resolves.toMatchObject({ message: "Store finished goods to make room" });
+      const after = await refresh(farm.id);
+      expect(after.farm.production.pending[building.id]?.quantity).toBe(quantity);
+      expect(after.inventory.find(i => i.itemKey === "brewersGroats")?.quantity).toBe(2);
+    }
+  });
   it("persists offline happiness decay and does not decay twice when rereading", async () => {
     const { farm } = await fixture();
     await db.update(farms).set({ happiness: 100, happinessCheckedAt: new Date(Date.now() - 8 * 3600000) })
@@ -106,7 +128,7 @@ describe("persistent brewery supplies", () => {
     await db.update(farms).set({ happiness: 100 }).where(eq(farms.id, farm.id));
     await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command))))
       .resolves.toMatchObject({ type: "happiness_full" });
-    expect((await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id)))[0]?.quantity).toBe(1);
+    expect((await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id))).find(item => item.itemKey === "fish")?.quantity).toBe(1);
     expect((await db.select().from(farms).where(eq(farms.id, farm.id)))[0]?.version).toBe(1);
   });
 
@@ -229,18 +251,19 @@ describe("persistent brewery supplies", () => {
     await db.update(farms).set({ happiness: 100 }).where(eq(farms.id, farm.id));
     await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("give_beer", 1, target)))))
       .resolves.toMatchObject({ type: "happiness_full" });
-    expect((await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id)))[0]?.quantity).toBe(1);
+    expect((await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id))).find(item => item.itemKey === "beer")?.quantity).toBe(1);
   });
   it("brews with groats for fifteen minutes, survives reloads and stores exactly once", async () => {
     const { farm, building, command } = await fixture();
     await db.insert(farmInventory).values({ farmId: farm.id, itemKey: "brewersGroats", quantity: 3 });
-    await db.update(farmBuildings).set({ brewingBarley: 0, brewingWater: 2, emptyBeerJars: 10 })
+    await db.update(farmBuildings).set({ brewingBarley: 0, brewingWater: 2, emptyBeerJars: 2 })
       .where(eq(farmBuildings.id, building.id));
     const before = Date.now();
     const started = await Effect.runPromise(supplyBrewery(db, command("start_brewing")));
     expect(started.inventory.find(i => i.itemKey === "brewersGroats")?.quantity).toBe(1);
     expect(BEER_RECIPE.durationMs).toBe(15 * 60_000);
-    expect(started.buildings[0]).toMatchObject({ brewingBarley: 0, brewingWater: 0, emptyBeerJars: 8 });
+    expect(started.buildings[0]).toMatchObject({ brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0 });
+    expect(estateEmptyJars(started)).toBe(0);
     const readyAt = Date.parse(started.buildings[0]!.beerReadyAt!);
     expect(readyAt).toBeGreaterThanOrEqual(before + BEER_RECIPE.durationMs);
     const brewing = started.farm.production.brewing![building.id]!;
@@ -269,7 +292,7 @@ describe("persistent brewery supplies", () => {
     expect(picked.inventory.find(item => item.itemKey === "beer")?.quantity).toBe(3);
     const collected = await Effect.runPromise(productionAction(db, { ...delivery, action: "store", expectedFarmVersion: picked.farm.version }));
     expect(collected.inventory.find(item => item.itemKey === "beer")?.quantity).toBe(5);
-    expect(collected.buildings[0]).toMatchObject({ beerReadyAt: null, emptyBeerJars: 8, brewingBarley: 0, storedBarley: 0 });
+    expect(collected.buildings[0]).toMatchObject({ beerReadyAt: null, emptyBeerJars: 0, brewingBarley: 0, storedBarley: 0 });
     expect(collected.farm.production.delivery).toBeNull();
     await expect(Effect.runPromise(Effect.flip(withdrawInventoryItem(db, {
       playerId: farm.playerId, itemKey: "beer", expectedFarmVersion: collected.farm.version
@@ -326,7 +349,7 @@ describe("persistent brewery supplies", () => {
       expect(results.filter(result => result._tag === "Left")).toMatchObject([
         { left: { _tag: "ProductionRuleError" } }
       ]);
-      expect((await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id)))[0])
+      expect((await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id))).find(item => item.itemKey === "beer"))
         .toMatchObject({ itemKey: "beer", quantity: 2 });
     } finally {
       await otherClient.end();
@@ -343,16 +366,29 @@ describe("persistent brewery supplies", () => {
       .resolves.toMatchObject({ type: "brewery_unavailable" });
   });
 
-  it("stocks at most ten empty jars, leaves extras in inventory and prevents duplicate transfers", async () => {
+  it("stocks at most two empty jars, preserves the estate total and prevents duplicate transfers", async () => {
     const { farm, command } = await fixture();
-    await db.insert(farmInventory).values({ farmId: farm.id, itemKey: "emptyBeerJar", quantity: 12 });
+    await db.insert(farmInventory).values({ farmId: farm.id, itemKey: "emptyBeerJar", quantity: 4 });
     const result = await Effect.runPromise(supplyBrewery(db, command("stock_jars")));
-    expect(result.buildings[0]?.emptyBeerJars).toBe(10);
+    expect(result.buildings[0]?.emptyBeerJars).toBe(2);
+    expect(estateEmptyJars(result)).toBe(4);
     expect(result.inventory.find(item => item.itemKey === "emptyBeerJar")?.quantity).toBe(2);
     await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("stock_jars"))))).resolves.toMatchObject({ type: "farm_version_conflict" });
     await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("stock_jars", 2))))).resolves.toMatchObject({ type: "brewery_full" });
-    expect((await db.select().from(farmBuildings).where(eq(farmBuildings.farmId, farm.id)))[0]?.emptyBeerJars).toBe(10);
-    expect((await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id)))[0]?.quantity).toBe(2);
+    expect((await db.select().from(farmBuildings).where(eq(farmBuildings.farmId, farm.id)))[0]?.emptyBeerJars).toBe(2);
+    expect((await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id))).find(i => i.itemKey === "emptyBeerJar")?.quantity).toBe(2);
+  });
+
+  it("returns legacy overstock to the farm exactly once without losing jars", async () => {
+    const { farm, building } = await fixture();
+    await db.update(farmBuildings).set({ emptyBeerJars: 4 }).where(eq(farmBuildings.id, building.id));
+    await db.insert(farmInventory).values({ farmId: farm.id, itemKey: "emptyBeerJar", quantity: 1 });
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await refresh(farm.id);
+      expect(result.buildings[0]?.emptyBeerJars).toBe(2);
+      expect(result.inventory.find(i => i.itemKey === "emptyBeerJar")?.quantity).toBe(3);
+      expect(estateEmptyJars(result)).toBe(5);
+    }
   });
 
   it("requires purchased jars, a completed brewery and empty hands", async () => {
@@ -366,8 +402,8 @@ describe("persistent brewery supplies", () => {
     expect((await db.select().from(farms).where(eq(farms.id, farm.id)))[0]?.carriedItemKey).toBe("water");
     await db.update(farms).set({ carriedItemKey: null, carriedItemQuantity: 0 }).where(eq(farms.id, farm.id));
     const result = await Effect.runPromise(supplyBrewery(db, command("stock_jars")));
-    expect(result.buildings[0]?.emptyBeerJars).toBe(3);
-    expect(result.inventory.find(item => item.itemKey === "emptyBeerJar")?.quantity).toBe(0);
+    expect(result.buildings[0]?.emptyBeerJars).toBe(2);
+    expect(result.inventory.find(item => item.itemKey === "emptyBeerJar")?.quantity).toBe(1);
   });
 
   it("pours onto a canal without changing it and prevents storing or dropping water as a normal item", async () => {

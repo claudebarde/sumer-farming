@@ -7,6 +7,7 @@ import PorterPanel from "./PorterPanel";
 import { FARM_SPRITES } from "../../assets/farmSprites";
 import styles from "../styles/GameCanvas.module.scss";
 import flourBagsImage from "../../assets/sprite_assets/pngs/flour-bags.png";
+import groatsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.png";
 import shekelsImage from "../../assets/sprite_assets/pngs/shekels.png";
 import barleyImage from "../../assets/sprite_assets/pngs/wheat-sheaf.png";
 import breadBasketImage from "../../assets/sprite_assets/pngs/bread-basket.png";
@@ -15,6 +16,7 @@ import fishImage from "../../assets/sprite_assets/pngs/fish.png";
 import datesImage from "../../assets/sprite_assets/pngs/dates-basket.png";
 import reedImage from "../../assets/sprite_assets/pngs/reed-bundle.png";
 import clayImage from "../../assets/sprite_assets/pngs/brick-pile.png";
+import { estateEmptyJars } from "../../game-core/farm/estateEmptyJars";
 
 /** Shared drawer contents; each renderer supplies its own building placement entry. */
 export default function EstateManagementContent({ farmState, storageClock, manageTab, setManageTab, buildContent }: {
@@ -24,7 +26,7 @@ export default function EstateManagementContent({ farmState, storageClock, manag
   const snapshot = farmState.type === "ready" ? farmState.snapshot : null;
   const farmLevel = snapshot?.farm.progression?.level ?? 1;
   const quantity = (key: string) => snapshot?.inventory.find(item => item.itemKey === key)?.quantity ?? 0;
-  const availableVessels = quantity("brewingVessels"), availableEmptyBeerJars = quantity("emptyBeerJar"), availableBakingTools = quantity("bakingTools");
+  const availableVessels = quantity("brewingVessels"), availableEmptyBeerJars = snapshot ? estateEmptyJars(snapshot) : 0, availableBakingTools = quantity("bakingTools");
   const totalBarley = quantity("barley") + (snapshot?.buildings.filter(building =>
     (building.type === "granary" || building.type === "warehouse") && Date.parse(building.completesAt) <= storageClock
   ).reduce((sum, building) => sum + building.storedBarley, 0) ?? 0);
@@ -96,7 +98,7 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                           </dd>
                         </div>
                         <div>
-                          <dt>Brewer's Groats</dt>
+                          <dt className={styles["resource-title"]}><img src={groatsImage} alt="" width={32} height={32} draggable={false} />Brewer's Groats</dt>
                           <dd>
                             {farmState.snapshot.inventory.find(
                               i => i.itemKey === "brewersGroats"
@@ -154,7 +156,7 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                             },
                             {
                               key: "beer",
-                              label: "Filled beer jars",
+                              label: "Beer",
                               image: beerJarsImage
                             },
                             { key: "fish", label: "Fish", image: fishImage },
@@ -304,4 +306,3 @@ export default function EstateManagementContent({ farmState, storageClock, manag
         </Dialog.Portal>
   );
 }
-

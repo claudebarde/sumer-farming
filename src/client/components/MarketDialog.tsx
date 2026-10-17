@@ -4,7 +4,7 @@ import { Dialog, Tabs } from "radix-ui";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { match } from "ts-pattern";
 import { farmStore } from "../stores/farmStore";
-import { MARKET_TITLES, marketIncludesItem, marketUiStore } from "../stores/marketUiStore";
+import { MARKET_TITLES, beerMarketBuyOrder, marketIncludesItem, marketUiStore } from "../stores/marketUiStore";
 import { canOpenMarketStand, marketUnlockLevel } from "../../game-data/progression";
 import { calculateFarmStorageCapacity, FARM_STORAGE_CAPACITY, estateResourceCapacity } from "../../game-data/storage";
 import { millStorageReserved } from "../../game-core/farm/millStorage";
@@ -20,11 +20,13 @@ import { BARLEY_RESERVE_MESSAGE, violatesBarleyReserve } from "../../game-core/f
 import MarketListings from "./MarketListings";
 import MarketTradeHistory from "./MarketTradeHistory";
 import MarketTransactionPreview from "./MarketTransactionPreview";
+import MarketQuantityControl from "./MarketQuantityControl";
 import { FARM_SPRITES } from "../../assets/farmSprites";
-import beerJarsImage from "../../assets/sprite_assets/pngs/beer-jars.png";
+import MarketJarIcon from "./MarketJarIcon";
 import bakingToolsImage from "../../assets/sprite_assets/pngs/wooden-baking-tools.png";
 import breadBasketImage from "../../assets/sprite_assets/pngs/bread-basket.png";
 import flourBagsImage from "../../assets/sprite_assets/pngs/flour-bags.png";
+import groatsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.png";
 import styles from "../styles/GameCanvas.module.scss";
 type MarketQuoteState =
   | { readonly type: "idle" }
@@ -57,7 +59,7 @@ export default function MarketDialog() {
   const buildings = farmState.type === "ready" ? farmState.snapshot.buildings : [];
   const stored = (key: string) => inventory.find(item => item.itemKey === key)?.quantity ?? 0;
   const availableVessels = stored("brewingVessels"), availableEmptyBeerJars = stored("emptyBeerJar"), availableBakingTools = stored("bakingTools");
-  const missingBrewingJars = buildings.some(b => b.type === "brewery") ? 0 : Math.max(0, FARM_BUILDING_DEFINITIONS.brewery.materials.brewingVessels - availableVessels);
+  const missingBrewingJars = Math.max(0, FARM_BUILDING_DEFINITIONS.brewery.materials.brewingVessels - availableVessels);
   const storedHouseholdBarley = stored("barley") + buildings.filter(b => (b.type === "granary" || b.type === "warehouse") && Date.parse(b.completesAt) <= storageClock).reduce((total,b) => total + b.storedBarley, 0);
   const householdBarleyCapacity = farmState.type === "ready" ? calculateFarmStorageCapacity(buildings, storageClock, farmLevel) : FARM_STORAGE_CAPACITY;
   const availableBarleyStorage = Math.max(0, householdBarleyCapacity - storedHouseholdBarley);
@@ -438,12 +440,6 @@ export default function MarketDialog() {
                                     { market, action }
                                   )
                                 )
-                                .filter(
-                                  item =>
-                                    action !== "buy" ||
-                                    item.itemKey !== "brewingVessels" ||
-                                    missingBrewingJars > 0
-                                )
                                 .filter(item =>
                                   market === "npc"
                                     ? action === "buy"
@@ -451,6 +447,9 @@ export default function MarketDialog() {
                                       : item.npcMarket.canSell
                                     : item.playerMarket.canCreateSellOrder
                                 )
+                                .sort((a, b) => marketScope === "beer" && market === "npc" && action === "buy"
+                                  ? beerMarketBuyOrder(a.itemKey) - beerMarketBuyOrder(b.itemKey)
+                                  : 0)
                                 .map(item => {
                                   const quantityKey = `${market}:${action}:${item.itemKey}`;
                                   const purchaseQuantityLimit =
@@ -458,7 +457,7 @@ export default function MarketDialog() {
                                       ? 1
                                       : action === "buy" &&
                                           item.itemKey === "brewingVessels"
-                                        ? missingBrewingJars
+                                        ? Math.max(1, missingBrewingJars)
                                         : undefined;
                                   const storedQuantity = match(item.itemKey)
                                     .with("barley", () => storedHouseholdBarley)
@@ -557,14 +556,8 @@ export default function MarketDialog() {
                                             height={48}
                                           />
                                         )}
-                                        {item.itemKey === "beer" && (
-                                          <img
-                                            src={beerJarsImage}
-                                            alt=""
-                                            width={48}
-                                            height={48}
-                                          />
-                                        )}
+                                        {(item.itemKey === "beer" || item.itemKey === "emptyBeerJar" || item.itemKey === "brewingVessels") &&
+                                          <MarketJarIcon itemKey={item.itemKey} />}
                                         {item.itemKey === "bakingTools" && (
                                           <img
                                             src={bakingToolsImage}
@@ -581,9 +574,9 @@ export default function MarketDialog() {
                                             height={48}
                                           />
                                         )}
-                                        {item.itemKey === "flour" && (
+                                        {(item.itemKey === "flour" || item.itemKey === "brewersGroats") && (
                                           <img
-                                            src={flourBagsImage}
+                                            src={item.itemKey === "brewersGroats" ? groatsImage : flourBagsImage}
                                             alt=""
                                             width={48}
                                             height={48}
@@ -596,10 +589,10 @@ export default function MarketDialog() {
                                         >
                                           {cuneiformLabel()}
                                         </span>
-                                        {market === "npc" && <span> ({formatShekels(action === "buy" ? item.npcMarket.buyPrice : item.npcMarket.sellPrice)} each)</span>}
-                                        {market === "player" && action === "sell" && <span> ({formatShekels(listingPrice)} each)</span>}
                                       </h3>
                                       <MarketTransactionPreview
+                                        showPrice={false}
+                                        itemKey={item.itemKey}
                                         label={item.label.toLowerCase()}
                                         stock={storedQuantity}
                                         balance={farmState.snapshot.player.shekelBalance}
@@ -622,43 +615,16 @@ export default function MarketDialog() {
                                           One donkey per farm. Processes 6 barley into 3 Flour or Brewer's Groats in 15 minutes, leaving the farmer free.
                                         </p>
                                       )}
-                                      {item.itemKey !== "donkey" && (
-                                        <label
-                                          className={styles["market-quantity"]}
-                                        >
-                                          {action === "buy"
-                                            ? "Quantity to buy"
-                                            : action === "sell"
-                                              ? "Quantity to sell"
-                                              : "Quantity"}
-                                          <input
-                                            type="number"
-                                            min="1"
-                                            max={quantityLimit}
-                                            step="1"
-                                            value={marketQuantity}
-                                            disabled={
-                                              marketTradePending ||
-                                              (action === "sell" &&
-                                                storedQuantity === 0)
-                                            }
-                                            onChange={event => {
-                                              const quantity = Number.parseInt(
-                                                event.currentTarget.value,
-                                                10
-                                              );
-                                              setMarketQuantities(current => ({
-                                                ...current,
-                                                [quantityKey]:
-                                                  clampMarketQuantity(
-                                                    quantity,
-                                                    quantityLimit
-                                                  )
-                                              }));
-                                            }}
-                                          />
-                                        </label>
-                                      )}
+                                      <MarketQuantityControl
+                                        unitPrice={market === "npc" ? (action === "buy" ? item.npcMarket.buyPrice : item.npcMarket.sellPrice) : action === "sell" ? listingPrice : undefined}
+                                        priceLabel={market === "player" ? "Asking price per item" : "Price per item"}
+                                        label={action === "buy" ? "Quantity to buy" : "Quantity to sell"}
+                                        value={marketQuantity} limit={quantityLimit}
+                                        disabled={marketTradePending || item.itemKey === "donkey" ||
+                                          (item.itemKey === "brewingVessels" && action === "buy" && missingBrewingJars === 0) ||
+                                          (action === "sell" && storedQuantity === 0)}
+                                        onChange={quantity => setMarketQuantities(current => ({ ...current, [quantityKey]: quantity }))}
+                                      />
                                       {market === "npc" && (
                                         <div
                                           className={styles["market-actions"]}
@@ -667,6 +633,7 @@ export default function MarketDialog() {
                                             <button
                                               disabled={
                                                 marketTradePending ||
+                                                (item.itemKey === "brewingVessels" && missingBrewingJars === 0) ||
                                                 !item.npcMarket.canBuy ||
                                                 farmState.snapshot.player
                                                   .shekelBalance <
@@ -683,11 +650,13 @@ export default function MarketDialog() {
                                                 );
                                               }}
                                             >
-                                              {!item.npcMarket.canBuy
+                                              {item.itemKey === "brewingVessels" && missingBrewingJars === 0
+                                                ? "Already owned"
+                                                : !item.npcMarket.canBuy
                                                 ? "Buying unavailable"
                                                 : availableStorage <
                                                     marketQuantity
-                                                  ? item.itemKey === "donkey"
+                                                  ? ["donkey", "brewingVessels", "bakingTools"].includes(item.itemKey)
                                                     ? "Already owned"
                                                     : "Not enough storage"
                                                   : farmState.snapshot.player

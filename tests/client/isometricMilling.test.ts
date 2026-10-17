@@ -4,11 +4,12 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
 import { millPopupState, millingJourneyPose, millingProgress } from "../../src/client/game/phaser/isometricMilling";
 import IsometricMillActions from "../../src/client/components/IsometricMillActions";
+import MillActionIcon from "../../src/client/components/BuildingActionIcon";
 import { INITIAL_PROGRESSION_STATS } from "../../src/game-data/progression";
 import { millStorageAvailable } from "../../src/game-core/farm/millStorage";
 import { millingUnavailableReason } from "../../src/game-core/farm/milling";
 import { buildingDemolitionReason } from "../../src/game-core/farm/buildingDemolition";
-import { canPickupMillBags, millPickupPath, millDeliveryDestination } from "../../src/client/game/phaser/isometricMillDelivery";
+import { canPickupMillBags, millPickupPath, millDeliveryDestination, millStorageBlocker } from "../../src/client/game/phaser/isometricMillDelivery";
 import { INITIAL_FARM_CONFIG } from "../../src/game-data/initialFarm";
 const id = "00000000-0000-4000-8000-000000000001";
 const date = (time: number) => new Date(time).toISOString();
@@ -19,15 +20,36 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
   buildings: [{ id, type: "mill", column: 4, row: 3, storedBarley: 0, brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0,
     startedAt: date(0), completesAt: date(1), loadingTile: { column: 4, row: 5 } }] });
 
+it("explains each shortage in mixed mill bags and enables storage when the whole pile fits", () => {
+  const s = snapshot();
+  s.farm.millGoods.pending[id] = { flour: 4, brewersGroats: 2 };
+  s.inventory = [{ itemKey: "flour", quantity: 8 }, { itemKey: "brewersGroats", quantity: 9 }];
+  expect(millStorageBlocker(s, id, 1000)).toBe("Not enough storage: Flour: 2 spaces free, 4 needed; Brewer's groats: 1 space free, 2 needed. Use or sell stored goods first.");
+  expect(canPickupMillBags(s, id, 1000)).toBe(false);
+  s.inventory = [{ itemKey: "flour", quantity: 6 }, { itemKey: "brewersGroats", quantity: 8 }];
+  expect(millStorageBlocker(s, id, 1000)).toBeNull();
+  expect(canPickupMillBags(s, id, 1000)).toBe(true);
+});
+
 it("shows flour then groats and replaces both with the exact insufficient-barley message", () => {
   const s = snapshot(), render = () => renderToStaticMarkup(createElement(IsometricMillActions, { snapshot: s, buildingId: id, now: 1000, onMill: () => {} }));
-  expect(render()).toBe("<button>Make flour (for bread)</button><button>Make groats (for beer)</button>");
+  const html = render();
+  expect(html).toContain("mill-flour-bags-isometric.png");
+  expect(html).toContain("brewers-groats-icon.png");
+  expect(html.indexOf("Make flour (for bread)")).toBeLessThan(html.indexOf("Make groats (for beer)"));
   s.inventory[0]!.quantity = 1;
   expect(render()).toBe('<button disabled="">You don&#x27;t have enough barley</button>');
   s.buildings.push({ ...s.buildings[0]!, id: "00000000-0000-4000-8000-000000000002", type: "granary", storedBarley: 1 });
   expect(millPopupState(s, id, 1000).canStart).toBe(true);
   s.farm.carriedItem = { itemKey: "clay", quantity: 1, expiresAt: null };
   expect(render()).toBe("");
+});
+
+it("uses two decorative pickaxes for the mill demolition icon", () => {
+  const html = renderToStaticMarkup(createElement(MillActionIcon, { kind: "destroy" }));
+  expect(html.match(/<img /g)).toHaveLength(2);
+  expect(html).toContain('aria-hidden="true"');
+  expect(html).toContain("flipped");
 });
 
 it("reserves separate flour/groats capacity across mills, jobs and deliveries", () => {
@@ -37,12 +59,12 @@ it("reserves separate flour/groats capacity across mills, jobs and deliveries", 
   expect(millStorageAvailable(s, "flour", 1000)).toBe(1);
   expect(millStorageAvailable(s, "brewersGroats", 1000)).toBe(0);
   expect(renderToStaticMarkup(createElement(IsometricMillActions, { snapshot: s, buildingId: id, now: 1000, onMill: () => {} })))
-    .toBe("<button>Make flour (for bread)</button>");
+    .toBe('<button disabled="">Store finished goods to make room</button>');
   s.farm.milling = { buildingId: id, recipe: "flour", barley: 2, output: 1, startedAt: date(2000), completesAt: date(302000) };
   expect(millStorageAvailable(s, "flour", 1000)).toBe(0);
   s.farm.milling = null;
   s.farm.millGoods.pending[id]!.flour = 5;
-  expect(millingUnavailableReason(s, "flour", 1000)).toBe("No storage space");
+  expect(millingUnavailableReason(s, "flour", 1000)).toBe("Store finished goods to make room");
   s.farm.millGoods.pending[id]!.flour = 3;
   s.farm.millGoods.delivery = { millId: id, bags: { flour: 2, brewersGroats: 0 } };
   expect(millStorageAvailable(s, "flour", 1000)).toBe(0);

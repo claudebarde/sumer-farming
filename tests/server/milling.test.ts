@@ -48,6 +48,34 @@ const fixture = async (barley = 8) => {
 };
 
 describe("persistent single-farmer milling", () => {
+  it.each([["farmer", 5, true], ["farmer", 6, false], ["donkey", 3, true], ["donkey", 4, false], ["donkey", 8, false]] as const)
+    ("enforces combined output capacity for %s with %i bags", async (worker, count, fits) => {
+      const f = await fixture();
+      await db.update(farms).set({ level: 7, millGoods: { pending: { [f.mill.id]: { flour: count - 1, brewersGroats: 1 } }, delivery: null } }).where(eq(farms.id, f.farm.id));
+      await db.insert(farmInventory).values({ farmId: f.farm.id, itemKey: "donkey", quantity: 1 });
+      const before = await f.read();
+      const command = { type: "start_milling" as const, playerId: f.playerId, target: f.mill, recipe: "flour" as const, worker, expectedFarmVersion: before.farm.version };
+      if (fits) {
+        const started = await Effect.runPromise(startMilling(db, command));
+        expect(started.farm.milling?.output).toBe(worker === "donkey" ? 3 : 1);
+      } else {
+        await expect(Effect.runPromise(Effect.flip(startMilling(db, command))))
+          .resolves.toMatchObject({ message: "Store finished goods to make room" });
+        expect((await f.read()).inventory.find(i => i.itemKey === "barley")?.quantity).toBe(8);
+      }
+    });
+  it("rejects partial mixed-pile pickup when one product lacks storage", async () => {
+    const f = await fixture();
+    await db.update(farms).set({ millGoods: { pending: { [f.mill.id]: { flour: 3, brewersGroats: 3 } }, delivery: null } }).where(eq(farms.id, f.farm.id));
+    await db.insert(farmInventory).values({ farmId: f.farm.id, itemKey: "flour", quantity: 8 });
+    const before = await f.read();
+    await expect(Effect.runPromise(Effect.flip(deliverMillGoods(db, { type: "mill_delivery", playerId: f.playerId,
+      millId: f.mill.id, action: "pickup", expectedFarmVersion: before.farm.version }))))
+      .resolves.toMatchObject({ message: expect.stringContaining("whole pile") });
+    const after = await f.read();
+    expect(after.farm.millGoods.pending[f.mill.id]).toEqual({ flour: 3, brewersGroats: 3 });
+    expect(after.farm.millGoods.delivery).toBeNull();
+  });
   it("reserves the last storage slot before milling and retains it through completion and collection", async () => {
     const f = await fixture();
     await db.insert(farmInventory).values({ farmId: f.farm.id, itemKey: "flour", quantity: 8 });

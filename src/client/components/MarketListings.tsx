@@ -66,6 +66,7 @@ export default function MarketListings(props: Props) {
             <li key={order.id}>
               <span>{order.remainingQuantity} at {order.unitPrice} {order.unitPrice === 1 ? "shekel" : "shekels"} each</span>
               {action === "buy" && <MarketTransactionPreview
+                itemKey={itemKey}
                 label={MARKET_ITEM_DEFINITIONS[itemKey].label.toLowerCase()}
                 stock={props.stock} balance={props.balance}
                 transaction={{ type: "buy", quantity: props.quantity, unitPrice: order.unitPrice }}

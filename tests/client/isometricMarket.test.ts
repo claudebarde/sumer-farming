@@ -6,6 +6,11 @@ import { INITIAL_PROGRESSION_STATS } from "../../src/game-data/progression";
 import { canVisitIsometricMarket, isometricTradeScope, marketOrigin, marketEntrance } from "../../src/client/game/phaser/isometricMarket";
 import { canOpenMarketStand, marketUnlockLevel } from "../../src/game-data/progression";
 import { marketIncludesItem } from "../../src/client/stores/marketUiStore";
+import { merchantTextures } from "../../src/client/game/phaser/scenes/IsometricMarketScene";
+
+it("uses both dedicated merchant sprites instead of the player's farmer texture", () => {
+  expect(merchantTextures).toEqual({ barley: "market-merchant-01", beer: "market-merchant-02", baking: "market-merchant-01" });
+});
 
 it("opens the shared bread scope for baking with existing stand and item unlocks", () => {
   const scope = isometricTradeScope("bakingMarket")!;
@@ -187,7 +192,9 @@ it.each(stands)("draws a static, clickable $scope merchant in front of its stand
   const images: { x: number; y: number; texture: string; depth: number; width: number; name: string; scope?: string; interactive?: boolean }[] = [];
   const scene = new IsometricMarketScene(() => {}, () => {}) as unknown as {
     add: { image: (x: number, y: number, texture: string) => unknown; ellipse: () => unknown }; drawStand(stand: typeof stands[number]): void;
+    daylightShadows: { add: () => void; addBuilding: () => void };
   };
+  scene.daylightShadows = { add: vi.fn(), addBuilding: vi.fn() };
   scene.add = { ellipse: () => ({ setDepth() {} }), image: (x, y, texture) => {
     const image = { x, y, texture, depth: 0, width: 0, name: "", scope: "", interactive: false,
       setOrigin() { return this; }, setFlipX() { return this; },
@@ -201,7 +208,7 @@ it.each(stands)("draws a static, clickable $scope merchant in front of its stand
   } };
   scene.drawStand(stand);
   expect(images).toHaveLength(2);
-  expect(images[0]).toMatchObject({ texture: "farmer-idle", width: 64, name: `${stand.scope}-merchant-preview` });
+  expect(images[0]).toMatchObject({ texture: merchantTextures[stand.scope], width: 64, name: `${stand.scope}-merchant-preview` });
   expect(images[1]).toMatchObject({ texture: `market-${stand.scope}`, width: 232, name: `${stand.scope}-stand-preview` });
   expect(images[0]!.depth).toBeGreaterThan(images[1]!.depth);
   expect(images.every(image => image.scope === stand.scope && image.interactive)).toBe(true);

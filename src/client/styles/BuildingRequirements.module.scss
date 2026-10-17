@@ -60,6 +60,21 @@ ul.materials {
   &::-moz-progress-bar { background: $color-leaf; }
 }
 
+ul.materials.compact {
+  gap: 4px;
+  margin: 8px 0;
+  li.row {
+    grid-template-columns: 28px minmax(0, 1.4fr) max-content minmax(36px, 1fr);
+    gap: 6px;
+    padding: 4px 6px;
+    font-size: 13px;
+    line-height: 1.25;
+    border-radius: 5px;
+  }
+  .row img { width: 28px; height: 28px; }
+  .row progress { height: 8px; }
+}
+
 @media (max-width: 420px) {
   ul.materials li.row {
     grid-template-columns: 32px minmax(0, 1fr) max-content minmax(32px, 0.8fr);

@@ -1,4 +1,5 @@
 import Phaser from "phaser";
+import { drawActionProgress } from "./actionProgressBar";
 import base from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-oven-active-base.png";
 import rest from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/farmer-bake-rest.png";
 import half from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/farmer-bake-push-half.png";
@@ -67,7 +68,7 @@ export const createBakingAnimation = (scene: Phaser.Scene, oven: Phaser.GameObje
       const pose = bakingPose(elapsed, reduced);
       const x = oven.x, y = oven.y, depth = oven.depth;
       table.setTexture(bakingTableTexture(batch.fraction)).setDisplaySize(62, 62)
-        .setPosition(x + 22, y - 1).setDepth(depth + 2.5);
+        .setPosition(x + 22, y + 9).setDepth(depth + 2.5);
       worker.setTexture(`baking-${pose.frame}`).setDisplaySize(70, 70 * 1254 / 1318)
         .setPosition(x - 66, y - 81).setDepth(depth + 2);
       maskShape.clear().fillStyle(0xffffff).fillRect(x - 100, y - 150, 80, 180)
@@ -78,8 +79,7 @@ export const createBakingAnimation = (scene: Phaser.Scene, oven: Phaser.GameObje
       if (!reduced) for (const w of bakingWisps(elapsed)) {
         smoke.fillStyle(0xfffaf1, w.alpha).fillEllipse(x + 3 + w.x, y - 103 + w.y, w.width, w.height);
       }
-      progress.setDepth(depth + 4).fillStyle(0x513821).fillRoundedRect(x - 26, y + 2, 52, 7, 3)
-        .fillStyle(0xffd471).fillRect(x - 24, y + 4, 48 * batch.fraction, 3);
+      drawActionProgress(progress.setDepth(depth + 4), x, y + 2, batch.fraction);
     },
     destroy() {
       shadowVisible = false;

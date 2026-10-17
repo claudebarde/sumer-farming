@@ -3,7 +3,7 @@ vi.mock("../../src/client/game/phaser/config", () => ({ TILE_SIZE: 64 }));
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
-import { hasFarmerPopup } from "../../src/client/game/phaser/isometricTilePopup";
+import { hasFarmerPopup, isometricTilePopup } from "../../src/client/game/phaser/isometricTilePopup";
 import FarmerPopupStatus from "../../src/client/components/FarmerPopupStatus";
 import { farmerActivity } from "../../src/client/game/phaser/farmerActivity";
 
@@ -13,6 +13,14 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
     household: { happiness: 70, lastBeerAt: null, lastFishAt: null, hungrySince: null, cultivationStartedAt: null, nextBarleyConsumptionAt: null } },
   inventory: [], objects: [], groundItems: [], crops: [], improvements: [], buildings: [] });
 afterEach(() => vi.unstubAllGlobals());
+
+it.each(["mill", "breadOven", "brewery"] as const)("shows level 1 on the %s building", type => {
+  const farm = snapshot();
+  farm.buildings.push({ id, type, column: 5, row: 3, storedBarley: 0, brewingBarley: 0,
+    brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0,
+    startedAt: new Date(0).toISOString(), completesAt: new Date(1).toISOString(), loadingTile: { column: 5, row: 5 } });
+  expect(isometricTilePopup(farm, { column: 5, row: 3 }, 1000).level).toBe(1);
+});
 
 it("keeps household status available regardless of carried goods", () => {
   const farm = snapshot();
@@ -61,6 +69,16 @@ it("uses the corresponding collected material icon", () => {
     s.farm.gathering = { itemKey, target: { column: 1, row: 1 }, startedAt: new Date(0).toISOString(), completesAt: new Date(2000).toISOString() };
     expect(farmerActivity(s, 1000)).toMatchObject({ label: "Collecting", item: itemKey });
   }
+});
+
+it.each([false, true])("shows water with its centered cuneiform overlay while carrying (walking=%s)", walking => {
+  const s = snapshot();
+  s.farm.carriedItem = { itemKey: "water", quantity: 1, expiresAt: null };
+  expect(farmerActivity(s, 0, walking)).toMatchObject({ item: "water", quantity: 1 });
+  const html = renderToStaticMarkup(createElement(FarmerPopupStatus, { snapshot: s, now: 0, walking }));
+  expect(html).toContain('alt="water"');
+  expect(html).toContain("water.png");
+  expect(html).toMatch(/<span class="cuneiforms [^"]+" aria-hidden="true">𒀀<\/span>/);
 });
 
 it("shows the pickaxe during building construction and the stool after completion", () => {

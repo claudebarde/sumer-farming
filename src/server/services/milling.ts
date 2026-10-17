@@ -37,13 +37,11 @@ export const deliverMillGoods = (database: Database, input: Extract<GameCommand,
         }
         const bags = goods.pending[input.millId];
         if (!bags || bags.flour + bags.brewersGroats === 0) return new MillingRuleError({ message: "There are no bags to collect." });
-        const collect = (item: "flour" | "brewersGroats") => Math.min(bags[item], Math.max(0, estateResourceCapacity(item, snapshot.buildings, now) - (snapshot.inventory.find(i => i.itemKey === item)?.quantity ?? 0) - porterReserved(snapshot.farm.production.porter, item)));
-        const picked = { flour: collect("flour"), brewersGroats: collect("brewersGroats") };
-        if (picked.flour + picked.brewersGroats === 0) return new MillingRuleError({ message: "Storage is full. Use or sell some goods first." });
-        const remaining = { flour: bags.flour - picked.flour, brewersGroats: bags.brewersGroats - picked.brewersGroats };
+        const fits = (["flour", "brewersGroats"] as const).every(item => bags[item] <= Math.max(0,
+          estateResourceCapacity(item, snapshot.buildings, now) - (snapshot.inventory.find(i => i.itemKey === item)?.quantity ?? 0) - porterReserved(snapshot.farm.production.porter, item)));
+        if (!fits) return new MillingRuleError({ message: "Not enough storage for the whole pile. Use or sell some goods first." });
         const pending = Object.fromEntries(Object.entries(goods.pending).filter(([id]) => id !== input.millId));
-        next = { pending: remaining.flour + remaining.brewersGroats > 0 ? { ...pending, [input.millId]: remaining } : pending,
-          delivery: { millId: input.millId, bags: picked } };
+        next = { pending, delivery: { millId: input.millId, bags } };
       } else {
         const delivery = goods.delivery;
         if (!delivery || delivery.millId !== input.millId) return new MillingRuleError({ message: "No matching bag delivery is in progress." });
@@ -79,7 +77,8 @@ export const startMilling = (database: Database, input: Extract<GameCommand, { t
       const snapshot = await readFarmSnapshot(tx, farm, false);
       if (snapshot.farm.version !== input.expectedFarmVersion) return new MillingRuleError({ message: "The farm changed. Please try again." });
       const now = Date.now();
-      const reason = millingUnavailableReason(snapshot, input.recipe, now, input.worker);
+      const selectedMill = snapshot.buildings.find(b => b.type === "mill" && b.column === input.target.column && b.row === input.target.row);
+      const reason = millingUnavailableReason(snapshot, input.recipe, now, input.worker, selectedMill?.id);
       if (snapshot.farm.roads.some(r => (r.completesAt ?? 0) > now)) return new MillingRuleError({ message: "Finish building the road first." });
       if (reason) return new MillingRuleError({ message: reason });
       const mill = snapshot.buildings.find(b => b.type === "mill" && b.column === input.target.column && b.row === input.target.row && Date.parse(b.completesAt) <= now);

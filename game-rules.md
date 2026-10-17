@@ -53,10 +53,17 @@ The farm building popup shows **Claim level [number]** only when all requirement
 and offerings for the next level are ready. It uses the same claim, offering costs,
 unlock toast and celebration as the farm level dialog; otherwise the button is hidden.
 
+Mill, bread oven and brewery popups currently show a compact **Lvl 1** badge
+beside the building name. This is a display-only addition; their isometric upgrade
+controls remain deferred until the relevant unlock levels are tested. Output-item
+popups do not show building-level badges.
+
 In the isometric farm, after 10 seconds without input, an idle, empty-handed farmer
 anywhere on the reachable map walks to the nearest of the farm's two front road
 tiles and sweeps, alternating between both tiles. Mouse movement, clicks, keyboard
-input or scrolling stops sweeping immediately. It is cosmetic: no resources,
+input or scrolling requests a stop after two seconds; repeated input does not
+extend that delay. Selecting an action or starting work cancels sweeping immediately.
+It is cosmetic: no resources,
 rewards or saved work timers change. The dog walks off the two sweeping tiles and
 keeps clear while sweeping continues. It does not run while the page is hidden or
 reduced motion is enabled. Sweeping begins only after he arrives; if there is no
@@ -540,11 +547,45 @@ Choose one recipe per job. The farmer walks to the Mill, then works inside it fo
 
 ## Brewing beer
 
+Each producing building can hold at most **6 finished items outside**: six bags
+combined across flour/groats per mill, six breads per oven, or six beers per brewery.
+The entire next batch must fit before production starts. Existing recipes remain:
+farmer milling adds one bag, donkey milling three, baking two breads and brewing
+two beers. When the next batch will not fit, production is disabled with
+**Store finished goods to make room**. Collection frees output space. Existing
+piles above six are preserved but block further production. Mill production also
+retains its separate estate-storage reservation check; the six-item cap never
+increases available estate storage.
+
+For mill bags, bread and beer, **Store** collects the whole waiting pile in one
+pickup, including both flour and groats at a mill. The entire pile must fit in
+available estate storage after porter reservations; otherwise collection is
+blocked without moving any goods. The popup keeps **Store** visible but disabled,
+with the free space and required quantity (per resource for mixed mill bags).
+Use or sell stored goods to free space. The farmer automatically visits storage stops
+as needed, with no repeated pickup clicks. Interrupted saved deliveries remain resumable.
+
+Action timers share one slim horizontal progress-bar style across milling,
+brewing, baking, construction and road/canal work. Sowing and harvesting retain
+their round lower-container meter, with percentage inside and completed/total field count beside it.
+
+While carrying water, an available farmer's popup offers **Discard water** to
+discard the carried water on nearby safe ground. It creates no ground item,
+does not alter brewery supplies, and frees his hands even when the brewery is full.
+
+The farmer uses the sealed-jar idle and walking poses while carrying collected
+water and while delivering finished beer from the brewery to estate storage.
+Empty-handed approach trips keep the normal walk. This is cosmetic: the two-jar
+artwork does not change the quantity carried, travel speed or delivery rules.
+**Stock empty jars** sends the farmer to the farm first, then to the brewery
+using the jar-carrying walk. Delivery returns him to his normal idle pose.
+Empty packaging jars remain in inventory until the validated delivery completes;
+interrupted trips do not consume them. This does not start or delay a brewing batch.
+
 The isometric brewery displays the current brewing-vessel inventory: zero vessels
 shows an empty courtyard, one shows one jar, and two or more shows two jars.
 Purchases update the display immediately. Empty packaging jars and finished beer
-do not count. This visual change does not alter the existing construction cost
-(which consumes two brewing vessels) or brewing requirements.
+do not count. Construction requires two brewing vessels but retains them in inventory.
 The temporary orientation preview button has been removed. Construction still
 shows its transparent shell and 2×2 footprint. The shell switches with road access:
 B uses the original shell, C the opposite-facing shell. If multiple usable road
@@ -565,9 +606,10 @@ Brewing unlocks at level 6 and consumes Brewer's Groats rather than raw barley.
 - With an available, empty-handed farmer and all ingredients supplied, **Brew beer** sends him to the farm for groats, then to the brewery. He stirs for eight seconds, including short pauses, and becomes available while fermentation continues with foam and a progress bar.
 - Timers persist immediately and progress while the tab is hidden or closed. Returning does not restart preparation or consume ingredients again.
 - Finished jars appear with a quantity chip on B for the original shell or C for the opposite shell. Click them and choose **Store** to carry them to the farm (or warehouse when appropriate). Interrupted deliveries can be resumed from the farmer/farm popup. Goods enter usable inventory only upon delivery; full storage prevents pickup.
-- Each brewery can hold at most 2 water loads and 10 empty beer jars.
-- Brewing jars are permanent brewing equipment used to construct the brewery, not the empty packaging jars consumed for every batch.
-- Collect finished beer into estate inventory before starting another batch. Beer served directly from the ready batch reduces the amount left to collect.
+- Each brewery can hold at most 2 water loads and 2 empty beer jars. Stocking transfers only enough jars to fill those two slots; extras stay at the farm. Resources shows the estate-wide total of unused empty jars, including jars stocked in breweries. Brewing consumes two from that total. Legacy brewery overstock is returned to free inventory without losing or duplicating jars.
+- Brewing jars and baking tools are permanent equipment: each estate can buy and own at most two of each, regardless of warehouses. Construction requires them but never consumes them. Neither can be sold to NPCs or listed on the player market. Existing breweries and ovens restore equipment consumed by older construction on the next farm refresh, without duplicating equipment already owned. Brewing jars are distinct from the empty packaging jars consumed for every batch.
+- NPC beer Buy cards start with **Brewing jars** (6 shekels, large brewery-vessel artwork), **Empty beer jars** (2 shekels, empty isometric jars), then **Beer** (8 shekels, full isometric jars). Brewer's Groats remain available after them. Brewing jars remain visible after brewery construction; purchases fill the current inventory up to two, with the card disabled when both are owned. Packaging jars are consumed by the recipe. Inventory keys and prices are unchanged.
+- Further brewing batches can start while beer waits outside, provided the whole next batch fits within the six-item cap and ingredients are supplied.
 - The brewing timer disappearing is the visual cue that the batch is ready; there is no floating “Beer ready” label.
 - Filled beer in estate inventory can be given to the farmer, sold once beer trading unlocks, or used in merchant requests once those unlock.
 

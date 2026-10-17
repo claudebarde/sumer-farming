@@ -6,6 +6,43 @@ import { sharedStorageAllocation } from "../../src/game-core/farm/storageDisplay
 import { ESTATE_STORAGE_LIMITS } from "../../src/game-data/storage";
 
 describe("building storage displays", () => {
+  it("uses the same visual cards for warehouse-local stock, including unlocked dates", () => {
+    const html = renderToStaticMarkup(createElement(BuildingStorageTables, {
+      location: "warehouse", visual: true, showDates: true, barley: 7, warehouseComplete: true,
+      inventory: [{ itemKey: "bread", quantity: 14 }, { itemKey: "dates", quantity: 4 }]
+    }));
+    expect(html).toContain('aria-label="warehouse inventory"');
+    expect(html.match(/<progress /g)).toHaveLength(8);
+    expect(html).toContain("10/10");
+    expect(html).toContain("7/20");
+    expect(html).toContain("4/5");
+    expect(html).toContain('width="36" height="36"');
+    expect(html).not.toContain("14/20");
+    expect(html).not.toContain("Fish storage");
+    expect(html).not.toContain("<table");
+  });
+  it("renders the farm visual inventory with eight icons, names, capacity bars and counts", () => {
+    const html = renderToStaticMarkup(createElement(BuildingStorageTables, {
+      location: "farm", visual: true, showFish: true, barley: 3, warehouseComplete: false,
+      inventory: [{ itemKey: "bread", quantity: 6 }, { itemKey: "beer", quantity: 5 }, { itemKey: "fish", quantity: 1 }]
+    }));
+    expect(html).toContain('aria-label="farm inventory"');
+    expect(html.match(/<progress /g)).toHaveLength(8);
+    expect(html.match(/<img /g)).toHaveLength(8);
+    expect(html).toContain("brewers-groats-icon.png");
+    expect(html).toContain("mill-flour-bags-isometric.png");
+    for (const count of ["6/10", "5/10", "0/10", "3/5", "1/5", "0/6"]) expect(html).toContain(count);
+    expect(html).toContain('aria-label="Bread storage" aria-valuetext="6 of 10"');
+    expect(html).not.toContain("<table");
+  });
+  it("clamps a full visual bar without hiding legacy excess stock", () => {
+    const html = renderToStaticMarkup(createElement(BuildingStorageTables, {
+      location: "farm", visual: true, barley: 0, warehouseComplete: false,
+      inventory: [{ itemKey: "bread", quantity: 12 }]
+    }));
+    expect(html).toContain('value="10" max="10" aria-label="Bread storage"');
+    expect(html).toContain("12/10");
+  });
   it("shows date baskets only in the warehouse with a five-basket capacity", () => {
     const inventory = [{ itemKey: "dates" as const, quantity: 4 }];
     const farm = renderToStaticMarkup(createElement(BuildingStorageTables, { location: "farm", inventory, barley: 0, warehouseComplete: true, showDates: true }));

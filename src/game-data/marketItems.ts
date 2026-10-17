@@ -41,20 +41,20 @@ export const MARKET_ITEM_DEFINITIONS = {
     playerMarket: { canCreateSellOrder: true }
   },
   beer: {
-    label: "Beer jar",
+    label: "Beer",
     storage: { type: "estate_inventory" },
     npcMarket: { canBuy: true, canSell: true, buyPrice: 8, sellPrice: 8 },
     playerMarket: { canCreateSellOrder: true }
   },
   emptyBeerJar: {
-    label: "Empty beer jar",
+    label: "Empty beer jars",
     storage: { type: "estate_inventory" },
     npcMarket: { canBuy: true, canSell: false, buyPrice: 2, sellPrice: 1 },
     playerMarket: { canCreateSellOrder: false }
   },
   brewingVessels: {
     // Keep the persisted item key stable for existing inventories and trade records.
-    label: "Brewing jar",
+    label: "Brewing jars",
     storage: { type: "estate_inventory" },
     npcMarket: { canBuy: true, canSell: false, buyPrice: 6, sellPrice: 1 },
     playerMarket: { canCreateSellOrder: false }

@@ -25,7 +25,8 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
   const crop = snapshot.crops.find(c => sameCell(c, cell));
   const home = !building && footprintContains(farmOrigin, 2, 2, cell);
   const level = home ? snapshot.farm.progression?.level ?? 1
-    : building?.type === "granary" ? buildingLevel(snapshot.farm.production.buildingUpgrades, building.id, now) : null;
+    : building?.type === "granary" ? buildingLevel(snapshot.farm.production.buildingUpgrades, building.id, now)
+    : building && ["mill", "breadOven", "brewery"].includes(building.type) ? 1 : null;
   const plantable = plantableFields(snapshot, now);
   const ripe = harvestableFields(snapshot, now);
   const canPlantHere = plantable.some(p => sameCell(p, cell));
@@ -55,7 +56,6 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
       const job = snapshot.farm.production.brewing?.[building.id];
       if (job && now < Date.parse(job.startedAt)) details.push(now < Date.parse(job.arrivedAt) ? "Collecting groats…" : "Preparing beer…");
       else if (building.beerReadyAt) details.push(`Fermenting · ${Math.max(0, Math.ceil((Date.parse(building.beerReadyAt) - now) / 60000))}m`);
-      details.push(`${snapshot.inventory.find(i => i.itemKey === "brewersGroats")?.quantity ?? 0}/2 groats · ${building.brewingWater}/2 water · ${building.emptyBeerJars}/2 empty jars`);
       const beer = snapshot.farm.production.pending[building.id];
       if (beer) details.push(`${beer.quantity} beer ready`);
     }

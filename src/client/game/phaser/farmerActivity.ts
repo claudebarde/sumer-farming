@@ -2,12 +2,12 @@ import type { FarmSnapshot } from "../../../schemas/farm";
 import { farmerProductionJob } from "../../../game-core/farm/farmerProduction";
 import { isometricPlantingPose } from "./isometricPlanting";
 import type { InventoryItemKey } from "../../../game-data/inventoryItems";
-export type FarmerActivityItem = "barley" | "flour" | "reed" | "clay" | "fish" | "road" | "canal" | "bread" | "beer" | "dates" | "stool" | "pickaxe";
+export type FarmerActivityItem = "barley" | "flour" | "brewersGroats" | "reed" | "clay" | "fish" | "road" | "canal" | "bread" | "beer" | "dates" | "stool" | "pickaxe" | "water";
 export type FarmerActivity = { readonly label: string; readonly item?: FarmerActivityItem; readonly quantity?: number };
 const activity = (label: string, item?: FarmerActivityItem, quantity?: number): FarmerActivity => ({ label, item, quantity });
 const carriedIcons: Partial<Record<InventoryItemKey, FarmerActivityItem>> = {
-  barley: "barley", flour: "flour", brewersGroats: "flour", reed: "reed", clay: "clay",
-  fish: "fish", bread: "bread", beer: "beer", dates: "dates",
+  barley: "barley", flour: "flour", brewersGroats: "brewersGroats", reed: "reed", clay: "clay",
+  fish: "fish", bread: "bread", beer: "beer", dates: "dates", water: "water",
 };
 
 export const farmerActivity = (snapshot: FarmSnapshot, now: number, walking = false): FarmerActivity => {
@@ -35,7 +35,8 @@ export const farmerActivity = (snapshot: FarmSnapshot, now: number, walking = fa
   if (snapshot.improvements.some(i => i.destroyCompletesAt && Date.parse(i.destroyCompletesAt) > now)) return activity("Destroying", "canal");
   if (snapshot.improvements.some(i => Date.parse(i.completesAt) > now)) return activity("Building", "canal");
   if (snapshot.crops.some(c => c.harvestStartedAt !== null)) return activity("Harvesting", "barley");
-  if (walking) return activity("Walking");
+  if (walking) return farm.carriedItem?.itemKey === "water" && farm.carriedItem.quantity > 0
+    ? activity("Walking", "water", farm.carriedItem.quantity) : activity("Walking");
   const carried = farm.carriedItem;
   return carried && carried.quantity > 0 ? activity("Carrying", carriedIcons[carried.itemKey], carried.quantity) : activity("Idle", "stool");
 };

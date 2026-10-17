@@ -1,0 +1,48 @@
+.preview { width: 100%; min-width: 0; }
+.comparison {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.block {
+  min-width: 0;
+  padding: 16px;
+  border: 2px solid #dfc18c;
+  border-radius: 12px;
+  background: #fff7e9;
+  h4 { margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid #dfc18c; }
+  dl { margin: 0; }
+  dl > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+  dt { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; img, svg { flex-shrink: 0; width: 40px; height: 40px; object-fit: contain; } }
+  dd { margin: 0; font-size: 1.3em; font-weight: bold; font-variant-numeric: tabular-nums; white-space: nowrap; }
+}
+.after { border-color: #9d9d61; background: #f4f0da; }
+.direction { font-size: 0.7em; margin-left: 6px; color: #526b36; }
+.price {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px 16px;
+  padding: 12px 16px; margin: 12px 0; border: 2px solid #dfc18c; border-radius: 10px; background: #f6e7c9;
+  strong { color: #815019; font-size: 1.5em; }
+}
+.quantity { margin: 16px 0; label { display: block; margin-bottom: 8px; } }
+.controlsRow {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px 24px; margin: 16px 0;
+  .quantity { margin: 0; }
+}
+.compactPrice {
+  flex: 1 1 180px;
+  display: flex; flex-direction: column; justify-content: center; gap: 4px;
+  padding: 10px 16px; border: 2px solid #dfc18c; border-radius: 10px; background: #f6e7c9;
+  strong { color: #815019; font-size: 1.35em; }
+  small { font-size: 0.7em; font-weight: normal; }
+}
+.stepper {
+  display: grid; grid-template-columns: 48px minmax(70px, 140px) 48px; gap: 8px;
+  button { min-width: 44px; min-height: 44px; padding: 4px; font-size: 1.5em; }
+  input { width: 100%; min-width: 0; box-sizing: border-box; text-align: center; border: 2px solid #dfc18c; border-radius: 8px; background: #fff7e9; color: #352015; font: inherit; font-size: 1.3em; appearance: textfield; }
+  input::-webkit-inner-spin-button, input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+}
+@media (max-width: 480px) {
+  .comparison { gap: 8px; }
+  .block { padding: 10px; dl > div { flex-wrap: wrap; gap: 4px; } }
+}

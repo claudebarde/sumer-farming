@@ -4,6 +4,7 @@ import { millRecipe, type MillRecipe, type MillWorker } from "../../game-data/mi
 import type { FarmSnapshot } from "../../schemas/farm";
 import { activeBuildingUpgrade } from "../../game-data/buildingUpgrades";
 import { millStorageAvailable } from "./millStorage";
+import { productionOutputFits, OUTPUT_FULL_MESSAGE } from "./productionOutputCapacity";
 
 export const millingBarleyAvailable = (snapshot: FarmSnapshot, now: number): number =>
   (snapshot.inventory.find(i => i.itemKey === "barley")?.quantity ?? 0) +
@@ -14,6 +15,7 @@ export const millingUnavailableReason = (snapshot: FarmSnapshot, recipe: MillRec
   if (snapshot.farm.production.cropWork && !snapshot.farm.production.cropWork.settled) return "The farmer is tending a crop.";
   const mills = snapshot.buildings.filter(b => b.type === "mill");
   const id = buildingId ?? (mills.length === 1 ? mills[0]!.id : undefined);
+  if (id && !productionOutputFits(snapshot.farm, id, millRecipe(recipe, worker).output)) return OUTPUT_FULL_MESSAGE;
   if (id && activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, id, now)) return "The Mill is upgrading. Wait for the upgrade to finish.";
   if (worker === "donkey" && (snapshot.farm.progression?.level ?? 1) < 7) return "Donkey milling unlocks at level 7.";
   if (worker === "donkey" && !snapshot.inventory.some(i => i.itemKey === "donkey" && i.quantity > 0)) return "Buy a donkey from the Baking market first.";
