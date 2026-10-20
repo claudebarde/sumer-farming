@@ -24,25 +24,26 @@ export const installPorter = (scene: Phaser.Scene, getOrigin: () => TilePosition
     if (state.type !== "ready") { sprite.setVisible(false); return; }
     const porter = state.snapshot.farm.production.porter;
     const now = Date.now();
-    if (!porter || (!porter.job && porter.expiresAt <= now)) { sprite.setVisible(false); return; }
+    if (!porter || (!porter.job && !porter.returnTrip && porter.expiresAt <= now)) { sprite.setVisible(false); return; }
     const job = porter.job;
+    const trip = job ?? porter.returnTrip;
     const origin = getOrigin();
-    if (job && job.startedAt !== previousJob && parked) {
+    if (trip && trip.startedAt !== previousJob && parked) {
       // Reconcile to the saved journey; never add an independent approach clock.
       yieldTween?.stop(); yieldTween = null;
       parked = null;
     }
-    previousJob = job?.startedAt ?? null;
-    const progress = job ? Math.max(0, (now - job.startedAt) / PORTER_STEP_MS) : 0;
-    const index = job ? Math.min(job.path.length - 1, Math.floor(progress)) : 0;
-    const from = job?.path[index] ?? porter.position;
-    const to = job?.path[Math.min(index + 1, job.path.length - 1)] ?? from;
+    previousJob = trip?.startedAt ?? null;
+    const progress = trip ? Math.max(0, (now - trip.startedAt) / PORTER_STEP_MS) : 0;
+    const index = trip ? Math.min(trip.path.length - 1, Math.floor(progress)) : 0;
+    const from = trip?.path[index] ?? porter.position;
+    const to = trip?.path[Math.min(index + 1, trip.path.length - 1)] ?? from;
     sprite.setVisible(true).setTexture(spriteName(job && now >= job.pickupAt ? "porterBusy" : "porterIdle"));
-    const position = job ? positionAlongPorterPath(job.path, progress / Math.max(1, job.path.length - 1)) : porter.position;
+    const position = trip ? positionAlongPorterPath(trip.path, progress / Math.max(1, trip.path.length - 1)) : porter.position;
     const roadOffset = porterRoadOffset({ column: origin.column + position.column, row: origin.row + position.row }, getRoadOffset);
-    moving = !!job;
+    moving = !!trip;
     if (!yieldTween) {
-      if (!job && parked) sprite.setPosition(parked.x, parked.y);
+      if (!trip && parked) sprite.setPosition(parked.x, parked.y);
       else sprite.setPosition(origin.posX + position.column * TILE_SIZE, origin.posY + position.row * TILE_SIZE + roadOffset);
     }
     if (to.column !== from.column) sprite.setFlipX(to.column < from.column);

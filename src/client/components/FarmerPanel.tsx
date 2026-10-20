@@ -25,6 +25,10 @@ import HappinessMeter from "./HappinessMeter";
 import RationMeter from "./RationMeter";
 import FarmerPortrait from "./FarmerPortrait";
 import styles from "../styles/GameCanvas.module.scss";
+import treatStyles from "../styles/FarmerTreats.module.scss";
+import { FARM_SPRITES } from "../../assets/farmSprites";
+import breadIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.png";
+import beerIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.png";
 import {
   breadTreatErrors,
   validateBreadTreat
@@ -130,11 +134,9 @@ export default function FarmerPanel({
           <span>Next meal</span>
         </div>
       </div>
-      <p>
-        {household.hungrySince !== null
-          ? "Your farmer is hungry. Store barley in the farm or a completed granary so he can eat."
-          : "Meals use stored barley automatically. Keep barley in the farm or a completed granary."}
-      </p>
+      {household.hungrySince !== null && (
+        <p>Your farmer is hungry. Store barley in the farm or a completed granary so he can eat.</p>
+      )}
       {level < 4 && (
         <p>
           Happiness is protected during the first three levels. Fish treats
@@ -147,7 +149,7 @@ export default function FarmerPanel({
           {Math.floor(blessingMinutes / 60)}h {blessingMinutes % 60}m remaining.
         </p>
       )}
-      <div className={styles["resource-sections"]}>
+      <div className={`${styles["resource-sections"]} ${treatStyles.list}`}>
         {(["fish", "bread", "beer", "dates"] as const).filter(item => item !== "dates" || level >= 9).map(item => {
           const quantity =
             snapshot.inventory.find(entry => entry.itemKey === item)
@@ -194,6 +196,7 @@ export default function FarmerPanel({
               : { ...fishTreatErrors, ...breadTreatErrors, ...datesTreatErrors }[rule];
           const button = (
             <button
+              aria-label={!locked && pending === null && remainingMinutes === 0 && quantity > 0 ? (item === "dates" ? "Give one basket of dates" : `Give one ${item} to the farmer`) : undefined}
               disabled={locked || pending !== null || rule !== null}
               aria-disabled={busy || undefined}
               onClick={() => {
@@ -204,57 +207,53 @@ export default function FarmerPanel({
                 ? "Giving treat…"
                 : remainingMinutes > 0 && !locked
                   ? `Wait ${Math.floor(remainingMinutes / 60)}h ${remainingMinutes % 60}m`
-                  : item === "fish" && quantity === 0
-                    ? "No fish available"
-                    : item === "dates" ? "Give one basket of dates" : `Give one ${item} to the farmer`}
+                  : item === "dates" ? "Give one basket of dates" : `Give ${item}`}
             </button>
           );
+          const action = busy ? (
+            <Popover.Root>
+              <Popover.Trigger asChild>{button}</Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content className={styles["farmer-busy-popover"]} side="top" sideOffset={8} collisionPadding={12} aria-label="Farmer availability">
+                  The farmer is busy
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
+          ) : button;
+          if (item !== "dates") {
+            const boost = item === "fish" ? FISH_HAPPINESS_BOOST : item === "bread" ? BREAD_HAPPINESS_BOOST : BEER_HAPPINESS_BOOST;
+            const name = item === "fish" ? "Fish" : item === "bread" ? "Bread" : "Beer";
+            return <section key={item} className={treatStyles.card} data-locked={locked ? "true" : undefined} aria-label={`${name} treat`}>
+              <div className={treatStyles.resource}>
+                <div className={treatStyles.artwork}>
+                  <img src={item === "fish" ? FARM_SPRITES.fish : item === "bread" ? breadIcon : beerIcon} alt="" width={56} height={56} />
+                </div>
+                <strong>{name}</strong>
+                {quantity === 0 && <small className={treatStyles.unavailable}>No {item} available</small>}
+              </div>
+              <div className={treatStyles.benefit}>
+                <strong aria-label={`+${boost} happiness`}><span aria-hidden="true">♥ +{boost}</span></strong>
+                <span aria-hidden="true">Happiness</span>
+                <small>Every {interval / 3600000}h</small>
+              </div>
+              <div className={treatStyles.action}>
+                {remainingMinutes > 0 && !locked && <small>Ready in</small>}
+                {reason && (locked || remainingMinutes === 0) && (locked || !rule?.startsWith("no_")) && <small>{reason}</small>}
+                {action}
+              </div>
+              {message?.item === item && <p className={treatStyles.message} role="status">{message.text}</p>}
+            </section>;
+          }
           return (
             <section key={item} data-locked={locked ? "true" : undefined}>
-              <h3>
-                {item === "dates" ? "Dates treat" : item === "fish"
-                  ? "Fish treat"
-                  : item === "bread"
-                    ? "Bread treat"
-                    : "Beer treat"}
-              </h3>
+              <h3>Dates treat</h3>
+              <p>Stored baskets of dates: {quantity}</p>
               <p>
-                {item === "dates" ? "Stored baskets of dates" : item === "fish"
-                  ? "Stored fish"
-                  : item === "bread"
-                    ? "Stored bread"
-                    : "Filled beer jars"}
-                : {quantity}
-              </p>
-              <p>
-                +
-                {item === "dates" ? DATES_HAPPINESS_BOOST : item === "fish"
-                  ? FISH_HAPPINESS_BOOST
-                  : item === "bread"
-                    ? BREAD_HAPPINESS_BOOST
-                    : BEER_HAPPINESS_BOOST}{" "}
-                happiness · One {item === "dates" ? "basket of dates" : item} every {interval / 3600000} hours.
+                +{DATES_HAPPINESS_BOOST} happiness · One basket of dates every {interval / 3600000} hours.
               </p>
               {reason && <p>{reason}</p>}
               {message?.item === item && <p role="status">{message.text}</p>}
-              {busy ? (
-                <Popover.Root>
-                  <Popover.Trigger asChild>{button}</Popover.Trigger>
-                  <Popover.Portal>
-                    <Popover.Content
-                      className={styles["farmer-busy-popover"]}
-                      side="top"
-                      sideOffset={8}
-                      collisionPadding={12}
-                      aria-label="Farmer availability"
-                    >
-                      The farmer is busy
-                    </Popover.Content>
-                  </Popover.Portal>
-                </Popover.Root>
-              ) : (
-                button
-              )}
+              {action}
             </section>
           );
         })}

@@ -1,6 +1,6 @@
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { plantableFields, harvestableFields, plantingSelectionLimit } from "../../../game-core/farm/batchPlanting";
-import { FARMER_CARRY_CAPACITY, granaryCapacityForLevel } from "../../../game-data/storage";
+import { FARMER_CARRY_CAPACITY, granaryCapacityForLevel, granaryLevelForFarmLevel } from "../../../game-data/storage";
 import { buildingAt, buildingNames, farmOrigin, sameCell, tileInformation } from "./isometricFarm";
 import { isItemDropGround } from "../../../game-core/farm/land";
 import { footprintContains, type IsoCell } from "./isometricProjection";
@@ -11,7 +11,6 @@ import { INITIAL_FARM_CONFIG } from "../../../game-data/initialFarm";
 import { roadBuildBlocker } from "./isometricRoads";
 import { previewWalkable } from "./isometricWalking";
 import { gatherableResource, transferBlocker } from "./isometricGathering";
-import { buildingLevel } from "../../../game-data/buildingUpgrades";
 import { canStartIsometricFishing } from "./isometricFishing";
 
 /** Household status is available even when the farmer's hands are empty. */
@@ -25,7 +24,7 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
   const crop = snapshot.crops.find(c => sameCell(c, cell));
   const home = !building && footprintContains(farmOrigin, 2, 2, cell);
   const level = home ? snapshot.farm.progression?.level ?? 1
-    : building?.type === "granary" ? buildingLevel(snapshot.farm.production.buildingUpgrades, building.id, now)
+    : building?.type === "granary" ? granaryLevelForFarmLevel(snapshot.farm.progression?.level ?? 1)
     : building && ["mill", "breadOven", "brewery"].includes(building.type) ? 1 : null;
   const plantable = plantableFields(snapshot, now);
   const ripe = harvestableFields(snapshot, now);
@@ -40,7 +39,7 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
     if (Date.parse(building.completesAt) > now) details.push("Under construction");
     else if (building.type === "mill") {
       const job = snapshot.farm.milling;
-      if (job?.buildingId === building.id) details.push(Date.parse(job.startedAt) > now ? "Collecting barley…" : "Milling…");
+      if (job?.buildingId === building.id && Date.parse(job.startedAt) > now) details.push("Collecting barley…");
       const bags = snapshot.farm.millGoods.pending[building.id];
       if (bags?.flour) details.push(`${bags.flour} flour ${bags.flour === 1 ? "bag" : "bags"} ready`);
       if (bags?.brewersGroats) details.push(`${bags.brewersGroats} groats ${bags.brewersGroats === 1 ? "bag" : "bags"} ready`);
@@ -48,14 +47,14 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
     else if (building.type === "granary") details.push(`${building.storedBarley} / ${granaryCapacityForLevel(snapshot.farm.progression?.level ?? 1)} barley stored`);
     else if (building.type === "breadOven") {
       const job = snapshot.farm.production.baking[building.id];
-      if (job) details.push(Date.parse(job.startedAt) > now ? "Collecting flour…" : "Baking bread…");
+      if (job && Date.parse(job.startedAt) > now) details.push("Collecting flour…");
       const bread = snapshot.farm.production.pending[building.id];
       if (bread) details.push(`${bread.quantity} bread ready`);
     }
     else if (building.type === "brewery") {
       const job = snapshot.farm.production.brewing?.[building.id];
       if (job && now < Date.parse(job.startedAt)) details.push(now < Date.parse(job.arrivedAt) ? "Collecting groats…" : "Preparing beer…");
-      else if (building.beerReadyAt) details.push(`Fermenting · ${Math.max(0, Math.ceil((Date.parse(building.beerReadyAt) - now) / 60000))}m`);
+      else if (!job && building.beerReadyAt) details.push(`Fermenting · ${Math.max(0, Math.ceil((Date.parse(building.beerReadyAt) - now) / 60000))}m`);
       const beer = snapshot.farm.production.pending[building.id];
       if (beer) details.push(`${beer.quantity} beer ready`);
     }

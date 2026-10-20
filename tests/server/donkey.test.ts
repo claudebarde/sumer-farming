@@ -72,10 +72,14 @@ describe("mill donkey", () => {
     await db.insert(farmInventory).values([{ farmId: f.farm.id, itemKey: "barley", quantity: 3 }, { farmId: f.farm.id, itemKey: "flour", quantity: 2 }]);
     await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "granary", column: 5, row: 0, storedBarley: 3, startedAt: new Date(0), completesAt: new Date(1) });
     const [oven] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "breadOven", column: 0, row: 0, startedAt: new Date(0), completesAt: new Date(1) }).returning();
-    const input = { type: "start_milling" as const, playerId: f.playerId, target: f.mill, worker: "donkey" as const, recipe, expectedFarmVersion: (await f.read()).farm.version };
+    const input = { type: "start_milling" as const, playerId: f.playerId, target: f.mill, worker: "donkey" as const, recipe,
+      farmerPosition: { column: 1, row: 5 }, donkeyPosition: { column: -3, row: 4 }, expectedFarmVersion: (await f.read()).farm.version };
     const active = await Effect.runPromise(startMilling(db, input));
     const job = active.farm.milling!;
     expect(job).toMatchObject({ worker: "donkey", barley: 6, output: 3 });
+    expect(job.preparation!.path[job.preparation!.donkeyPickupIndex!]).toEqual(input.donkeyPosition);
+    expect(job.preparation!.donkeyDropIndex).toBeGreaterThan(job.preparation!.donkeyPickupIndex!);
+    await expect(Effect.runPromise(Effect.flip(startMilling(db, input)))).resolves.toMatchObject({ _tag: "MillingRuleError" });
     expect(Date.parse(job.completesAt) - Date.parse(job.startedAt)).toBe(15 * 60000);
     expect(active.inventory.find(i => i.itemKey === "barley")?.quantity).toBe(0);
     expect(active.buildings.find(b => b.type === "granary")?.storedBarley).toBe(0);
@@ -92,12 +96,13 @@ describe("mill donkey", () => {
     await expect(Effect.runPromise(Effect.flip(startMilling(db, { ...input, expectedFarmVersion: active.farm.version })))).resolves.toMatchObject({ _tag: "MillingRuleError" });
     const baking = await Effect.runPromise(productionAction(db, { type: "start_baking", playerId: f.playerId, buildingId: oven!.id, expectedFarmVersion: active.farm.version }));
     expect(farmerProductionJob(baking.farm)?.type).toBe("baking");
-    await db.update(farms).set({ milling: { ...job, completesAt: new Date(Date.now() - 1).toISOString() } }).where(eq(farms.id, f.farm.id));
+    vi.setSystemTime(Date.parse(job.completesAt) + 1);
     const finished = await f.read();
     expect(finished.farm.milling).toBeNull();
     expect(finished.farm.millGoods.pending[f.mill.id]?.[recipe]).toBe(3);
     expect((await f.read()).farm.millGoods.pending[f.mill.id]?.[recipe]).toBe(3);
-    expect(farmerProductionJob(finished.farm)?.type).toBe("baking");
+    expect(farmerProductionJob(finished.farm)).toBeNull();
+    expect(finished.farm.production.baking).toEqual({});
     expect(finished.inventory.find(i => i.itemKey === recipe)?.quantity ?? 0).toBe(0);
     expect(finished.inventory.find(i => i.itemKey === "donkey")?.quantity).toBe(1);
   });

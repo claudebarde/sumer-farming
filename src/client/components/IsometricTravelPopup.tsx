@@ -5,6 +5,8 @@ import styles from "../styles/IsometricTest.module.scss";
 import { isometricTradeScope } from "../game/phaser/isometricMarket";
 import { marketStandUnlockLevel } from "../../game-data/progression";
 import MapCuneiformLabel from "./MapCuneiformLabel";
+import BuildingActionIcon from "./BuildingActionIcon";
+import actionStyles from "../styles/BuildingActionButton.module.scss";
 
 export default function IsometricTravelPopup({ anchor, available, onClose, onTravel }: {
   anchor: IsometricTileAnchor; available: boolean; onClose: () => void; onTravel: () => void;
@@ -22,7 +24,9 @@ export default function IsometricTravelPopup({ anchor, available, onClose, onTra
         <div className={styles.popupHeader}><h2><MapCuneiformLabel element={title} /><span>{title}</span></h2></div>
         <Popover.Close className={styles.popupClose} aria-label="Close tile popup"><span aria-hidden="true">×</span></Popover.Close>
         {stand && <p>{scope ? `Unlocks at level ${marketStandUnlockLevel(scope)}.` : "Trading coming soon."}</p>}
-        <div className={styles.popupActions}>{!stand && available && <button onClick={onTravel}>{returning ? "Go back to the farm" : "Go to the market"}</button>}</div>
+        <div className={styles.popupActions}>{!stand && available && <button className={!returning ? actionStyles.button : undefined} onClick={onTravel}>
+          {!returning && <BuildingActionIcon kind="walk" />}<span>{returning ? "Go back to the farm" : "Go to the market"}</span>
+        </button>}</div>
       </div>
       <Popover.Arrow className={styles.popupArrow} width={20} height={10} />
     </Popover.Content></Popover.Portal>

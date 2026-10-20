@@ -12,6 +12,17 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
   inventory: [], objects: [], groundItems: [], crops: [], improvements: [], buildings: [] });
 
 describe("saved farm isometric projection", () => {
+  it.each([[6, 1, 15], [7, 2, 20], [8, 2, 20]])("keeps granary level and capacity aligned at farm level %i", (level, granaryLevel, capacity) => {
+    const saved = snapshot();
+    saved.farm.progression = { level, barleySold: 0, beerSold: 0, breadSold: 0, requestsDelivered: 0,
+      stats: { harvestedBarley: 0, harvests: 0, beerProduced: 0, fishFed: 0, breadProduced: 0, processedBarley: 0 } };
+    saved.buildings = [{ id, type: "granary", column: 5, row: 3, storedBarley: 7, brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0, loadingTile: null, startedAt: date(0), completesAt: date(10) }];
+    const restored = FarmSnapshotSchema.parse(JSON.parse(JSON.stringify(saved)));
+    const popup = isometricTilePopup(restored, { column: 5, row: 3 }, 20);
+    expect(popup.level).toBe(granaryLevel);
+    expect(popup.details).toContain(`7 / ${capacity} barley stored`);
+    expect(restored.buildings[0]!.storedBarley).toBe(7);
+  });
   it("keeps ripe barley in front of a farmer stopped in it, without reversing neighbouring tiles", () => {
     const groundY = isoPoint({ column: 4, row: 7 }).y;
     expect(barleyDepth(groundY, "ripe")).toBeGreaterThan(groundY + 2);

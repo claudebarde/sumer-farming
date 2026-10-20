@@ -58,6 +58,14 @@ beside the building name. This is a display-only addition; their isometric upgra
 controls remain deferred until the relevant unlock levels are tested. Output-item
 popups do not show building-level badges.
 
+The active bread oven, mill (farmer or donkey), and brewery popups share the same
+progress bar, percentage and minutes:seconds countdown to their saved completion
+time instead of text-only baking, milling or fermentation status. During ingredient
+collection and brewing preparation, the countdown includes the remaining approach
+or preparation time and production progress stays at zero; the phase label remains.
+Reopening the popup or returning to the tab uses the saved schedule;
+it never restarts or delays production.
+
 In the isometric farm, after 10 seconds without input, an idle, empty-handed farmer
 anywhere on the reachable map walks to the nearest of the farm's two front road
 tiles and sweeps, alternating between both tiles. Mouse movement, clicks, keyboard
@@ -66,7 +74,12 @@ extend that delay. Selecting an action or starting work cancels sweeping immedia
 It is cosmetic: no resources,
 rewards or saved work timers change. The dog walks off the two sweeping tiles and
 keeps clear while sweeping continues. It does not run while the page is hidden or
-reduced motion is enabled. Sweeping begins only after he arrives; if there is no
+reduced motion is enabled. After at least 10 seconds in a hidden tab, a farmer who
+was idle and empty-handed when leaving and is still available on return appears
+already sweeping at the farmhouse. Active work, task travel and carried goods
+are preserved. This cosmetic catch-up skips the approach, but still requires a
+clear route and free sweeping tiles. Ordinary input retains the two-second stop
+delay. For normal visible-tab inactivity, sweeping begins only after he arrives; if there is no
 clear route, he waits and retries rather than teleporting. Sweeping takes priority
 over the older idle strolling behaviour whenever the front road tiles are reachable.
 
@@ -168,7 +181,7 @@ building uses the same stage. Intermediate visual upgrades are not implemented y
 
 ## Farm levels
 
-In the isometric farm, the **Farm level N** button at the top opens the level dialog with current progression, next-level requirements, unlocks and the claim button. The farm popup also shows its current level. The granary popup shows its own building level, independently of farm progression. Neither an estate-level signpost nor a pennant is used in the isometric view. This display does not add granary upgrades or change storage capacity rules.
+In the isometric farm, the **Farm level N** button at the top opens the level dialog with current progression, next-level requirements, unlocks and the claim button. The farm popup also shows its current level. The granary automatically upgrades from **Lvl 1 (15 barley)** to **Lvl 2 (20 barley)** when farm level 7 is claimed, at no extra cost or construction time. Its label and capacity use the same farm-level rule, including existing saves already at level 7 or higher and granaries rebuilt later. Other buildings do not receive this automatic level upgrade. Neither an estate-level signpost nor a pennant is used in the isometric view.
 
 Legacy flat view only: click the signpost on the left side of the estate, immediately above the road, to open the same level dialog. The following signpost presentation remains specific to that legacy view.
 
@@ -348,7 +361,7 @@ Each production building popup shows its current level and an upgrade button, di
 
 ### Estate storage and warehouse
 
-Bread baskets and finished beer jars show a disabled **No storage space** button when their resource's total estate storage is full, including capacity reserved for porter deliveries. If any space remains, **Store** stays available for a partial collection, subject to the farmer being available.
+In the isometric scene, the farmer's **Store** action requires room for the whole pile, including capacity reserved for porter deliveries. Otherwise a disabled button explains the storage shortage. Partial pickup is a porter benefit, not a manual farmer action.
 
 The same rule applies to flour and groats at the mill. For mixed stacks, **Store** remains available if either resource present can fit; it shows **No storage space** only when none of the available bags can be stored.
 
@@ -613,7 +626,87 @@ Brewing unlocks at level 6 and consumes Brewer's Groats rather than raw barley.
 - The brewing timer disappearing is the visual cue that the batch is ready; there is no floating “Beer ready” label.
 - Filled beer in estate inventory can be given to the farmer, sold once beer trading unlocks, or used in merchant requests once those unlock.
 
+## Merchant boat presentation
+
+The level-7 visiting merchant uses a reed boat instead of the chariot in the
+isometric farm. It sails left to right on the upper river row, closest to the
+fields, stopping at the approved spot beyond the right-hand edge of the arable
+fields. The testing loop has been removed.
+
+The existing server-owned schedule is unchanged: 15 seconds arriving before
+requests open, 24 hours waiting, then 15 seconds departing. Request windows
+repeat every 72 hours (24 hours open, 48 hours closed). The boat is hidden
+between visits and until a valid schedule is loaded. It fades at the map edges.
+Click the stopped boat to open the existing merchant requests dialog; clicking
+during travel only shows its name. Request quantities, rewards, storage rules
+and once-per-visit fulfilment are unchanged. Completing every request does not
+shorten the visit. Travel never gates availability, deliveries or rewards.
+The farmer may keep harvesting or working while requests are delivered. Unrelated
+farm updates do not disable Deliver or invalidate a delivery. The server checks
+the current visit and stored goods atomically; shortages still prevent delivery,
+and repeated clicks or concurrent requests cannot award the same reward twice.
+
+Gentle cosmetic bobbing retains the approved 1.5 world pixels vertically and
+0.6 degrees of rocking over 4.8 seconds. The separate pole moves during travel
+and rests while parked, with gripping hands layered above it. Moving boats leave
+short-lived white ripples, clipped to the river, with a 2px stroke and 35% peak
+opacity. No new wake forms while stopped; arrival strokes fade within one second.
+Reduced motion disables bobbing, pole movement and wake, retaining the real
+position and schedule. Hidden tabs pause cosmetic motion only. Returning from
+another scene, a hidden tab or a reload shows the current saved visit phase,
+without replaying missed travel. The legacy flat-map chariot is unchanged.
+
 ## Donkey-powered milling (level 7)
+
+**Isometric migration status:** purchasing and idle wandering are playable.
+After a successful donkey purchase in the market, the donkey appears on the
+road beside the farmer and follows his road route, keeping roughly one tile
+behind. On Go back to farm, it follows to the exit, then appears near the farm's
+market entrance and walks onto reachable northern ground before resuming its
+normal wandering. The approved directional sprites, scale and shadows are reused.
+Ownership is saved by the purchase immediately: reloading mid-journey places the
+owned donkey safely on the farm without replaying the market trip or charging again.
+Hidden tabs pause cosmetic following; reduced motion holds the walking frame.
+
+The purchase-following animation is player-approved. Its temporary preview
+button and test-only state have been removed; real purchases retain the animation.
+
+The mill popup has a flour selector and a groats selector. Each offers production
+with the farmer or donkey. Donkey production requires ownership, level 7, six
+stored barley and space for all three output bags within the mill's six-bag cap
+and estate storage. Invalid donkey choices are disabled. Selecting a valid choice
+immediately reserves the ingredients and saves the server-timed production job.
+The farmer fetches the donkey from its current tile, leads it along the saved
+route to the mill, then supplies barley. The donkey waits at pickup and trails
+behind along the same route before disappearing inside. After supplies arrive,
+the farmer is free while the mill's lever, flour effect and progress bar continue.
+The donkey batch produces three flour or groats bags in 15 minutes after supplies
+arrive. When watched, the donkey returns along the escort route; after a long
+absence it resumes resting without replaying the trip. Changed obstacles can
+skip the cosmetic return. Completion never moves an independently working farmer.
+After purchase, the owned donkey appears on free western ground just north of
+the main road (or the nearest suitable ground when occupied) when the farm
+scene is shown. He wanders on non-arable ground and completed roads north of the
+main road, and may use the main road itself. Off-road destinations are preferred.
+Building footprints, loading points, the farm's sweeping tiles, the market
+entrance, crops, scenery, canals and dropped goods are excluded. He avoids tiles
+occupied by the farmer, dog or porter when choosing his next step.
+Each stroll covers three or four connected tiles at 900 ms per tile, with a
+four-frame walking cycle and a 30-second rest after the whole stroll. Wandering
+uses front-facing artwork when walking down the screen and rear-facing artwork
+when walking up, mirrored for rightward travel. At rest he holds the first pose
+in his last direction. Milling and escort animations are unchanged. Restricted
+space or new obstacles can shorten a stroll; he never doubles back just to fill
+the distance. Mouse movement does not cancel his wandering. Hidden tabs
+pause it, reduced motion keeps him still, and his last resting tile is retained
+locally across reloads when still valid. If construction occupies his tile, he
+relocates to a suitable tile; if no suitable space exists, he stays out of sight.
+This is cosmetic and never spends resources or delays production.
+Market-following remains legacy flat-map presentation. The isometric mill now
+uses two stride frames per direction on the farmer's milling arc, with the
+lever resting on the upper back. Directional wandering and milling animations
+are player-approved. The temporary donkey preview controls have been removed;
+normal wandering retains the 30-second pauses between strolls.
 
 - Buy one donkey for **30 shekels** in the baking stand's **NPC Buy** tab. Ownership is permanent; donkeys cannot be sold or listed in the player market. Each farm can own at most one.
 - After purchase the donkey waits beside the farmer in the market and follows him along the road when returning home. On the farm it grazes between free non-arable tiles, avoiding the river, buildings, objects, and goods. It rests for 30 seconds before its first grazing move and after each move finishes.
@@ -657,6 +750,31 @@ The market is a shared neighbourhood social space. Neighbours visiting at the sa
 
 ### Hired porter
 
+While hired, the porter also tops up each completed brewery to two empty beer
+jars, collecting available jars from the farm and carrying them along roads to
+the brewery. He can bring just one jar when that is all that is needed or
+available. Finished-goods storage jobs always take priority; restocking starts
+only when no storage trip can proceed (including when remaining goods cannot fit).
+He finishes a booked trip before choosing another job and returns to the market.
+He never buys jars or collects water. Jars in transit remain part of the estate
+total but become usable at the brewery only on arrival. Saved deliveries finish
+across reloads and offline time, even if the hire expires during a booked trip.
+If a manual delivery fills the available space first, surplus jars are returned
+to estate stock rather than lost or added beyond the two-jar cap.
+
+The isometric porter walks empty-handed to available output, then uses closed
+bags for flour, groats and bread, or closed jars for beer. He stores goods and
+returns empty-handed to his saved market waiting point before taking another job.
+Both deliveries and returns follow server-owned timestamps and resume on reload;
+no animation callback transfers goods. His sprite uses the farmer's ground anchor,
+position-based building depth and shared time-of-day shadow. Stopped-worker
+separation in the isometric scene is still planned.
+
+New porter trips use only completed roads and the main road, never fields or
+ground shortcuts. If pickup or the storage destination has no road-only route,
+he leaves the goods in place and waits. A road reserved by a delivery or return
+trip cannot be removed until the trip finishes. The farmer's pathfinding is unchanged.
+
 - A newly hired porter starts on the road beside the market building. Reloading preserves his saved position or current delivery instead of adding an extra market approach.
 - The porter stands and walks at the same height on roads as the farmer.
 - The porter is drawn in front of building sprites and the level signpost, including its number.
@@ -665,9 +783,10 @@ The market is a shared neighbourhood social space. Neighbours visiting at the sa
 
 - From level 5, hire a porter through **Manage estate → Farmer** for **20 shekels paid upfront**, covering **24 real-world hours**. Hiring works while the farmer is busy. There is no automatic renewal or additional charge; the remaining hire time is shown in the panel.
 - He automatically collects finished flour, groats, bread and beer, including existing output when hired. He does not harvest, gather materials, handle fish or take items from the farmer's hands. He works independently and does not change happiness or harvest limits.
-- He walks to each producer's loading point, then delivers to the completed warehouse first and farm second. Each trip carries one product type to one destination; overflow waits for another trip. He uses `porter-idle.png` while waiting or approaching goods and `porter-busy.png` while carrying them.
+- He uses the same output pickup road as the farmer (nearest B/C output for mill and oven, saved loading road for brewery), then delivers to the completed warehouse first and farm second. Each trip carries one product type to one destination; overflow waits for another trip. The isometric scene uses the new empty, closed-bag and closed-jar porter sprites; the legacy flat map retains its original artwork.
 - Booking a trip reserves its goods and storage slots. The farmer cannot collect those same goods, and purchases or other deliveries cannot consume the reserved capacity. Goods become usable only on arrival. When storage is full, the porter waits and automatically tries again after space becomes available.
-- Trips, hire expiry and production completion use saved timestamps. Collection continues while away and catches up on return, including products that finished during the hire. Nothing that first becomes ready after the hire expires is booked. A trip booked before expiry finishes even after expiry; no further trips start.
+- **Partial pickups are a porter benefit:** unlike the farmer, he takes as much of a pile as the destination can store and leaves the rest. For example, with two goods waiting and room for only one, the pile's chip stays at 2 during his approach and drops to 1 when he picks it up. The remaining good waits until storage space becomes available.
+- Trips, hire expiry and production completion use saved timestamps. Collection continues while away and catches up on return, including products that finished during the hire. Nothing that first becomes ready after the hire expires is booked. A trip booked before expiry finishes, including its return to the market, even after expiry; no further deliveries start.
 - Hire fees are recorded in transaction history. Payment and hiring are atomic, and retrying the same hire cannot charge twice. Only one porter can be hired at a time; renewal is available after the hire and any last delivery finish. Manual collection remains free.
 
 The farmer must unload carried items before entering the market scene. This includes
@@ -745,9 +864,10 @@ yet; use the flat market for that feature.
 ## Traveling merchant requests
 
 - Merchant requests unlock at level 7 and are accessed through the chariot on the estate road, not through the market stands.
-- The chariot takes 15 seconds to arrive, stops on the road immediately outside the arable plot's right edge, and offers three requests during a **24-hour window**. There is then a **48-hour break** before the next request window.
+- The chariot takes 15 seconds to arrive and offers three requests during a **24-hour window**. In the isometric farm it waits just inside the left-hand entrance of the main road, keeping the market and idle porter clear. The legacy flat view retains its stop beyond the arable plot's right edge. There is then a **48-hour break** before the next request window.
 - Clicking a moving chariot only shows its name. Click while it is stopped to open requests.
 - Each request can be fulfilled once per visit. The required goods are consumed and the shekel reward is granted together.
+- In the isometric merchant dialog, fulfilled requests disappear from the list. Once all three are delivered, it shows “All requests fulfilled.” Automatic refresh keeps stock and delivery status current; there is no manual refresh button and refreshing never creates extra requests.
 - Completing every request early does not bring the next visit forward. Missing a visit has no penalty, and missed requests do not accumulate.
 - Deliveries use barley stored in the farm or completed granaries and beer collected into estate inventory. Ground goods, carried goods, brewing ingredients, uncollected beer, and goods committed to player listings do not count.
 - The merchant currently offers requests only, not ordinary buying or selling.

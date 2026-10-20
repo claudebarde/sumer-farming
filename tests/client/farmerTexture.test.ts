@@ -16,6 +16,16 @@ const setup = (width: number, height: number, visible: boolean) => {
 };
 
 describe("farmer display texture", () => {
+  it("supports higher-resolution porter textures without changing normalized size or foot alignment", () => {
+    const { source, contexts } = setup(600, 1200, true);
+    const result = prepareFarmerTexture(source, 0, undefined, 256);
+    expect(result.width).toBe(256);
+    expect(result.height).toBe(256);
+    const [, x, y, width, height] = contexts[1]!.drawImage.mock.calls[0]!;
+    expect((y + height) / 256).toBe(120 / 128);
+    expect(height / 256).toBe(112 / 128);
+    expect(Math.abs(x + width / 2 - 128)).toBeLessThanOrEqual(0.5);
+  });
   it("uses a shared animation crop instead of fitting individual silhouettes", () => {
     const { source, contexts } = setup(1024, 1536, true);
     prepareFarmerTexture(source, 0, { left: 100, top: 70, right: 960, bottom: 1470 });

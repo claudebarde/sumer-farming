@@ -7,7 +7,7 @@ import FarmerPortrait from "./FarmerPortrait";
 import IsometricMillActions from "./IsometricMillActions";
 import BuildingActionIcon from "./BuildingActionIcon";
 import buildingActionStyles from "../styles/BuildingActionButton.module.scss";
-import type { MillRecipe } from "../../game-data/milling";
+import type { MillRecipe, MillWorker } from "../../game-data/milling";
 import { TILE_SIZE } from "../game/phaser/config";
 import BuildingStorageTables from "./BuildingStorageTables";
 import GranaryStorageCard from "./GranaryStorageCard";
@@ -27,6 +27,7 @@ import { canSupplyBrewery, waterPourTarget } from "../game/phaser/isometricBrewi
 import type { BrewerySupplyAction } from "../../game-core/farm/brewerySupplies";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import BrewingRequirements from "./BrewingRequirements";
+import ProductionProgress from "./ProductionProgress";
 import { productionOutputFits, OUTPUT_FULL_MESSAGE } from "../../game-core/farm/productionOutputCapacity";
 import { BREAD_RECIPE } from "../../game-data/production";
 import { BEER_RECIPE } from "../../game-data/brewing";
@@ -42,7 +43,7 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
   onDestroyMaterial: () => void;
   onDestroyIrrigation: () => void;
   onDestroyRoad?: () => void;
-  onMill?: (recipe: MillRecipe) => void;
+  onMill?: (recipe: MillRecipe, worker: MillWorker) => void;
   onPickupMill?: (id: string) => void;
   onClaimLevel?: () => void;
   onBake?: () => void;
@@ -51,6 +52,12 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
 }) {
   const content = isometricTilePopup(snapshot, anchor.cell, now);
   const farmer = anchor.kind === "farmer";
+  const bakingJob = !farmer && anchor.kind !== "breadBasket" && content.building?.type === "breadOven"
+    ? snapshot.farm.production.baking[content.building.id] : undefined;
+  const millingJob = !farmer && anchor.kind !== "millBags" && content.building?.type === "mill" &&
+    snapshot.farm.milling?.buildingId === content.building.id ? snapshot.farm.milling : undefined;
+  const brewingJob = !farmer && anchor.kind !== "beerJars" && content.building?.type === "brewery"
+    ? snapshot.farm.production.brewing?.[content.building.id] : undefined;
   const inventoryPopup = !farmer && (content.home || content.building?.type === "warehouse");
   const granaryInventory = !farmer && content.building?.type === "granary" && Date.parse(content.building.completesAt) <= now ? content.building : null;
   const bags = anchor.kind === "millBags";
@@ -88,6 +95,9 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
         .filter(detail => !granaryInventory || !detail.endsWith(" barley stored"))
         .filter(detail => outputQuantity === null || !/^\d+ (?:bread|beer|flour bags?|groats bags?) ready$/.test(detail)).map(detail => <p key={detail}>{detail}</p>)}
       {granaryInventory && <GranaryStorageCard quantity={granaryInventory.storedBarley} farmLevel={snapshot.farm.progression?.level ?? 1} />}
+      {bakingJob && <ProductionProgress job={bakingJob} now={now} label="Baking progress" />}
+      {millingJob && <ProductionProgress job={millingJob} now={now} label="Milling progress" />}
+      {brewingJob && <ProductionProgress job={brewingJob} now={now} label="Brewing progress" />}
       {!farmer && (content.home || content.building?.type === "warehouse") && <BuildingStorageTables location={content.home ? "farm" : "warehouse"} inventory={snapshot.inventory}
         visual
         barley={content.home ? snapshot.inventory.find(i => i.itemKey === "barley")?.quantity ?? 0 : content.building?.storedBarley ?? 0}
@@ -102,8 +112,8 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
           <button onClick={() => onBreweryAction("pour_water")}>Discard water</button>}
         {!farmer && !bread && onBreweryAction && <>
           {content.building?.type === "brewery" && ([['deliver', 'Deliver water'], ['stock_jars', 'Stock empty jars'], ['start_brewing', 'Brew beer']] as const).map(([action, label]) =>
-            canSupplyBrewery(snapshot, content.building!, action, now) && <button key={action} className={action === "stock_jars" ? buildingActionStyles.button : undefined} onClick={() => onBreweryAction(action)}>
-              {action === "stock_jars" && <BuildingActionIcon kind="emptyJars" />}<span>{label}</span>
+            canSupplyBrewery(snapshot, content.building!, action, now) && <button key={action} className={action === "stock_jars" || action === "start_brewing" ? buildingActionStyles.button : undefined} onClick={() => onBreweryAction(action)}>
+              {action === "stock_jars" && <BuildingActionIcon kind="emptyJars" />}{action === "start_brewing" && <BuildingActionIcon kind="brewBeer" />}<span>{label}</span>
             </button>)}
           {content.title === "River" && canSupplyBrewery(snapshot, { column: anchor.cell.column, row: INITIAL_FARM_CONFIG.riverRow }, "collect_water", now) && <button className={buildingActionStyles.button} onClick={() => onBreweryAction("collect_water")}><BuildingActionIcon kind="emptyJars" /><span>Collect water</span></button>}
           {content.title === "River" && canSupplyBrewery(snapshot, anchor.cell, "pour_water", now) && <button onClick={() => onBreweryAction("pour_water")}>Pour water</button>}
@@ -142,7 +152,7 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
         {content.actions.destroyRoad && <button onClick={onDestroyRoad}>Destroy</button>}
         {content.actions.drop && <button onClick={onDrop}>Drop {materialLabel(snapshot.farm.carriedItem!.itemKey)}</button>}
         {content.actions.plant && <button className={buildingActionStyles.button} onClick={() => onSelect("plant", content.home ? undefined : anchor.cell)}><BuildingActionIcon kind="plantBarley" /><span>Plant barley</span></button>}
-        {content.actions.harvest && <button onClick={() => onSelect("harvest", content.home ? undefined : anchor.cell)}>Harvest barley</button>}
+        {content.actions.harvest && <button className={buildingActionStyles.button} onClick={() => onSelect("harvest", content.home ? undefined : anchor.cell)}><BuildingActionIcon kind="harvestBarley" /><span>Harvest barley</span></button>}
         {content.actions.walk && <button className={buildingActionStyles.button} onClick={onWalk}><BuildingActionIcon kind="walk" /><span>Walk here</span></button>}
         {content.actions.destroyMaterial && <button onClick={onDestroyMaterial}>Destroy {materialLabel(content.groundItem!.itemKey)}</button>}
         {content.building && !demolitionReason && <button className={["mill", "brewery", "breadOven"].includes(content.building.type) ? buildingActionStyles.button : undefined} onClick={() => onDestroyBuilding(content.building!.id)}>

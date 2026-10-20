@@ -2,6 +2,8 @@ import { getRequestWindow } from "../../../game-core/market/npcRequests";
 import { MERCHANT_TRAVEL_MS, REQUEST_CYCLE_MS, REQUEST_OPEN_MS } from "../../../game-data/npcRequests";
 
 type Schedule = { readonly cycle: number; readonly closesAt: string };
+export const scheduledMerchantVisit = (level: number, board: Schedule | null, now: number): MerchantVisit =>
+  level >= 7 && board ? getMerchantVisit(board, now) : { phase: "away" };
 export type MerchantVisit =
   | { readonly phase: "away" | "stopped" }
   | { readonly phase: "arriving" | "departing"; readonly progress: number };

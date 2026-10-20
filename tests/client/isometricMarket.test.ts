@@ -1,4 +1,7 @@
-import { expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { isoPoint } from "../../src/client/game/phaser/isometricProjection";
+beforeEach(() => vi.stubGlobal("document", { hidden: false, visibilityState: "visible" }));
+afterEach(() => vi.unstubAllGlobals());
 vi.mock("phaser", () => ({ default: { Scene: class {} } }));
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
 import { ProgressionSchema } from "../../src/schemas/progression";
@@ -47,6 +50,12 @@ import { IsometricFarmScene } from "../../src/client/game/phaser/scenes/Isometri
 import { IsometricMarketScene, stands } from "../../src/client/game/phaser/scenes/IsometricMarketScene";
 import { futureMarketStandOrigins, isMarketRoad, marketRoadMask, marketRoadPath } from "../../src/client/game/phaser/isometricMarketLayout";
 
+const preparedMarketScene = (...args: ConstructorParameters<typeof IsometricMarketScene>) => {
+  const scene = new IsometricMarketScene(...args);
+  Reflect.set(scene, "daylightShadows", { render: () => {} });
+  return scene;
+};
+
 const id = "00000000-0000-4000-8000-000000000001";
 const snapshot = () => {
   const saved = FarmSnapshotSchema.parse({ created: false, player: { shekelBalance: 0 },
@@ -89,6 +98,8 @@ const harness = () => {
   state.draw = () => {}; state.renderFarmer = () => {}; state.renderRiverWaves = () => {};
   state.renderStorageChips = () => {}; state.renderFarmerMarker = () => {};
   state.scene = { switch: switched };
+  Reflect.set(scene, "renderClouds", () => {});
+  Reflect.set(scene, "daylightShadows", { render: () => {} });
   return { scene, state, entered, switched };
 };
 
@@ -129,7 +140,7 @@ it("cancels arrival when a refreshed snapshot blocks the next road tile", () => 
 
 it("returns from the market only after arriving at the farmhouse road entrance", () => {
   const returned = vi.fn(), switched = vi.fn();
-  const scene = new IsometricMarketScene(() => {}, returned);
+  const scene = preparedMarketScene(() => {}, returned);
   const state = scene as unknown as {
     ready: boolean; position: { column: number; row: number }; actor: { setFlipX: () => void };
     renderFarmer: () => void; scene: { switch: typeof switched };
@@ -143,6 +154,42 @@ it("returns from the market only after arriving at the farmhouse road entrance",
   expect(state.position).toEqual({ column: -2, row: 5 });
   expect(returned).toHaveBeenCalledTimes(1);
   expect(switched).toHaveBeenCalledWith("isometric-farm");
+});
+
+it("hands a purchased donkey over once at the exit", () => {
+  const returned = vi.fn(), switched = vi.fn();
+  const scene = preparedMarketScene(() => {}, returned);
+  Reflect.set(scene, "ready", true);
+  Reflect.set(scene, "actor", { setFlipX: () => {} });
+  Reflect.set(scene, "renderFarmer", () => {});
+  Reflect.set(scene, "scene", { switch: switched });
+  expect(scene.showPurchasedDonkey()).toBe(true);
+  scene.goBackToFarm();
+  vi.stubGlobal("document", { hidden: true });
+  scene.update(0, 60000);
+  expect(returned).not.toHaveBeenCalled();
+  vi.stubGlobal("document", { hidden: false });
+  for (let i = 0; i < 30; i++) scene.update(0, 80);
+  expect(returned).toHaveBeenCalledExactlyOnceWith("purchase");
+  expect(switched).toHaveBeenCalledExactlyOnceWith("isometric-farm");
+  expect(Reflect.get(scene, "donkeyFollow")).toBeNull();
+});
+
+it("lowers the market donkey artwork onto the road without changing its logical position", () => {
+  const scene = preparedMarketScene(() => {}, () => {});
+  const sprite = {
+    setVisible: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(),
+    setDepth: vi.fn().mockReturnThis(), setTexture: vi.fn().mockReturnThis(),
+    setFlipX: vi.fn().mockReturnThis(), setDisplaySize: vi.fn().mockReturnThis(),
+  };
+  Reflect.set(scene, "ready", true);
+  Reflect.set(scene, "donkey", sprite);
+  scene.showPurchasedDonkey();
+  const follow = Reflect.get(scene, "donkeyFollow");
+  const point = isoPoint(follow.position);
+  expect(sprite.setPosition).toHaveBeenLastCalledWith(point.x, point.y + 8);
+  expect(sprite.setDepth).toHaveBeenLastCalledWith(point.y + 9);
+  expect(isMarketRoad(follow.position)).toBe(true);
 });
 
 it("connects the rectangular road with two T junctions and two lower corners", () => {
@@ -171,7 +218,7 @@ it("routes around the interior and back home, never across future stands", () =>
 });
 
 it("finishes the current step when redirected from the lower loop back home", () => {
-  const returned = vi.fn(), scene = new IsometricMarketScene(() => {}, returned);
+  const returned = vi.fn(), scene = preparedMarketScene(() => {}, returned);
   const state = scene as unknown as {
     ready: boolean; position: { column: number; row: number }; path: { column: number; row: number }[];
     actor: { setFlipX: () => void }; renderFarmer: () => void; scene: { switch: () => void };
@@ -229,7 +276,7 @@ it("places the baking stand inside the loop with its merchant beside the lower r
 });
 
 it.each(stands)("updates the $scope merchant facing while the farmer stands nearby", stand => {
-  const setFlipX = vi.fn(), scene = new IsometricMarketScene(() => {}, () => {});
+  const setFlipX = vi.fn(), scene = preparedMarketScene(() => {}, () => {});
   const state = scene as unknown as {
     ready: boolean; position: { column: number; row: number }; renderFarmer: () => void;
     merchants: { sprite: { setFlipX: typeof setFlipX }; cell: typeof stand.merchant; facing: { flipX: boolean; waitingMs: number } }[];
@@ -247,7 +294,7 @@ it.each(stands)("updates the $scope merchant facing while the farmer stands near
 
 const merchantApproachHarness = () => {
   const report = vi.fn(), renderFarmer = vi.fn(), setFlipX = vi.fn();
-  const scene = new IsometricMarketScene(report, () => {});
+  const scene = preparedMarketScene(report, () => {});
   const state = scene as unknown as {
     ready: boolean; position: { column: number; row: number }; path: readonly { column: number; row: number }[];
     actor: { setFlipX: typeof setFlipX }; renderFarmer: typeof renderFarmer;

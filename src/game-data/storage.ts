@@ -24,8 +24,10 @@ export const estateResourceCapacity = (
 export const FARM_STORAGE_CAPACITY = 5;
 export const FARMER_CARRY_CAPACITY = 2;
 export const UPGRADED_GRANARY_CAPACITY = 20;
+/** Automatic estate unlock; no paid upgrade job or duplicate saved state needed. */
+export const granaryLevelForFarmLevel = (level: number): 1 | 2 => level >= 7 ? 2 : 1;
 export const granaryCapacityForLevel = (level: number): number =>
-  level >= 7 ? UPGRADED_GRANARY_CAPACITY : FARM_BUILDING_DEFINITIONS.granary.barleyStorageBonus;
+  granaryLevelForFarmLevel(level) === 2 ? UPGRADED_GRANARY_CAPACITY : FARM_BUILDING_DEFINITIONS.granary.barleyStorageBonus;
 
 export const calculateFarmStorageCapacity = (
   buildings: readonly {

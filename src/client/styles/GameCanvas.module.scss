@@ -616,7 +616,8 @@
   }
 }
 
-.manage-dialog-content:has(.building-card) {
+.manage-dialog-content:has(.building-card),
+.manage-dialog-content:has(.farmer-heading) {
   width: min(540px, 90vw);
 }
 

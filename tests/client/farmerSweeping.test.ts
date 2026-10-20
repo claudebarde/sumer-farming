@@ -1,6 +1,19 @@
 import { expect, it } from "vitest";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
-import { planSweeping, sweepingPose, sweepTexture, sweepStopDeadline, SWEEP_IDLE_DELAY, SWEEP_DWELL_MS } from "../../src/client/game/phaser/farmerSweeping";
+import { planSweeping, planReturningSweep, sweepingPose, sweepTexture, sweepStopDeadline, sweepOriginX, SWEEP_ORIGIN, SWEEP_IDLE_DELAY, SWEEP_DWELL_MS } from "../../src/client/game/phaser/farmerSweeping";
+it("alternates facing between passes from either starting tile and preserves the foot anchor", () => {
+  for (const column of [1, 2]) {
+    const first = { column, row: 5 }, second = { column: column === 1 ? 2 : 1, row: 5 };
+    const plan = { path: [first], first, second };
+    const leg = SWEEP_DWELL_MS + 180;
+    expect(sweepingPose(plan, 0).facingLeft).toBe(column === 2);
+    expect(sweepingPose(plan, SWEEP_DWELL_MS - 1).facingLeft).toBe(column === 2);
+    expect(sweepingPose(plan, leg).facingLeft).toBe(column !== 2);
+    expect(sweepingPose(plan, leg * 2).facingLeft).toBe(column === 2);
+  }
+  expect(sweepOriginX(false)).toBe(SWEEP_ORIGIN.x);
+  expect(sweepOriginX(true)).toBe(1 - SWEEP_ORIGIN.x);
+});
 it("delays stopping by two seconds from the first input without extending on repeated input", () => {
   const deadline = sweepStopDeadline(null, 1000);
   expect(deadline).toBe(3000);
@@ -12,6 +25,32 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
   farm: { id, playerId: id, version: 1, carriedItem: null, gathering: null,
     household: { happiness: 70, lastBeerAt: null, lastFishAt: null, hungrySince: null, cultivationStartedAt: null, nextBarleyConsumptionAt: null } },
   inventory: [], objects: [], groundItems: [], crops: [], improvements: [], buildings: [] });
+it("returns directly to sweeping only after ten seconds away while eligible", () => {
+  const s = snapshot(), from = { column: 5, row: 9 };
+  expect(planReturningSweep(s, from, null, 11000)).toBeNull();
+  expect(planReturningSweep(s, from, 1000, 10999)).toBeNull();
+  const before = JSON.stringify(s);
+  for (const now of [11000, 86_400_000]) {
+    const plan = planReturningSweep(s, from, 1000, now)!;
+    expect(plan.path).toEqual([plan.first]);
+    expect(sweepingPose(plan, 0)).toMatchObject({ type: "sweeping", position: plan.first });
+  }
+  expect(JSON.stringify(s)).toBe(before);
+});
+it("does not catch up sweeping with cargo, work or blocked access", () => {
+  const s = snapshot(), from = { column: 5, row: 9 };
+  s.farm.carriedItem = { itemKey: "water", quantity: 1 };
+  expect(planReturningSweep(s, from, 1000, 11000)).toBeNull();
+  s.farm.carriedItem = null;
+  s.farm.roads = [{ column: 5, row: 4, completesAt: 20000 }];
+  expect(planReturningSweep(s, from, 1000, 11000)).toBeNull();
+  s.farm.roads = [];
+  s.objects = [{ id, type: "rock", column: 2, row: 5 }];
+  expect(planReturningSweep(s, from, 1000, 11000)).toBeNull();
+  s.objects = [{ column: 4, row: 9 }, { column: 6, row: 9 }, { column: 5, row: 8 }]
+    .map(cell => ({ id, type: "rock" as const, ...cell }));
+  expect(planReturningSweep(s, from, 1000, 11000)).toBeNull();
+});
 it("uses a 10 second inactivity delay without a distance restriction", () => {
   expect(SWEEP_IDLE_DELAY).toBe(10000);
   for (const from of [{ column: 5, row: 9 }, { column: -4, row: 0 }, { column: 7, row: 6 }]) {

@@ -1,0 +1,32 @@
+.list { margin-top: 16px; }
+.card {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) minmax(100px, 1fr) minmax(130px, 1.3fr);
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+.resource { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.artwork { width: 56px; height: 56px; flex-shrink: 0;
+  img { width: 56px; height: 56px; object-fit: contain; }
+}
+.unavailable { flex-basis: 100%; }
+.benefit { display: flex; flex-direction: column; gap: 3px;
+  strong { color: #667b39; font-size: 1.25rem; }
+}
+.action { display: flex; flex-direction: column; gap: 6px; border-left: 1px solid #d8b77e; padding-left: 12px; min-width: 0;
+  button { width: 100%; padding: 8px; font-size: 0.85rem; white-space: normal; }
+}
+.message { grid-column: 1 / -1; margin: 0; }
+.serviceCard { grid-template-columns: minmax(0, 2fr) minmax(130px, 1.3fr); }
+.serviceDescription {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  img { width: 64px; height: 80px; object-fit: contain; flex-shrink: 0; }
+  h3 { margin: 0 0 6px; }
+  p { margin: 0; font-size: 0.85em; }
+}
+@media (max-width: 480px) {
+  .card { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .serviceDescription { grid-column: 1 / -1; }
+  .action { grid-column: 1 / -1; border-left: 0; border-top: 1px solid #d8b77e; padding: 8px 0 0; }
+}

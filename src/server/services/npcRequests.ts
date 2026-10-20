@@ -79,7 +79,9 @@ export const deliverNpcRequest = (database: Database, input: DeliveryInput) => E
       const request = NPC_REQUESTS[board.brewer ? "brewer" : "starter"][input.slot];
       if (!request) return { reason: "expired" };
       if (board.completed.includes(input.slot)) return { snapshot: await readFarmSnapshot(tx, farm, false) };
-      if (farm.version !== input.expectedFarmVersion) return { reason: "version_conflict" };
+      // A fixed visit/slot identifies the exact agreed offer. Unrelated harvest
+      // progress may change farm.version; validate current goods under this row
+      // lock instead. Completion and receipt guards still prevent duplicate pay.
       const [duplicate] = await tx.select({ id: shekelTransactions.id }).from(shekelTransactions).where(and(
         eq(shekelTransactions.playerId, input.playerId), eq(shekelTransactions.idempotencyKey, input.idempotencyKey)
       ));

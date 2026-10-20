@@ -18,7 +18,7 @@ export const sharpenFarmerPixels = (data: Uint8ClampedArray, width: number, heig
 };
 
 /** Prepare artwork near its display resolution rather than minifying a huge texture every frame. */
-export const prepareFarmerTexture = (source: HTMLImageElement, sharpenAmount = FARMER_SHARPEN_AMOUNT, frameBounds?: { left: number; top: number; right: number; bottom: number }): HTMLCanvasElement => {
+export const prepareFarmerTexture = (source: HTMLImageElement, sharpenAmount = FARMER_SHARPEN_AMOUNT, frameBounds?: { left: number; top: number; right: number; bottom: number }, textureSize = 128): HTMLCanvasElement => {
   const original = document.createElement("canvas");
   original.width = source.naturalWidth || source.width;
   original.height = source.naturalHeight || source.height;
@@ -35,14 +35,15 @@ export const prepareFarmerTexture = (source: HTMLImageElement, sharpenAmount = F
   const output = document.createElement("canvas");
   // Animation frames share one crop: never rescale each pose to its own silhouette.
   if (frameBounds) ({ left, top, right, bottom } = frameBounds);
-  output.width = output.height = 128;
+  output.width = output.height = textureSize;
+  const resolutionScale = textureSize / 128;
   if (right < left) return output;
   let current = document.createElement("canvas");
   current.width = right - left + 1;
   current.height = bottom - top + 1;
   current.getContext("2d")!.drawImage(original, left, top, current.width, current.height, 0, 0, current.width, current.height);
   // Successive reductions average fine detail instead of skipping over outline pixels.
-  while (current.height > 224) {
+  while (current.height > 224 * resolutionScale) {
     const reduced = document.createElement("canvas");
     reduced.width = Math.max(1, Math.round(current.width / 2));
     reduced.height = Math.round(current.height / 2);
@@ -52,13 +53,13 @@ export const prepareFarmerTexture = (source: HTMLImageElement, sharpenAmount = F
     ctx.drawImage(current, 0, 0, reduced.width, reduced.height);
     current = reduced;
   }
-  const scale = Math.min(112 / current.height, 112 / current.width);
+  const scale = Math.min(112 * resolutionScale / current.height, 112 * resolutionScale / current.width);
   const width = Math.round(current.width * scale), height = Math.round(current.height * scale);
   const target = output.getContext("2d")!;
   target.imageSmoothingEnabled = true;
   target.imageSmoothingQuality = "high";
   // A 56px visible character, centered horizontally, feet at y=60 in the 64px actor tile.
-  target.drawImage(current, Math.round((128 - width) / 2), 120 - height, width, height);
+  target.drawImage(current, Math.round((textureSize - width) / 2), 120 * resolutionScale - height, width, height);
   if (sharpenAmount > 0) {
     const pixels = target.getImageData(0, 0, output.width, output.height);
     pixels.data.set(sharpenFarmerPixels(pixels.data, output.width, output.height, sharpenAmount));

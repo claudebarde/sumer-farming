@@ -10,9 +10,10 @@ import { merchantUiStore } from "../stores/merchantUiStore";
 import { getMerchantVisit } from "../game/phaser/merchantVisit";
 import NpcRequests from "./NpcRequests";
 import styles from "../styles/GameCanvas.module.scss";
+import requestStyles from "../styles/MerchantRequests.module.scss";
 
 /** Keep the visitor schedule loaded even when its requests dialog is closed. */
-export default function MerchantRequests() {
+export default function MerchantRequests({ visual = false }: { readonly visual?: boolean }) {
   const playerId = useStore(farmStore, state => state.farm.type === "ready" ? state.farm.snapshot.farm.playerId : null);
   const location = useStore(marketUiStore, state => state.location);
   const { board, clockOffset, isOpen } = useStore(merchantUiStore);
@@ -53,14 +54,16 @@ export default function MerchantRequests() {
   return <Dialog.Root open={isOpen && available && location === "farm"} onOpenChange={merchantUiStore.getState().setOpen}>
     <Dialog.Portal>
       <Dialog.Overlay className={styles["market-dialog-overlay"]} />
-      <Dialog.Content className={styles["market-dialog-content"]}>
+      <Dialog.Content className={`${styles["market-dialog-content"]} ${visual ? requestStyles.dialog : ""}`}>
         <header className={styles["market-dialog-header"]}>
-          <Dialog.Title>Merchant chariot</Dialog.Title>
+          <Dialog.Title>{visual ? "Merchant boat" : "Merchant chariot"}</Dialog.Title>
           <Dialog.Close asChild><button className={styles["market-dialog-close"]} aria-label="Close merchant requests"><Cross2Icon /></button></Dialog.Close>
         </header>
         <div className={styles["market-dialog-body"]}>
-          <Dialog.Description>Fulfill the visiting merchant’s requests to earn shekels.</Dialog.Description>
-          <NpcRequests key={playerId} onDelivered={() => {}} />
+          <Dialog.Description>{visual
+            ? "Deliver the requested goods to earn shekels. Each request can be completed once per visit."
+            : "Fulfill the visiting merchant’s requests to earn shekels."}</Dialog.Description>
+          <NpcRequests key={playerId} visual={visual} onDelivered={() => {}} />
         </div>
       </Dialog.Content>
     </Dialog.Portal>

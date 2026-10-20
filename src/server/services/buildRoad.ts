@@ -10,7 +10,7 @@ import type { GameCommand } from "../../schemas/gameCommands";
 import type { Database } from "../db/client";
 import { farms, farmObjects } from "../db/schema";
 import { readFarmSnapshot } from "./farmSnapshot";
-import { porterPath } from "../../game-core/farm/porter";
+import { porterPath, porterRoadRemovalReason } from "../../game-core/farm/porter";
 import { roadNeighbors } from "../../game-core/farm/roads";
 import { WORKER_MOVE_DURATION_PER_TILE } from "../../game-data/movement";
 
@@ -36,7 +36,7 @@ export const buildRoad = (database: Database, input: Extract<GameCommand, { type
         ...getBuildingFootprint("granary", { column: INITIAL_FARM_CONFIG.buildingBounds.minimumColumn, row: INITIAL_FARM_CONFIG.buildingBounds.minimumRow })
       ].map(roadKey));
       const reason = input.type === "destroy_road"
-        ? roadRemovalReason(input.target, snapshot.farm.roads, snapshot.buildings.flatMap(b => b.loadingTile ? [b.loadingTile] : []), now)
+        ? porterRoadRemovalReason(snapshot.farm.production.porter, input.target) ?? roadRemovalReason(input.target, snapshot.farm.roads, snapshot.buildings.flatMap(b => b.loadingTile ? [b.loadingTile] : []), now)
         : validateRoadPlacement(input.target, snapshot.farm.roads, occupied, now);
       if (reason) return fail(reason);
       const buildings = snapshot.buildings.map(b => ({ ...b, completesAt: Date.parse(b.completesAt) }));

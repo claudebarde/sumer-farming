@@ -112,6 +112,35 @@ Use alongside the common and animation sections; inspect existing recipes first.
 - **Progress feedback:** Reuse building progress, a lower activity container,
   or both? Keep preparation/travel distinct from production progress.
 
+## Autonomous supply and delivery jobs
+
+Use alongside the animation and common questions for hired-worker logistics.
+
+- **Restocking threshold:** Refill only when empty or whenever below a target?
+  Are partial supplies useful when estate stock cannot fill the target?
+- **Job priority:** How do supply trips compete with finished-goods collection?
+  Finish a booked trip first or allow interruption, and where does the worker
+  wait or return between jobs?
+- **Stock ownership and conflicts:** Which storage supplies the goods, when are
+  stock and destination space reserved, and how do manual deliveries avoid
+  duplicate transfers or overfilling? May the worker buy missing supplies?
+- **Availability:** What happens without a completed destination, a valid road
+  route, available stock or an active hire? Reuse saved-job expiry and offline
+  catch-up rules where applicable.
+
+## Neighbourhood and social maps
+
+- **Membership baseline:** Reuse existing city/group assignment, capacity and saved
+  membership. Distinguish revealing a map from assigning or relocating players.
+- **Map representation:** Real geography or a symbolic layout? Shared stable plots
+  or viewer-centred arrangement? How are empty slots and offline members shown?
+- **Public information:** Which names, portraits, levels and estate details may
+  other members see? Keep private inventory and account data out of map responses.
+- **Interaction scope:** Overview only, profile popup or farm visits? Identify
+  excluded trading, messaging and cooperative actions explicitly.
+- **Navigation and assets:** Entry point, unlock level, return flow and relationship
+  to city/world maps; reuse building artwork or create a dedicated map illustration?
+
 ## Adding a feature type
 
 When a real discussion introduces an uncovered type, add a named section with

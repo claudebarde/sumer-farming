@@ -500,7 +500,9 @@ app.post("/api/game/action", async c => {
     if (!await readResidence(database, c.get("developmentPlayer").id)) return c.json({ error: { type: "city_required", message: "Choose your city before starting your farm." } }, 409);
     const [progressFarm] = await database.select({ level: farms.level, production: farms.production, farmerProfile: farms.farmerProfile }).from(farms).where(eq(farms.playerId, c.get("developmentPlayer").id));
     if (progressFarm && !progressFarm.farmerProfile) return c.json({ error: { type: "farmer_name_required", message: "Choose your farmer's name before starting your farm." } }, 409);
-    if (progressFarm?.production.planting && command.type !== "advance_batch_planting") return c.json({ error: { type: "farmer_busy", message: "Finish or stop planting or harvesting the selected fields first." } }, 409);
+    // Merchant requests transfer stored goods atomically, without using the
+    // farmer. Keep other work blocked while a sowing/harvesting batch runs.
+    if (progressFarm?.production.planting && command.type !== "advance_batch_planting" && command.type !== "deliver_npc_request") return c.json({ error: { type: "farmer_busy", message: "Finish or stop planting or harvesting the selected fields first." } }, 409);
     const order = command.type === "buy_market_sell_order"
       ? (await database.select({ itemKey: marketOrders.itemKey }).from(marketOrders).where(eq(marketOrders.id, command.orderId)))[0]
       : undefined;

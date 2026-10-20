@@ -1,5 +1,5 @@
-import { expect, it } from "vitest";
-import { createElement } from "react";
+import { expect, it, vi } from "vitest";
+import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
 import { millPopupState, millingJourneyPose, millingProgress } from "../../src/client/game/phaser/isometricMilling";
@@ -45,11 +45,59 @@ it("shows flour then groats and replaces both with the exact insufficient-barley
   expect(render()).toBe("");
 });
 
+it("uses two compact recipe selectors instead of four production buttons", () => {
+  const s = snapshot();
+  const render = () => renderToStaticMarkup(createElement(IsometricMillActions, { snapshot: s, buildingId: id, now: 1000, onMill: () => {} }));
+  expect(render().match(/role="combobox"/g)).toHaveLength(2);
+  s.inventory.push({ itemKey: "donkey", quantity: 1 });
+  const html = render();
+  expect(html.match(/role="combobox"/g)).toHaveLength(2);
+  expect(html.match(/<button /g)).toHaveLength(2);
+  expect(html).toContain('aria-label="Make flour (for bread)"');
+  expect(html).toContain('aria-label="Make groats (for beer)"');
+  expect(html).not.toContain("Donkey actions: preview only");
+  s.farm.carriedItem = { itemKey: "clay", quantity: 1, expiresAt: null };
+  expect(render()).toBe("");
+});
+
 it("uses two decorative pickaxes for the mill demolition icon", () => {
   const html = renderToStaticMarkup(createElement(MillActionIcon, { kind: "destroy" }));
   expect(html.match(/<img /g)).toHaveLength(2);
   expect(html).toContain('aria-hidden="true"');
   expect(html).toContain("flipped");
+});
+
+it("enables real donkey choices only when the entire three-bag batch fits", () => {
+  const s = snapshot();
+  s.farm.progression!.level = 7;
+  s.inventory = [{ itemKey: "barley", quantity: 6 }, { itemKey: "donkey", quantity: 1 }];
+  for (const recipe of ["flour", "brewersGroats"] as const) {
+    expect(millPopupState(s, id, 1000, recipe, "donkey").canStart).toBe(true);
+  }
+  s.farm.millGoods.pending[id] = { flour: 4, brewersGroats: 0 };
+  expect(millPopupState(s, id, 1000, "flour", "donkey").canStart).toBe(false);
+  expect(millPopupState(s, id, 1000, "flour", "farmer").canStart).toBe(true);
+  s.farm.millGoods.pending = {};
+  s.inventory[0]!.quantity = 5;
+  expect(millPopupState(s, id, 1000, "flour", "donkey").canStart).toBe(false);
+  s.inventory[0]!.quantity = 6;
+  s.inventory.pop();
+  expect(millPopupState(s, id, 1000, "flour", "donkey").canStart).toBe(false);
+});
+
+it("dispatches each selected recipe and worker, never a disabled donkey choice", () => {
+  const s = snapshot(), onMill = vi.fn();
+  s.farm.progression!.level = 7;
+  s.inventory = [{ itemKey: "barley", quantity: 6 }, { itemKey: "donkey", quantity: 1 }];
+  const roots = IsometricMillActions({ snapshot: s, buildingId: id, now: 1000, onMill })!.props.children as ReactElement<{ onValueChange: (worker: string) => void }>[];
+  roots[0]!.props.onValueChange("farmer");
+  roots[0]!.props.onValueChange("donkey");
+  roots[1]!.props.onValueChange("donkey");
+  expect(onMill.mock.calls).toEqual([["flour", "farmer"], ["flour", "donkey"], ["brewersGroats", "donkey"]]);
+  s.inventory[0]!.quantity = 5;
+  roots[1]!.props.onValueChange("donkey");
+  roots[1]!.props.onValueChange("invalid");
+  expect(onMill).toHaveBeenCalledTimes(3);
 });
 
 it("reserves separate flour/groats capacity across mills, jobs and deliveries", () => {

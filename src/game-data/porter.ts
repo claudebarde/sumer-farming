@@ -8,8 +8,10 @@ export const PorterItemSchema = z.enum(["flour", "brewersGroats", "bread", "beer
 const Position = z.object({ column: z.number(), row: z.number() });
 export const PorterSchema = z.object({
   hiredAt: z.number(), expiresAt: z.number(), checkedAt: z.number(), position: Position,
+  home: Position.optional(),
+  returnTrip: z.object({ path: z.array(Position).min(1), startedAt: z.number(), completesAt: z.number() }).nullable().optional(),
   job: z.object({
-    buildingId: z.string(), itemKey: PorterItemSchema, quantity: z.int().positive(),
+    buildingId: z.string(), itemKey: z.union([PorterItemSchema, z.literal("emptyBeerJar")]), quantity: z.int().positive(),
     startedAt: z.number(), pickupAt: z.number(), completesAt: z.number(),
     path: z.array(Position), pickupIndex: z.int().nonnegative()
   }).nullable()

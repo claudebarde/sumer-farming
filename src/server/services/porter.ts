@@ -21,7 +21,7 @@ export const hirePorter = (db: Database, input: Extract<GameCommand, { type: "hi
     const now = Date.now();
     const farm = await advanceFarmLifecycle(tx, record, new Date(now));
     if (farm.level < 5) return new PorterRuleError({ message: "Unlock at level 5." });
-    if (farm.production.porter && (farm.production.porter.expiresAt > now || farm.production.porter.job)) return new PorterRuleError({ message: "The porter is already hired or finishing his last delivery." });
+    if (farm.production.porter && (farm.production.porter.expiresAt > now || farm.production.porter.job || farm.production.porter.returnTrip)) return new PorterRuleError({ message: "The porter is already hired or finishing his last delivery." });
     const [player] = await tx.select().from(players).where(eq(players.id, input.playerId)).for("update");
     if (!player || player.shekelBalance < PORTER_COST) return new PorterRuleError({ message: "Not enough shekels." });
     const balanceAfter = player.shekelBalance - PORTER_COST;
@@ -32,7 +32,7 @@ export const hirePorter = (db: Database, input: Extract<GameCommand, { type: "hi
     ) ? market : PORTER_HOME;
     await tx.update(players).set({ shekelBalance: balanceAfter }).where(eq(players.id, input.playerId));
     await tx.insert(shekelTransactions).values({ playerId: input.playerId, idempotencyKey: input.idempotencyKey, type: "porter_hire", delta: -PORTER_COST, balanceAfter });
-    const [updated] = await tx.update(farms).set({ production: { ...farm.production, porter: { hiredAt: now, expiresAt: now + PORTER_HIRE_MS, checkedAt: now, position, job: null } }, version: sql`${farms.version} + 1`, updatedAt: new Date(now) }).where(eq(farms.id, farm.id)).returning();
+    const [updated] = await tx.update(farms).set({ production: { ...farm.production, porter: { hiredAt: now, expiresAt: now + PORTER_HIRE_MS, checkedAt: now, position, home: position, returnTrip: null, job: null } }, version: sql`${farms.version} + 1`, updatedAt: new Date(now) }).where(eq(farms.id, farm.id)).returning();
     return readFarmSnapshot(tx, updated!, false);
   }), catch: cause => new PorterPersistenceError({ cause }) });
   return result instanceof PorterRuleError ? yield* Effect.fail(result) : result;

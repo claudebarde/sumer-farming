@@ -20,6 +20,7 @@ export const SWEEP_SOURCES = [sweep01, sweep02, sweep03, sweep04] as const;
 // Preserve the broom's full reach; feet are left of the full artwork's centre.
 export const SWEEP_BOUNDS = { left: 80, top: 80, right: 1230, bottom: 1330 } as const;
 export const SWEEP_ORIGIN = { x: 43 / 128, y: 118 / 128 } as const;
+export const sweepOriginX = (facingLeft: boolean) => facingLeft ? 1 - SWEEP_ORIGIN.x : SWEEP_ORIGIN.x;
 export const sweepTexture = (elapsed: number) => `farmer-sweep-${Math.floor(Math.max(0, elapsed) / (400 / 1.5)) % 4}`;
 export const SWEEP_TILES: readonly IsoCell[] = [
   { column: config.buildingBounds.minimumColumn, row: config.roadRow },
@@ -36,6 +37,13 @@ export const planSweeping = (snapshot: FarmSnapshot, from: IsoCell, now: number)
   });
   return choices.sort((a, b) => Math.hypot(a.first.column - from.column, a.first.row - from.row) -
     Math.hypot(b.first.column - from.column, b.first.row - from.row) || a.path.length - b.path.length)[0] ?? null;
+};
+
+/** Cosmetic catch-up: validate the route, but do not replay the approach on return. */
+export const planReturningSweep = (snapshot: FarmSnapshot, from: IsoCell, awaySince: number | null, now: number): SweepPlan | null => {
+  if (awaySince === null || now - awaySince < SWEEP_IDLE_DELAY) return null;
+  const plan = planSweeping(snapshot, from, now);
+  return plan ? { ...plan, path: [plan.first] } : null;
 };
 
 export const sweepingPose = (plan: SweepPlan, elapsed: number) => {
@@ -56,6 +64,6 @@ export const sweepingPose = (plan: SweepPlan, elapsed: number) => {
   const from = reverse ? plan.second : plan.first, to = reverse ? plan.first : plan.second;
   const phase = time % legMs;
   return phase < SWEEP_DWELL_MS
-    ? { type: "sweeping" as const, position: from, elapsed: phase, facingLeft: false, distance: 0 }
+    ? { type: "sweeping" as const, position: from, elapsed: phase, facingLeft: isoPoint(to).x < isoPoint(from).x, distance: 0 }
     : travel([from, to], phase - SWEEP_DWELL_MS, WORKER_MOVE_DURATION_PER_TILE);
 };

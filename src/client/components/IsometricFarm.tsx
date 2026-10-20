@@ -20,7 +20,7 @@ import { IsometricFarmScene, type IsometricTileAnchor } from "../game/phaser/sce
 import IsometricTilePopup from "./IsometricTilePopup";
 import IsometricTravelPopup from "./IsometricTravelPopup";
 import { IsometricMarketScene } from "../game/phaser/scenes/IsometricMarketScene";
-import { canVisitIsometricMarket, isometricTradeScope } from "../game/phaser/isometricMarket";
+import { canVisitIsometricMarket, isometricTradeScope, marketEntrance } from "../game/phaser/isometricMarket";
 import styles from "../styles/IsometricTest.module.scss";
 import MarketDialog from "./MarketDialog";
 import FarmLevelDialog from "./FarmLevelDialog";
@@ -36,16 +36,18 @@ import { marketUiStore } from "../stores/marketUiStore";
 import { canOpenMarketStand } from "../../game-data/progression";
 import { Dialog } from "radix-ui";
 import EstateManagementContent from "./EstateManagementContent";
+import ShekelBalance from "./ShekelBalance";
 import IsometricBuildingCatalogue from "./IsometricBuildingCatalogue";
 import DestroyBuildingDialog from "./DestroyBuildingDialog";
 import { buildingBuildBlocker, buildingPlacement, type PlaceableBuilding } from "../game/phaser/isometricBuildingPlacement";
-import type { MillRecipe } from "../../game-data/milling";
+import type { MillRecipe, MillWorker } from "../../game-data/milling";
 import { roadsideOutputPlacement } from "../game/phaser/buildingOutputPlacement";
 import { canBakeBread, canStoreBread } from "../game/phaser/isometricBaking";
 import { breweryOutputPlacement, canSupplyBrewery, waterPourTarget } from "../game/phaser/isometricBrewing";
 import type { BrewerySupplyAction } from "../../game-core/farm/brewerySupplies";
 import { sharedDeliveryStop } from "../../game-core/farm/storageDelivery";
 import { porterReserved } from "../../game-data/porter";
+import { porterRoadRemovalReason } from "../../game-core/farm/porter";
 import { buildingAt } from "../game/phaser/isometricFarm";
 import { millPopupState } from "../game/phaser/isometricMilling";
 import { canPickupMillBags, millPickupPath, millDeliveryDestination } from "../game/phaser/isometricMillDelivery";
@@ -56,6 +58,8 @@ import { OPEN_BUILD_DRAWER } from "../api/buildingReadiness";
 import { gatheringPath } from "../game/phaser/isometricGathering";
 import { canStartIsometricFishing, fishingApproach } from "../game/phaser/isometricFishing";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
+import MerchantRequests from "./MerchantRequests";
+import { newlyPurchasedDonkey } from "../game/phaser/donkeyFollow";
 
 export default function IsometricFarm() {
   const parent = useRef<HTMLDivElement>(null);
@@ -254,21 +258,23 @@ export default function IsometricFarm() {
       if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not start baking.");
     } finally { submitting.current = false; if (mounted.current) { setPending(false); refresh.current(); } }
   };
-  const startMill = async (recipe: MillRecipe) => {
+  const startMill = async (recipe: MillRecipe, worker: MillWorker) => {
     const farm = current.current, renderer = scene.current;
     if (!farm || !renderer || !information || submitting.current) return;
     const mill = buildingAt(farm, information.cell);
-    if (!mill || !millPopupState(farm, mill.id, Date.now(), recipe).canStart) return;
+    if (!mill || !millPopupState(farm, mill.id, Date.now(), recipe, worker).canStart) return;
     submitting.current = true; setPending(true); setError(null);
+    renderer.setPlantingSelection(null, true);
     const farmerPosition = renderer.farmerPosition();
+    const donkeyPosition = worker === "donkey" ? renderer.donkeyPosition() : undefined;
     renderer.clearSelection();
     try {
-      const next = await executeGameCommand({ type: "start_milling", recipe, worker: "farmer", target: { column: mill.column, row: mill.row }, farmerPosition,
+      const next = await executeGameCommand({ type: "start_milling", recipe, worker, target: { column: mill.column, row: mill.row }, farmerPosition, donkeyPosition,
         expectedFarmVersion: farm.farm.version });
       if (mounted.current) accept.current(next);
     } catch (cause) {
       if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not start milling.");
-    } finally { submitting.current = false; if (mounted.current) { setPending(false); refresh.current(); } }
+    } finally { submitting.current = false; if (mounted.current) { setPending(false); renderer.setPlantingSelection(null, false); refresh.current(); } }
   };
   const beginBuilding = (type: PlaceableBuilding) => {
     if (!current.current || submitting.current || buildingBuildBlocker(current.current, Date.now(), type)) return;
@@ -349,6 +355,10 @@ export default function IsometricFarm() {
     const receive = (next: FarmSnapshot) => {
       if (controller.signal.aborted || !parent.current) return;
       if (current.current?.farm.id === next.farm.id && current.current.farm.version > next.farm.version) return;
+      if (current.current?.farm.id === next.farm.id && newlyPurchasedDonkey(current.current.inventory, next.inventory) &&
+        activeScene.current === marketScene.current && marketScene.current) {
+        marketScene.current.showPurchasedDonkey();
+      }
       current.current = next; setSnapshot(next);
       farmStore.getState().setReady(next);
       if (next.farm.production.planting && selecting.current !== null) {
@@ -370,8 +380,9 @@ export default function IsometricFarm() {
             setInformation(null);
             marketUiStore.getState().openMarket(scope);
           } else setInformation(anchor);
-        }, () => {
+        }, donkey => {
           marketUiStore.getState().setOpen(false);
+          if (donkey) scene.current?.receiveMarketDonkey();
           activeScene.current = scene.current; setInformation(null); setLocation("farm"); refresh.current();
         }, () => current.current?.farm.progression?.level ?? 1);
         renderer.setFishingCastHandler(aim => void castFish(aim));
@@ -387,7 +398,9 @@ export default function IsometricFarm() {
       const now = Date.now();
       const due = [...[...Object.values(next.farm.production.baking).flatMap(job => [job.startedAt, job.completesAt]), next.farm.milling?.startedAt, next.farm.milling?.completesAt, next.farm.gathering?.completesAt, next.farm.production.planting?.nextStepAt, ...next.buildings.map(b => b.completesAt), ...next.improvements.filter(i => improvementWorkActive(i, now)).map(i => i.destroyCompletesAt ?? i.completesAt)]
         .concat(Object.values(next.farm.production.brewing ?? {}).flatMap(job => [job.arrivedAt, job.startedAt, job.completesAt]), next.buildings.map(b => b.beerReadyAt ?? undefined))
-        .filter((value): value is string => !!value).map(Date.parse), ...next.farm.roads.map(r => r.completesAt ?? 0)].filter(time => time > now);
+        .filter((value): value is string => !!value).map(Date.parse), ...next.farm.roads.map(r => r.completesAt ?? 0),
+        next.farm.production.porter?.job?.pickupAt ?? 0, next.farm.production.porter?.job?.completesAt ?? 0,
+        next.farm.production.porter?.returnTrip?.completesAt ?? 0].filter(time => time > now);
       if (due.length) deadline = setTimeout(() => refresh.current(), Math.max(100, Math.min(...due) - now + 25));
     };
     accept.current = receive;
@@ -413,6 +426,8 @@ export default function IsometricFarm() {
     const timer = window.setInterval(() => {
       if (document.visibilityState !== "visible") return;
       setClock(Date.now());
+      const porter = current.current?.farm.production.porter;
+      if (porter && (porter.expiresAt > Date.now() || porter.job || porter.returnTrip) && Date.now() - lastRead >= 2000) void load();
       if (current.current?.farm.gathering || current.current?.farm.production.planting || current.current?.farm.roads.some(r => (r.completesAt ?? 0) > Date.now()) || current.current?.improvements.some(i => improvementWorkActive(i, Date.now())) || Date.now() - lastRead >= 30_000) void load();
     }, 1000);
     document.addEventListener("visibilitychange", visible);
@@ -542,7 +557,7 @@ export default function IsometricFarm() {
     const allowed = { destroy_road: action.actions.destroyRoad, destroy_irrigation: action.actions.destroyIrrigation, destroy_ground_material: action.actions.destroyMaterial, pickup_ground_item: action.pickup && !action.pickupDisabled, drop_carried_item: action.drop && !action.dropDisabled, build_irrigation: action.irrigation && !action.irrigationDisabled, build_road: action.road && !action.roadDisabled };
     if (!allowed[type]) return;
     if (type === "destroy_road") {
-      const reason = roadRemovalReason(target, farm.farm.roads, farm.buildings.flatMap(b => b.loadingTile ? [b.loadingTile] : []), Date.now());
+      const reason = porterRoadRemovalReason(farm.farm.production.porter, target) ?? roadRemovalReason(target, farm.farm.roads, farm.buildings.flatMap(b => b.loadingTile ? [b.loadingTile] : []), Date.now());
       if (reason) { notificationStore.getState().notifyError(reason); return; }
     }
     const materialDrop = type === "drop_carried_item" &&
@@ -584,10 +599,14 @@ export default function IsometricFarm() {
   };
   return <section className={styles.test} aria-label="Saved isometric farm preview">
     {location === "farm" && <Dialog.Root open={manageOpen} onOpenChange={openManagement}>
-      <Dialog.Trigger asChild>
-        <button className={styles.manageButton} disabled={!snapshot}>Manage</button>
-      </Dialog.Trigger>
+      <div className={styles.manageControls}>
+        <Dialog.Trigger asChild>
+          <button className={styles.manageButton} disabled={!snapshot}>Manage</button>
+        </Dialog.Trigger>
+        {snapshot && <ShekelBalance amount={snapshot.player.shekelBalance} />}
+      </div>
       <EstateManagementContent farmState={snapshot ? { type: "ready", snapshot } : { type: "loading" }}
+        marketRoad={marketEntrance}
         storageClock={clock} manageTab={manageTab} setManageTab={setManageTab}
         buildContent={snapshot && <IsometricBuildingCatalogue snapshot={snapshot} now={clock} onBuild={beginBuilding} />} />
     </Dialog.Root>}
@@ -665,7 +684,7 @@ export default function IsometricFarm() {
       onDestroyBuilding={id => { scene.current?.clearSelection(); setInformation(null); setDemolitionId(id); }}
       onStore={granaryId => void storeBarley(granaryId)}
       onGather={itemKey => void gather(itemKey)}
-      onMill={recipe => void startMill(recipe)}
+      onMill={(recipe, worker) => void startMill(recipe, worker)}
       onBake={() => void startBaking()}
       onBreweryAction={action => void breweryAction(action)}
       onStoreBread={id => void storeBread(id)}
@@ -676,5 +695,6 @@ export default function IsometricFarm() {
       onDestroyMaterial={() => void tileAction("destroy_ground_material")}
       onClose={() => scene.current?.clearSelection()} onSelect={beginSelection} onWalk={() => scene.current?.walkTo(information.cell)} onDrop={() => void tileAction("drop_carried_item")} onBuildIrrigation={() => void tileAction("build_irrigation")} onDestroyIrrigation={() => void tileAction("destroy_irrigation")} onBuildRoad={() => void tileAction("build_road")} onDestroyRoad={() => void tileAction("destroy_road")} />)}
     {!(location === "farm" && snapshot?.farm.fishing) && <p className={styles.status}>{selection !== null ? "Tap yellow fields to select · Green fields are selected" : "Tap a tile for actions · Drag to pan"}</p>}
+    {(snapshot?.farm.progression?.level ?? 1) >= 7 && <MerchantRequests visual />}
   </section>;
 }

@@ -24,3 +24,17 @@ the texture is created, not every frame. Walking/work artwork is unchanged.
 
 To restore the approved baseline, set `FARMER_SHARPEN_AMOUNT` to `0` in
 `src/client/game/phaser/farmerTexture.ts`. No image regeneration is required.
+
+## Porter-only quality trial — October 18, 2026
+
+The first 256px/0.3 sharpening trial was rejected: outlines looked pixelated.
+The revised isometric porter uses 256×256 prepared textures with sharpening disabled
+for every empty, bag and jar idle/walking pose. Progressive reductions stop at
+448px before the final 224px artwork fit, retaining more detail for map zoom.
+World display size is now 72×72: the wooden frame extends above his head, so this
+makes his actual head-to-foot height approximately the farmer's 56px rather than
+shrinking the body to accommodate the frame. The normalized foot anchor and shared
+frame bounds are unchanged. High-quality downsampling and linear filtering remain in use.
+Farmer, dog and other texture callers retain their existing 128px default.
+Awaiting visual approval; restore porter texture size 128, display size 64 and sharpening 0.15 in
+`porterSprites.ts` to revert this trial. Reload the scene to rebuild textures.

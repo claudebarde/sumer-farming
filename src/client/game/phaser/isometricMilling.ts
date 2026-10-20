@@ -1,18 +1,18 @@
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { millingUnavailableReason } from "../../../game-core/farm/milling";
-import { millRecipe, type MillRecipe } from "../../../game-data/milling";
+import { millRecipe, type MillRecipe, type MillWorker } from "../../../game-data/milling";
 import { isoPoint } from "./isometricProjection";
 
-export const millPopupState = (snapshot: FarmSnapshot, buildingId: string, now: number, recipe: MillRecipe = "flour") => {
+export const millPopupState = (snapshot: FarmSnapshot, buildingId: string, now: number, recipe: MillRecipe = "flour", worker: MillWorker = "farmer") => {
   const building = snapshot.buildings.find(b => b.id === buildingId && b.type === "mill");
   const ready = !!building && Date.parse(building.completesAt) <= now;
   const stored = (snapshot.inventory.find(i => i.itemKey === "barley")?.quantity ?? 0) + snapshot.buildings
     .filter(b => (b.type === "granary" || b.type === "warehouse") && Date.parse(b.completesAt) <= now)
     .reduce((sum, b) => sum + b.storedBarley, 0);
-  const insufficient = ready && stored < millRecipe("flour").barley;
+  const insufficient = ready && stored < millRecipe(recipe, worker).barley;
   return { insufficient, canStart: ready && !insufficient && !snapshot.farm.carriedItem &&
     !snapshot.farm.roads.some(r => (r.completesAt ?? 0) > now) &&
-    !millingUnavailableReason(snapshot, recipe, now, "farmer", buildingId) };
+    !millingUnavailableReason(snapshot, recipe, now, worker, buildingId) };
 };
 
 /** Render the saved server journey, never dispatch commands from animation callbacks. */

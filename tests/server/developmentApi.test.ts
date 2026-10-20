@@ -2,7 +2,7 @@ import { eq, inArray } from "drizzle-orm";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createDatabase } from "../../src/server/db/client";
-import { players, farms, farmInventory, neighbourhoods, neighbourhoodMembers } from "../../src/server/db/schema";
+import { players, farms, farmInventory, farmBuildings, farmCrops, npcRequestBoards, neighbourhoods, neighbourhoodMembers } from "../../src/server/db/schema";
 import app from "../../src/server/index";
 
 // Exercise the real HTTP handlers without touching either interactive test farm.
@@ -164,6 +164,43 @@ describe.sequential("development HTTP identity and trading", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toBe("no-store");
     expect(await response.json()).toMatchObject({ scope: "local", metric: "shekels", self: { playerId: identities[0]!.id, isYou: true, score: 7 } });
+  });
+
+  it("delivers merchant beer through HTTP during harvesting without releasing the farmer", async () => {
+    const player = "second";
+    const initial = await (await request("/api/development/farm", player)).json();
+    const farmId = initial.farm.id;
+    await db.update(farms).set({ level: 7 }).where(eq(farms.id, farmId));
+    await db.insert(farmInventory).values({ farmId, itemKey: "beer", quantity: 2 });
+    await db.insert(farmBuildings).values({ farmId, type: "brewery", column: 5, row: 3,
+      startedAt: new Date(0), completesAt: new Date(1000) });
+    await db.insert(farmCrops).values({ farmId, column: 0, row: 8, cropKey: "barley",
+      sowingStartedAt: new Date(0), plantedAt: new Date(10000), growthCompletesAt: new Date(1810000) });
+    await request("/api/market/requests", player);
+    await db.update(npcRequestBoards).set({ anchor: new Date(Date.now() - 1000) }).where(eq(npcRequestBoards.farmId, farmId));
+    const board = await (await request("/api/market/requests", player)).json();
+    const before = await (await request("/api/development/farm", player)).json();
+    const start = await request("/api/game/action", player, { type: "start_batch_harvesting",
+      targets: [{ column: 0, row: 8 }], expectedFarmVersion: before.farm.version });
+    expect(start.status).toBe(200);
+    const working = await start.json();
+    expect(working.farm.production.planting).not.toBeNull();
+    const command = { type: "deliver_npc_request", cycle: board.cycle, slot: 1,
+      expectedFarmVersion: before.farm.version, idempotencyKey: crypto.randomUUID() };
+    const response = await request("/api/game/action", player, command);
+    const delivered = await response.json();
+    expect(delivered).not.toHaveProperty("error");
+    expect(response.status).toBe(200);
+    expect(delivered.player.shekelBalance).toBe(before.player.shekelBalance + 12);
+    expect(delivered.farm.production.planting.id).toBe(working.farm.production.planting.id);
+    expect(delivered.inventory.some((item: { itemKey: string }) => item.itemKey === "beer")).toBe(false);
+    const retry = await request("/api/game/action", player, command);
+    expect(retry.status).toBe(200);
+    expect((await retry.json()).player.shekelBalance).toBe(delivered.player.shekelBalance);
+    const blocked = await request("/api/game/action", player, { type: "start_batch_harvesting",
+      targets: [{ column: 1, row: 8 }], expectedFarmVersion: delivered.farm.version });
+    expect(blocked.status).toBe(409);
+    expect(await blocked.json()).toMatchObject({ error: { type: "farmer_busy" } });
   });
 
   it("disables test identity APIs in production", async () => {

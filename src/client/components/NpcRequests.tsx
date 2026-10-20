@@ -6,17 +6,18 @@ import { developmentPlayerHeaders } from "../api/developmentPlayer";
 import { executeGameCommand } from "../api/gameActions";
 import { farmStore } from "../stores/farmStore";
 import styles from "../styles/GameCanvas.module.scss";
+import MerchantRequestCard from "./MerchantRequestCard";
 
 const timeLeft = (milliseconds: number) => {
   const minutes = Math.max(0, Math.ceil(milliseconds / 60_000));
   return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
 };
 
-export default function NpcRequests({ onDelivered }: { readonly onDelivered: () => void }) {
+export default function NpcRequests({ onDelivered, visual = false }: { readonly onDelivered: () => void; readonly visual?: boolean }) {
   const farm = useStore(farmStore, state => state.farm);
   const version = farm.type === "ready" ? farm.snapshot.farm.version : 0;
   const playerId = farm.type === "ready" ? farm.snapshot.farm.playerId : null;
-  const [response, setResponse] = useState<{ readonly board: RequestBoard; readonly offset: number; readonly playerId: string | null; readonly version: number } | null>(null);
+  const [response, setResponse] = useState<{ readonly board: RequestBoard; readonly offset: number; readonly playerId: string | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -33,7 +34,8 @@ export default function NpcRequests({ onDelivered }: { readonly onDelivered: () 
         if (!result.ok) throw new Error("Requests could not be loaded. Please retry.");
         const board = NpcRequestsSchema.parse(await result.json());
         if (!controller.signal.aborted) {
-          setResponse({ board, offset: Date.parse(board.serverNow) - Date.now(), playerId, version });
+          setResponse({ board, offset: Date.parse(board.serverNow) - Date.now(), playerId });
+          setError(null);
         }
       } catch (cause) {
         if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Requests could not be loaded.");
@@ -64,15 +66,20 @@ export default function NpcRequests({ onDelivered }: { readonly onDelivered: () 
   };
 
   return <section aria-label="NPC requests">
-    <p>Three requests, available for 24 hours, followed by a two-day break. No penalty for missing a visit.</p>
+    {!visual && <p>Three requests, available for 24 hours, followed by a two-day break. No penalty for missing a visit.</p>}
     {error && <p role="alert">{error}</p>}
-    <button disabled={pending} onClick={() => { setError(null); setRefresh(value => value + 1); }}>Refresh requests</button>
+    {!visual && <button disabled={pending} onClick={() => { setError(null); setRefresh(value => value + 1); }}>Refresh requests</button>}
     {!board ? <p role="status">Loading requests…</p> : !open ? (
       <p>New requests in {timeLeft(Date.parse(board.nextOpensAt) - now)}.</p>
     ) : <>
-      <p>Requests close in {timeLeft(Date.parse(board.closesAt) - now)}.</p>
-      <p>Deliveries use barley stored in the farm or granaries and beer in estate inventory.</p>
-      {board.requests.map(request => {
+      {!visual && <>
+        <p>Requests close in {timeLeft(Date.parse(board.closesAt) - now)}.</p>
+        <p>Deliveries use barley stored in the farm or granaries and beer in estate inventory.</p>
+      </>}
+      {visual && board.requests.every(request => request.completed) && <p role="status">All requests fulfilled.</p>}
+      {board.requests.filter(request => !visual || !request.completed).map(request => {
+        if (visual) return <MerchantRequestCard key={request.slot} request={request} stock={board.stock}
+          pending={pending} onDeliver={() => { void deliver(request.slot); }} />;
         const enough = canDeliverRequest(request, board.stock);
         return <section key={request.slot} className={styles["market-item"]}>
           <h3>{request.customer}</h3>
@@ -82,7 +89,7 @@ export default function NpcRequests({ onDelivered }: { readonly onDelivered: () 
           <p>Reward: {request.reward} shekels</p>
           {request.completed ? <p>Delivered ✓</p> : <>
             {enough && request.barley > 0 && board.stock.barley - request.barley < 1 && <p role="note">This delivery would leave no barley for the farmer’s next ration.</p>}
-            {enough ? <button disabled={pending || response?.version !== version} onClick={() => { void deliver(request.slot); }}>
+            {enough ? <button disabled={pending} onClick={() => { void deliver(request.slot); }}>
               {pending ? "Delivering…" : `Deliver for ${request.reward} shekels`}
             </button> : <p>Store the missing goods to deliver this request.</p>}
           </>}

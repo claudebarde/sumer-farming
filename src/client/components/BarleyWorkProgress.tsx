@@ -1,5 +1,6 @@
 import meter from "../styles/HappinessMeter.module.scss";
 import styles from "../styles/IsometricTest.module.scss";
+import { FARM_SPRITES } from "../../assets/farmSprites";
 
 export default function BarleyWorkProgress({ action, total, progress, delivering = false }: {
   readonly action: "Sowing" | "Harvesting";
@@ -9,6 +10,7 @@ export default function BarleyWorkProgress({ action, total, progress, delivering
 }) {
   const { completed, totalMs, percentage } = progress;
   return <div className={styles.sowingProgress}>
+    <img className={styles.barleyWorkIcon} src={FARM_SPRITES.harvestedBarley} alt="" width={48} height={48} draggable={false} />
     <section>
       <p role="status">{delivering ? "Storing barley..." : `${action} barley...`}</p>
       <p>{completed}/{total} fields</p>

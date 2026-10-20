@@ -19,9 +19,10 @@ import clayImage from "../../assets/sprite_assets/pngs/brick-pile.png";
 import { estateEmptyJars } from "../../game-core/farm/estateEmptyJars";
 
 /** Shared drawer contents; each renderer supplies its own building placement entry. */
-export default function EstateManagementContent({ farmState, storageClock, manageTab, setManageTab, buildContent }: {
+export default function EstateManagementContent({ farmState, storageClock, manageTab, setManageTab, buildContent, marketRoad }: {
   farmState: FarmLoadState; storageClock: number; manageTab: string;
   setManageTab: (tab: string) => void; buildContent: ReactNode;
+  marketRoad?: { column: number; row: number };
 }) {
   const snapshot = farmState.type === "ready" ? farmState.snapshot : null;
   const farmLevel = snapshot?.farm.progression?.level ?? 1;
@@ -285,6 +286,7 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                       now={storageClock}
                     />
                     <PorterPanel
+                      marketRoad={marketRoad}
                       snapshot={farmState.snapshot}
                       now={storageClock}
                     />

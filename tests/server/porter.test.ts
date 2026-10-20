@@ -22,17 +22,40 @@ const fixture = async (balance = 40, level = 8) => {
   return { playerId, farm: farm!, input: { type: "hire_porter" as const, playerId, idempotencyKey: randomUUID(), expectedFarmVersion: 1 } };
 };
 describe("porter persistence and payment", () => {
+  it("reserves empty jars and persists brewery delivery exactly once across offline catch-up", async () => {
+    const f = await fixture();
+    const [brewery] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "brewery", column: 5, row: 3,
+      loadingTile: { column: 5, row: 5 }, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+    await db.insert(farmInventory).values({ farmId: f.farm.id, itemKey: "emptyBeerJar", quantity: 4 });
+    const hired = await Effect.runPromise(hirePorter(db, { ...f.input, marketRoad: { column: 10, row: 5 } }));
+    const job = hired.farm.production.porter!.job!;
+    expect(job.itemKey).toBe("emptyBeerJar");
+    expect(job.quantity).toBe(2);
+    expect(hired.inventory.find(i => i.itemKey === "emptyBeerJar")?.quantity).toBe(2);
+    expect(hired.buildings.find(b => b.id === brewery!.id)?.emptyBeerJars).toBe(0);
+    await db.transaction(async tx => {
+      const [record] = await tx.select().from(farms).where(eq(farms.id, f.farm.id)).for("update");
+      const done = await advanceFarmLifecycle(tx, record!, new Date(job.completesAt + 60000));
+      expect(done.production.porter?.job).toBeNull();
+      await advanceFarmLifecycle(tx, done, new Date(job.completesAt + 120000));
+    });
+    const [stored] = await db.select().from(farmBuildings).where(eq(farmBuildings.id, brewery!.id));
+    const stock = await db.select().from(farmInventory).where(eq(farmInventory.farmId, f.farm.id));
+    expect(stored?.emptyBeerJars).toBe(2);
+    expect(stock.find(i => i.itemKey === "emptyBeerJar")?.quantity).toBe(2);
+  });
   it("starts at the market and books existing bread on the same saved timeline", async () => {
     const f = await fixture();
     const [oven] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "breadOven", column: 0, row: 1,
       loadingTile: { column: -1, row: 1 }, startedAt: new Date(0), completesAt: new Date(1) }).returning();
-    await db.update(farms).set({ production: { ...emptyProductionState(), pending: { [oven!.id]: { itemKey: "bread", quantity: 2 } } } }).where(eq(farms.id, f.farm.id));
+    await db.update(farms).set({ roads: [1, 2, 3, 4].map(row => ({ column: -1, row })), production: { ...emptyProductionState(), pending: { [oven!.id]: { itemKey: "bread", quantity: 2 } } } }).where(eq(farms.id, f.farm.id));
     const marketRoad = { column: 10, row: 5 };
     const hired = await Effect.runPromise(hirePorter(db, { ...f.input, marketRoad }));
     const job = hired.farm.production.porter!.job!;
     expect(job.itemKey).toBe("bread");
     expect(job.path[0]).toEqual(marketRoad);
-    expect(job.path[job.pickupIndex]).toEqual(oven!.loadingTile);
+    // Match the farmer's road nearest the visible B/C output, not a distant supply entrance.
+    expect(job.path[job.pickupIndex]).toEqual({ column: -1, row: 2 });
     expect(hired.inventory.find(i => i.itemKey === "bread")).toBeUndefined();
     await db.transaction(async tx => {
       const [record] = await tx.select().from(farms).where(eq(farms.id, f.farm.id)).for("update");
@@ -40,7 +63,10 @@ describe("porter persistence and payment", () => {
       expect(arriving.production.porter!.job).toEqual(job);
       const delivered = await advanceFarmLifecycle(tx, arriving, new Date(job.completesAt));
       expect(delivered.production.porter!.job).toBeNull();
-      await advanceFarmLifecycle(tx, delivered, new Date(job.completesAt + 60_000));
+      expect(delivered.production.porter!.returnTrip?.path.at(-1)).toEqual(marketRoad);
+      const returned = await advanceFarmLifecycle(tx, delivered, new Date(job.completesAt + 60_000));
+      expect(returned.production.porter!.position).toEqual(marketRoad);
+      expect(returned.production.porter!.returnTrip).toBeNull();
     });
     const stock = await db.select().from(farmInventory).where(eq(farmInventory.farmId, f.farm.id));
     expect(stock.find(i => i.itemKey === "bread")?.quantity).toBe(2);

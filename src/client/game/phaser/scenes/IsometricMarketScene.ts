@@ -20,8 +20,11 @@ import { marketUiStore } from "../../../stores/marketUiStore";
 import merchant01 from "../../../../assets/sprite_assets/pngs/v2/isometric-test/merchant-01.png";
 import merchant02 from "../../../../assets/sprite_assets/pngs/v2/isometric-test/merchant-02.png";
 import { prepareFarmerTexture } from "../farmerTexture";
+import { advanceDonkeyFollow, appendDonkeyTrail, donkeyFollowPose, startDonkeyFollow, type DonkeyFollow, type DonkeyArrival } from "../donkeyFollow";
 
 const merchantSources = { "market-merchant-01": merchant01, "market-merchant-02": merchant02 };
+// Align the donkey's visible hooves with the road centre without altering its route.
+const DONKEY_ROAD_OFFSET_Y = 8;
 export const merchantTextures = { barley: "market-merchant-01", beer: "market-merchant-02", baking: "market-merchant-01" } as const;
 
 export const stands = [
@@ -42,6 +45,9 @@ export class IsometricMarketScene extends Phaser.Scene {
   private returning = false;
   private approaching: typeof stands[number] | null = null;
   private actor!: Phaser.GameObjects.Image;
+  private donkey?: Phaser.GameObjects.Image;
+  private donkeyFollow: DonkeyFollow | null = null;
+  private donkeyArrival: DonkeyArrival | null = null;
   private shadow!: Phaser.GameObjects.Ellipse;
   shadowPreset: ShadowPreset = "local";
   private daylightShadows!: ReturnType<typeof createShadowLayer>;
@@ -54,9 +60,9 @@ export class IsometricMarketScene extends Phaser.Scene {
   private speechBackground?: Phaser.GameObjects.Graphics;
   private reducedMotion = false;
   private readonly report: (anchor: IsometricTileAnchor | null) => void;
-  private readonly returned: () => void;
+  private readonly returned: (donkey: DonkeyArrival | null) => void;
 
-  constructor(report: (anchor: IsometricTileAnchor | null) => void, returned: () => void, farmLevel: () => number = () => 1) {
+  constructor(report: (anchor: IsometricTileAnchor | null) => void, returned: (donkey: DonkeyArrival | null) => void, farmLevel: () => number = () => 1) {
     super("isometric-market");
     this.report = report; this.returned = returned; this.farmLevel = farmLevel;
   }
@@ -90,6 +96,9 @@ export class IsometricMarketScene extends Phaser.Scene {
     this.shadow = this.add.ellipse(0, 0, 23, 8, 0x624728, 0).setAlpha(0);
     this.daylightShadows.add(() => this.shadow, 23, 48);
     this.actor = this.add.image(0, 0, "farmer-idle").setOrigin(0.5, 120 / 128).setDisplaySize(64, 64);
+    this.donkey = this.add.image(0, 0, "isometric-donkey-front-0")
+      .setOrigin(0.5, 120 / 128).setDisplaySize(76, 76).setVisible(false);
+    this.daylightShadows.add(() => this.donkey!, 32, 48);
     this.speechBackground = this.add.graphics();
     this.speechText = this.add.text(0, 0, "", { fontFamily: "Georgia, serif", fontSize: "18px",
       fontStyle: "bold", color: "#382519", align: "center", wordWrap: { width: 220 } })
@@ -122,12 +131,14 @@ export class IsometricMarketScene extends Phaser.Scene {
       this.returnFarm.setTexture(farmAppearance(this.farmLevel()).texture).setDisplaySize(232, 232);
       this.greeting = initialGreetingState(); this.speech?.setVisible(false);
       this.position = { column: 0, row: config.roadRow }; this.path = []; this.returning = false;
+      this.donkeyFollow = null; this.donkeyArrival = null; this.donkey?.setVisible(false);
       this.merchants.forEach(merchant => { merchant.facing = { ...merchant.facing, waitingMs: 0 }; });
       this.clearSelection(); this.renderFarmer(false);
     });
     this.events.on("sleep", () => { this.approaching = null; this.speech?.setVisible(false); });
     this.events.once("shutdown", () => {
       this.ready = false; this.approaching = null; this.merchants = []; this.speech = undefined;
+      this.donkeyFollow = null; this.donkeyArrival = null; this.donkey = undefined;
       this.speechText = undefined; this.speechBackground = undefined;
       this.scale.off("resize", this.fit, this);
     });
@@ -162,6 +173,20 @@ export class IsometricMarketScene extends Phaser.Scene {
     this.path = next ? [next, ...marketRoadPath(next, target)] : marketRoadPath(this.position, target);
   }
   goBackToFarm() { this.clearSelection(); this.returning = true; this.walkTo(marketReturnEntrance); }
+  showPurchasedDonkey() {
+    if (!this.ready) return false;
+    const follow = startDonkeyFollow(this.position);
+    if (!follow) return false;
+    this.donkeyFollow = follow; this.donkeyArrival = "purchase";
+    this.renderDonkey();
+    return true;
+  }
+  private renderDonkey() {
+    this.donkey?.setVisible(this.donkeyFollow !== null);
+    if (!this.donkeyFollow || !this.donkey) return;
+    const point = isoPoint(this.donkeyFollow.position), pose = donkeyFollowPose(this.donkeyFollow, this.reducedMotion);
+    this.donkey.setPosition(point.x, point.y + DONKEY_ROAD_OFFSET_Y).setDepth(point.y + DONKEY_ROAD_OFFSET_Y + 1).setTexture(pose.texture).setFlipX(pose.flipX).setDisplaySize(76, 76);
+  }
   private publishAnchor() {
     if (!this.selected) return;
     const stand = stands.find(s => s.kind === this.selected);
@@ -205,6 +230,7 @@ export class IsometricMarketScene extends Phaser.Scene {
   }
   update(_time: number, delta: number) {
     if (!this.ready) return;
+    if (document.hidden) return;
     let budget = Math.min(delta, 80) / WORKER_MOVE_DURATION_PER_TILE;
     while (budget > 0 && this.path[0]) {
       const next = this.path[0], dc = next.column - this.position.column, dr = next.row - this.position.row;
@@ -212,6 +238,7 @@ export class IsometricMarketScene extends Phaser.Scene {
       this.actor.setFlipX(dc - dr < 0);
       this.position = remaining <= budget ? next : { column: this.position.column + dc * step / remaining, row: this.position.row + dr * step / remaining };
       this.distance += step * Math.hypot(ISO_WIDTH / 2, ISO_HEIGHT / 2);
+      if (this.donkeyFollow) this.donkeyFollow = appendDonkeyTrail(this.donkeyFollow, this.position);
       budget -= step;
       if (step === remaining) this.path = this.path.slice(1);
     }
@@ -226,6 +253,8 @@ export class IsometricMarketScene extends Phaser.Scene {
       }
     }
     this.renderFarmer(this.path.length > 0); this.publishAnchor();
+    if (this.donkeyFollow) this.donkeyFollow = advanceDonkeyFollow(this.donkeyFollow, delta, this.returning && this.path.length === 0);
+    this.renderDonkey();
     this.daylightShadows.render(this.shadowPreset);
     this.renderGreeting(Date.now());
     for (const merchant of this.merchants) {
@@ -234,7 +263,10 @@ export class IsometricMarketScene extends Phaser.Scene {
       merchant.facing = facing;
     }
     if (this.returning && this.path.length === 0 && this.position.column === marketReturnEntrance.column && this.position.row === marketReturnEntrance.row) {
-      this.returning = false; this.returned(); this.scene.switch("isometric-farm");
+      if (this.donkeyFollow?.trail.length) return;
+      const arrival = this.donkeyArrival;
+      this.donkeyFollow = null; this.donkeyArrival = null; this.donkey?.setVisible(false);
+      this.returning = false; this.returned(arrival); this.scene.switch("isometric-farm");
     }
   }
   fit() {

@@ -30,14 +30,30 @@ describe("Farmer management tab", () => {
     expect(html).toContain("Meskalamdug");
     expect(html).not.toContain('aria-label="Farmer mood:');
   });
-  it("shows the standing farmer portrait above the name and stats", () => {
+  it("keeps the existing standing farmer portrait and heading", () => {
     const html = render(6);
-    expect(html).toContain("farmer-stand-staff-1.png");
+    expect(html).toContain("farmer-idle-approved-design.png");
     expect(html).toContain('alt="Meskalamdug, your farmer"');
-    expect(html.indexOf('<img ')).toBeLessThan(html.indexOf('<h2'));
+    expect(html.indexOf('<h2')).toBeLessThan(html.indexOf('<img '));
     expect(html).toContain('width="96" height="96"');
   });
   afterEach(() => vi.restoreAllMocks());
+  it("leaves the level-nine dates treat in its existing layout", () => {
+    const html = render(9);
+    expect(html).toContain("Dates treat");
+    expect(html).toContain("Stored baskets of dates: 0");
+    expect(html).toContain("One basket of dates every 8 hours.");
+  });
+  it("shows compact treat rows without stock chips or shortage messages when stocked", () => {
+    const html = render(6);
+    expect(html).not.toContain("in stock");
+    for (const item of ["fish", "bread", "beer"]) expect(html).not.toContain(`No ${item} available`);
+    for (const icon of ["fish.png", "bread-basket-isometric.png", "beer-jars-full-isometric.png"]) expect(html).toContain(icon);
+    for (const hours of [8, 6, 12]) expect(html).toContain(`Every ${hours}h`);
+    expect(html).toContain('aria-label="+10 happiness"');
+    expect(html.match(/aria-label="\+15 happiness"/g)).toHaveLength(2);
+    expect(html).not.toContain("Filled beer jars");
+  });
   it.each(["harvesting", "planting", "moving", "milling", "baking", "gathering", "building"] as const)("offers busy popovers for all treats while %s", type => {
     vi.spyOn(farmerCommandStore, "getInitialState").mockReturnValue({
       ...farmerCommandStore.getState(), status: { type, commandId: "test" }
@@ -53,7 +69,9 @@ describe("Farmer management tab", () => {
     expect(render(6, 70, 0)).not.toContain("Give one fish to the farmer");
     const coolingDown = render(6, 70, 0, new Date(now - 3600000).toISOString());
     expect(coolingDown).toContain("Wait 7h 0m");
-    expect(coolingDown).not.toContain("No fish available");
+    for (const item of ["fish", "bread", "beer"]) {
+      expect(coolingDown.match(new RegExp(`No ${item} available`, "g"))).toHaveLength(1);
+    }
   });
   it.each([["fish", 8], ["bread", 6], ["beer", 12]] as const)("keeps the %s farmer cooldown visible with no stock", (item, hours) => {
     const html = render(6, 70, 0, new Date(now - 3600000).toISOString(), item);

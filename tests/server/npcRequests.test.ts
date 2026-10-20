@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { Client } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase } from "../../src/server/db/client";
-import { farmBuildings, farmInventory, farms, npcRequestBoards, players, shekelTransactions } from "../../src/server/db/schema";
+import { farmBuildings, farmCrops, farmInventory, farms, npcRequestBoards, players, shekelTransactions } from "../../src/server/db/schema";
+import { batchPlantingAction } from "../../src/server/services/batchPlanting";
 import { deliverNpcRequest, getNpcRequests } from "../../src/server/services/npcRequests";
 import { getTradeHistory } from "../../src/server/services/tradeHistory";
 import { TradeHistorySchema } from "../../src/schemas/tradeHistory";
@@ -124,12 +125,56 @@ describe("NPC requests", () => {
     expect((await Effect.runPromise(getNpcRequests(db, f.playerId))).requests[1]?.beer).toBe(2);
   });
 
-  it("isolates players and rejects stale versions", async () => {
+  it("isolates players and validates current stock instead of unrelated farm versions", async () => {
     const a = await fixture(); const b = await fixture();
     await Effect.runPromise(deliverNpcRequest(db, a.command()));
     expect((await Effect.runPromise(getNpcRequests(db, b.playerId))).requests[0]?.completed).toBe(false);
     expect((await Effect.runPromise(getTradeHistory(db, b.playerId, { limit: 5 }))).trades).toEqual([]);
-    expect(await Effect.runPromise(Effect.flip(deliverNpcRequest(db, a.command(1))))).toMatchObject({ reason: "version_conflict" });
+    const delivered = await Effect.runPromise(deliverNpcRequest(db, a.command(1)));
+    expect(delivered.player.shekelBalance).toBe(8);
+    expect(delivered.inventory.find(item => item.itemKey === "barley")?.quantity ?? 0).toBe(0);
+  });
+
+  it("delivers beer while a saved harvest job runs despite its newer farm version", async () => {
+    const f = await fixture(true);
+    const target = { column: 0, row: 8 };
+    await db.insert(farmCrops).values({ ...target, farmId: f.farmId, cropKey: "barley",
+      sowingStartedAt: new Date(0), plantedAt: new Date(10000), growthCompletesAt: new Date(1810000) });
+    const working = await Effect.runPromise(batchPlantingAction(db, {
+      type: "start_batch_harvesting", playerId: f.playerId, targets: [target], expectedFarmVersion: 1
+    }));
+    expect(working.farm.production.planting).not.toBeNull();
+    expect(working.farm.version).toBeGreaterThan(1);
+    const delivered = await Effect.runPromise(deliverNpcRequest(db, f.command(1)));
+    expect(delivered.player.shekelBalance).toBe(12);
+    expect(delivered.inventory.find(item => item.itemKey === "beer")).toBeUndefined();
+    expect(delivered.farm.production.planting?.id).toBe(working.farm.production.planting?.id);
+    expect((await Effect.runPromise(getNpcRequests(db, f.playerId))).requests[1]?.completed).toBe(true);
+  });
+
+  it("rejects stale-stock deliveries without reward or partial consumption", async () => {
+    const f = await fixture(true);
+    await db.update(farmInventory).set({ quantity: 1 }).where(and(eq(farmInventory.farmId, f.farmId), eq(farmInventory.itemKey, "beer")));
+    await db.update(farms).set({ version: 2 }).where(eq(farms.id, f.farmId));
+    expect(await Effect.runPromise(Effect.flip(deliverNpcRequest(db, f.command(2))))).toMatchObject({ reason: "insufficient_goods" });
+    const board = await Effect.runPromise(getNpcRequests(db, f.playerId));
+    expect(board.stock).toEqual({ barley: 5, beer: 1 });
+    expect(board.requests[2]?.completed).toBe(false);
+    expect(await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, f.playerId))).toHaveLength(0);
+  });
+
+  it("serializes different requests competing for the same beer without overspending", async () => {
+    const f = await fixture(true);
+    const second = new Client({ connectionString }); await second.connect();
+    try {
+      const outcomes = await Promise.all([
+        Effect.runPromise(Effect.either(deliverNpcRequest(db, f.command(1)))),
+        Effect.runPromise(Effect.either(deliverNpcRequest(createDatabase(second), f.command(2))))
+      ]);
+      expect(outcomes.filter(result => result._tag === "Right")).toHaveLength(1);
+      expect(outcomes.find(result => result._tag === "Left")).toMatchObject({ _tag: "Left", left: { reason: "insufficient_goods" } });
+      expect(await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, f.playerId))).toHaveLength(1);
+    } finally { await second.end(); }
   });
 
   it("serializes concurrent retries on separate database connections", async () => {
