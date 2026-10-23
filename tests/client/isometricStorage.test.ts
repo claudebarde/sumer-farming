@@ -39,17 +39,17 @@ describe("manual isometric barley storage", () => {
     expect(plan.path.at(-1)).toEqual({ column: 5, row: 5 });
     expect(JSON.stringify(s)).toBe(before);
   });
-  it("uses the farm if the granary cannot fit the full load", () => {
+  it("fills the granary first even when the load needs a second stop", () => {
     const s = snapshot(); s.buildings[0]!.storedBarley = granaryCapacityForLevel(1) - 1;
-    expect(barleyStoragePlan(s, from, 1000).plan?.destination.type).toBe("farm");
-    expect(barleyStoragePlan(s, from, 1000).plan?.path.at(-1)).toEqual({ column: 1, row: 5 });
+    expect(barleyStoragePlan(s, from, 1000).plan?.destination).toMatchObject({ type: "granary", room: 1 });
+    expect(barleyStoragePlan(s, from, 1000).plan?.path.at(-1)).toEqual({ column: 5, row: 5 });
   });
-  it("ignores unfinished granaries and warehouses", () => {
+  it("ignores unfinished storage but uses a completed warehouse", () => {
     const s = snapshot(); s.buildings[0]!.completesAt = new Date(2000).toISOString();
     expect(barleyStoragePlan(s, from, 1000).plan?.destination.type).toBe("farm");
     s.buildings[0]!.type = "warehouse"; s.buildings[0]!.completesAt = new Date(0).toISOString();
     s.inventory[0]!.quantity = 5;
-    expect(barleyStoragePlan(s, from, 1000)).toEqual({ hasStorage: false, plan: null });
+    expect(barleyStoragePlan(s, from, 1000).plan?.destination).toMatchObject({ type: "granary", room: 20 });
   });
   it("reports no space only when both stores are full, and allows partial deposits", () => {
     const s = snapshot(); s.inventory[0]!.quantity = 5; s.buildings[0]!.storedBarley = granaryCapacityForLevel(1);

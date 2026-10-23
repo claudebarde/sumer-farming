@@ -112,7 +112,7 @@ export const describeBuildingPlacementRule = (
   match(rule)
     .with({ type: "building_limit" }, ({ limit }) => `Building limit reached (${limit}), including buildings under construction.`)
     .with({ type: "access_blocked" }, () => "Keep a clear path for the farmer and access to every building.")
-    .with({ type: "road_access_required" }, () => "Build beside a connected road, with a free road tile for this building's loading point.")
+    .with({ type: "road_access_required" }, () => "Build beside a completed connected road with an unobstructed access tile. Buildings can share road access.")
     .with(
       { type: "outside_building_ground" },
       () => "Build entirely on non-arable ground, away from roads and water."

@@ -25,7 +25,7 @@ it("shares the original-orientation loading preference with construction, exclud
   expect(breweryLoadingCorner(origin, preferred)).toBe("B");
   expect(breweryOrientationTexture({ ...origin, loadingTile: preferred }, roads, 1000)).toBe("brewery-left-bottom");
   const reserved = [{ column: 2, row: 1 }, { column: 2, row: 2 }];
-  expect(breweryLoadingCorner(origin, choose(reserved, new Set())!)).toBe("C");
+  expect(breweryLoadingCorner(origin, choose(reserved, new Set())!)).toBe("B");
   expect(breweryLoadingCorner(origin, choose([], new Set(["2:1", "2:2"]))!)).toBe("C");
   const service = readFileSync(new URL("../../src/server/services/buildFarmBuilding.ts", import.meta.url), "utf8");
   expect(service).toContain("occupiedCoordinates, { building: buildingType }");

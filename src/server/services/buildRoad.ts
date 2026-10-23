@@ -4,7 +4,7 @@ import { farmDecorationTypes, isClearableScenery } from "../../game-data/farmObj
 import { ROAD_CONSTRUCTION_DURATION_MS, roadIsComplete } from "../../game-data/roads";
 import { Data, Effect } from "effect";
 import { getBuildingFootprint } from "../../game-core/farm/buildings";
-import { roadKey, roadRemovalReason, validateRoadPlacement } from "../../game-core/farm/roads";
+import { roadKey, roadRemovalReason, validateRoadPlacement, validateRoadPlan, connectedRoadPlan } from "../../game-core/farm/roads";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import type { GameCommand } from "../../schemas/gameCommands";
 import type { Database } from "../db/client";
@@ -27,7 +27,9 @@ export const buildRoad = (database: Database, input: Extract<GameCommand, { type
       if (snapshot.farm.version !== input.expectedFarmVersion) return fail("The farm changed. Please try again.");
       const now = Date.now();
       if (snapshot.farm.roads.some(r => !roadIsComplete(r, now))) return fail("Finish building the road first.");
-      if (snapshot.farm.production.planting || snapshot.farm.carriedItem || farmerProductionJob(snapshot.farm) || snapshot.farm.production.delivery || snapshot.farm.millGoods.delivery || snapshot.farm.gathering || snapshot.farm.fishing ||
+      if (snapshot.farm.production.planting || snapshot.farm.production.materialDelivery ||
+        (snapshot.farm.production.cropWork && !snapshot.farm.production.cropWork.settled) ||
+        snapshot.farm.carriedItem || farmerProductionJob(snapshot.farm) || snapshot.farm.production.delivery || snapshot.farm.millGoods.delivery || snapshot.farm.gathering || snapshot.farm.fishing ||
         snapshot.crops.some(c => Date.parse(c.plantedAt) > now || c.harvestStartedAt !== null) || snapshot.buildings.some(b => Date.parse(b.completesAt) > now) ||
         snapshot.improvements.some(i => Date.parse(i.completesAt) > now || i.destroyStartedAt !== null)) return fail("Finish the current task and empty the farmer's hands first.");
       const occupied = new Set([
@@ -35,6 +37,38 @@ export const buildRoad = (database: Database, input: Extract<GameCommand, { type
         ...snapshot.buildings.flatMap(b => getBuildingFootprint(b.type, b)),
         ...getBuildingFootprint("granary", { column: INITIAL_FARM_CONFIG.buildingBounds.minimumColumn, row: INITIAL_FARM_CONFIG.buildingBounds.minimumRow })
       ].map(roadKey));
+      if (input.type === "build_road" && input.targets) {
+        if (roadKey(input.target) !== roadKey(input.targets[0]!)) return fail("The road plan must begin at its target.");
+        const reason = validateRoadPlan(input.targets, snapshot.farm.roads, occupied, now);
+        if (reason) return fail(reason);
+        const roads = [...snapshot.farm.roads];
+        let time = now;
+        let position = input.farmerPosition ?? INITIAL_FARM_CONFIG.farmerSpawn;
+        const buildings = snapshot.buildings.map(b => ({ ...b, completesAt: Date.parse(b.completesAt) }));
+        // Plan every journey before writing anything. Each tile starts after the previous deadline.
+        const cleared = new Set<string>();
+        for (const target of connectedRoadPlan(input.targets, snapshot.farm.roads, now)!) {
+          const obstacles = [...snapshot.objects.filter(o => !cleared.has(roadKey(o))),
+            ...snapshot.improvements.filter(i => i.row !== INITIAL_FARM_CONFIG.roadRow), target];
+          const paths = roadNeighbors(target).flatMap(tile => {
+            const path = porterPath(buildings, roads, position, tile, time, obstacles);
+            return path ? [path] : [];
+          });
+          const approachPath = paths.sort((a, b) => a.length - b.length)[0];
+          if (!approachPath) return fail("The farmer cannot reach every tile in this road plan.");
+          time += (approachPath.length - 1) * WORKER_MOVE_DURATION_PER_TILE + ROAD_CONSTRUCTION_DURATION_MS;
+          roads.push({ ...target, approachPath: [...approachPath], completesAt: time });
+          position = approachPath.at(-1)!;
+          cleared.add(roadKey(target));
+        }
+        for (const target of input.targets) await tx.delete(farmObjects).where(and(
+          eq(farmObjects.farmId, farm.id), eq(farmObjects.column, target.column),
+          eq(farmObjects.row, target.row), inArray(farmObjects.type, [...farmDecorationTypes])
+        ));
+        const [updated] = await tx.update(farms).set({ roads, version: sql`${farms.version} + 1`, updatedAt: new Date(now) })
+          .where(eq(farms.id, farm.id)).returning();
+        return readFarmSnapshot(tx, updated!, false);
+      }
       const reason = input.type === "destroy_road"
         ? porterRoadRemovalReason(snapshot.farm.production.porter, input.target) ?? roadRemovalReason(input.target, snapshot.farm.roads, snapshot.buildings.flatMap(b => b.loadingTile ? [b.loadingTile] : []), now)
         : validateRoadPlacement(input.target, snapshot.farm.roads, occupied, now);

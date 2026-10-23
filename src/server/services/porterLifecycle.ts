@@ -2,6 +2,8 @@ import { eq, sql } from "drizzle-orm";
 import { advancePorter, type PorterStack } from "../../game-core/farm/porter";
 import type { DatabaseTransaction } from "../db/client";
 import { farmBuildings, farmInventory, farms } from "../db/schema";
+import { setStoredQuantity } from "./physicalStorage";
+import { storedLocations } from "../../game-core/farm/physicalStorage";
 
 export const advancePorterLifecycle = async (tx: DatabaseTransaction, farm: typeof farms.$inferSelect, now: Date, readyAt: Readonly<Record<string, number>> = {}) => {
   const porter = farm.production.porter;
@@ -16,11 +18,11 @@ export const advancePorterLifecycle = async (tx: DatabaseTransaction, farm: type
   const reserved: Record<string, number> = { ...farm.millGoods.delivery?.bags };
   if (farm.production.delivery) reserved[farm.production.delivery.itemKey] = farm.production.delivery.quantity;
   const result = advancePorter({ porter, stacks, inventory, reserved,
+    locations: Object.fromEntries(stock.map(s => [s.itemKey, storedLocations(s, buildings, now.getTime())])),
     buildings: buildings.map(b => ({ ...b, completesAt: b.completesAt.getTime() })), roads: farm.roads, now: now.getTime() });
   for (const [itemKey, quantity] of Object.entries(result.inventory)) {
     if (quantity === inventory[itemKey]) continue;
-    await tx.insert(farmInventory).values({ farmId: farm.id, itemKey: itemKey as "flour" | "brewersGroats" | "bread" | "beer" | "emptyBeerJar", quantity })
-      .onConflictDoUpdate({ target: [farmInventory.farmId, farmInventory.itemKey], set: { quantity, updatedAt: now } });
+    await setStoredQuantity(tx, farm.id, itemKey as "flour" | "brewersGroats" | "bread" | "beer" | "emptyBeerJar", quantity, now, undefined, result.locations[itemKey]);
   }
   for (const building of buildings) {
     const quantity = result.breweryJars[building.id];

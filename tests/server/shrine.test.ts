@@ -34,6 +34,21 @@ const fixture = async (level = 8, quantity = 4, complete = true) => {
 };
 
 describe("shrine offerings", () => {
+  it("constructs a shrine sharing the bread oven's road access without changing the oven", async () => {
+    const f = await fixture();
+    await db.delete(farmBuildings).where(eq(farmBuildings.id, f.shrine.id));
+    const [oven] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "breadOven",
+      column: -3, row: 6, loadingTile: { column: -3, row: 5 },
+      startedAt: new Date(0), completesAt: new Date(1) }).returning();
+    await db.insert(farmInventory).values([
+      { farmId: f.farm.id, itemKey: "reed", quantity: 2 },
+      { farmId: f.farm.id, itemKey: "clay", quantity: 4 }
+    ]);
+    const built = await Effect.runPromise(buildFarmBuilding(db, { playerId: f.farm.playerId,
+      building: "smallShrine", target: { column: -3, row: 4 }, expectedFarmVersion: 1 }));
+    expect(built.buildings.find(b => b.type === "smallShrine")!.loadingTile).toEqual({ column: -3, row: 5 });
+    expect(built.buildings.find(b => b.id === oven!.id)!.loadingTile).toEqual({ column: -3, row: 5 });
+  });
   it("constructs one 1×1 shrine beside the road and consumes its materials", async () => {
     const f = await fixture();
     await db.delete(farmBuildings).where(eq(farmBuildings.id, f.shrine.id));
@@ -48,6 +63,9 @@ describe("shrine offerings", () => {
     expect(built.buildings[0]).toMatchObject({ type: "smallShrine", column: 7, row: 4, loadingTile: { column: 7, row: 5 } });
     expect(Date.parse(built.buildings[0]!.completesAt) - Date.parse(built.buildings[0]!.startedAt)).toBe(120000);
     expect(built.groundItems).toHaveLength(0);
+    const reloaded = await f.refresh();
+    expect(reloaded.buildings[0]!.completesAt).toBe(built.buildings[0]!.completesAt);
+    expect(reloaded.groundItems).toHaveLength(0);
     expect(await Effect.runPromise(Effect.flip(buildFarmBuilding(db, { ...input, target: { column: 6, row: 4 }, expectedFarmVersion: built.farm.version })))).toMatchObject({ rule: { type: "building_limit", limit: 1 } });
   });
   it.each(["bread", "beer"] as const)("consumes exactly two %s once, persists the blessing and rejects stacking", async item => {
@@ -57,6 +75,7 @@ describe("shrine offerings", () => {
     expect(result.inventory.find(i => i.itemKey === (item === "bread" ? "beer" : "bread"))?.quantity).toBe(4);
     expect(result.farm.household).toMatchObject({ happiness: 80, lastBreadAt: null, lastBeerAt: null });
     const blessing = result.farm.production.shrineBlessing!;
+    expect(blessing.item).toBe(item);
     expect(Date.parse(blessing.expiresAt) - Date.parse(blessing.startedAt)).toBe(SHRINE_BLESSING_DURATION_MS);
     expect((await f.refresh()).farm.production.shrineBlessing).toEqual(blessing);
     expect(await Effect.runPromise(Effect.flip(productionAction(db, f.offer(item))))).toMatchObject({ _tag: "ProductionRuleError" });

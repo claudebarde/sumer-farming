@@ -10,7 +10,51 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
 const farmer = { column: 1, row: 5 };
 const target = { column: 4, row: 3 };
 
-it.each(["granary", "mill", "breadOven", "brewery"] as const)("allows southern non-arable %s placement but rejects any farmland overlap", type => {
+it("connects level-8 warehouse placement to the existing cost, footprint and command", () => {
+  const s = snapshot();
+  expect(buildingBuildBlocker(s, 1000, "warehouse")).toBe("Unlock at level 8");
+  s.farm.progression = { level: 8, breadSold: 0, barleySold: 0, beerSold: 0, requestsDelivered: 0,
+    stats: { breadProduced: 0, processedBarley: 0, harvestedBarley: 0, harvests: 0, beerProduced: 0, fishFed: 0 } };
+  expect(buildingBuildBlocker(s, 1000, "warehouse")).toContain("hands");
+  s.farm.carriedItem = null;
+  expect(buildingBuildBlocker(s, 1000, "warehouse")).toContain("Gather 4 reed and 6 clay");
+  s.inventory = [{ itemKey: "reed", quantity: 4 }, { itemKey: "clay", quantity: 6 }];
+  expect(buildingBuildBlocker(s, 1000, "warehouse")).toBeNull();
+  expect(buildingPlacement(s, target, farmer, 1000, "warehouse")).toMatchObject({
+    rule: { type: "valid" }, loading: { column: 4, row: 5 },
+  });
+  expect(buildingPlacement(s, target, farmer, 1000, "warehouse").footprint).toHaveLength(4);
+  expect(buildingPlacement(s, target, target, 1000, "warehouse").rule.type).toBe("footprint_occupied");
+  expect(buildingPlacement(s, { column: 4, row: 0 }, farmer, 1000, "warehouse").rule.type).toBe("road_access_required");
+  expect(constructionCommands.warehouse).toBe("build_warehouse");
+  expect(constructionSummary("warehouse")).toBe("Build warehouse · 4 reed · 6 clay · 3 minutes");
+});
+
+it("places one level-8 shrine with a one-tile footprint and its existing construction cost", () => {
+  const s = snapshot();
+  expect(buildingBuildBlocker(s, 1000, "smallShrine")).toBe("Unlock at level 8");
+  s.farm.progression = { level: 8, breadSold: 0, barleySold: 0, beerSold: 0, requestsDelivered: 0,
+    stats: { breadProduced: 0, processedBarley: 0, harvestedBarley: 0, harvests: 0, beerProduced: 0, fishFed: 0 } };
+  expect(buildingBuildBlocker(s, 1000, "smallShrine")).toContain("hands");
+  s.farm.carriedItem = null;
+  expect(buildingBuildBlocker(s, 1000, "smallShrine")).toContain("Gather");
+  s.inventory = [{ itemKey: "reed", quantity: 2 }, { itemKey: "clay", quantity: 4 }];
+  expect(buildingBuildBlocker(s, 1000, "smallShrine")).toBeNull();
+  const cell = { column: 7, row: 4 };
+  const placement = buildingPlacement(s, cell, farmer, 1000, "smallShrine");
+  expect(placement).toMatchObject({ rule: { type: "valid" }, loading: { column: 7, row: 5 } });
+  expect(placement.footprint).toEqual([cell]);
+  expect(buildingPlacement(s, cell, cell, 1000, "smallShrine").rule.type).toBe("footprint_occupied");
+  expect(buildingPlacement(s, { column: 7, row: 2 }, farmer, 1000, "smallShrine").rule.type).toBe("road_access_required");
+  expect(constructionCommands.smallShrine).toBe("build_small_shrine");
+  expect(constructionSummary("smallShrine")).toBe("Build small shrine · 2 reed · 4 clay · 2 minutes");
+  s.buildings = FarmSnapshotSchema.parse({ ...s, buildings: [{ id, type: "smallShrine", ...cell,
+    storedBarley: 0, brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0,
+    startedAt: new Date(0).toISOString(), completesAt: new Date(120000).toISOString() }] }).buildings;
+  expect(buildingBuildBlocker(s, 1000, "smallShrine")).toBe("Already built");
+});
+
+it.each(["granary", "mill", "breadOven", "brewery", "warehouse"] as const)("allows southern non-arable %s placement but rejects any farmland overlap", type => {
   const s = snapshot();
   for (const column of [-4, -2, 8, 10]) {
     expect(mockGranaryPlacement(s, { column, row: 6 }, farmer, 1000, false, type).rule.type).toBe("valid");
@@ -121,7 +165,7 @@ it("rejects ground items and the farmer in the footprint", () => {
   expect(mockGranaryPlacement(s, target, farmer, Date.now()).rule.type).toBe("footprint_occupied");
 });
 
-it("retains building footprints and reserved loading tiles while bypassing the owned-granary limit", () => {
+it("protects building footprints but allows shared road access", () => {
   const s = snapshot();
   s.buildings = FarmSnapshotSchema.parse({ ...s, buildings: [{ id, type: "granary", column: 6, row: 3,
     storedBarley: 0, brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0,
@@ -130,9 +174,9 @@ it("retains building footprints and reserved loading tiles while bypassing the o
   expect(mockGranaryPlacement(s, { column: 6, row: 3 }, farmer, Date.now()).rule.type).toBe("footprint_occupied");
   // A legacy building can have a separately reserved loading tile.
   s.buildings[0]!.loadingTile = { column: 5, row: 5 };
-  // Block the only other loading point; the reserved tile must not be reused.
+  // Block the other loading point; the saved access tile can be shared.
   s.groundItems.push({ id, itemKey: "barley", quantity: 1, expiresAt: null, column: 4, row: 5 });
-  expect(mockGranaryPlacement(s, target, farmer, Date.now()).rule.type).toBe("road_access_required");
+  expect(mockGranaryPlacement(s, target, farmer, Date.now())).toMatchObject({ rule: { type: "valid" }, loading: { column: 5, row: 5 } });
 });
 
 it("rejects disconnected or unfinished roads", () => {

@@ -1552,7 +1552,13 @@ inventory as a four-column visual grid (two columns on narrow screens): existing
 36px item artwork, name with quantity/capacity beside it, and storage progress below.
 Both inventory popups are 560px wide, capped to the viewport minus 24px; other popup widths are
 unchanged. Reuse the existing
-farm/warehouse allocation and capacity rules; clamp bars, not quantities.
+farm/warehouse capacity rules; clamp bars, not quantities. Inventory rows include
+persisted `locations` keyed by `farm` or building ID for processed goods, materials
+and dates. `quantity` is their combined estate total; update both atomically through
+`setStoredQuantity`. Never infer local quantities from warehouse capacity or silently
+redistribute stock when buildings are added. Barley retains its separate farm
+inventory and building `storedBarley` fields. Migrate legacy shared goods once,
+farm-first with overflow preserved in the completed warehouse.
 Keep consistent 20px content padding without trailing grid or empty-action gaps.
 Legacy popup tables retain their layout unless explicitly approved.
 

@@ -4,6 +4,7 @@ import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import { WORKER_MOVE_DURATION_PER_TILE } from "../../game-data/movement";
 import { porterPath } from "./porter";
 import { farmerMovementDurationMultiplier } from "./wellbeing";
+import { storedLocations } from "./physicalStorage";
 
 type Position = { column: number; row: number };
 /** Positions are hints only. The server chooses accessible stops, routes and times. */
@@ -46,7 +47,22 @@ export const planProductionJourney = (
   const carried = snapshot.farm.carriedItem?.itemKey === "barley" ? snapshot.farm.carriedItem.quantity : 0;
   const supplyStops: NonNullable<ProductionJourney["supplyStops"]> = [];
   if (kind === "baking" || kind === "brewing") {
-    if (!append(home)) return null;
+    const item = kind === "baking" ? "flour" : "brewersGroats";
+    const locations = storedLocations(snapshot.inventory.find(i => i.itemKey === item), snapshot.buildings, now);
+    let remaining = 2;
+    for (const id of ["farm", ...Object.keys(locations).filter(id => id !== "farm").sort()]) {
+      const quantity = Math.min(remaining, locations[id] ?? 0);
+      if (!quantity) continue;
+      const source = buildings.find(b => b.id === id);
+      const sourceStop = id === "farm" ? home : source && stop(source);
+      if (!sourceStop || !append(sourceStop)) return null;
+      supplyStops.push({ index: path.length - 1, quantity, buildingId: source?.id ?? null,
+        column: source?.column ?? INITIAL_FARM_CONFIG.buildingBounds.minimumColumn,
+        row: source?.row ?? INITIAL_FARM_CONFIG.buildingBounds.minimumRow });
+      remaining -= quantity;
+      if (!remaining) break;
+    }
+    if (remaining > 0) return null;
   } else {
     let remaining = Math.max(0, (kind === "donkeyMilling" ? 6 : 2) - carried);
     for (const source of buildings.filter(b => (b.type === "granary" || b.type === "warehouse") && b.storedBarley > 0 && b.completesAt <= now)) {
@@ -63,7 +79,7 @@ export const planProductionJourney = (
         column: INITIAL_FARM_CONFIG.buildingBounds.minimumColumn, row: INITIAL_FARM_CONFIG.buildingBounds.minimumRow });
     }
   }
-  const supplyIndex = path.length - 1;
+  const supplyIndex = supplyStops[0]?.index ?? path.length - 1;
   if (!append(destination)) return null;
   const stepDurationMs = WORKER_MOVE_DURATION_PER_TILE * farmerMovementDurationMultiplier(
     snapshot.farm.household.happiness, snapshot.farm.household.hungrySince !== null, snapshot.farm.progression?.level ?? 1);

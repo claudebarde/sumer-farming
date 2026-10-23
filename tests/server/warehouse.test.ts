@@ -33,8 +33,8 @@ const fixture = async () => {
 describe("warehouse and finite storage", () => {
   it("splits bread delivery between warehouse and farm and persists the remaining cargo", async () => {
     const f = await fixture(); const buildingId = randomUUID();
-    await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "warehouse", column: 5, row: 3, startedAt: new Date(0), completesAt: new Date(1) });
-    await db.insert(farmInventory).values({ farmId: f.farm.id, itemKey: "bread", quantity: 9 });
+    const [warehouse] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "warehouse", column: 5, row: 3, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+    await db.insert(farmInventory).values({ farmId: f.farm.id, itemKey: "bread", quantity: 9, locations: { farm: 0, [warehouse!.id]: 9 } });
     await db.update(farms).set({ production: { ...emptyProductionState(), delivery: { buildingId, itemKey: "bread", quantity: 3 } } }).where(eq(farms.id, f.farm.id));
     const input = { type: "production_delivery" as const, action: "store" as const, buildingId, playerId: f.farm.playerId, expectedFarmVersion: 1 };
     const first = await Effect.runPromise(productionAction(db, input));
@@ -42,12 +42,13 @@ describe("warehouse and finite storage", () => {
     expect((await f.refresh()).farm.production.delivery?.quantity).toBe(2);
     const last = await Effect.runPromise(productionAction(db, { ...input, expectedFarmVersion: first.farm.version }));
     expect(last.inventory.find(i => i.itemKey === "bread")?.quantity).toBe(12);
+    expect(last.inventory.find(i => i.itemKey === "bread")?.locations).toEqual({ farm: 2, [warehouse!.id]: 10 });
     expect(last.farm.production.delivery).toBeNull();
   });
   it("delivers mixed mill bags to warehouse before farm without crediting farm goods early", async () => {
     const f = await fixture(); const millId = randomUUID();
-    await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "warehouse", column: 5, row: 3, startedAt: new Date(0), completesAt: new Date(1) });
-    await db.insert(farmInventory).values([{ farmId: f.farm.id, itemKey: "flour", quantity: 10 }, { farmId: f.farm.id, itemKey: "brewersGroats", quantity: 9 }]);
+    const [warehouse] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "warehouse", column: 5, row: 3, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+    await db.insert(farmInventory).values([{ farmId: f.farm.id, itemKey: "flour", quantity: 10, locations: { farm: 0, [warehouse!.id]: 10 } }, { farmId: f.farm.id, itemKey: "brewersGroats", quantity: 9, locations: { farm: 0, [warehouse!.id]: 9 } }]);
     await db.update(farms).set({ millGoods: { pending: {}, delivery: { millId, bags: { flour: 2, brewersGroats: 3 } } } }).where(eq(farms.id, f.farm.id));
     const input = { type: "mill_delivery" as const, action: "store" as const, millId, playerId: f.farm.playerId, expectedFarmVersion: 1 };
     const first = await Effect.runPromise(deliverMillGoods(db, input));
@@ -125,7 +126,20 @@ describe("warehouse and finite storage", () => {
     expect(built.buildings[0]).toMatchObject({ type: "warehouse", column: 5, row: 3 });
     expect(built.inventory.find(i => i.itemKey === "reed")?.quantity).toBe(2);
     expect(built.inventory.find(i => i.itemKey === "clay")?.quantity ?? 0).toBe(0);
+    const warehouse = built.buildings[0]!;
+    expect(Date.parse(warehouse.completesAt) - Date.parse(warehouse.startedAt)).toBe(180000);
+    expect(warehouse.loadingTile).toEqual({ column: 5, row: 5 });
+    const reloaded = await f.refresh();
+    expect(reloaded.buildings[0]!.completesAt).toBe(warehouse.completesAt);
+    expect(await Effect.runPromise(Effect.flip(buildFarmBuilding(db, input)))).toMatchObject({ rule: { type: "version_conflict" } });
     expect(await Effect.runPromise(Effect.flip(buildFarmBuilding(db, { ...input, expectedFarmVersion: built.farm.version })))).toMatchObject({ rule: { type: "building_limit" } });
+    await db.update(farmBuildings).set({ startedAt: new Date(Date.now() - 181000), completesAt: new Date(Date.now() - 1000) })
+      .where(eq(farmBuildings.id, warehouse.id));
+    const returned = await f.refresh();
+    expect(Date.parse(returned.buildings[0]!.completesAt)).toBeLessThan(Date.now());
+    expect(returned.buildings).toHaveLength(1);
+    expect(returned.inventory.find(i => i.itemKey === "reed")?.quantity).toBe(2);
+    expect(returned.inventory.find(i => i.itemKey === "clay")?.quantity ?? 0).toBe(0);
   });
   it("migrates a legacy second granary without losing stock and exposes new market capacity", async () => {
     const f = await fixture();
@@ -150,24 +164,22 @@ describe("warehouse and finite storage", () => {
     expect(await Effect.runPromise(Effect.flip(depositCarriedItem(db, { playerId: f.farm.playerId, expectedFarmVersion: result.farm.version })))).toMatchObject({ rule: { type: "farm_storage_full" } });
     expect((await f.refresh()).farm.carriedItem?.quantity).toBe(1);
   });
-  it("collects only bread that fits and leaves the rest at the oven", async () => {
+  it("leaves the whole bread pile at the oven when estate space is insufficient", async () => {
     const f = await fixture(); const buildingId = randomUUID();
     await db.insert(farmInventory).values({ farmId: f.farm.id, itemKey: "bread", quantity: 9 });
     await db.update(farms).set({ production: { ...emptyProductionState(), pending: { [buildingId]: { itemKey: "bread", quantity: 4 } } } }).where(eq(farms.id, f.farm.id));
     const input = { type: "production_delivery" as const, playerId: f.farm.playerId, buildingId, expectedFarmVersion: 1 };
-    const picked = await Effect.runPromise(productionAction(db, { ...input, action: "pickup" }));
-    expect(picked.farm.production.delivery?.quantity).toBe(1);
-    expect(picked.farm.production.pending[buildingId]?.quantity).toBe(3);
-    const stored = await Effect.runPromise(productionAction(db, { ...input, action: "store", expectedFarmVersion: picked.farm.version }));
-    expect(stored.inventory.find(i => i.itemKey === "bread")?.quantity).toBe(10);
-    expect(await Effect.runPromise(Effect.flip(productionAction(db, { ...input, action: "pickup", expectedFarmVersion: stored.farm.version })))).toMatchObject({ message: expect.stringContaining("full") });
+    expect(await Effect.runPromise(Effect.flip(productionAction(db, { ...input, action: "pickup" })))).toMatchObject({ message: expect.stringContaining("whole pile") });
+    const unchanged = await f.refresh();
+    expect(unchanged.farm.production.delivery).toBeNull();
+    expect(unchanged.farm.production.pending[buildingId]?.quantity).toBe(4);
+    expect(unchanged.inventory.find(i => i.itemKey === "bread")?.quantity).toBe(9);
   });
   it("keeps flour and groats limits separate during collection", async () => {
     const f = await fixture(); const millId = randomUUID();
     await db.insert(farmInventory).values([{ farmId: f.farm.id, itemKey: "flour", quantity: 10 }, { farmId: f.farm.id, itemKey: "brewersGroats", quantity: 8 }]);
     await db.update(farms).set({ millGoods: { pending: { [millId]: { flour: 3, brewersGroats: 3 } }, delivery: null } }).where(eq(farms.id, f.farm.id));
-    const picked = await Effect.runPromise(deliverMillGoods(db, { type: "mill_delivery", action: "pickup", playerId: f.farm.playerId, millId, expectedFarmVersion: 1 }));
-    expect(picked.farm.millGoods.delivery?.bags).toEqual({ flour: 0, brewersGroats: 2 });
-    expect(picked.farm.millGoods.pending[millId]).toEqual({ flour: 3, brewersGroats: 1 });
+    expect(await Effect.runPromise(Effect.flip(deliverMillGoods(db, { type: "mill_delivery", action: "pickup", playerId: f.farm.playerId, millId, expectedFarmVersion: 1 })))).toMatchObject({ message: expect.stringContaining("whole pile") });
+    expect((await f.refresh()).farm.millGoods.pending[millId]).toEqual({ flour: 3, brewersGroats: 3 });
   });
 });

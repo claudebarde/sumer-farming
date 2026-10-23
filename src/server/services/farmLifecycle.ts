@@ -1,6 +1,7 @@
 import { and, asc, eq, lte, sql, inArray } from "drizzle-orm";
 import { getRiverConnectedCanals } from "../../game-core/farm/irrigation";
 import { migrateFarmLand } from "./farmLandMigration";
+import { initializePhysicalStorage } from "./physicalStorage";
 
 import { BARLEY_CONSUMPTION_INTERVAL_MS } from "../../game-data/household";
 import { BEER_RECIPE, BREWERY_EMPTY_JAR_CAPACITY } from "../../game-data/brewing";
@@ -64,6 +65,7 @@ export const advanceFarmLifecycle = async (
   now: Date
 ): Promise<FarmRecord> => {
   farm = await migrateFarmLand(transaction, farm, now);
+  await initializePhysicalStorage(transaction, farm.id, now);
   // Return legacy overstock to free inventory; preserve the estate's total jars.
   const jarStores = await transaction.select().from(farmBuildings)
     .where(and(eq(farmBuildings.farmId, farm.id), eq(farmBuildings.type, "brewery"))).for("update");

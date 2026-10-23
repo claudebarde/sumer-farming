@@ -1,4 +1,5 @@
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
+import { setStoredQuantity } from "./physicalStorage";
 import { productionOutputFits, OUTPUT_FULL_MESSAGE } from "../../game-core/farm/productionOutputCapacity";
 import { planProductionJourney, productionArrivalAt } from "../../game-core/farm/productionJourney";
 import { BREWING_PREPARATION_MS } from "../../game-data/brewing";
@@ -47,7 +48,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           const quantity = snapshot.inventory.find(i => i.itemKey === "dates")?.quantity ?? 0;
           const rule = validateDatesTreat(quantity, farm.happiness, farm.production.lastDatesAt ? Date.parse(farm.production.lastDatesAt) : null, now.getTime());
           if (rule) return new BrewerySupplyRuleError({ type: rule, message: datesTreatErrors[rule] });
-          await transaction.update(farmInventory).set({ quantity: quantity - 1, updatedAt: now }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "dates")));
+          await setStoredQuantity(transaction, farm.id, "dates", quantity - 1, now);
           const [updated] = await transaction.update(farms).set({ happiness: happinessAfterDates(farm.happiness), happinessCheckedAt: now,
             production: { ...farm.production, lastDatesAt: now.toISOString() }, version: sql`${farms.version} + 1`, updatedAt: now }).where(eq(farms.id, farm.id)).returning();
           return readFarmSnapshot(transaction, updated!, false);
@@ -60,8 +61,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           const lastTreatAt = itemKey === "fish" ? farm.lastFishAt : itemKey === "bread" ? farm.lastBreadAt : farm.lastBeerAt;
           const rule = validate(quantity, farm.happiness, lastTreatAt?.getTime() ?? null, now.getTime());
           if (rule !== null) return new BrewerySupplyRuleError({ type: rule, message: { ...fishTreatErrors, ...breadTreatErrors }[rule] });
-          await transaction.update(farmInventory).set({ quantity: quantity - 1, updatedAt: now })
-            .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, itemKey)));
+          await setStoredQuantity(transaction, farm.id, itemKey, quantity - 1, now);
           const [updated] = await transaction.update(farms).set({
             happiness: itemKey === "fish" ? happinessAfterFish(farm.happiness) : itemKey === "bread" ? happinessAfterBread(farm.happiness) : happinessAfterBeer(farm.happiness),
             lastBreadAt: itemKey === "bread" ? now : farm.lastBreadAt,
@@ -93,8 +93,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
               beerReadyAt: readyBeer === 1 ? null : new Date(brewery.beerReadyAt!)
             }).where(eq(farmBuildings.id, brewery.id));
           } else {
-            await transaction.update(farmInventory).set({ quantity: beerQuantity - 1, updatedAt: now })
-              .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "beer")));
+            await setStoredQuantity(transaction, farm.id, "beer", beerQuantity - 1, now);
           }
         }
         if (input.action === "start_brewing") {
@@ -114,8 +113,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           const startedAt = arrivedAt + BREWING_PREPARATION_MS;
           const completesAt = startedAt + Math.round(BEER_RECIPE.durationMs * buildingProductionMultiplier("brewery", buildingLevel(farm.production.buildingUpgrades, brewery.id, now.getTime())));
           production = { ...production, brewing: { ...production.brewing, [brewery.id]: { preparation, arrivedAt: new Date(arrivedAt).toISOString(), startedAt: new Date(startedAt).toISOString(), completesAt: new Date(completesAt).toISOString() } } };
-          await transaction.update(farmInventory).set({ quantity: groats - BEER_RECIPE.groats, updatedAt: now })
-            .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "brewersGroats")));
+          await setStoredQuantity(transaction, farm.id, "brewersGroats", groats - BEER_RECIPE.groats, now);
             await transaction.update(farmBuildings).set({
               brewingWater: brewery.brewingWater - BEER_RECIPE.water,
               emptyBeerJars: brewery.emptyBeerJars - BEER_RECIPE.emptyJars,

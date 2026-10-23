@@ -21,7 +21,7 @@ export const GameCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("start_batch_planting"), farmerPosition: WorkerPositionSchema.optional(), targets: z.array(FarmCoordinateSchema).min(1).max(MAX_BATCH_HARVEST_FIELDS), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("start_batch_harvesting"), farmerPosition: WorkerPositionSchema.optional(), targets: z.array(FarmCoordinateSchema).min(1).max(MAX_BATCH_HARVEST_FIELDS), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("advance_batch_planting"), batchId: z.uuid(), action: z.enum(["collect", "plant", "harvest", "finish", "stop"]), expectedFarmVersion: z.int().positive() }),
-  z.object({ type: z.literal("build_road"), target: FarmCoordinateSchema, farmerPosition: WorkerPositionSchema.optional(), expectedFarmVersion: z.int().positive() }),
+  z.object({ type: z.literal("build_road"), target: FarmCoordinateSchema, targets: z.array(FarmCoordinateSchema).min(1).max(1024).optional(), farmerPosition: WorkerPositionSchema.optional(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("destroy_road"), target: FarmCoordinateSchema, farmerPosition: WorkerPositionSchema.optional(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("start_milling"), farmerPosition: WorkerPositionSchema.optional(), donkeyPosition: WorkerPositionSchema.optional(), recipe: MillRecipeSchema, worker: MillWorkerSchema.optional(), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("hire_porter"), marketRoad: WorkerPositionSchema.optional(), idempotencyKey: z.uuid(), expectedFarmVersion: z.int().positive() }),

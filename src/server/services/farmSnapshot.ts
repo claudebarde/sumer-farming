@@ -48,7 +48,8 @@ export const readFarmSnapshot = async (
   const inventory = await transaction
     .select({
       itemKey: farmInventory.itemKey,
-      quantity: farmInventory.quantity
+      quantity: farmInventory.quantity,
+      locations: farmInventory.locations
     })
     .from(farmInventory)
     .where(eq(farmInventory.farmId, currentFarm.id))
@@ -191,7 +192,7 @@ export const readFarmSnapshot = async (
               completesAt: currentFarm.gatheringCompletesAt.toISOString()
             }
     },
-    inventory,
+    inventory: inventory.map(entry => entry.locations === null ? { itemKey: entry.itemKey, quantity: entry.quantity } : entry),
     objects,
     groundItems: groundItems.map(item => ({
       ...item,

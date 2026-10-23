@@ -4,11 +4,64 @@ import { DOG_SOURCES, initialDog, stepDog, dogTexture, dogClear } from "../../sr
 import { SWEEP_TILES } from "../../src/client/game/phaser/farmerSweeping";
 import { initialWandering, stepWandering } from "../../src/client/game/phaser/dogWandering";
 import { bakingDogArea } from "../../src/client/game/phaser/isometricBaking";
+import { stepDogConstructionEscape } from "../../src/client/game/phaser/dogConstructionEscape";
 const id = "00000000-0000-4000-8000-000000000001";
 const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shekelBalance: 0 },
   farm: { id, playerId: id, version: 1, carriedItem: null, gathering: null,
     household: { happiness: 70, lastBeerAt: null, lastFishAt: null, hungrySince: null, cultivationStartedAt: null, nextBarleyConsumptionAt: null } },
   inventory: [], objects: [], groundItems: [], crops: [], improvements: [], buildings: [] });
+
+const constructionFixture = () => {
+  const s = snapshot();
+  s.buildings.push({ id, type: "warehouse", column: 4, row: 3, startedAt: new Date(0).toISOString(),
+    completesAt: new Date(180000).toISOString(), storedBarley: 0, brewingBarley: 0, brewingWater: 0,
+    emptyBeerJars: 0, beerReadyAt: null, beerServed: 0, loadingTile: { column: 4, row: 5 } });
+  s.objects = [{ id, type: "rock", column: 3, row: 3 }, { id, type: "rock", column: 4, row: 2 }];
+  const dog = { ...initialDog(s, { column: 1, row: 5 }, 0), position: { column: 4, row: 3 } };
+  return { s, dog };
+};
+const escapeInput = { now: 1000, delta: 50, animate: true, occupied: [] };
+it("walks smoothly through its construction site to a free tile, then releases following", () => {
+  const { s, dog } = constructionFixture();
+  const before = JSON.stringify(s);
+  let result = stepDogConstructionEscape(dog, s, escapeInput)!;
+  expect(result.dog.walking).toBe(true);
+  expect(result.dog.position.column).toBeGreaterThan(4);
+  expect(result.dog.position.column).toBeLessThan(4.1);
+  expect(result.dog.constructionExit?.path).toEqual([{ column: 5, row: 3 }, { column: 6, row: 3 }]);
+  const frames = new Set<string>();
+  for (let i = 0; i < 100 && result.dog.constructionExit; i++) {
+    const previous = result.dog.position;
+    result = stepDogConstructionEscape(result.dog, s, escapeInput)!;
+    frames.add(dogTexture(result.dog));
+    expect(Math.hypot(result.dog.position.column - previous.column, result.dog.position.row - previous.row)).toBeLessThan(0.1);
+  }
+  expect(frames.size).toBeGreaterThan(1);
+  expect(result.dog.position).toEqual({ column: 6, row: 3 });
+  expect(stepDogConstructionEscape(result.dog, s, escapeInput)).toBeNull();
+  expect(JSON.stringify(s)).toBe(before);
+});
+it("keeps mid-stride continuity and replans when an exit becomes occupied", () => {
+  const { s, dog } = constructionFixture();
+  const midStride = { ...dog, position: { column: 4.2, row: 3 } };
+  const first = stepDogConstructionEscape(midStride, s, escapeInput)!;
+  expect(first.dog.position.column).toBeGreaterThan(4.2);
+  const changed = stepDogConstructionEscape(first.dog, s, { ...escapeInput, occupied: [{ column: 6, row: 3 }] })!;
+  expect(changed.dog.constructionExit?.path).not.toContainEqual({ column: 6, row: 3 });
+  expect(Math.hypot(changed.dog.position.column - first.dog.position.column, changed.dog.position.row - first.dog.position.row)).toBeLessThan(0.1);
+});
+it("relocates safely with reduced motion or no clear exit, and ignores unrelated updates", () => {
+  const { s, dog } = constructionFixture();
+  const reduced = stepDogConstructionEscape(dog, s, { ...escapeInput, animate: false })!;
+  expect(reduced.dog.walking).toBe(false);
+  expect(dogClear(s, reduced.dog.position, 1000)).toBe(true);
+  const occupied = [{ column: 5, row: 3 }, { column: 4, row: 4 }];
+  const trapped = stepDogConstructionEscape(dog, s, { ...escapeInput, occupied })!;
+  expect(trapped.dog.walking).toBe(false);
+  expect(dogClear(s, trapped.dog.position, 1000)).toBe(true);
+  expect(stepDogConstructionEscape(dog, snapshot(), escapeInput)).toBeNull();
+  expect(stepDogConstructionEscape(dog, s, { ...escapeInput, now: 180001 })).toBeNull();
+});
 it.each([16, 33, 50])("finishes a turning route without reversing between tile centres (%ims frames)", delta => {
   const s = snapshot(), farmer = { column: 6, row: 5 };
   const goal = { column: 5, row: 6 };

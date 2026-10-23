@@ -338,9 +338,40 @@
       "tag": "0047_production-upgrade-levels",
       "breakpoints": true
     },
-    { "idx": 48, "version": "7", "when": 1791200000000, "tag": "0048_city-residence", "breakpoints": true },
-    { "idx": 49, "version": "7", "when": 1791201000000, "tag": "0049_farmer-profile", "breakpoints": true },
-    { "idx": 50, "version": "7", "when": 1791202000000, "tag": "0050_market-presence", "breakpoints": true },
-    { "idx": 51, "version": "7", "when": 1791288000000, "tag": "0051_crop-planting", "breakpoints": true }
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1791200000000,
+      "tag": "0048_city-residence",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1791201000000,
+      "tag": "0049_farmer-profile",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1791202000000,
+      "tag": "0050_market-presence",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1791288000000,
+      "tag": "0051_crop-planting",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1792780512654,
+      "tag": "0052_physical-storage",
+      "breakpoints": true
+    }
   ]
 }

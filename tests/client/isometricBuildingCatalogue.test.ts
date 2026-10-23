@@ -53,6 +53,16 @@ it("opens Already built when no buildings are available, even before the first u
   expect(html).not.toContain('alt="Mill"');
 });
 
+it("enables warehouse construction at level 8 with materials instead of a coming-soon placeholder", () => {
+  const s = atLevel(8);
+  s.inventory = [{ itemKey: "reed", quantity: 4 }, { itemKey: "clay", quantity: 6 }];
+  const html = render(s);
+  expect(html).toMatch(/<button>Build Warehouse<\/button>/);
+  expect(html).not.toContain("Construction coming soon.");
+  s.inventory = [];
+  expect(render(s)).toMatch(/<button disabled="">Build Warehouse<\/button>/);
+});
+
 it("opens Already built after all currently unlocked buildings have been built", () => {
   const s = atLevel(6);
   s.buildings = FarmSnapshotSchema.parse({ ...s, buildings:
@@ -121,5 +131,5 @@ it("shows all unlocked building cards with their original artwork and descriptio
   expect(html).toContain("Turn Flour into bread.");
   expect(html).toContain("warehouse-isometric.png");
   expect(html).toContain("small-shrine-isometric.png");
-  expect(html).toContain("Construction coming soon.");
+  expect(html).not.toContain("Construction coming soon.");
 });

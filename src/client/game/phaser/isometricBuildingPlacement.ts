@@ -8,9 +8,9 @@ import type { IsoCell } from "./isometricProjection";
 import { granaryLimitForLevel } from "../../../game-data/progression";
 import { plantingBlocker } from "./isometricPlanting";
 
-export type PlaceableBuilding = "granary" | "mill" | "breadOven" | "brewery";
-export const constructionNames = { granary: "granary", mill: "mill", breadOven: "bread oven", brewery: "brewery" } as const;
-export const constructionCommands = { granary: "build_granary", mill: "build_mill", breadOven: "build_bread_oven", brewery: "build_brewery" } as const;
+export type PlaceableBuilding = "granary" | "mill" | "breadOven" | "brewery" | "smallShrine" | "warehouse";
+export const constructionNames = { granary: "granary", mill: "mill", breadOven: "bread oven", brewery: "brewery", smallShrine: "small shrine", warehouse: "warehouse" } as const;
+export const constructionCommands = { granary: "build_granary", mill: "build_mill", breadOven: "build_bread_oven", brewery: "build_brewery", smallShrine: "build_small_shrine", warehouse: "build_warehouse" } as const;
 export const constructionSummary = (type: PlaceableBuilding) => {
   const definition = FARM_BUILDING_DEFINITIONS[type];
   return `Build ${constructionNames[type]} · ${Object.entries(definition.materials).map(([key, quantity]) => `${quantity} ${key === "bakingTools" ? "baking tools" : key === "brewingVessels" ? "brewing jars" : key}`).join(" · ")} · ${definition.constructionDurationMs / 60000} minutes`;
@@ -23,7 +23,7 @@ const availableMaterials = (snapshot: FarmSnapshot) => ({
 });
 /** Non-material status; material shortages are already shown by the requirement rows. */
 export const buildingAvailabilityBlocker = (snapshot: FarmSnapshot, now: number, type: PlaceableBuilding): string | null => {
-  const unlock = { granary: 2, mill: 5, breadOven: 6, brewery: 6 }[type];
+  const unlock = { granary: 2, mill: 5, breadOven: 6, brewery: 6, smallShrine: 8, warehouse: 8 }[type];
   if ((snapshot.farm.progression?.level ?? 1) < unlock) return `Unlock at level ${unlock}`;
   if (snapshot.buildings.filter(b => b.type === type).length >= (type === "granary" ? granaryLimitForLevel(snapshot.farm.progression?.level ?? 1) : 1)) return "Already built";
   if (snapshot.farm.carriedItem) return "Empty the farmer’s hands first.";

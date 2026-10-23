@@ -56,3 +56,28 @@ export const prepareCloudTexture = (scene: Phaser.Scene) => {
   scene.textures.addCanvas(key, canvas);
   });
 };
+
+/** Scene-owned presentation sharing the farm's cloud simulation and viewport scale. */
+export const createAmbientCloudLayer = (scene: Phaser.Scene) => {
+  prepareCloudTexture(scene);
+  let state = initialClouds();
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const sprites = Array.from({ length: 3 }, () =>
+    scene.add.image(0, 0, CLOUD_TEXTURES[0]).setDepth(10010).setVisible(false));
+  return {
+    update(delta: number) {
+      if (!document.hidden && !reduced.matches) state = advanceClouds(state, Math.max(0, Math.min(delta, 80)));
+      const camera = scene.cameras.main;
+      sprites.forEach((sprite, index) => {
+        const cloud = state.clouds[index];
+        sprite.setVisible(!!cloud);
+        if (!cloud) return;
+        const pose = cloudPose(cloud.progress, camera.width, camera.height, cloud.style);
+        const point = camera.getWorldPoint(pose.x, pose.y);
+        sprite.setTexture(CLOUD_TEXTURES[cloud.style.shape]!).setPosition(point.x, point.y)
+          .setDisplaySize(pose.width / camera.zoom, pose.height / camera.zoom).setAlpha(pose.alpha);
+      });
+    },
+    destroy() { sprites.forEach(sprite => sprite.destroy()); },
+  };
+};

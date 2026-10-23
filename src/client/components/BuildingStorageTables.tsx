@@ -20,7 +20,8 @@ const storageImages: Record<string, string> = {
 
 type Props = {
   readonly location: "farm" | "warehouse";
-  readonly inventory: readonly { readonly itemKey: InventoryItemKey; readonly quantity: number }[];
+  readonly inventory: readonly { readonly itemKey: InventoryItemKey; readonly quantity: number; readonly locations?: Readonly<Record<string, number>> | null }[];
+  readonly warehouseId?: string;
   readonly barley: number;
   readonly warehouseComplete: boolean;
   readonly showFish?: boolean;
@@ -28,9 +29,9 @@ type Props = {
   readonly visual?: boolean;
 };
 
-export default function BuildingStorageTables({ location, inventory, barley, warehouseComplete, showFish = false, showDates = false, visual = false }: Props) {
+export default function BuildingStorageTables({ location, inventory, barley, warehouseComplete, warehouseId, showFish = false, showDates = false, visual = false }: Props) {
   const quantity = (key: InventoryItemKey) => inventory.find(item => item.itemKey === key)?.quantity ?? 0;
-  const shared = (key: Parameters<typeof sharedStorageAllocation>[0], label: string) => ({ label, ...sharedStorageAllocation(key, quantity(key), warehouseComplete)[location] });
+  const shared = (key: Parameters<typeof sharedStorageAllocation>[0], label: string) => ({ label, ...sharedStorageAllocation(key, quantity(key), warehouseComplete, inventory.find(i => i.itemKey === key)?.locations, warehouseId)[location] });
   const groups = [
     { label: "Processed food storage", items: [shared("bread", "Bread"), shared("beer", "Beer"), shared("flour", "Flour"), shared("brewersGroats", "Groats")] },
     { label: "Barley and building material storage", items: [

@@ -7,6 +7,7 @@ import type { MarketItemKey } from "../../game-data/marketItems";
 import { FARM_STORAGE_CAPACITY, granaryCapacityForLevel, estateResourceCapacity } from "../../game-data/storage";
 import type { DatabaseTransaction } from "../db/client";
 import { farmBuildings, farmInventory, farms } from "../db/schema";
+import { setStoredQuantity } from "./physicalStorage";
 
 type CompletedGranary = {
   readonly id: string;
@@ -35,30 +36,9 @@ const updateFarmInventory = async (
     return;
   }
 
-  if (nextQuantity === 0) {
-    await transaction
-      .delete(farmInventory)
-      .where(
-        and(
-          eq(farmInventory.farmId, storage.farmId),
-          eq(farmInventory.itemKey, storage.itemKey)
-        )
-      );
-    return;
-  }
-
-  await transaction
-    .insert(farmInventory)
-    .values({
-      farmId: storage.farmId,
-      itemKey: storage.itemKey,
-      quantity: nextQuantity,
-      updatedAt: now
-    })
-    .onConflictDoUpdate({
-      target: [farmInventory.farmId, farmInventory.itemKey],
-      set: { quantity: nextQuantity, updatedAt: now }
-    });
+  await setStoredQuantity(transaction, storage.farmId, storage.itemKey, nextQuantity, now);
+  if (nextQuantity === 0) await transaction.delete(farmInventory)
+    .where(and(eq(farmInventory.farmId, storage.farmId), eq(farmInventory.itemKey, storage.itemKey)));
 };
 
 const loadBarleyStorage = async (

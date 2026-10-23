@@ -66,7 +66,6 @@ describe("mill building upgrades", () => {
       await db.update(farms).set({ production: { ...snapshot.farm.production, buildingUpgrades: {
         ...history, [f.mill.id]: history[f.mill.id]!.map(u => ({ ...u, startedAt: new Date(0).toISOString(), completesAt: new Date(1).toISOString() }))
       } } }).where(eq(farms.id, f.farm.id));
-      const before = Date.now();
       snapshot = await run(snapshot.farm.version);
       const duration = (type === "breadOven" ? 300000 : 900000) * (level === 2 ? 0.85 : 0.7);
       if (type === "breadOven") {
@@ -75,14 +74,15 @@ describe("mill building upgrades", () => {
         expect(job.output).toBe(2);
       } else {
         const ready = Date.parse(snapshot.buildings.find(b => b.id === f.mill.id)!.beerReadyAt!);
-        expect(ready - before).toBeGreaterThanOrEqual(duration);
-        expect(ready - Date.now()).toBeLessThanOrEqual(duration);
+        const job = snapshot.farm.production.brewing![f.mill.id]!;
+        expect(ready).toBe(Date.parse(job.completesAt));
+        expect(ready - Date.parse(job.startedAt)).toBe(duration);
       }
       expect(snapshot.inventory.find(i => i.itemKey === itemKey)?.quantity).toBe(level === 2 ? 8 : 6);
       expect((await Effect.runPromise(Effect.flip(upgradeBuilding(db, { ...f.input, targetLevel: level + 1, idempotencyKey: randomUUID(), expectedFarmVersion: snapshot.farm.version })))).message).toContain(type === "breadOven" ? "Finish baking" : "Finish brewing");
       if (level === 2) {
         // Simulate completed production before purchasing the next tier.
-        await db.update(farms).set({ production: { ...snapshot.farm.production, baking: {} } }).where(eq(farms.id, f.farm.id));
+        await db.update(farms).set({ production: { ...snapshot.farm.production, baking: {}, brewing: {} } }).where(eq(farms.id, f.farm.id));
         if (type === "brewery") await db.update(farmBuildings).set({ beerReadyAt: null, brewingWater: 2, emptyBeerJars: 2 }).where(eq(farmBuildings.id, f.mill.id));
         snapshot = await Effect.runPromise(upgradeBuilding(db, { ...f.input, targetLevel: 3, idempotencyKey: randomUUID(), expectedFarmVersion: snapshot.farm.version }));
       }
@@ -119,6 +119,24 @@ describe("mill building upgrades", () => {
     expect(result.message).toContain("upgrading");
     const stock = await db.select().from(farmInventory).where(eq(farmInventory.farmId, f.farm.id));
     expect(stock.find(i => i.itemKey === "barley")?.quantity).toBe(20);
+  });
+  it.each(["farmer", "donkey"] as const)("applies level-2 timing to %s after offline completion and retains output", async worker => {
+    const f = await fixture();
+    await db.update(farms).set({ millGoods: { pending: { [f.mill.id]: { flour: 2, brewersGroats: 0 } }, delivery: null } }).where(eq(farms.id, f.farm.id));
+    const upgraded = await Effect.runPromise(upgradeBuilding(db, f.input));
+    expect(upgraded.farm.millGoods.pending[f.mill.id]?.flour).toBe(2);
+    const history = upgraded.farm.production.buildingUpgrades!;
+    await db.update(farms).set({ production: { ...upgraded.farm.production, buildingUpgrades: {
+      ...history, [f.mill.id]: history[f.mill.id]!.map(u => ({ ...u, startedAt: new Date(Date.now() - 301000).toISOString(), completesAt: new Date(Date.now() - 1000).toISOString() }))
+    } } }).where(eq(farms.id, f.farm.id));
+    const working = await Effect.runPromise(startMilling(db, { type: "start_milling", playerId: f.playerId, recipe: "flour", worker,
+      target: { column: 3, row: 3 }, expectedFarmVersion: upgraded.farm.version }));
+    const job = working.farm.milling!;
+    expect(Date.parse(job.completesAt) - Date.parse(job.startedAt)).toBe(worker === "farmer" ? 255000 : 765000);
+    expect(job.output).toBe(worker === "farmer" ? 1 : 3);
+    expect(working.farm.millGoods.pending[f.mill.id]?.flour).toBe(2);
+    expect(working.player.shekelBalance).toBe(400);
+    expect(await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, f.playerId))).toHaveLength(1);
   });
   it.each([[99, 8], [500, 7]])("rejects unavailable funds or locked estate level (%s, %s)", async (balance, level) => {
     const f = await fixture(balance, level);

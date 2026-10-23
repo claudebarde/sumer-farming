@@ -61,7 +61,8 @@ export const FarmSnapshotSchema = z.object({
   inventory: z.array(
     z.object({
       itemKey: InventoryItemKeySchema,
-      quantity: z.int().nonnegative()
+      quantity: z.int().nonnegative(),
+      locations: z.record(z.string(), z.int().nonnegative()).nullable().optional()
     })
   ),
   objects: z.array(

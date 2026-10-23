@@ -1,0 +1,14 @@
+// Approved "info alert": parchment background, dark 6px left border,
+// padded text and softly rounded right corners. Reuse through InfoAlert.
+.alert {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px 16px;
+  background: #f0dfc0;
+  border-left: 6px solid #513821;
+  border-radius: 0 6px 6px 0;
+  color: #513821;
+  font-weight: 600;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}

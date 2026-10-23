@@ -55,16 +55,14 @@ export default function IsometricBuildingCatalogue({ snapshot, now, onBuild }: {
         const limit = type === "granary" ? granaryLimitForLevel(level) : 1;
         const count = snapshot.buildings.filter(building => building.type === type).length;
         const built = count > 0 && count >= limit;
-        const supported = type === "granary" || type === "mill" || type === "breadOven" || type === "brewery";
-        const blocker = supported ? buildingBuildBlocker(snapshot, now, type) : null;
-        const status = supported ? buildingAvailabilityBlocker(snapshot, now, type) : null;
+        const blocker = buildingBuildBlocker(snapshot, now, type);
+        const status = buildingAvailabilityBlocker(snapshot, now, type);
         return <EstateBuildingCard key={type} name={name} image={image}>
           <p>{description}</p>
           {section.id !== "built" && <>
           {section.id === "available" && <BuildingRequirements snapshot={snapshot} building={type} />}
-          {!supported && !built && level >= unlockLevel && <p>Construction coming soon.</p>}
-          {supported && !built && level >= unlockLevel && status && <p>{status}</p>}
-          <button disabled={!supported || !onBuild || !!blocker} onClick={() => { if (supported) onBuild?.(type); }}>{built ? "Already built" : level < unlockLevel ? `Unlock at level ${unlockLevel}` : button}</button>
+          {!built && level >= unlockLevel && status && <p>{status}</p>}
+          <button disabled={!onBuild || !!blocker} onClick={() => onBuild?.(type)}>{built ? "Already built" : level < unlockLevel ? `Unlock at level ${unlockLevel}` : button}</button>
           </>}
         </EstateBuildingCard>;
       })}

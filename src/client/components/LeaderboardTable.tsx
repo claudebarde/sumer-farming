@@ -2,9 +2,10 @@ import type { LeaderboardResponse } from "../../schemas/leaderboard";
 import { LEADERBOARD_METRICS } from "../../schemas/leaderboard";
 import { SUMER_CITIES } from "../../game-data/sumer";
 import farmerSprite from "../../assets/sprite_assets/pngs/farmer-stand-staff-1.png";
+import FarmerPortrait from "./FarmerPortrait";
 import styles from "../styles/Leaderboard.module.scss";
 
-export default function LeaderboardTable({ board }: { readonly board: LeaderboardResponse }) {
+export default function LeaderboardTable({ board, compact = false }: { readonly board: LeaderboardResponse; readonly compact?: boolean }) {
   const outsideTop = board.self && !board.entries.some(entry => entry.playerId === board.self!.playerId);
   return <>
     <div className={styles.tableContainer}>
@@ -14,9 +15,10 @@ export default function LeaderboardTable({ board }: { readonly board: Leaderboar
         <tbody>{board.entries.map(entry => <tr key={entry.playerId} className={entry.isYou ? styles.you : undefined}>
           <td>{entry.rank}</td>
           <th scope="row"><div className={styles.identity}>
-            <img src={farmerSprite} alt="" width={32} height={48} />
+            {compact ? <div className={styles.portrait}><FarmerPortrait name={entry.name} variant="headshot" /></div>
+              : <img src={farmerSprite} alt="" width={32} height={48} />}
             <div>{entry.name}{entry.isYou && " (You)"}
-              <small>{SUMER_CITIES.find(city => city.id === entry.city)?.name ?? entry.city} · {entry.neighbourhood}</small>
+              <small>{compact ? `Lvl ${entry.level ?? (board.metric === "level" ? entry.score : "—")}` : `${SUMER_CITIES.find(city => city.id === entry.city)?.name ?? entry.city} · ${entry.neighbourhood}`}</small>
             </div>
           </div></th>
           <td>{entry.score.toLocaleString()}</td>

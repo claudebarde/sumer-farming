@@ -1,4 +1,5 @@
 import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
+import { setStoredQuantity } from "./physicalStorage";
 import { findLoadingTile } from "../../game-core/farm/roads";
 import { granaryLimitForLevel } from "../../game-data/progression";
 import { and, eq, sql } from "drizzle-orm";
@@ -295,7 +296,8 @@ export const buildFarmBuilding = (
               Math.max(0, quantity - (storedMaterials.find(i => i.itemKey === itemKey)?.quantity ?? 0))
             );
             const fromStorage = Math.min(quantity, storedMaterials.find(i => i.itemKey === itemKey)?.quantity ?? 0);
-            if (fromStorage > 0) await transaction.update(farmInventory).set({ quantity: sql`${farmInventory.quantity} - ${fromStorage}`, updatedAt: startedAt }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, itemKey)));
+            if (fromStorage > 0) await setStoredQuantity(transaction, farm.id, itemKey,
+              (storedMaterials.find(i => i.itemKey === itemKey)?.quantity ?? 0) - fromStorage, startedAt);
           }
 
           const [updatedFarm] = await transaction

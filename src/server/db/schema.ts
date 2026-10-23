@@ -433,6 +433,7 @@ export const farmInventory = pgTable(
       .$type<InventoryItemKey>()
       .notNull(),
     quantity: integer("quantity").notNull(),
+    locations: jsonb("locations").$type<Record<string, number>>(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

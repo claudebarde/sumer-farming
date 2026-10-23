@@ -8,10 +8,13 @@ import { FARM_STORAGE_CAPACITY } from "../../game-data/storage";
 
 /** Schedule the second leg only when surplus and farm space both exist. */
 export const harvestFarmDeliveryPlan = (input: {
-  buildings: readonly PorterBuilding[]; roads: readonly FarmRoad[]; from: FarmCoordinate;
+  buildings: readonly (PorterBuilding & { storedBarley?: number })[]; roads: readonly FarmRoad[]; from: FarmCoordinate;
   at: number; happiness: number; hungry: boolean; level: number; quantity: number; farmQuantity: number;
 }) => {
-  if (input.quantity <= 0 || input.farmQuantity >= FARM_STORAGE_CAPACITY) return null;
+  if (input.quantity <= 0) return null;
+  const warehouse = harvestDeliveryPlan({ ...input, buildings: input.buildings.filter(b => b.type === "warehouse") });
+  if (warehouse) return warehouse;
+  if (input.farmQuantity >= FARM_STORAGE_CAPACITY) return null;
   const path = porterPath(input.buildings, input.roads, input.from, INITIAL_FARM_CONFIG.farmerSpawn, input.at);
   if (!path) return null;
   const duration = Math.ceil((path.length - 1) * FARMER_MOVE_DURATION_PER_TILE * farmerMovementDurationMultiplier(input.happiness, input.hungry, input.level));
@@ -20,10 +23,12 @@ export const harvestFarmDeliveryPlan = (input: {
 
 /** Shared route/timing only. Storage settlement remains server-authoritative. */
 export const harvestDeliveryPlan = (input: {
-  buildings: readonly PorterBuilding[]; roads: readonly FarmRoad[];
+  buildings: readonly (PorterBuilding & { storedBarley?: number })[]; roads: readonly FarmRoad[];
   from: FarmCoordinate; at: number; happiness: number; hungry: boolean; level: number;
 }) => {
-  for (const granary of input.buildings.filter(b => b.type === "granary" && b.completesAt <= input.at).sort((a, b) => a.id.localeCompare(b.id))) {
+  for (const granary of input.buildings.filter(b => (b.type === "granary" || b.type === "warehouse") && b.completesAt <= input.at &&
+    (b.type === "granary" || (b.storedBarley ?? 0) < 20))
+    .sort((a, b) => Number(a.type === "warehouse") - Number(b.type === "warehouse") || a.id.localeCompare(b.id))) {
     const target = granary.loadingTile ?? { column: granary.column, row: granary.row + 2 };
     const path = porterPath(input.buildings, input.roads, input.from, target, input.at);
     if (!path) continue;

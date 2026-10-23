@@ -1,4 +1,6 @@
 import Phaser from "phaser";
+import { createAmbientCloudLayer } from "../ambientClouds";
+import { marketScenery } from "../marketScenery";
 import { createShadowLayer } from "../shadowLayer";
 import type { ShadowPreset } from "../daylightShadows";
 import { INITIAL_FARM_CONFIG as config } from "../../../../game-data/initialFarm";
@@ -35,6 +37,7 @@ export const stands = [
 
 /** Market presentation trial. Farmer and terrain textures are shared with the farm. */
 export class IsometricMarketScene extends Phaser.Scene {
+  private clouds?: ReturnType<typeof createAmbientCloudLayer>;
   private ready = false;
   private baseZoom = 1;
   private selected: "farmReturn" | typeof stands[number]["kind"] | null = null;
@@ -93,6 +96,12 @@ export class IsometricMarketScene extends Phaser.Scene {
     this.daylightShadows = createShadowLayer(this, { ...config.worldBounds, minimumRow: 0, maximumRow: marketLastRow });
     this.daylightShadows.addBuilding(this.returnFarm);
     stands.forEach(stand => this.drawStand(stand));
+    for (const decoration of marketScenery) {
+      const point = isoPoint(decoration);
+      this.add.image(point.x, point.y, decoration.texture)
+        .setOrigin(0.5, 106 / 128).setDisplaySize(72, 72).setDepth(point.y);
+    }
+    this.clouds = createAmbientCloudLayer(this);
     this.shadow = this.add.ellipse(0, 0, 23, 8, 0x624728, 0).setAlpha(0);
     this.daylightShadows.add(() => this.shadow, 23, 48);
     this.actor = this.add.image(0, 0, "farmer-idle").setOrigin(0.5, 120 / 128).setDisplaySize(64, 64);
@@ -137,6 +146,7 @@ export class IsometricMarketScene extends Phaser.Scene {
     });
     this.events.on("sleep", () => { this.approaching = null; this.speech?.setVisible(false); });
     this.events.once("shutdown", () => {
+      this.clouds?.destroy(); this.clouds = undefined;
       this.ready = false; this.approaching = null; this.merchants = []; this.speech = undefined;
       this.donkeyFollow = null; this.donkeyArrival = null; this.donkey = undefined;
       this.speechText = undefined; this.speechBackground = undefined;
@@ -231,6 +241,7 @@ export class IsometricMarketScene extends Phaser.Scene {
   update(_time: number, delta: number) {
     if (!this.ready) return;
     if (document.hidden) return;
+    this.clouds?.update(delta);
     let budget = Math.min(delta, 80) / WORKER_MOVE_DURATION_PER_TILE;
     while (budget > 0 && this.path[0]) {
       const next = this.path[0], dc = next.column - this.position.column, dr = next.row - this.position.row;

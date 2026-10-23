@@ -107,7 +107,7 @@ describe("four-field batch harvesting", () => {
     expect(again.version).toBe(done.version);
     expect(again.carriedItemQuantity).toBe(done.carriedItemQuantity);
   });
-  it.each([[0, 8, 0], [18, 20, 6], [20, 20, 8]])("automatically deposits into a granary with %i barley and keeps overflow", async (initial, stored, remaining) => {
+  it.each([[0, 8, 0], [18, 20, 6], [20, 20, 8]])("automatically fills a granary with %i barley then delivers overflow to the warehouse", async (initial, stored, remaining) => {
     const f = await fixture();
     await db.insert(farmInventory).values({ farmId: f.farmId, itemKey: "barley", quantity: 5 });
     await db.update(farms).set({ level: 7 }).where(eq(farms.id, f.farmId));
@@ -132,15 +132,17 @@ describe("four-field batch harvesting", () => {
     expect(before.carriedItemQuantity).toBe(8);
     expect((await db.select().from(farmBuildings).where(eq(farmBuildings.id, granary!.id)))[0]!.storedBarley).toBe(initial);
     const arrived = await catchUp(f.farmId, Date.parse(phase.completesAt));
-    expect(arrived.production.planting).toBeNull();
+    if (remaining) expect(arrived.production.planting?.phase).toMatchObject({ type: "delivering", granaryId: warehouse!.id });
+    else expect(arrived.production.planting).toBeNull();
     expect(arrived.carriedItemQuantity).toBe(remaining);
     expect(arrived.carriedItemKey).toBe(remaining ? "barley" : null);
     expect(arrived.production.lastHarvestDelivery).toMatchObject({ target: granary!.loadingTile, stored: stored - initial, remaining });
     expect((await db.select().from(farmBuildings).where(eq(farmBuildings.id, granary!.id)))[0]!.storedBarley).toBe(stored);
     const again = await catchUp(f.farmId, Date.parse(phase.completesAt) + 60_000);
-    expect(again.version).toBe(arrived.version);
-    expect(again.carriedItemQuantity).toBe(remaining);
-    expect((await db.select().from(farmBuildings).where(eq(farmBuildings.id, warehouse!.id)))[0]!.storedBarley).toBe(0);
+    expect(again.carriedItemQuantity).toBe(0);
+    expect(again.production.planting).toBeNull();
+    expect((await db.select().from(farmBuildings).where(eq(farmBuildings.id, warehouse!.id)))[0]!.storedBarley).toBe(remaining);
+    expect((await catchUp(f.farmId, Date.parse(phase.completesAt) + 120_000)).version).toBe(again.version);
   });
   it("catches up harvesting and delivery together without an arrival callback", async () => {
     const f = await fixture();

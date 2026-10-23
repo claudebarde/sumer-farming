@@ -1,8 +1,8 @@
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { INITIAL_FARM_CONFIG } from "../../../game-data/initialFarm";
 import { estateResourceCapacity } from "../../../game-data/storage";
-import { porterReserved } from "../../../game-data/porter";
-import { sharedDeliveryStop } from "../../../game-core/farm/storageDelivery";
+import { porterReserved, porterStorageReservation } from "../../../game-data/porter";
+import { physicalDeliveryStop } from "../../../game-core/farm/physicalStorage";
 import { plantingBlocker } from "./isometricPlanting";
 import { pickupPath } from "./isometricPickup";
 import { farmOrigin } from "./isometricFarm";
@@ -37,8 +37,8 @@ export const millDeliveryDestination = (snapshot: FarmSnapshot, from: IsoCell, n
   if (!delivery) return null;
   const warehouse = snapshot.buildings.find(b => b.type === "warehouse" && Date.parse(b.completesAt) <= now);
   const useWarehouse = (["flour", "brewersGroats"] as const).some(item => delivery.bags[item] > 0 &&
-    sharedDeliveryStop(item, (snapshot.inventory.find(entry => entry.itemKey === item)?.quantity ?? 0)
-      + porterReserved(snapshot.farm.production.porter, item), !!warehouse).location === "warehouse");
+    physicalDeliveryStop(item, snapshot.inventory.find(entry => entry.itemKey === item), snapshot.buildings, now,
+      porterStorageReservation(snapshot.farm.production.porter, item)).location === "warehouse");
   const building = useWarehouse ? warehouse! : farmOrigin;
   const target = useWarehouse ? warehouse!.loadingTile ?? { column: warehouse!.column, row: warehouse!.row + 2 } : INITIAL_FARM_CONFIG.farmerSpawn;
   const path = pickupPath(snapshot, from, target, now);

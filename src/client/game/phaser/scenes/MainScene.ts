@@ -18,11 +18,11 @@ import {
 import { WorkerPositionSchema } from "../../../../game-data/productionJourney";
 import { workerLocationStore } from "../../../stores/workerLocationStore";
 import { createWorkerAvoidance, type YieldingWorker } from "../workerAvoidance";
-import { porterReserved } from "../../../../game-data/porter";
+import { porterStorageReservation } from "../../../../game-data/porter";
 import {
-  barleyDeliveryBuilding,
-  sharedDeliveryStop
+  barleyDeliveryBuilding
 } from "../../../../game-core/farm/storageDelivery";
+import { physicalDeliveryStop } from "../../../../game-core/farm/physicalStorage";
 import { batchPlantingCarriedBarley } from "../../../../game-core/farm/batchPlanting";
 import { FARMER_MOVE_DURATION_PER_TILE } from "../../../../game-core/farm/batchPlantingTravel";
 import { installBatchPlantingOverlay } from "../batchPlantingOverlay";
@@ -3405,11 +3405,10 @@ export class MainScene extends Phaser.Scene {
       return items.some(
         i =>
           i.quantity > 0 &&
-          sharedDeliveryStop(
+          physicalDeliveryStop(
             i.itemKey,
-            (snapshot.inventory.find(s => s.itemKey === i.itemKey)?.quantity ??
-              0) + porterReserved(snapshot.farm.production.porter, i.itemKey),
-            !!warehouse
+            snapshot.inventory.find(s => s.itemKey === i.itemKey), snapshot.buildings, Date.now(),
+            porterStorageReservation(snapshot.farm.production.porter, i.itemKey)
           ).location === "warehouse"
       )
         ? warehouse

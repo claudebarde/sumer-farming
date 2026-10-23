@@ -13,9 +13,12 @@ export const PorterSchema = z.object({
   job: z.object({
     buildingId: z.string(), itemKey: z.union([PorterItemSchema, z.literal("emptyBeerJar")]), quantity: z.int().positive(),
     startedAt: z.number(), pickupAt: z.number(), completesAt: z.number(),
-    path: z.array(Position), pickupIndex: z.int().nonnegative()
+    path: z.array(Position), pickupIndex: z.int().nonnegative(),
+    storageId: z.string().optional()
   }).nullable()
 });
 export type Porter = z.infer<typeof PorterSchema>;
 export type PorterItem = z.infer<typeof PorterItemSchema>;
 export const porterReserved = (porter: Porter | null | undefined, item: string): number => porter?.job?.itemKey === item ? porter.job.quantity : 0;
+export const porterStorageReservation = (porter: Porter | null | undefined, item: string) =>
+  ({ quantity: porterReserved(porter, item), storageId: porter?.job?.itemKey === item ? porter.job.storageId : undefined });

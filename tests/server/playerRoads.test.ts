@@ -36,6 +36,47 @@ const finishRoads = async (farmId: string) => {
 };
 
 describe("player-built roads", () => {
+  it("builds an edited plan outward from its surviving road connection", async () => {
+    const input = await fixture();
+    await db.update(farms).set({ roads: [{ column: 6, row: 4 }] }).where(eq(farms.id, input.farmId));
+    const targets = [{ column: 5, row: 3 }, { column: 6, row: 3 }];
+    const result = await Effect.runPromise(buildRoad(db, { ...input, target: targets[0]!, targets }));
+    expect(result.farm.roads.slice(1).map(({ column, row }) => ({ column, row }))).toEqual([...targets].reverse());
+    expect(result.farm.roads).not.toContainEqual(expect.objectContaining({ column: 5, row: 4 }));
+  });
+  it("atomically saves an ordered road plan and resumes without animation acknowledgements", async () => {
+    const input = await fixture();
+    const targets = [input.target, { column: 5, row: 3 }, { column: 6, row: 3 }];
+    const result = await Effect.runPromise(buildRoad(db, { ...input, targets, farmerPosition: { column: 0, row: 5 } }));
+    expect(result.farm.roads).toHaveLength(3);
+    expect(result.farm.version).toBe(2);
+    for (let index = 1; index < targets.length; index++) {
+      const previous = result.farm.roads[index - 1]!, road = result.farm.roads[index]!;
+      expect(road.approachPath?.[0]).toEqual(previous.approachPath?.at(-1));
+      expect(road.completesAt).toBe(previous.completesAt! + (road.approachPath!.length - 1) * 180 + 5000);
+    }
+    const [saved] = await db.select().from(farms).where(eq(farms.id, input.farmId));
+    expect(saved!.roads).toEqual(result.farm.roads);
+    const retried = await Effect.runPromise(Effect.flip(buildRoad(db, { ...input, targets })));
+    expect(retried._tag).toBe("RoadRuleError");
+    const busy = await Effect.runPromise(Effect.flip(buildRoad(db, { ...input, expectedFarmVersion: 2, target: { column: 7, row: 4 } })));
+    expect(busy).toMatchObject({ message: "Finish building the road first." });
+    // Simulate returning after the entire saved schedule elapsed. No advance command is needed.
+    await finishRoads(input.farmId);
+    const next = await Effect.runPromise(buildRoad(db, { ...input, expectedFarmVersion: 2, target: { column: 6, row: 2 } }));
+    expect(next.farm.roads).toHaveLength(4);
+  });
+  it("rejects an invalid middle tile without reserving roads or clearing scenery", async () => {
+    const input = await fixture();
+    await db.insert(farmObjects).values({ farmId: input.farmId, type: "bush", ...input.target });
+    const rejected = await Effect.runPromise(Effect.flip(buildRoad(db, { ...input,
+      targets: [input.target, { column: 7, row: 3 }] })));
+    expect(rejected._tag).toBe("RoadRuleError");
+    const [saved] = await db.select().from(farms).where(eq(farms.id, input.farmId));
+    expect(saved!.roads).toEqual([]);
+    expect(saved!.version).toBe(1);
+    expect(await db.select().from(farmObjects).where(eq(farmObjects.farmId, input.farmId))).toHaveLength(1);
+  });
   it("rejects farmland footprints server-side and permits southern non-arable construction", async () => {
     const input = await fixture();
     await db.insert(farmGroundItems).values([
@@ -179,17 +220,17 @@ describe("player-built roads", () => {
     const second = await Effect.runPromise(buildRoad(db, { ...input, target: { column: -1, row: 3 }, expectedFarmVersion: first.farm.version }));
     expect(second.farm.roads).toHaveLength(2);
   });
-  it("reserves unique road loading tiles and rejects buildings over roads", () => {
+  it("allows shared road access but rejects occupied access and buildings over roads", () => {
     const footprint = getBuildingFootprint("mill", { column: 5, row: 2 });
     const roads = [{ column: 5, row: 4 }];
     expect(findLoadingTile(footprint, roads, [], new Set())).toEqual(roads[0]);
-    expect(findLoadingTile(footprint, roads, roads, new Set())).toBeNull();
+    expect(findLoadingTile(footprint, roads, roads, new Set())).toEqual(roads[0]);
     expect(findLoadingTile(footprint, roads, [], new Set(["5:4"]))).toBeNull();
     const context = { building: "mill" as const, target: { column: 5, row: 2 }, existingBuildings: [], occupiedCoordinates: new Set<string>(), carriedItem: null, availableMaterials: { reed: 10, clay: 10 } };
     expect(validateBuildingPlacement(context).type).toBe("road_access_required");
     expect(validateBuildingPlacement({ ...context, roads }).type).toBe("valid");
     expect(validateBuildingPlacement({ ...context, roads: [{ column: 5, row: 2 }] }).type).toBe("footprint_occupied");
-    expect(validateBuildingPlacement({ ...context, roads, reservedLoadingTiles: roads }).type).toBe("road_access_required");
+    expect(validateBuildingPlacement({ ...context, roads, reservedLoadingTiles: roads }).type).toBe("valid");
   });
   it("uses a connected road detour instead of cutting across fields, with off-road fallback", () => {
     const roads = [{ column: 1, row: 1 }, { column: 1, row: 2 }, { column: 1, row: 3 }, { column: 2, row: 3 }, { column: 3, row: 3 }, { column: 3, row: 2 }, { column: 3, row: 1 }];

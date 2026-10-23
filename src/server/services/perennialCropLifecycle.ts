@@ -3,6 +3,7 @@ import { CROP_DEFINITIONS } from "../../game-data/crops";
 import type { DatabaseTransaction } from "../db/client";
 import { farmCrops, farmInventory, farms } from "../db/schema";
 import type { FarmRecord } from "./farmLifecycle";
+import { setStoredQuantity } from "./physicalStorage";
 
 /** Called under the farm lock; one receipt prevents duplicate offline harvests. */
 export const advancePerennialCropWork = async (tx: DatabaseTransaction, farm: FarmRecord, now: Date): Promise<FarmRecord> => {
@@ -16,8 +17,8 @@ export const advancePerennialCropWork = async (tx: DatabaseTransaction, farm: Fa
     await tx.update(farmCrops).set({ harvestStartedAt: null, harvestCompletesAt: null,
       ...(remaining === 0 ? { growthCompletesAt: new Date(job.workEndsAt + definition.ripeningDurationMs) } : {})
     }).where(and(eq(farmCrops.id, job.cropId), eq(farmCrops.farmId, farm.id)));
-    await tx.insert(farmInventory).values({ farmId: farm.id, itemKey: definition.harvestItemKey, quantity: job.quantity, updatedAt: now })
-      .onConflictDoUpdate({ target: [farmInventory.farmId, farmInventory.itemKey], set: { quantity: sql`${farmInventory.quantity} + ${job.quantity}`, updatedAt: now } });
+    const [entry] = await tx.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, definition.harvestItemKey)));
+    await setStoredQuantity(tx, farm.id, definition.harvestItemKey, (entry?.quantity ?? 0) + job.quantity, now);
   }
   const [updated] = await tx.update(farms).set({ production: { ...farm.production, cropYields, cropWork: { ...job, settled: true } },
     version: sql`${farms.version} + 1`, updatedAt: now }).where(eq(farms.id, farm.id)).returning();

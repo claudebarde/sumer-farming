@@ -15,6 +15,6 @@ describe("road access required for every building", () => {
     expect(validateBuildingPlacement({ ...context, roads: branch.map(r => r.row === 4 ? { ...r, completesAt: Date.now() + 60000 } : r) }).type).toBe("road_access_required");
     // A branch along column 4 stops diagonally below the bottom-left tile.
     expect(validateBuildingPlacement({ ...context, roads: branch.map(r => ({ ...r, column: 4 })) }).type).toBe("road_access_required");
-    expect(validateBuildingPlacement({ ...context, roads: branch, reservedLoadingTiles: [branch[0]!] }).type).toBe("road_access_required");
+    expect(validateBuildingPlacement({ ...context, roads: branch, reservedLoadingTiles: [branch[0]!] }).type).toBe("valid");
   });
 });

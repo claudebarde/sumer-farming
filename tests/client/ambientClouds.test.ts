@@ -1,5 +1,5 @@
-import { expect, it } from "vitest";
-import { advanceClouds, initialClouds, cloudPose, CLOUD_CYCLE_MS, randomCloudStyle } from "../../src/client/game/phaser/ambientClouds";
+import { expect, it, vi } from "vitest";
+import { advanceClouds, initialClouds, cloudPose, CLOUD_CYCLE_MS, randomCloudStyle, createAmbientCloudLayer } from "../../src/client/game/phaser/ambientClouds";
 
 it("drifts slowly left to right without changing opacity mid-flight", () => {
   const style = randomCloudStyle(() => 0.5);
@@ -28,4 +28,32 @@ it("offers four silhouettes and keeps each cloud's shape and opacity through its
   const start = initialClouds(() => 0.25);
   const next = advanceClouds(start, 80, () => 0.9);
   expect(next.clouds[0]!.style).toEqual(start.clouds[0]!.style);
+});
+
+it("pauses scene clouds while hidden/reduced and destroys every sprite", () => {
+  const sprites = Array.from({ length: 3 }, () => ({
+    setDepth: vi.fn().mockReturnThis(), setVisible: vi.fn().mockReturnThis(),
+    setTexture: vi.fn().mockReturnThis(), setPosition: vi.fn().mockReturnThis(),
+    setDisplaySize: vi.fn().mockReturnThis(), setAlpha: vi.fn().mockReturnThis(), destroy: vi.fn(),
+  }));
+  let index = 0;
+  const preference = { matches: false };
+  vi.stubGlobal("window", { matchMedia: () => preference });
+  vi.stubGlobal("document", { hidden: false });
+  try {
+    const scene = { textures: { exists: () => true }, add: { image: () => sprites[index++] },
+      cameras: { main: { width: 1000, height: 600, zoom: 2, getWorldPoint: (x: number, y: number) => ({ x, y }) } } };
+    const layer = createAmbientCloudLayer(scene as unknown as Parameters<typeof createAmbientCloudLayer>[0]);
+    layer.update(0);
+    const initial = sprites[0]!.setPosition.mock.lastCall![0];
+    layer.update(80);
+    const moved = sprites[0]!.setPosition.mock.lastCall![0];
+    expect(moved).toBeGreaterThan(initial);
+    vi.stubGlobal("document", { hidden: true }); layer.update(60000);
+    expect(sprites[0]!.setPosition.mock.lastCall![0]).toBe(moved);
+    vi.stubGlobal("document", { hidden: false }); preference.matches = true; layer.update(80);
+    expect(sprites[0]!.setPosition.mock.lastCall![0]).toBe(moved);
+    layer.destroy();
+    sprites.forEach(sprite => expect(sprite.destroy).toHaveBeenCalledOnce());
+  } finally { vi.unstubAllGlobals(); }
 });

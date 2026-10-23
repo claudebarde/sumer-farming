@@ -33,7 +33,7 @@ describe("automatic porter", () => {
     expect(advancePorter({ ...base, ...finished, now: 20000 }).inventory.flour).toBe(3);
   });
   it("splits warehouse overflow to farm during offline catch-up", () => {
-    const first = advancePorter({ ...base, inventory: { flour: 9 } });
+    const first = advancePorter({ ...base, inventory: { flour: 9 }, locations: { flour: { farm: 0, warehouse: 9 } } });
     expect(first.porter.job?.quantity).toBe(1);
     const done = advancePorter({ ...base, ...first, now: 20000 });
     expect(done.inventory.flour).toBe(12);
@@ -43,12 +43,12 @@ describe("automatic porter", () => {
     const waiting = advancePorter({ ...base, inventory: { flour: 18 }, reserved: { flour: 2 }, now: 5000 });
     expect(waiting.porter.job).toBeNull();
     expect(waiting.stacks[0]?.quantity).toBe(3);
-    const resumed = advancePorter({ ...base, ...waiting, inventory: { flour: 17 }, reserved: { flour: 2 }, now: 6000 });
+    const resumed = advancePorter({ ...base, ...waiting, inventory: { flour: 17 }, locations: { flour: { farm: 9, warehouse: 8 } }, reserved: { flour: 2 }, now: 6000 });
     expect(resumed.porter.job?.quantity).toBe(1);
     expect(resumed.porter.job?.startedAt).toBe(5000);
   });
   it("finishes a booked trip after expiry but never starts another", () => {
-    const first = advancePorter({ ...base, porter: { ...porter, expiresAt: 100 }, inventory: { flour: 9 } });
+    const first = advancePorter({ ...base, porter: { ...porter, expiresAt: 100 }, inventory: { flour: 9 }, locations: { flour: { farm: 0, warehouse: 9 } } });
     const done = advancePorter({ ...base, ...first, now: 50000 });
     expect(done.inventory.flour).toBe(10);
     expect(done.stacks[0]?.quantity).toBe(2);

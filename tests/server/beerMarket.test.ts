@@ -50,7 +50,7 @@ describe("beer markets", () => {
     const retry = await Effect.runPromise(sellToNpcMarket(db, input));
     expect(sold.player.shekelBalance).toBe(36);
     expect(retry.player.shekelBalance).toBe(36);
-    expect(retry.inventory).toEqual(expect.arrayContaining([
+    expect(retry.inventory.map(({ itemKey, quantity }) => ({ itemKey, quantity }))).toEqual(expect.arrayContaining([
       { itemKey: "beer", quantity: 2 }, { itemKey: "emptyBeerJar", quantity: 3 }, { itemKey: "barley", quantity: 5 }
     ]));
     const ledger = await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, input.playerId));
@@ -64,7 +64,7 @@ describe("beer markets", () => {
     const retry = await Effect.runPromise(buyFromNpcMarket(db, input));
     expect(bought.player.shekelBalance).toBe(4);
     expect(retry.player.shekelBalance).toBe(4);
-    expect(retry.inventory).toEqual(expect.arrayContaining([
+    expect(retry.inventory.map(({ itemKey, quantity }) => ({ itemKey, quantity }))).toEqual(expect.arrayContaining([
       { itemKey: "beer", quantity: 2 }, { itemKey: "barley", quantity: 5 }, { itemKey: "emptyBeerJar", quantity: 3 }
     ]));
     expect(retry.farm.progression?.stats.beerProduced).toBe(0);
@@ -97,7 +97,7 @@ describe("beer markets", () => {
     const retry = await Effect.runPromise(buyMarketSellOrder(db, purchase));
     expect(bought.player.shekelBalance).toBe(6);
     expect(retry.inventory).toEqual(bought.inventory);
-    expect(bought.inventory).toEqual(expect.arrayContaining([
+    expect(bought.inventory.map(({ itemKey, quantity }) => ({ itemKey, quantity }))).toEqual(expect.arrayContaining([
       { itemKey: "beer", quantity: 2 }, { itemKey: "barley", quantity: 5 }, { itemKey: "emptyBeerJar", quantity: 3 }
     ]));
     const cancelled = await Effect.runPromise(cancelMarketSellOrder(db, {

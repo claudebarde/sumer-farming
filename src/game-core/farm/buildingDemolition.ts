@@ -21,6 +21,8 @@ export const buildingDemolitionReason = (snapshot: FarmSnapshot, buildingId: str
     Object.values(farm.millGoods.pending[buildingId] ?? {}).some(quantity => quantity > 0))
     return "Finish production and collect the goods first.";
   if (building.type === "warehouse") {
+    if (snapshot.inventory.some(item => (item.locations?.[building.id] ?? 0) > 0))
+      return "Use or sell the goods stored in this warehouse first.";
     const remaining = snapshot.buildings.filter(b => b.id !== buildingId);
     if ((["flour", "brewersGroats"] as const).some(item =>
       (snapshot.inventory.find(entry => entry.itemKey === item)?.quantity ?? 0) + millStorageReserved(farm, item)

@@ -1,4 +1,6 @@
 import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
+import { setStoredQuantity } from "./physicalStorage";
+import { physicalDeliveryStop } from "../../game-core/farm/physicalStorage";
 import { porterReserved } from "../../game-data/porter";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
@@ -456,7 +458,7 @@ const executeFarmItemAction = (
               }
 
               const inventory = await transaction
-                .select({ quantity: farmInventory.quantity })
+                .select({ quantity: farmInventory.quantity, locations: farmInventory.locations })
                 .from(farmInventory)
                 .where(
                   and(
@@ -483,26 +485,15 @@ const executeFarmItemAction = (
                 };
               }
 
+              const destination = farm.carriedItemKey === "reed" || farm.carriedItemKey === "clay"
+                ? physicalDeliveryStop(farm.carriedItemKey, { itemKey: farm.carriedItemKey, quantity: storedQuantity, locations: inventory[0]?.locations }, storageBuildings, now.getTime()) : null;
               const depositedQuantity = Math.min(
                 availableCapacity,
-                farm.carriedItemQuantity
+                farm.carriedItemQuantity,
+                destination?.room ?? availableCapacity
               );
 
-              await transaction
-                .insert(farmInventory)
-                .values({
-                  farmId: farm.id,
-                  itemKey: farm.carriedItemKey,
-                  quantity: depositedQuantity,
-                  updatedAt: now
-                })
-                .onConflictDoUpdate({
-                  target: [farmInventory.farmId, farmInventory.itemKey],
-                  set: {
-                    quantity: sql`${farmInventory.quantity} + ${depositedQuantity}`,
-                    updatedAt: now
-                  }
-                });
+              await setStoredQuantity(transaction, farm.id, farm.carriedItemKey, storedQuantity + depositedQuantity, now, destination?.storageId);
 
               const remainingQuantity =
                 farm.carriedItemQuantity - depositedQuantity;
@@ -753,29 +744,7 @@ const executeFarmItemAction = (
                 };
               }
 
-              if (inventoryItem.quantity === 1) {
-                await transaction
-                  .delete(farmInventory)
-                  .where(
-                    and(
-                      eq(farmInventory.farmId, farm.id),
-                      eq(farmInventory.itemKey, input.itemKey)
-                    )
-                  );
-              } else {
-                await transaction
-                  .update(farmInventory)
-                  .set({
-                    quantity: inventoryItem.quantity - 1,
-                    updatedAt: now
-                  })
-                  .where(
-                    and(
-                      eq(farmInventory.farmId, farm.id),
-                      eq(farmInventory.itemKey, input.itemKey)
-                    )
-                  );
-              }
+              await setStoredQuantity(transaction, farm.id, input.itemKey, inventoryItem.quantity - 1, now);
 
               const [updatedFarm] = await transaction
                 .update(farms)

@@ -25,4 +25,10 @@
   img { object-fit: contain; flex-shrink: 0; }
 }
 .you, .self { background: #f3e3c8; }
+.portrait { flex: 0 0 48px; width: 48px; }
 .self { padding: 8px; }
+.neighbourhoodDialog { width: min(620px, calc(100vw - 24px)); max-width: calc(100vw - 24px); }
+.neighbourhoodDialog .table {
+  th:first-child, td:first-child, th:last-child, td:last-child { text-align: center; }
+}
+.neighbourhoodDialog .identity { gap: 16px; }

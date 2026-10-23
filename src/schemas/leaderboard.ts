@@ -12,6 +12,7 @@ export const LEADERBOARD_METRICS = {
 } as const;
 export const LeaderboardEntrySchema = z.object({
   playerId: z.string().uuid(), name: z.string(), city: z.string(), neighbourhood: z.string(),
+  level: z.number().int().positive().optional(),
   rank: z.number().int().positive(), score: z.number().int().nonnegative(), isYou: z.boolean()
 });
 export const LeaderboardResponseSchema = z.object({

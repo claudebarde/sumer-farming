@@ -63,10 +63,10 @@ it("rejects nonempty granaries and foreign buildings and the starting farm", asy
 it("protects warehouse dates and inventory above the remaining capacity", async () => {
   const f = await fixture("warehouse");
   await db.insert(farmInventory).values({ farmId: f.farm.id, itemKey: "dates", quantity: 1 });
-  await expect(Effect.runPromise(destroyBuilding(db, f.input))).rejects.toThrow("Reduce stored goods");
-  await db.update(farmInventory).set({ itemKey: "flour", quantity: 11 }).where(eq(farmInventory.farmId, f.farm.id));
-  await expect(Effect.runPromise(destroyBuilding(db, f.input))).rejects.toThrow("Reduce stored goods");
-  await db.update(farmInventory).set({ quantity: 10 }).where(eq(farmInventory.farmId, f.farm.id));
+  await expect(Effect.runPromise(destroyBuilding(db, f.input))).rejects.toThrow("stored in this warehouse");
+  await db.update(farmInventory).set({ itemKey: "flour", quantity: 11, locations: null }).where(eq(farmInventory.farmId, f.farm.id));
+  await expect(Effect.runPromise(destroyBuilding(db, f.input))).rejects.toThrow("stored in this warehouse");
+  await db.update(farmInventory).set({ quantity: 10, locations: { farm: 10 } }).where(eq(farmInventory.farmId, f.farm.id));
   const result = await Effect.runPromise(destroyBuilding(db, f.input));
   expect(result.inventory.find(i => i.itemKey === "flour")?.quantity).toBe(10);
 });

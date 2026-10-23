@@ -9,13 +9,24 @@ const snapshot = FarmSnapshotSchema.parse({
   created: false, player: { shekelBalance: 0 },
   farm: { id: "00000000-0000-4000-8000-000000000001", playerId: "00000000-0000-4000-8000-000000000002", version: 1,
     household: { happiness: 80, lastBeerAt: null, hungrySince: null, cultivationStartedAt: null, nextBarleyConsumptionAt: null }, carriedItem: null, gathering: null },
-  inventory: [{ itemKey: "barley", quantity: 6 }, { itemKey: "flour", quantity: 2 }],
+  inventory: [{ itemKey: "barley", quantity: 6 }, { itemKey: "flour", quantity: 2 }, { itemKey: "brewersGroats", quantity: 2 }],
   objects: [], groundItems: [], crops: [], improvements: [],
   buildings: [{ id: targetId, type: "breadOven", column: 0, row: 1, loadingTile: { column: -1, row: 1 },
     startedAt: new Date(0).toISOString(), completesAt: new Date(1).toISOString(), storedBarley: 0,
     brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0 }]
 });
 describe("one saved preparation timeline", () => {
+  it("collects ingredients from their actual farm and warehouse locations", () => {
+    const warehouseId = "00000000-0000-4000-8000-000000000004";
+    const s = structuredClone(snapshot);
+    s.buildings.push({ ...s.buildings[0]!, id: warehouseId, type: "warehouse", column: 5, row: 2, loadingTile: { column: 5, row: 4 } });
+    s.inventory = [{ itemKey: "flour", quantity: 2, locations: { farm: 1, [warehouseId]: 1 } }];
+    const journey = planProductionJourney(s, targetId, 10_000, {}, "baking")!;
+    expect(journey.supplyStops?.map(({ buildingId, quantity }) => ({ buildingId, quantity }))).toEqual([
+      { buildingId: null, quantity: 1 }, { buildingId: warehouseId, quantity: 1 }
+    ]);
+    expect(journey.path[journey.supplyStops![1]!.index]).toEqual({ column: 5, row: 4 });
+  });
   it.each(["baking", "brewing", "milling", "donkeyMilling"] as const)("%s arrives exactly at production start, including after reload", kind => {
     const journey = planProductionJourney(snapshot, targetId, 10_000,
       { farmerPosition: { column: 6, row: 5 }, donkeyPosition: { column: 7, row: 2 } }, kind)!;

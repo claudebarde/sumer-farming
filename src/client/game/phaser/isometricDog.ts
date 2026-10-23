@@ -11,7 +11,8 @@ export const DOG_SOURCES = Object.fromEntries<string>([
   ...Object.entries(import.meta.glob("../../../assets/sprite_assets/pngs/v2/isometric-test/dog-walk-*.png", { eager: true, query: "?url", import: "default" }))
     .sort(([a], [b]) => a.localeCompare(b)).map(([, url], index): [string, string] => [String(index), url as string]),
 ]);
-export type DogState = Readonly<{ position: IsoCell; target: IsoCell | null; elapsed: number; walking: boolean; flip: boolean; checkIn: number }>;
+export type DogState = Readonly<{ position: IsoCell; target: IsoCell | null; elapsed: number; walking: boolean; flip: boolean; checkIn: number;
+  constructionExit?: Readonly<{ footprint: readonly IsoCell[]; path: readonly IsoCell[] }> }>;
 export const dogClear = (snapshot: FarmSnapshot, cell: IsoCell, now: number) =>
   previewWalkable(snapshot, cell, now) && !snapshot.crops.some(c => sameCell(c, cell)) && !snapshot.groundItems.some(i => sameCell(i, cell));
 export const initialDog = (snapshot: FarmSnapshot, farmer: IsoCell, now: number): DogState => {

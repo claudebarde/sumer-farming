@@ -6,7 +6,7 @@ import { merchantUiStore } from "../../../stores/merchantUiStore";
 import { donkeyEscortPath, donkeyMillingPose } from "../donkeyMilling";
 import type { MillingJob } from "../../../../game-data/milling";
 import { farmerProductionJob } from "../../../../game-core/farm/farmerProduction";
-import { advanceDonkeyWander, arrivingDonkey, donkeyGround, donkeyOwnedAndIdle, donkeyRestKey, DONKEY_REST_MS, type DonkeyWander } from "../isometricDonkey";
+import { advanceDonkeyWander, arrivingDonkey, donkeyEscapeFootprint, donkeyGround, donkeyNoRestTiles, donkeyOwnedAndIdle, donkeyRestKey, DONKEY_REST_MS, type DonkeyWander } from "../isometricDonkey";
 import { drawActionProgress } from "../actionProgressBar";
 import { createShadowLayer } from "../shadowLayer";
 import type { ShadowPreset } from "../daylightShadows";
@@ -21,9 +21,12 @@ import { FARM_SPRITES } from "../../../../assets/farmSprites";
 import { FARM_EVOLUTION_SOURCES, farmAppearance } from "../farmEvolution";
 import { LYRE_SOURCES, PROCESSION_COUNT, PROCESSION_DURATION_MS, processionPose } from "../lyreProcession";
 import { DOG_SOURCES, initialDog, dogTexture, type DogState } from "../isometricDog";
+import { stepDogConstructionEscape } from "../dogConstructionEscape";
 import { initialWandering, stepWandering } from "../dogWandering";
 import granaryUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/granary-isometric-test.png";
 import breadOvenUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-isometric.png";
+import smallShrineUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/small-shrine-isometric.png";
+import warehouseUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/warehouse-isometric.png";
 import breweryUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-left-bottom-shell.png";
 import breweryRightTopUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-right-top-shell.png";
 import breweryJarUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-left-bottom-jar.png";
@@ -53,7 +56,7 @@ import canalCornerUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-t
 import canalJunctionUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/canals/canal-nw-ne-se.png";
 import { canalConnectionMask } from "../isometricIrrigation";
 import { roadTextures } from "../roadTextures";
-import { roadConnectionMask } from "../isometricRoads";
+import { roadConnectionMask, roadGhostPreview, roadWorkActive } from "../isometricRoads";
 import { ROAD_CONSTRUCTION_DURATION_MS } from "../../../../game-data/roads";
 import { FARMER_BUILD_SOURCES, FARMER_BUILD_BOUNDS, farmerBuildTexture } from "../farmerBuild";
 import { activeConstruction, isometricConstructionPose, savedRoadApproach } from "../isometricConstruction";
@@ -87,6 +90,8 @@ import { pickupDuration, pickupPose, transferGroundItems, type GroundTransfer } 
 import { buildingFacingLeft } from "../buildingFacing";
 import { createFarmerIdle } from "../farmerIdle";
 import { hasFarmerPopup } from "../isometricTilePopup";
+import { farmRenderKey } from "../farmRenderState";
+import { renderDiagnostic } from "../renderDiagnostics";
 import { visibleSpriteHit } from "../visibleSpriteHit";
 import { SWEEP_SOURCES, SWEEP_BOUNDS, SWEEP_ORIGIN, SWEEP_IDLE_DELAY, SWEEP_TILES, planSweeping, planReturningSweep, sweepTexture, sweepingPose, sweepStopDeadline, sweepOriginX, type SweepPlan } from "../farmerSweeping";
 import { CLOUD_TEXTURES, advanceClouds, cloudPose, initialClouds, prepareCloudTexture } from "../ambientClouds";
@@ -102,7 +107,7 @@ const scenery = { bush01, bush02, rocks01, rocks02 };
 const crops = { sown, growing, ripe };
 const fallback = { beer: FARM_SPRITES.beerJars, water: FARM_SPRITES.water, reeds: FARM_SPRITES.reeds, barley: FARM_SPRITES.harvestedBarley, reed: FARM_SPRITES.reedBundle, clay: FARM_SPRITES.brickPile,
   datePalmSapling: FARM_SPRITES.datePalmSapling, datePalmGrowing: FARM_SPRITES.datePalmGrowing, datePalmReady: FARM_SPRITES.datePalmReady,
-  mill: FARM_SPRITES.mill, brewery: breweryUrl, breadOven: breadOvenUrl, warehouse: FARM_SPRITES.warehouse, smallShrine: FARM_SPRITES.smallShrine };
+  mill: FARM_SPRITES.mill, brewery: breweryUrl, breadOven: breadOvenUrl, warehouse: warehouseUrl, smallShrine: smallShrineUrl };
 
 /** Saved-world presentation and selection. Economic commands stay in React/server. */
 export class IsometricFarmScene extends Phaser.Scene {
@@ -119,9 +124,12 @@ export class IsometricFarmScene extends Phaser.Scene {
   private selectedMillBags = false;
   private cloudSprites: Phaser.GameObjects.Image[] = [];
   private cloudState = initialClouds();
-  private millDeliveryLeg: { path: readonly IsoCell[]; building: IsoCell; carrying: boolean; jars: boolean; startedAt: number } | null = null;
+  private millDeliveryLeg: { path: readonly IsoCell[]; building: IsoCell; carrying: boolean; jars: boolean; bread: boolean; startedAt: number } | null = null;
   private baseZoom = 1;
   private drawnAt = 0;
+  private renderedKey = "";
+  private nextRenderCheck = 0;
+  private graphicsLost = false;
   private ready = false;
   private riverWaves!: Phaser.GameObjects.Graphics;
   private riverElapsed = 0;
@@ -176,6 +184,84 @@ export class IsometricFarmScene extends Phaser.Scene {
   private selectionMode: "plant" | "harvest" = "plant";
   private cropImages: { cell: IsoCell; image: Phaser.GameObjects.Image }[] = [];
   private buildingImages: Phaser.GameObjects.Image[] = [];
+  private roadPlan: readonly IsoCell[] | null = null;
+  private roadPlanClick: (cell: IsoCell) => void = () => {};
+  private roadPlanObjects: Phaser.GameObjects.GameObject[] = [];
+  private roadPlanOverlay?: Phaser.GameObjects.Graphics;
+  private roadPlanNumbers: Phaser.GameObjects.Text[] = [];
+  private roadPointer: { x: number; y: number } | null = null;
+  private roadGhost?: Phaser.GameObjects.Image;
+  private roadGhostFootprint?: Phaser.GameObjects.Graphics;
+  private roadGhostKey = "";
+
+  private renderRoadGhost() {
+    if (this.roadPlan === null || !this.roadPointer || roadWorkActive(this.snapshot.farm.roads, Date.now())) {
+      this.roadGhost?.setVisible(false); this.roadGhostFootprint?.setVisible(false);
+      this.roadGhostKey = "";
+      return;
+    }
+    const world = this.cameras.main.getWorldPoint(this.roadPointer.x, this.roadPointer.y);
+    const cell = isoCell(world.x, world.y), now = Date.now();
+    const key = `${cell.column}:${cell.row}:${this.snapshot.farm.version}:${Math.floor(now / 250)}`;
+    if (key === this.roadGhostKey) return;
+    this.roadGhostKey = key;
+    const preview = roadGhostPreview(this.snapshot, this.roadPlan, cell, now);
+    const point = isoPoint(cell);
+    this.roadGhostFootprint ??= this.add.graphics().setDepth(9992);
+    this.roadGhostFootprint.clear().setVisible(true);
+    this.diamond(this.roadGhostFootprint, cell, preview.colour, 0.4);
+    this.roadGhost ??= this.add.image(0, 0, preview.texture).setOrigin(0.5).setDepth(9993);
+    this.roadGhost.setTexture(preview.texture).setPosition(point.x, point.y)
+      .setDisplaySize(ISO_WIDTH, ISO_HEIGHT).setTint(preview.colour).setAlpha(0.7).setVisible(true);
+  }
+
+  setRoadPlanning(cells: readonly IsoCell[] | null, onClick: (cell: IsoCell) => void = () => {}) {
+    const changedMode = (this.roadPlan === null) !== (cells === null);
+    this.roadPlan = cells;
+    this.roadGhostKey = "";
+    if (cells === null) this.roadPointer = null;
+    this.roadPlanClick = onClick;
+    if (cells !== null) { this.walkPath = []; this.walkProgress = 0; }
+    if (!this.ready) return;
+    if (changedMode) this.clearSelection();
+    else this.drawRoadPlan();
+    this.renderRoadGhost();
+  }
+
+  private fadeRoadPlanBuildings() {
+    if (this.roadPlan === null) return;
+    for (const object of this.roadPlanObjects) {
+      if (object instanceof Phaser.GameObjects.Image || object instanceof Phaser.GameObjects.Text || object instanceof Phaser.GameObjects.Graphics)
+        object.setAlpha(Math.min(object.alpha, 0.25));
+    }
+  }
+
+  private drawRoadPlan() {
+    this.roadPlanOverlay?.destroy();
+    this.roadPlanNumbers.forEach(text => text.destroy());
+    this.roadPlanNumbers = [];
+    this.roadPlanOverlay = undefined;
+    if (this.roadPlan === null) return;
+    const overlay = this.roadPlanOverlay = this.add.graphics().setDepth(9990);
+    const footprints = [
+      { ...farmOrigin, columns: 2, rows: 2 }, { ...marketOrigin, columns: 2, rows: 2 },
+      ...this.snapshot.buildings.map(b => ({ ...b, ...FARM_BUILDING_DEFINITIONS[b.type].footprint })),
+    ];
+    for (const footprint of footprints) for (let row = 0; row < footprint.rows; row++) for (let column = 0; column < footprint.columns; column++) {
+      const p = isoPoint({ column: footprint.column + column, row: footprint.row + row });
+      overlay.lineStyle(1.5, 0x79512f, 0.8).strokePoints([
+        new Phaser.Math.Vector2(p.x, p.y - ISO_HEIGHT / 2), new Phaser.Math.Vector2(p.x + ISO_WIDTH / 2, p.y),
+        new Phaser.Math.Vector2(p.x, p.y + ISO_HEIGHT / 2), new Phaser.Math.Vector2(p.x - ISO_WIDTH / 2, p.y),
+      ], true);
+    }
+    this.roadPlan.forEach((cell, index) => {
+      this.diamond(overlay, cell, 0x42ad62, 0.55);
+      const p = isoPoint(cell);
+      this.roadPlanNumbers.push(this.add.text(p.x, p.y, String(index + 1), {
+        fontFamily: "Georgia, serif", fontSize: "14px", fontStyle: "bold", color: "#352015", resolution: 2,
+      }).setOrigin(0.5).setDepth(9991));
+    });
+  }
   private mills: { building: FarmSnapshot["buildings"][number]; images: MillAnimationImages; progress: Phaser.GameObjects.Graphics }[] = [];
   private farmerMarker!: Phaser.GameObjects.Graphics;
   private markerAlpha = 0;
@@ -250,6 +336,27 @@ export class IsometricFarmScene extends Phaser.Scene {
     for (const [key, url] of Object.entries({ ...scenery, ...crops, ...fallback })) this.load.image(`source-${key}`, url);
   }
   create() {
+    const texturesStarted = performance.now();
+    const lost = () => { this.graphicsLost = true; renderDiagnostic("graphics-lost"); };
+    const restored = () => {
+      this.graphicsLost = false;
+      renderDiagnostic("graphics-restored");
+      if (this.ready) this.draw();
+    };
+    const resumed = () => {
+      renderDiagnostic("tab-visible");
+      // Keep the last scene visible; catch up from saved state without waiting
+      // for the asynchronous server refresh.
+      if (this.ready && !this.graphicsLost) this.reconcileRender();
+    };
+    this.game.renderer.on(Phaser.Renderer.Events.LOSE_WEBGL, lost);
+    this.game.renderer.on(Phaser.Renderer.Events.RESTORE_WEBGL, restored);
+    this.game.events.on(Phaser.Core.Events.VISIBLE, resumed);
+    this.events.once("shutdown", () => {
+      this.game.renderer.off(Phaser.Renderer.Events.LOSE_WEBGL, lost);
+      this.game.renderer.off(Phaser.Renderer.Events.RESTORE_WEBGL, restored);
+      this.game.events.off(Phaser.Core.Events.VISIBLE, resumed);
+    });
     if (!this.textures.exists("merchant-boat")) {
       const source = this.textures.get("source-merchant-boat").getSourceImage() as HTMLImageElement;
       this.textures.addCanvas("merchant-boat", prepareMerchantBoatTexture(source))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
@@ -422,13 +529,14 @@ export class IsometricFarmScene extends Phaser.Scene {
       const source = this.textures.get(`source-${key}`).getSourceImage() as HTMLImageElement;
       const isCrop = key in crops;
       const bounds = isCrop ? farmerPlantBounds(512) : key in scenery ? { left: 0, top: 0, right: 511, bottom: 511 } : undefined;
-      this.textures.addCanvas(key, key === "breadOven" ? prepareBuildingTexture(source)
+      this.textures.addCanvas(key, key === "breadOven" || key === "smallShrine" || key === "warehouse" ? prepareBuildingTexture(source)
         : prepareFarmerTexture(source, isCrop ? 0.6 : 0.15, bounds))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
     for (const key of Object.keys(PORTER_SOURCES)) if (!this.textures.exists(key)) {
       this.textures.addCanvas(key, prepareFarmerTexture(this.textures.get(`source-${key}`).getSourceImage() as HTMLImageElement, PORTER_SHARPEN_AMOUNT, porterFrameBounds(key), PORTER_TEXTURE_SIZE))
         ?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
+    renderDiagnostic("texture-preparation", texturesStarted);
     this.ready = true; this.draw(); this.fit();
     // Start at the player's preferred framing: two presses of the 1.2× zoom button.
     // Keep the original fit scale as the zoom-out limit and explicit Fit action.
@@ -437,6 +545,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     let dragged = false;
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => { last = { x: pointer.x, y: pointer.y }; dragged = false; });
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      if (this.roadPlan !== null) this.roadPointer = { x: pointer.x, y: pointer.y };
       if (this.mockPlacement && !this.placementLocked && !pointer.isDown) this.moveMockPlacement(pointer.x, pointer.y);
       if (!pointer.isDown || !last) return;
       if (!dragged && pointer.getDistance() < 6) return;
@@ -446,10 +555,17 @@ export class IsometricFarmScene extends Phaser.Scene {
       camera.scrollY -= (pointer.y - last.y) / camera.zoom;
       last = { x: pointer.x, y: pointer.y };
     });
+    this.input.on("gameout", () => { this.roadPointer = null; this.renderRoadGhost(); });
     this.input.on("pointerup", (pointer: Phaser.Input.Pointer, objects: Phaser.GameObjects.GameObject[]) => {
       last = null;
       if (dragged) return;
       const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+      if (this.roadPlan !== null) {
+        this.roadPointer = { x: pointer.x, y: pointer.y };
+        this.roadGhostKey = ""; this.renderRoadGhost();
+        if (!this.commandPending) this.roadPlanClick(isoCell(world.x, world.y));
+        return;
+      }
       if (this.snapshot.farm.fishing) {
         const column = world.x / ISO_WIDTH + world.y / ISO_HEIGHT;
         const row = world.y / ISO_HEIGHT - world.x / ISO_WIDTH;
@@ -541,8 +657,13 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.mockFootprint = this.add.graphics().setDepth(10000);
     for (const cell of preview.footprint) this.diamond(this.mockFootprint, cell, colour, 0.55);
     if (preview.loading) this.diamond(this.mockFootprint, preview.loading, 0xffd45a, 0.75);
-    const p = footprintFront(this.mockPlacement, 2, 2);
+    const size = FARM_BUILDING_DEFINITIONS[this.placementBuilding].footprint;
+    const shrine = this.placementBuilding === "smallShrine";
+    // The shrine's ground contact is the centre of its pedestal, not the
+    // bottom of the padded source frame or the front of a two-tile building.
+    const p = shrine ? isoPoint(this.mockPlacement) : footprintFront(this.mockPlacement, size.columns, size.rows);
     const granary = this.placementBuilding === "granary";
+    const displaySize = granary ? 240 : this.placementBuilding === "warehouse" ? 200 : 150;
     if (this.placementBuilding === "mill") {
       const mill = renderMillAnimation(this, null, this.mockPlacement, null);
       mill.farmer.destroy(); mill.donkey.destroy(); mill.flour.destroy();
@@ -554,8 +675,8 @@ export class IsometricFarmScene extends Phaser.Scene {
     const texture = this.placementBuilding === "brewery"
       ? breweryVesselTexture(breweryOrientationTexture({ ...this.mockPlacement, loadingTile: preview.loading }, this.snapshot.farm.roads, Date.now()) === "brewery-right-top", breweryVesselCount(this.snapshot.inventory))
       : this.placementBuilding;
-    this.mockBuilding = this.add.image(p.x, p.y + (granary ? -12 : 0), texture).setOrigin(0.5, granary ? 1 : 120 / 128)
-      .setDisplaySize(granary ? 240 : 150, granary ? 240 : 150).setDepth(10001).setTint(colour).setAlpha(0.65);
+    this.mockBuilding = this.add.image(p.x, p.y + (granary ? -12 : 0), texture).setOrigin(0.5, shrine ? 840 / 1024 : granary ? 1 : 120 / 128)
+      .setDisplaySize(displaySize, displaySize).setDepth(10001).setTint(colour).setAlpha(0.65);
   }
   setSnapshot(snapshot: FarmSnapshot) {
     if (activeBrewingPreparation(snapshot, Date.now())) { this.walkPath = []; this.walkProgress = 0; }
@@ -598,7 +719,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.snapshot = snapshot;
     if (this.marketTrip && !canVisitIsometricMarket(snapshot, Date.now())) this.marketTrip = false;
     if (farmerProductionJob(snapshot.farm) || snapshot.farm.production.planting || activeConstruction(snapshot, Date.now())) { this.walkPath = []; this.walkProgress = 0; }
-    if (this.ready) this.draw();
+    if (this.ready) this.reconcileRender();
   }
   setPlantingSelection(cells: readonly IsoCell[] | null, pending = false, mode: "plant" | "harvest" = "plant") {
     if (cells !== null || pending) this.stopSweeping();
@@ -685,9 +806,9 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.pickup = { type: "store", path, before, building, carried: before.farm.carriedItem?.quantity ?? 0, startedAt: Date.now() };
     return pickupDuration(path);
   }
-  presentMillDeliveryLeg(path: readonly IsoCell[], building: IsoCell, carrying: boolean, jars = false): number {
+  presentMillDeliveryLeg(path: readonly IsoCell[], building: IsoCell, carrying: boolean, jars = false, bread = false): number {
     this.walkPath = []; this.walkProgress = 0;
-    this.millDeliveryLeg = { path, building, carrying, jars, startedAt: Date.now() };
+    this.millDeliveryLeg = { path, building, carrying, jars, bread, startedAt: Date.now() };
     return pickupDuration(path);
   }
   finishMillDeliveryLeg() {
@@ -738,11 +859,26 @@ export class IsometricFarmScene extends Phaser.Scene {
         .setTint(0xffdc57).setTintMode(Phaser.TintModes.FILL).setDepth(sprite.depth - 0.1);
     }
   }
+  private reconcileRender() {
+    if (this.graphicsLost) return;
+    const key = farmRenderKey(this.snapshot, Date.now());
+    if (key !== this.renderedKey) this.draw();
+    else {
+      this.renderFarmer(); this.updatePorter(); this.updateDonkey(0);
+      this.renderStorageChips(); this.updateMerchantCaravan();
+    }
+  }
   private draw() {
+    if (this.graphicsLost) return;
+    const renderStarted = performance.now();
     this.breweries.forEach(b => b.animation.destroy()); this.breweries = [];
     this.ovens.forEach(o => o.animation.destroy()); this.ovens = [];
     this.daylightShadows?.destroy();
     this.children.removeAll(true);
+    this.roadGhost = undefined; this.roadGhostFootprint = undefined; this.roadGhostKey = "";
+    this.roadPlanOverlay = undefined;
+    this.roadPlanNumbers = [];
+    this.roadPlanObjects = [];
     this.caravan = undefined;
     this.daylightShadows = createShadowLayer(this, config.worldBounds);
     this.millPreviewParts = [];
@@ -754,6 +890,8 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.storageChips = [];
     this.millOutputSprites = [];
     const now = Date.now(); this.drawnAt = now;
+    this.renderedKey = farmRenderKey(this.snapshot, now);
+    this.nextRenderCheck = now + 250;
     const snapshot = this.snapshot;
     const canals = presentCanals(snapshot, now);
     const ground = this.add.graphics().setDepth(-1000);
@@ -841,6 +979,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       this.add.image(p.x, p.y, key).setOrigin(0.5, object.type === "reeds" ? 120 / 128 : 106 / 128).setDisplaySize(72, 72).setDepth(p.y)
         .setData("tile", { column: object.column, row: object.row }).setInteractive({ pixelPerfect: true });
     }
+    const buildingStart = this.children.list.length;
     const front = footprintFront(farmOrigin, 2, 2);
     const appearance = farmAppearance(snapshot.farm.progression?.level);
     this.buildingImages.push(this.add.image(front.x, front.y + 19, appearance.texture).setOrigin(0.5, 1).setDisplaySize(232, 232).setDepth(front.y - 24).setData("tile", farmOrigin).setInteractive({ pixelPerfect: true }));
@@ -850,8 +989,10 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.drawStorageChip("farm", front.x, front.y + appearance.storageChipY, storageSnapshot.inventory.find(item => item.itemKey === "barley")?.quantity ?? 0);
     for (const building of snapshot.buildings) {
       const size = FARM_BUILDING_DEFINITIONS[building.type].footprint;
-      const p = footprintFront(building, size.columns, size.rows);
+      const shrine = building.type === "smallShrine";
+      const p = shrine ? isoPoint(building) : footprintFront(building, size.columns, size.rows);
       const granary = building.type === "granary";
+      const displaySize = granary ? 240 : building.type === "warehouse" ? 200 : 150;
       // Inset the granary's rounded decorative base inside its diamond footprint.
       // Retain uniform scale and allow the towers to rise naturally above it.
       if (building.type === "mill") {
@@ -877,10 +1018,17 @@ export class IsometricFarmScene extends Phaser.Scene {
           this.daylightShadows.add(() => ({ x: sprite.x, y: sprite.y + 12, visible: sprite.visible }), 32, 24);
           if (this.selectedMillBags && this.selected && sameCell(outputTile, this.selected)) this.outlineItem(sprite);
         }
-      } else this.buildingImages.push(this.add.image(p.x, p.y + (granary ? -12 : 0), building.type === "brewery" ? breweryVesselTexture(breweryOrientationTexture(building, snapshot.farm.roads, now) === "brewery-right-top", breweryVesselCount(snapshot.inventory)) : building.type).setOrigin(0.5, granary ? 1 : 120 / 128)
-        .setDisplaySize(granary ? 240 : 150, granary ? 240 : 150).setDepth(p.y - 24)
+      } else this.buildingImages.push(this.add.image(p.x, p.y + (granary ? -12 : 0), building.type === "brewery" ? breweryVesselTexture(breweryOrientationTexture(building, snapshot.farm.roads, now) === "brewery-right-top", breweryVesselCount(snapshot.inventory)) : building.type).setOrigin(0.5, shrine ? 840 / 1024 : granary ? 1 : 120 / 128)
+        .setDisplaySize(displaySize, displaySize).setDepth(p.y - 24)
         .setAlpha(Date.parse(building.completesAt) > now ? 0.5 : 1).setData("tile", { column: building.column, row: building.row }).setInteractive({ pixelPerfect: true }));
       if (building.type !== "mill") this.daylightShadows.addBuilding(this.buildingImages[this.buildingImages.length - 1]!);
+      const blessing = snapshot.farm.production.shrineBlessing;
+      if (shrine && blessing?.buildingId === building.id && Date.parse(blessing.startedAt) <= now && Date.parse(blessing.expiresAt) > now) {
+        // Saved offering is decorative, not a collectable output pile.
+        this.add.image(p.x, p.y + 16, blessing.item === "beer" ? "beer" : "baking-8")
+          .setOrigin(GROUND_ITEM_ORIGIN.x, GROUND_ITEM_ORIGIN.y)
+          .setDisplaySize(64, 64).setDepth(p.y + 1);
+      }
       if (building.type === "brewery" && Date.parse(building.completesAt) <= now) {
         const animation = createBrewingTest(this, this.buildingImages[this.buildingImages.length - 1]!, breweryOrientationTexture(building, snapshot.farm.roads, now) === "brewery-right-top", breweryVesselCount(snapshot.inventory));
         this.breweries.push({ id: building.id, animation });
@@ -927,6 +1075,9 @@ export class IsometricFarmScene extends Phaser.Scene {
       .setData("tile", marketOrigin).setInteractive({ pixelPerfect: true }));
     this.daylightShadows.addBuilding(this.buildingImages[this.buildingImages.length - 1]!);
     const groundItems = transferGroundItems(snapshot.groundItems, this.pickup);
+    this.roadPlanObjects = this.children.list.slice(buildingStart);
+    this.fadeRoadPlanBuildings();
+    this.drawRoadPlan();
     let outlinedGroundItem = false;
     for (const item of groundItems) {
       const p = isoPoint(item);
@@ -1011,6 +1162,7 @@ export class IsometricFarmScene extends Phaser.Scene {
         }
       } else this.diamond(highlight, this.selected, 0xffdc57, 0.6);
     }
+    renderDiagnostic("scene-rebuild", renderStarted, { objects: this.children.length });
   }
   /** Called only after a successful claim, never by snapshot reconciliation. */
   celebrateLevel(level: number) {
@@ -1060,12 +1212,12 @@ export class IsometricFarmScene extends Phaser.Scene {
       this.actor.setOrigin(0.5, 120 / 128).setPosition(point.x, point.y + pose.dip).setDepth(point.y + 1)
         .setTexture(leg.jars || carryingLiquidJars(this.snapshot.farm.carriedItem, leg.carrying ? this.snapshot.farm.production.delivery : null)
           ? farmerJarCarryTexture(pose.distance, pose.walking)
-          : leg.carrying && !this.snapshot.farm.production.delivery ? farmerFlourCarryTexture(pose.distance, pose.walking) : farmerTravelTexture(pose.distance, 0, pose.walking))
+          : leg.carrying && !leg.bread && !this.snapshot.farm.production.delivery ? farmerFlourCarryTexture(pose.distance, pose.walking) : farmerTravelTexture(pose.distance, 0, pose.walking))
         .setDisplaySize(64, 64 - pose.dip).setFlipX(pose.facingLeft);
       this.actorShadow.setPosition(point.x, point.y).setDepth(point.y);
       this.heldMaterial.setVisible(false); this.cargo.setVisible(false); this.cargoBackground.setVisible(false);
       if (pose.done) { this.farmerCell = leg.path.at(-1)!; this.facingLeft = pose.facingLeft; this.millDeliveryLeg = null; }
-      if (leg.carrying && this.snapshot.farm.production.delivery?.itemKey === "bread") this.renderHeldMaterial("baking-8", 1);
+      if (leg.carrying && (leg.bread || this.snapshot.farm.production.delivery?.itemKey === "bread")) this.renderHeldMaterial("baking-8", 1);
       return;
     }
     const brewing = activeBrewingPreparation(this.snapshot, Date.now());
@@ -1190,7 +1342,10 @@ export class IsometricFarmScene extends Phaser.Scene {
       return;
     }
     const roadApproach = savedRoadApproach(this.snapshot, now);
-    if (roadApproach) this.constructionApproach = roadApproach;
+    if (roadApproach) {
+      this.constructionApproach = roadApproach;
+      this.walkPath = []; this.walkProgress = 0;
+    }
     if (this.constructionApproach) {
       const approach = this.constructionApproach;
       const pose = pickupPose(approach.path, approach.startedAt, now);
@@ -1474,8 +1629,11 @@ export class IsometricFarmScene extends Phaser.Scene {
     const occupied = [this.farmerCell, ...(this.dogState ? [this.dogState.position] : []), ...(porter ? [porter.position] : [])]
       .map(p => ({ column: Math.round(p.column), row: Math.round(p.row) }));
     const previous = this.donkeyWander;
+    const escapeFootprint = donkeyEscapeFootprint(this.snapshot, previous, Date.now());
     this.donkeyWander = advanceDonkeyWander(previous, { cells: this.donkeyCells, roads: this.snapshot.farm.roads,
-      occupied, delta, movingAllowed: !this.commandPending && !this.reducedMotion?.matches && document.visibilityState === "visible", random: Math.random() });
+      escapeFootprint, noRest: donkeyNoRestTiles(this.snapshot),
+      occupied, delta, movingAllowed: (!this.commandPending || escapeFootprint.length > 0 || !!previous?.motion?.escape) &&
+        !this.reducedMotion?.matches && document.visibilityState === "visible", random: Math.random() });
     const state = this.donkeyWander;
     this.donkeyActor.setVisible(state !== null);
     if (!state) return;
@@ -1489,7 +1647,7 @@ export class IsometricFarmScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number) {
-    if (!this.ready) return;
+    if (!this.ready || this.graphicsLost) return;
     if (!document.hidden && !this.reducedMotion?.matches) this.boatBobElapsed += Math.min(80, Math.max(0, delta));
     this.updateMerchantCaravan();
     const pickupAt = this.snapshot.farm.production.porter?.job?.pickupAt;
@@ -1543,8 +1701,11 @@ export class IsometricFarmScene extends Phaser.Scene {
         }
       }
     }
-    if (Date.now() - this.drawnAt >= 5000) this.draw();
-    else { this.renderFarmer(); this.renderRiverWaves(); this.renderStorageChips(); }
+    if (Date.now() >= this.nextRenderCheck) {
+      this.nextRenderCheck = Date.now() + 250;
+      this.reconcileRender();
+    }
+    this.renderFarmer(); this.renderRiverWaves(); this.renderStorageChips();
     this.renderFarmerMarker(delta);
     this.renderClouds();
     this.publishFishingStatus();
@@ -1564,10 +1725,16 @@ export class IsometricFarmScene extends Phaser.Scene {
           reserved.push({ column: Math.round(farmer.column) + dc, row: Math.round(farmer.row) + dr });
         }
       }
-      const wandering = stepWandering(this.dogState, this.dogWandering, this.snapshot, farmer, delta, Date.now(),
+      const porter = porterPose(this.snapshot.farm.production.porter, Date.now());
+      const escape = stepDogConstructionEscape(this.dogState, this.snapshot, {
+        now: Date.now(), delta, animate: !document.hidden && !this.reducedMotion?.matches,
+        occupied: [farmer, ...(this.donkeyWander ? [this.donkeyWander.position] : []), ...(porter ? [porter.position] : [])],
+      });
+      const wandering = escape ? { dog: escape.dog, state: { idleMs: 0, goal: null, pauseMs: 0 } } : stepWandering(this.dogState, this.dogWandering, this.snapshot, farmer, delta, Date.now(),
         mousePresent ? mouse.worldX : null, reserved,
         !document.hidden && !window.matchMedia("(prefers-reduced-motion: reduce)").matches);
       this.dogState = wandering.dog; this.dogWandering = wandering.state;
+      this.dog.setVisible(escape?.visible ?? true);
       const point = isoPoint(this.dogState.position);
       this.dog.setPosition(point.x, point.y).setDepth(point.y + 2).setTexture(dogTexture(this.dogState))
         .setDisplaySize(56, 56).setFlipX(this.dogState.flip);
@@ -1601,7 +1768,9 @@ export class IsometricFarmScene extends Phaser.Scene {
     }
     // Resolve active building artwork first, including immediately after draw()
     // recreates idle sprites. Otherwise shadows flash the idle silhouette for a frame.
+    this.fadeRoadPlanBuildings();
     this.daylightShadows.render(this.shadowPreset);
+    this.renderRoadGhost();
     if (this.marketTrip && !this.walkPath.length && sameCell(this.farmerCell, marketEntrance)) {
       this.marketTrip = false;
       this.enterMarket();

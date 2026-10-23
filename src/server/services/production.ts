@@ -1,16 +1,17 @@
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { planProductionJourney, productionArrivalAt } from "../../game-core/farm/productionJourney";
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
-import { sharedDeliveryStop } from "../../game-core/farm/storageDelivery";
+import { physicalDeliveryStop } from "../../game-core/farm/physicalStorage";
+import { setStoredQuantity } from "./physicalStorage";
 import { productionOutputFits, OUTPUT_FULL_MESSAGE } from "../../game-core/farm/productionOutputCapacity";
-import { porterReserved } from "../../game-data/porter";
+import { porterReserved, porterStorageReservation } from "../../game-data/porter";
 import { Data, Effect } from "effect";
 import { BREAD_RECIPE, type ProductionState } from "../../game-data/production";
 import { SHRINE_UNLOCK_LEVEL, SHRINE_OFFERING_QUANTITY, SHRINE_BLESSING_DURATION_MS, shrineBlessingActive } from "../../game-data/shrine";
 import { happinessDecayElapsed } from "../../game-core/farm/wellbeing";
 import type { GameCommand } from "../../schemas/gameCommands";
 import type { Database } from "../db/client";
-import { farms, farmInventory } from "../db/schema";
+import { farms } from "../db/schema";
 import { readFarmSnapshot } from "./farmSnapshot";
 import { estateResourceCapacity } from "../../game-data/storage";
 import { activeBuildingUpgrade, buildingLevel, buildingProductionMultiplier } from "../../game-data/buildingUpgrades";
@@ -47,13 +48,12 @@ export const productionAction = (database: Database, input: Extract<GameCommand,
         if (shrineBlessingActive(state.shrineBlessing, now)) return fail("A blessing is already active. Wait until it expires.");
         const quantity = snapshot.inventory.find(i => i.itemKey === input.item)?.quantity ?? 0;
         if (quantity < SHRINE_OFFERING_QUANTITY) return fail(`Store ${SHRINE_OFFERING_QUANTITY} ${input.item} at the farm first.`);
-        await tx.update(farmInventory).set({ quantity: quantity - SHRINE_OFFERING_QUANTITY, updatedAt: new Date(now) })
-          .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, input.item)));
+        await setStoredQuantity(tx, farm.id, input.item, quantity - SHRINE_OFFERING_QUANTITY, new Date(now));
         // Preserve fractional decay accrued under the previous blessing before replacing it.
         const [current] = await tx.select().from(farms).where(eq(farms.id, farm.id));
         const credit = happinessDecayElapsed(current!.happinessCheckedAt.getTime(), now, state.shrineBlessing);
         await tx.update(farms).set({ happinessCheckedAt: new Date(now - credit) }).where(eq(farms.id, farm.id));
-        production = { ...state, shrineBlessing: { buildingId: input.buildingId, startedAt: new Date(now).toISOString(), expiresAt: new Date(now + SHRINE_BLESSING_DURATION_MS).toISOString() } };
+        production = { ...state, shrineBlessing: { buildingId: input.buildingId, item: input.item, startedAt: new Date(now).toISOString(), expiresAt: new Date(now + SHRINE_BLESSING_DURATION_MS).toISOString() } };
       } else if (input.type === "start_baking") {
         const oven = snapshot.buildings.find(b => b.id === input.buildingId && b.type === "breadOven" && Date.parse(b.completesAt) <= now);
         if (!oven) return fail("Choose a completed Bread Oven.");
@@ -64,7 +64,7 @@ export const productionAction = (database: Database, input: Extract<GameCommand,
         if (flour < BREAD_RECIPE.flour) return fail(`Baking requires ${BREAD_RECIPE.flour} stored Flour.`);
         const preparation = planProductionJourney(snapshot, oven.id, now, input, "baking");
         if (!preparation) return fail("The Bread Oven needs an accessible loading tile.");
-        await tx.update(farmInventory).set({ quantity: flour - BREAD_RECIPE.flour, updatedAt: new Date(now) }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "flour")));
+        await setStoredQuantity(tx, farm.id, "flour", flour - BREAD_RECIPE.flour, new Date(now));
         const duration = Math.round(BREAD_RECIPE.durationMs * buildingProductionMultiplier("breadOven", buildingLevel(state.buildingUpgrades, oven.id, now)));
         const startsAt = productionArrivalAt(preparation);
         production = { ...state, baking: { ...state.baking, [oven.id]: { preparation, startedAt: new Date(startsAt).toISOString(), completesAt: new Date(startsAt + duration).toISOString(), output: BREAD_RECIPE.output } } };
@@ -80,10 +80,9 @@ export const productionAction = (database: Database, input: Extract<GameCommand,
         const delivery = state.delivery;
         if (!delivery || delivery.buildingId !== input.buildingId) return fail("There is no matching delivery to store.");
         const stored = snapshot.inventory.find(i => i.itemKey === delivery.itemKey)?.quantity ?? 0;
-        const stop = sharedDeliveryStop(delivery.itemKey, stored + porterReserved(state.porter, delivery.itemKey), snapshot.buildings.some(b => b.type === "warehouse" && Date.parse(b.completesAt) <= now));
+        const stop = physicalDeliveryStop(delivery.itemKey, snapshot.inventory.find(i => i.itemKey === delivery.itemKey), snapshot.buildings, now, porterStorageReservation(state.porter, delivery.itemKey));
         const quantity = Math.min(delivery.quantity, stop.room);
-        if (quantity > 0) await tx.insert(farmInventory).values({ farmId: farm.id, itemKey: delivery.itemKey, quantity })
-          .onConflictDoUpdate({ target: [farmInventory.farmId, farmInventory.itemKey], set: { quantity: sql`${farmInventory.quantity} + ${quantity}`, updatedAt: new Date(now) } });
+        if (quantity > 0) await setStoredQuantity(tx, farm.id, delivery.itemKey, stored + quantity, new Date(now), stop.storageId);
         const remainder = delivery.quantity - quantity;
         const continueDelivery = remainder > 0 && stored + quantity + porterReserved(state.porter, delivery.itemKey) < estateResourceCapacity(delivery.itemKey, snapshot.buildings, now);
         production = { ...state, delivery: continueDelivery ? { ...delivery, quantity: remainder } : null, pending: remainder > 0 && !continueDelivery ? { ...state.pending, [delivery.buildingId]: { itemKey: delivery.itemKey, quantity: (state.pending[delivery.buildingId]?.quantity ?? 0) + remainder } } : state.pending };

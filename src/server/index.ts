@@ -5,6 +5,7 @@ import { tendPerennialCrop, PerennialCropRuleError, PerennialCropPersistenceErro
 import { Effect, Either } from "effect";
 import { LeaderboardQuerySchema } from "../schemas/leaderboard";
 import { readLeaderboard } from "./services/leaderboard";
+import { readNeighbourhood } from "./services/neighbourhood";
 import { MarketPresenceCommandSchema } from "../schemas/marketPresence";
 import { updateMarketPresence } from "./services/marketPresence";
 import { NameFarmerCommandSchema } from "../schemas/farmerProfile";
@@ -245,6 +246,19 @@ app.post("/api/market/presence", async c => {
     console.error("Market presence connection failed", error);
     return c.json({ error: { message: "Live neighbours are temporarily unavailable." } }, 503);
   } finally { await client.end().catch(error => console.error("Closing presence connection failed", error)); }
+});
+
+app.get("/api/neighbourhood", async c => {
+  c.header("Cache-Control", "no-store");
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await readNeighbourhood(createDatabase(client), c.get("developmentPlayer").id);
+    return result ? c.json(result) : c.json({ error: { message: "Choose a home and reach level 7 to view your neighbourhood." } }, 409);
+  } catch (error) {
+    console.error("Neighbourhood load failed", error);
+    return c.json({ error: { message: "Neighbourhood temporarily unavailable." } }, 503);
+  } finally { await client.end().catch(error => console.error("Closing neighbourhood connection failed", error)); }
 });
 
 app.get("/api/leaderboard", async c => {
@@ -500,9 +514,9 @@ app.post("/api/game/action", async c => {
     if (!await readResidence(database, c.get("developmentPlayer").id)) return c.json({ error: { type: "city_required", message: "Choose your city before starting your farm." } }, 409);
     const [progressFarm] = await database.select({ level: farms.level, production: farms.production, farmerProfile: farms.farmerProfile }).from(farms).where(eq(farms.playerId, c.get("developmentPlayer").id));
     if (progressFarm && !progressFarm.farmerProfile) return c.json({ error: { type: "farmer_name_required", message: "Choose your farmer's name before starting your farm." } }, 409);
-    // Merchant requests transfer stored goods atomically, without using the
-    // farmer. Keep other work blocked while a sowing/harvesting batch runs.
-    if (progressFarm?.production.planting && command.type !== "advance_batch_planting" && command.type !== "deliver_npc_request") return c.json({ error: { type: "farmer_busy", message: "Finish or stop planting or harvesting the selected fields first." } }, 409);
+    // Requests and building upgrades do not use the farmer; their services
+    // still validate stock, payment, ownership and building availability.
+    if (progressFarm?.production.planting && command.type !== "advance_batch_planting" && command.type !== "deliver_npc_request" && command.type !== "upgrade_building") return c.json({ error: { type: "farmer_busy", message: "Finish or stop planting or harvesting the selected fields first." } }, 409);
     const order = command.type === "buy_market_sell_order"
       ? (await database.select({ itemKey: marketOrders.itemKey }).from(marketOrders).where(eq(marketOrders.id, command.orderId)))[0]
       : undefined;

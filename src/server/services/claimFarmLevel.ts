@@ -1,10 +1,11 @@
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { evaluateProgression } from "../../game-core/farm/progression";
 import { HAPPINESS_MANAGEMENT_LEVEL } from "../../game-data/household";
 import type { Database } from "../db/client";
-import { farmBuildings, farmGroundItems, farmInventory, farms } from "../db/schema";
+import { farmBuildings, farmGroundItems, farms } from "../db/schema";
 import { readFarmSnapshot } from "./farmSnapshot";
+import { setStoredQuantity } from "./physicalStorage";
 
 export class LevelClaimRuleError extends Data.TaggedError("LevelClaimRuleError")<{ readonly message: string }> {}
 export class LevelClaimPersistenceError extends Data.TaggedError("LevelClaimPersistenceError")<{ readonly cause: unknown }> {}
@@ -53,12 +54,11 @@ export const claimFarmLevel = (database: Database, input: {
           for (const itemKey of items) {
             const quantity = snapshot.inventory.find(i => i.itemKey === itemKey)?.quantity ?? 0;
             const take = Math.min(remaining, quantity);
-            if (take > 0) await tx.update(farmInventory).set({ quantity: quantity - take }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, itemKey)));
+            if (take > 0) await setStoredQuantity(tx, farm.id, itemKey, quantity - take, new Date());
             remaining -= take;
           }
         } else if (offering.source === "fish" || offering.source === "bread" || offering.source === "beer") {
-          await tx.update(farmInventory).set({ quantity: sql`${farmInventory.quantity} - ${offering.quantity}` })
-            .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, offering.source)));
+          await setStoredQuantity(tx, farm.id, offering.source, (snapshot.inventory.find(i => i.itemKey === offering.source)?.quantity ?? 0) - offering.quantity, new Date());
         }
       }
       const [updated] = await tx.update(farms).set({ level: farm.level + 1,

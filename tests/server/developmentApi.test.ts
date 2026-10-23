@@ -203,6 +203,31 @@ describe.sequential("development HTTP identity and trading", () => {
     expect(await blocked.json()).toMatchObject({ error: { type: "farmer_busy" } });
   });
 
+  it.each(["plant", "harvest"] as const)("starts mill upgrades through HTTP during %s work, charging once and preserving work", async mode => {
+    const player = "second";
+    const before = await (await request("/api/development/farm", player)).json();
+    const farmId = before.farm.id;
+    const batch = { id: crypto.randomUUID(), mode, total: 1, remaining: [{ column: 1, row: 8 }],
+      source: { type: "farm" as const, column: 0, row: 3 }, stopRequested: false,
+      phase: { type: "collecting" as const }, nextStepAt: new Date(Date.now() + 3600000).toISOString() };
+    await db.update(farms).set({ level: 8, production: { ...before.farm.production, buildingUpgrades: {}, planting: batch } }).where(eq(farms.id, farmId));
+    await db.update(players).set({ shekelBalance: 500 }).where(eq(players.id, identities[1]!.id));
+    const [mill] = await db.insert(farmBuildings).values({ farmId, type: "mill", column: mode === "plant" ? 8 : 10, row: 3,
+      startedAt: new Date(0), completesAt: new Date(1) }).returning();
+    const command = { type: "upgrade_building", buildingId: mill!.id, targetLevel: 2,
+      expectedFarmVersion: before.farm.version, idempotencyKey: crypto.randomUUID() };
+    const response = await request("/api/game/action", player, command);
+    expect(response.status).toBe(200);
+    const upgraded = await response.json();
+    expect(upgraded.player.shekelBalance).toBe(400);
+    expect(upgraded.farm.production.planting).toEqual(batch);
+    const saved = upgraded.farm.production.buildingUpgrades[mill!.id][0];
+    expect(Date.parse(saved.completesAt) - Date.parse(saved.startedAt)).toBe(300000);
+    const retry = await request("/api/game/action", player, command);
+    expect(retry.status).toBe(200);
+    expect((await retry.json()).player.shekelBalance).toBe(400);
+  });
+
   it("disables test identity APIs in production", async () => {
     vi.stubEnv("DEV", false);
     try {

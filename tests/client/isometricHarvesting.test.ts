@@ -24,6 +24,16 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
 const delivery = () => harvestDeliveryPlan({ buildings: snapshot().buildings.map(b => ({ ...b, completesAt: 0 })), roads: [], from: second, at: 21540, happiness: 70, hungry: false, level: 1 })!;
 
 describe("isometric harvest presentation", () => {
+  it("projects a warehouse unload without repeatedly visiting the same storage", () => {
+    const s = snapshot();
+    s.buildings[0]!.type = "warehouse";
+    s.buildings[0]!.storedBarley = 19;
+    s.farm.carriedItem = { itemKey: "barley", quantity: 4 };
+    s.farm.production.planting = { ...batch(), remaining: [], phase: delivery() };
+    const before = JSON.stringify(s);
+    expect(isometricHarvestPose(s, 100000)).toMatchObject({ type: "done", position: { column: 1, row: 5 }, seeds: 0 });
+    expect(JSON.stringify(s)).toBe(before);
+  });
   it("omits carried goods from scenery and water popups but retains them on ground", () => {
     const s = snapshot();
     s.farm.carriedItem = { itemKey: "barley", quantity: 4 };

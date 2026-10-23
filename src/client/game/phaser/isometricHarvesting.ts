@@ -42,6 +42,7 @@ export const isometricHarvestPose = (snapshot: FarmSnapshot, now: number): Harve
   if (batch?.mode !== "harvest") return null;
   let position = batch.lastHarvested ?? batch.travelPaths?.[0]?.[0] ?? INITIAL_FARM_CONFIG.farmerSpawn;
   let quantity = snapshot.farm.carriedItem?.itemKey === "barley" ? snapshot.farm.carriedItem.quantity : 0;
+  let buildings = snapshot.buildings.map(b => ({ ...b, completesAt: Date.parse(b.completesAt) }));
   const harvested: IsoCell[] = [];
   const pose = (type: HarvestPose["type"]): HarvestPose => ({ type, position, seeds: quantity, elapsed: 0, distance: 0, facingLeft: false, harvested });
   const travel = (path: readonly IsoCell[], start: number, end: number): HarvestPose => {
@@ -57,15 +58,19 @@ export const isometricHarvestPose = (snapshot: FarmSnapshot, now: number): Harve
     if (batch.phase.type === "delivering") {
       const phase = batch.phase, end = Date.parse(phase.completesAt);
       const moving = travel(phase.path, Date.parse(phase.startedAt), end);
-      const granary = snapshot.buildings.find(b => b.id === phase.granaryId && b.type === "granary" && Date.parse(b.completesAt) <= end);
+      const granary = buildings.find(b => b.id === phase.granaryId && (b.type === "granary" || b.type === "warehouse") && b.completesAt <= end);
       const destination = phase.granaryId === null ? farmOrigin : granary;
       const facingLeft = destination && end - now <= 150 ? buildingFacingLeft(position, destination, moving.facingLeft) : moving.facingLeft;
       if (now < end) return { ...moving, facingLeft };
-      if (granary) quantity -= Math.min(quantity, Math.max(0, granaryCapacityForLevel(snapshot.farm.progression?.level ?? 1) - granary.storedBarley));
+      if (granary) {
+        const deposited = Math.min(quantity, Math.max(0, (granary.type === "warehouse" ? 20 : granaryCapacityForLevel(snapshot.farm.progression?.level ?? 1)) - granary.storedBarley));
+        quantity -= deposited;
+        buildings = buildings.map(b => b.id === granary.id ? { ...b, storedBarley: b.storedBarley + deposited } : b);
+      }
       const farmQuantity = snapshot.inventory.find(item => item.itemKey === "barley")?.quantity ?? 0;
       if (phase.granaryId === null) quantity -= Math.min(quantity, Math.max(0, FARM_STORAGE_CAPACITY - farmQuantity));
       else {
-        const fallback = harvestFarmDeliveryPlan({ buildings: snapshot.buildings.map(b => ({ ...b, completesAt: Date.parse(b.completesAt) })), roads: snapshot.farm.roads,
+        const fallback = harvestFarmDeliveryPlan({ buildings, roads: snapshot.farm.roads,
           from: phase.path.at(-1)!, at: end, happiness: snapshot.farm.household.happiness, hungry: snapshot.farm.household.hungrySince !== null,
           level: snapshot.farm.progression?.level ?? 1, quantity, farmQuantity });
         if (fallback) { batch = { ...batch, phase: fallback }; continue; }

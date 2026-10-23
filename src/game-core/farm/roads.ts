@@ -70,15 +70,50 @@ export const connectedRoadKeys = (roads: readonly RoadCoordinate[], now: number)
   return connected;
 };
 
-// A permanent, exclusive loading point prevents workshops competing for output space.
+/** Keep selected tiles only; order them so each can connect to already completed work. */
+export const connectedRoadPlan = (targets: readonly RoadCoordinate[], roads: readonly FarmRoad[], now: number): readonly RoadCoordinate[] | null => {
+  const connected = new Set(connectedRoadKeys(roads, now));
+  const remaining = [...targets], ordered: RoadCoordinate[] = [];
+  while (remaining.length) {
+    const index = remaining.findIndex(tile => roadNeighbors(tile).some(p =>
+      p.row === INITIAL_FARM_CONFIG.roadRow || connected.has(roadKey(p))));
+    if (index < 0) return null;
+    const tile = remaining.splice(index, 1)[0]!;
+    ordered.push(tile); connected.add(roadKey(tile));
+  }
+  return ordered;
+};
+
+export const removePlannedRoad = (targets: readonly RoadCoordinate[], target: RoadCoordinate, roads: readonly FarmRoad[], now: number) =>
+  connectedRoadPlan(targets.filter(tile => roadKey(tile) !== roadKey(target)), roads, now);
+
+/** Exact selected tiles, never an inferred route. Validate the entire plan before committing. */
+export const validateRoadPlan = (targets: readonly RoadCoordinate[], roads: readonly FarmRoad[], occupied: ReadonlySet<string>, now: number): string | null => {
+  if (!targets.length) return "Select road tiles first.";
+  const ordered = connectedRoadPlan(targets, roads, now);
+  if (!ordered) return "Keep every selected tile connected to a completed road connected to the main road.";
+  const planned: FarmRoad[] = [...roads];
+  for (const target of ordered) {
+    if (target.row >= INITIAL_FARM_CONFIG.riverRow) return "Build roads above the river.";
+    if (target.column >= INITIAL_FARM_CONFIG.worldBounds.maximumColumn - 1 &&
+      target.row >= INITIAL_FARM_CONFIG.roadRow - 2 && target.row < INITIAL_FARM_CONFIG.roadRow)
+      return "Choose an empty tile for the road.";
+    const reason = validateRoadPlacement(target, planned, occupied, now);
+    if (reason) return reason;
+    planned.push({ column: target.column, row: target.row });
+  }
+  return null;
+};
+
+// Saved access points determine routing/orientation, but may be shared.
 export const breweryLoadingCorner = (origin: BuildingCoordinate, road: BuildingCoordinate): "B" | "C" => {
   const distance = (column: number, row: number) => (road.column - column) ** 2 + (road.row - row) ** 2;
   return distance(origin.column, origin.row + 1) <= distance(origin.column + 1, origin.row) ? "B" : "C";
 };
 
-export const findLoadingTile = (footprint: readonly RoadCoordinate[], roads: readonly RoadCoordinate[], reserved: readonly RoadCoordinate[], occupied: ReadonlySet<string>, options: { building?: string; now?: number } = {}): RoadCoordinate | null => {
+export const findLoadingTile = (footprint: readonly RoadCoordinate[], roads: readonly RoadCoordinate[], _legacyReserved: readonly RoadCoordinate[], occupied: ReadonlySet<string>, options: { building?: string; now?: number } = {}): RoadCoordinate | null => {
   const connected = connectedRoadKeys(roads, options.now ?? Date.now());
-  const blocked = new Set([...footprint, ...reserved, INITIAL_FARM_CONFIG.farmerSpawn].map(roadKey));
+  const blocked = new Set([...footprint, INITIAL_FARM_CONFIG.farmerSpawn].map(roadKey));
   const candidates = footprint.flatMap(roadNeighbors).filter(p =>
     (p.row === INITIAL_FARM_CONFIG.roadRow || connected.has(roadKey(p))) &&
     !blocked.has(roadKey(p)) && !occupied.has(roadKey(p)));

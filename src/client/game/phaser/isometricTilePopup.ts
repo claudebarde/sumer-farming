@@ -12,6 +12,7 @@ import { roadBuildBlocker } from "./isometricRoads";
 import { previewWalkable } from "./isometricWalking";
 import { gatherableResource, transferBlocker } from "./isometricGathering";
 import { canStartIsometricFishing } from "./isometricFishing";
+import { buildingLevel } from "../../../game-data/buildingUpgrades";
 
 /** Household status is available even when the farmer's hands are empty. */
 export const hasFarmerPopup = (snapshot: FarmSnapshot): boolean =>
@@ -25,7 +26,8 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
   const home = !building && footprintContains(farmOrigin, 2, 2, cell);
   const level = home ? snapshot.farm.progression?.level ?? 1
     : building?.type === "granary" ? granaryLevelForFarmLevel(snapshot.farm.progression?.level ?? 1)
-    : building && ["mill", "breadOven", "brewery"].includes(building.type) ? 1 : null;
+    : building?.type === "mill" ? buildingLevel(snapshot.farm.production.buildingUpgrades, building.id, now)
+    : building && ["breadOven", "brewery"].includes(building.type) ? 1 : null;
   const plantable = plantableFields(snapshot, now);
   const ripe = harvestableFields(snapshot, now);
   const canPlantHere = plantable.some(p => sameCell(p, cell));

@@ -12,12 +12,15 @@ import type { FarmCoordinate } from "../../game-core/farm/irrigation";
 import { FARMER_MOVE_DURATION_PER_TILE } from "../../game-core/farm/batchPlantingTravel";
 import { farmerMovementDurationMultiplier } from "../../game-core/farm/wellbeing";
 
-export const planHarvestDelivery = async (tx: DatabaseTransaction, farm: typeof farms.$inferSelect, batch: BatchPlanting, at: number): Promise<BatchPlanting | null> => {
+export const planHarvestDelivery = async (tx: DatabaseTransaction, farm: typeof farms.$inferSelect, batch: BatchPlanting, at: number, quantity = farm.carriedItemQuantity): Promise<BatchPlanting | null> => {
   if (!batch.lastHarvested) return null;
   const buildings = await tx.select().from(farmBuildings).where(eq(farmBuildings.farmId, farm.id));
   const mapped = buildings.map(b => ({ ...b, completesAt: b.completesAt.getTime() }));
-  const phase = harvestDeliveryPlan({ buildings: mapped, roads: farm.roads, from: batch.lastHarvested, at,
-    happiness: farm.happiness, hungry: farm.hungrySince !== null, level: farm.level });
+  const [inventory] = await tx.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "barley")));
+  const input = { buildings: mapped, roads: farm.roads, from: batch.lastHarvested, at,
+    happiness: farm.happiness, hungry: farm.hungrySince !== null, level: farm.level };
+  const phase = harvestDeliveryPlan(input) ?? (mapped.some(b => b.type === "warehouse" && b.completesAt <= at)
+    ? harvestFarmDeliveryPlan({ ...input, quantity, farmQuantity: inventory?.quantity ?? 0 }) : null);
   // Retain unharvested fields when stopped so the delivery UI counts completed work accurately.
   return phase ? { ...batch, nextStepAt: phase.completesAt, phase } : null;
 };
@@ -58,8 +61,8 @@ export const advanceBatchPlanting = async (tx: DatabaseTransaction, farm: typeof
       let stored: number;
       if (phase.granaryId !== null) {
         const [granary] = await tx.select().from(farmBuildings).where(and(eq(farmBuildings.id, phase.granaryId), eq(farmBuildings.farmId, farm.id)));
-        stored = granary?.type === "granary" && granary.completesAt.getTime() <= deadline
-          ? Math.min(carriedQuantity, Math.max(0, granaryCapacityForLevel(farm.level) - granary.storedBarley)) : 0;
+        stored = granary && (granary.type === "granary" || granary.type === "warehouse") && granary.completesAt.getTime() <= deadline
+          ? Math.min(carriedQuantity, Math.max(0, (granary.type === "warehouse" ? 20 : granaryCapacityForLevel(farm.level)) - granary.storedBarley)) : 0;
         if (stored > 0) await tx.update(farmBuildings).set({ storedBarley: granary!.storedBarley + stored }).where(eq(farmBuildings.id, phase.granaryId));
       } else {
         stored = Math.min(carriedQuantity, Math.max(0, FARM_STORAGE_CAPACITY - farmQuantity));
@@ -136,7 +139,7 @@ export const advanceBatchPlanting = async (tx: DatabaseTransaction, farm: typeof
       if (carried > 0) carry = { carriedItemKey: "barley", carriedItemQuantity: farm.carriedItemQuantity + carried,
         carriedItemExpiresAt: batch.carriedSeeds?.expiresAt ? new Date(batch.carriedSeeds.expiresAt) : farm.carriedItemExpiresAt };
       }
-      batch = batch.mode === "harvest" && carriedQuantity > 0 ? await planHarvestDelivery(tx, farm, batch, deadline) : null;
+      batch = batch.mode === "harvest" && carriedQuantity > 0 ? await planHarvestDelivery(tx, farm, batch, deadline, carriedQuantity) : null;
     }
   }
   if (!changed) return farm;

@@ -68,6 +68,9 @@ Use alongside the animation questions when an actor chooses its own destinations
   Should the actor stay in the visible viewport?
 - **Behaviour priority:** How does wandering interact with following, scripted
   activities and reserved work areas? Which behaviour wins when they overlap?
+- **Travel versus rest:** Which tiles may be crossed but never used for resting?
+  Should journeys prefer a direction, avoid repeated areas, extend short strolls
+  to reach safe rest spots, or reroute when a moving obstacle blocks the next step?
 - **Return policy:** After cancellation or completion, stay at the current spot,
   finish the current step, or navigate back to the main character/home? What if
   that destination has moved or cannot be reached?
@@ -90,6 +93,34 @@ Use the common and animation sections alongside these construction-specific chec
 - **Completion scope:** Does this slice end with a completed idle building, or
   also include production controls, upgrades, demolition and output handling?
   Resolve what the completed-building popup should expose during staged migration.
+
+## Multi-tile infrastructure tools
+
+- **Selection model:** Exact tile clicks, drag painting, or generated paths between
+  endpoints? How do touch selection and camera panning coexist?
+- **Connectivity:** Where may a route begin, must each tile extend the previous
+  one, and may it branch or reconnect? Which obstacles can be cleared?
+- **Visibility:** Should buildings fade, remain outlined, and allow ground-based
+  selection behind them? Which props and shadows need the same treatment?
+- **Commit boundary:** Can an unconfirmed plan be edited? Is the whole route
+  validated atomically, and can committed work be stopped or only demolished later?
+- **Saved sequence:** Reuse existing travel/work animations and timings, reserve
+  all tiles on confirmation, and verify reload/offline completion without callbacks.
+- **Scope and completion:** Roads only or canals too? Exit the tool on confirmation
+  or remain in it? What feedback explains busy workers and invalid tiles?
+
+## Building upgrades
+
+- **Existing rules:** Preserve or change unlock level, price, duration, production
+  benefit, sequential tiers and simultaneous-upgrade limits?
+- **Worker independence:** Does upgrading require the farmer, or can it begin
+  during other work? Check both UI restrictions and global API busy guards.
+- **Building availability:** Must current production finish first? Can existing
+  output be collected during the upgrade, and are capacities or recipes affected?
+- **Presentation:** Reuse artwork or introduce a new tier sprite? Where should
+  progress, countdown and the completed level appear?
+- **Persistence:** Verify upfront payment, retries, offline completion and which
+  future jobs receive the benefit; never make completion depend on animation.
 
 ## Building production animations
 
@@ -115,6 +146,11 @@ Use alongside the common and animation sections; inspect existing recipes first.
 ## Autonomous supply and delivery jobs
 
 Use alongside the animation and common questions for hired-worker logistics.
+
+- **Physical inventory:** Are quantities shared with a visual allocation, or saved
+  per building? How are legacy goods assigned once, new capacity filled, shared
+  spending ordered, and non-empty storage demolition handled? Distinguish a
+  combined estate total from actual pickup and delivery locations.
 
 - **Restocking threshold:** Refill only when empty or whenever below a target?
   Are partial supplies useful when estate stock cannot fill the target?

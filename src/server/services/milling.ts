@@ -1,7 +1,8 @@
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { planProductionJourney, productionArrivalAt } from "../../game-core/farm/productionJourney";
-import { sharedDeliveryStop } from "../../game-core/farm/storageDelivery";
-import { porterReserved } from "../../game-data/porter";
+import { physicalDeliveryStop } from "../../game-core/farm/physicalStorage";
+import { setStoredQuantity } from "./physicalStorage";
+import { porterReserved, porterStorageReservation } from "../../game-data/porter";
 import { and, eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { millRecipe, type MillGoods } from "../../game-data/milling";
@@ -46,15 +47,14 @@ export const deliverMillGoods = (database: Database, input: Extract<GameCommand,
         const delivery = goods.delivery;
         if (!delivery || delivery.millId !== input.millId) return new MillingRuleError({ message: "No matching bag delivery is in progress." });
         const returned = { flour: 0, brewersGroats: 0 };
-        const warehouseComplete = snapshot.buildings.some(b => b.type === "warehouse" && Date.parse(b.completesAt) <= now);
-        const stopFor = (item: "flour" | "brewersGroats") => sharedDeliveryStop(item, (snapshot.inventory.find(i => i.itemKey === item)?.quantity ?? 0) + porterReserved(snapshot.farm.production.porter, item), warehouseComplete);
+        const stopFor = (item: "flour" | "brewersGroats") => physicalDeliveryStop(item, snapshot.inventory.find(i => i.itemKey === item), snapshot.buildings, now, porterStorageReservation(snapshot.farm.production.porter, item));
         const warehouseStop = (["flour", "brewersGroats"] as const).some(item => delivery.bags[item] > 0 && stopFor(item).location === "warehouse");
         for (const itemKey of ["flour", "brewersGroats"] as const) {
           const stop = stopFor(itemKey);
           const quantity = Math.min(delivery.bags[itemKey], warehouseStop && stop.location !== "warehouse" ? 0 : stop.room);
           returned[itemKey] = delivery.bags[itemKey] - quantity;
-          if (quantity > 0) await tx.insert(farmInventory).values({ farmId: farm.id, itemKey, quantity })
-            .onConflictDoUpdate({ target: [farmInventory.farmId, farmInventory.itemKey], set: { quantity: sql`${farmInventory.quantity} + ${quantity}`, updatedAt: new Date(now) } });
+          if (quantity > 0) await setStoredQuantity(tx, farm.id, itemKey,
+            (snapshot.inventory.find(i => i.itemKey === itemKey)?.quantity ?? 0) + quantity, new Date(now), stop.storageId);
         }
         const previous = goods.pending[delivery.millId];
         const remaining = returned.flour + returned.brewersGroats > 0;

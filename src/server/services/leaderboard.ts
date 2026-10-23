@@ -27,7 +27,7 @@ export const readLeaderboard = (db: Database, playerId: string, query: Leaderboa
     const result = await tx.execute(sql`
       WITH scores AS (
         SELECT p.id AS "playerId", f.farmer_profile->'identity'->>'name' AS name,
-          n.city, n.name AS neighbourhood, ${score} AS score
+          n.city, n.name AS neighbourhood, f.level AS level, ${score} AS score
         FROM players p JOIN farms f ON f.player_id = p.id
         JOIN neighbourhood_members m ON m.player_id = p.id
         JOIN neighbourhoods n ON n.id = m.neighbourhood_id

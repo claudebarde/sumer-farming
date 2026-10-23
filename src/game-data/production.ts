@@ -19,7 +19,7 @@ export const ProductionStateSchema = z.object({
   materialDelivery: z.boolean().optional(),
   // One slot held during gathering; legacy deliveries can also retain a reservation.
   materialReservation: z.enum(["reed", "clay"]).nullable().optional(),
-  shrineBlessing: z.object({ buildingId: z.uuid(), startedAt: z.iso.datetime(), expiresAt: z.iso.datetime() }).nullable().optional(),
+  shrineBlessing: z.object({ buildingId: z.uuid(), item: z.enum(["bread", "beer"]).optional(), startedAt: z.iso.datetime(), expiresAt: z.iso.datetime() }).nullable().optional(),
   planting: BatchPlantingSchema.nullable().optional(),
   pending: z.record(z.string(), ProductionStackSchema),
   delivery: ProductionStackSchema.extend({ buildingId: z.uuid() }).nullable(),

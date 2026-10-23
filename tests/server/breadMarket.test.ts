@@ -131,7 +131,7 @@ describe("bread markets", () => {
     expect(bought.player.shekelBalance).toBe(10);
     expect(retry.inventory).toEqual(bought.inventory);
     expect(retry.player.shekelBalance).toBe(10);
-    expect(bought.inventory).toEqual(expect.arrayContaining([{ itemKey: "bread", quantity: 2 }, { itemKey: "barley", quantity: 5 }]));
+    expect(bought.inventory.map(({ itemKey, quantity }) => ({ itemKey, quantity }))).toEqual(expect.arrayContaining([{ itemKey: "bread", quantity: 2 }, { itemKey: "barley", quantity: 5 }]));
     expect(await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, input.playerId))).toHaveLength(1);
   });
 

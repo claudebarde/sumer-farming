@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { renderDiagnostic } from "../game/phaser/renderDiagnostics";
+import { shrineOfferingBlocker } from "../game/phaser/isometricShrine";
 import { SHADOW_PRESETS, type ShadowPreset } from "../game/phaser/daylightShadows";
 import Phaser from "phaser";
 import { roadRemovalReason } from "../../game-core/farm/roads";
@@ -14,14 +16,20 @@ import { isometricTilePopup } from "../game/phaser/isometricTilePopup";
 import { improvementWorkActive } from "../../game-data/farmImprovements";
 import { pickupPath } from "../game/phaser/isometricPickup";
 import { constructionApproachPath } from "../game/phaser/isometricConstruction";
-import { barleyStoragePlan } from "../game/phaser/isometricStorage";
+import { barleyStoragePlan, materialStoragePlan } from "../game/phaser/isometricStorage";
+import { transferBlocker } from "../game/phaser/isometricGathering";
 import { farmOrigin } from "../game/phaser/isometricFarm";
 import { IsometricFarmScene, type IsometricTileAnchor } from "../game/phaser/scenes/IsometricFarmScene";
 import IsometricTilePopup from "./IsometricTilePopup";
 import IsometricTravelPopup from "./IsometricTravelPopup";
 import { IsometricMarketScene } from "../game/phaser/scenes/IsometricMarketScene";
+import { NeighbourhoodScene } from "../game/phaser/scenes/NeighbourhoodScene";
+import { requestNeighbourhood } from "../api/neighbourhood";
+import { NeighbourhoodLeaderboardDialog } from "./LeaderboardDialog";
 import { canVisitIsometricMarket, isometricTradeScope, marketEntrance } from "../game/phaser/isometricMarket";
 import styles from "../styles/IsometricTest.module.scss";
+import actionStyles from "../styles/BuildingActionButton.module.scss";
+import BuildingActionIcon from "./BuildingActionIcon";
 import MarketDialog from "./MarketDialog";
 import FarmLevelDialog from "./FarmLevelDialog";
 import { constructionCommands, constructionNames, constructionSummary } from "../game/phaser/isometricBuildingPlacement";
@@ -34,9 +42,13 @@ import { farmStore } from "../stores/farmStore";
 import { notificationStore } from "../stores/notificationStore";
 import { marketUiStore } from "../stores/marketUiStore";
 import { canOpenMarketStand } from "../../game-data/progression";
-import { Dialog } from "radix-ui";
+import { Dialog, Tooltip } from "radix-ui";
 import EstateManagementContent from "./EstateManagementContent";
 import ShekelBalance from "./ShekelBalance";
+import SettingsDrawer from "./SettingsDrawer";
+import { BackgroundMusicScene } from "../game/phaser/scenes/BackgroundMusicScene";
+import BarleyBalance from "./BarleyBalance";
+import { storedPlantingBarley } from "../../game-core/farm/batchPlanting";
 import IsometricBuildingCatalogue from "./IsometricBuildingCatalogue";
 import DestroyBuildingDialog from "./DestroyBuildingDialog";
 import { buildingBuildBlocker, buildingPlacement, type PlaceableBuilding } from "../game/phaser/isometricBuildingPlacement";
@@ -45,8 +57,8 @@ import { roadsideOutputPlacement } from "../game/phaser/buildingOutputPlacement"
 import { canBakeBread, canStoreBread } from "../game/phaser/isometricBaking";
 import { breweryOutputPlacement, canSupplyBrewery, waterPourTarget } from "../game/phaser/isometricBrewing";
 import type { BrewerySupplyAction } from "../../game-core/farm/brewerySupplies";
-import { sharedDeliveryStop } from "../../game-core/farm/storageDelivery";
-import { porterReserved } from "../../game-data/porter";
+import { physicalDeliveryStop } from "../../game-core/farm/physicalStorage";
+import { porterStorageReservation } from "../../game-data/porter";
 import { porterRoadRemovalReason } from "../../game-core/farm/porter";
 import { buildingAt } from "../game/phaser/isometricFarm";
 import { millPopupState } from "../game/phaser/isometricMilling";
@@ -59,13 +71,23 @@ import { gatheringPath } from "../game/phaser/isometricGathering";
 import { canStartIsometricFishing, fishingApproach } from "../game/phaser/isometricFishing";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import MerchantRequests from "./MerchantRequests";
+import { useNavigationTooltip } from "./useNavigationTooltip";
 import { newlyPurchasedDonkey } from "../game/phaser/donkeyFollow";
+import { roadPlanBlocker, toggleRoadPlan, roadWorkActive } from "../game/phaser/isometricRoads";
+import InfoAlert from "./InfoAlert";
 
 export default function IsometricFarm() {
+  const navigationTooltip = useNavigationTooltip();
   const parent = useRef<HTMLDivElement>(null);
   const scene = useRef<IsometricFarmScene | null>(null);
   const marketScene = useRef<IsometricMarketScene | null>(null);
-  const activeScene = useRef<IsometricFarmScene | IsometricMarketScene | null>(null);
+  const neighbourhoodScene = useRef<NeighbourhoodScene | null>(null);
+  const [neighbourhoodOpen, setNeighbourhoodOpen] = useState(false);
+  const [neighbourhoodLoad, setNeighbourhoodLoad] = useState<"idle" | "loading" | "error">("idle");
+  const neighbourhoodRequest = useRef<AbortController | null>(null);
+  useEffect(() => () => neighbourhoodRequest.current?.abort(), []);
+  const [neighbourhoodLeaderboardOpen, setNeighbourhoodLeaderboardOpen] = useState(false);
+  const activeScene = useRef<IsometricFarmScene | IsometricMarketScene | NeighbourhoodScene | null>(null);
   const [location, setLocation] = useState<"farm" | "market">("farm");
   const [shadowPreset, setShadowPreset] = useState<ShadowPreset>("local");
   const shadowPresetRef = useRef<ShadowPreset>("local");
@@ -97,6 +119,45 @@ export default function IsometricFarm() {
   const [information, setInformation] = useState<IsometricTileAnchor | null>(null);
   const [clock, setClock] = useState(() => Date.now());
   const [placementFarmer, setPlacementFarmer] = useState<IsoCell>(farmOrigin);
+  const [roadPlan, setRoadPlan] = useState<readonly IsoCell[] | null>(null);
+  const [roadError, setRoadError] = useState<string | null>(null);
+  const roadQueueStarted = useRef(false);
+  const roadBuilding = !!snapshot && roadWorkActive(snapshot.farm.roads, clock);
+  useEffect(() => {
+    if (roadPlan === null) return;
+    if (roadBuilding) roadQueueStarted.current = true;
+    else if (roadQueueStarted.current) {
+      roadQueueStarted.current = false;
+      setRoadPlan(null); setRoadError(null);
+      scene.current?.setRoadPlanning(null);
+    }
+  }, [roadBuilding, roadPlan]);
+  useEffect(() => {
+    scene.current?.setRoadPlanning(roadPlan, cell => {
+      if (submitting.current || !current.current || roadPlan === null) return;
+      if (roadWorkActive(current.current.farm.roads, Date.now())) return;
+      const result = toggleRoadPlan(current.current, roadPlan, cell, Date.now());
+      setRoadError(result.reason);
+      if (!result.reason) setRoadPlan(result.tiles);
+    });
+  }, [roadPlan, snapshot]);
+  const submitRoadPlan = async () => {
+    const farm = current.current, renderer = scene.current;
+    if (!farm || !renderer || !roadPlan?.length || submitting.current) return;
+    const reason = roadPlanBlocker(farm, roadPlan, Date.now());
+    if (reason) { setRoadError(reason); return; }
+    submitting.current = true; setPending(true); setRoadError(null);
+    try {
+      const next = await executeGameCommand({ type: "build_road", target: roadPlan[0]!, targets: [...roadPlan],
+        farmerPosition: renderer.farmerPosition(), expectedFarmVersion: farm.farm.version });
+      if (mounted.current) { roadQueueStarted.current = true; accept.current(next); setRoadPlan([]); }
+    } catch (cause) {
+      if (mounted.current) setRoadError(cause instanceof Error ? cause.message : "Could not build this road.");
+    } finally {
+      submitting.current = false;
+      if (mounted.current) { setPending(false); refresh.current(); }
+    }
+  };
   const castFish = async (aim: number) => {
     const farm = current.current, renderer = scene.current;
     if (!farm?.farm.fishing || !renderer || submitting.current) { renderer?.finishFishingCast(); return; }
@@ -179,7 +240,7 @@ export default function IsometricFarm() {
       }
       for (let stop = 0; stop < 2 && farm.farm.production.delivery; stop++) {
         const warehouse = farm.buildings.find(b => b.type === "warehouse" && Date.parse(b.completesAt) <= Date.now());
-        const destination = sharedDeliveryStop(itemKey, (farm.inventory.find(i => i.itemKey === itemKey)?.quantity ?? 0) + porterReserved(farm.farm.production.porter, itemKey), !!warehouse);
+        const destination = physicalDeliveryStop(itemKey, farm.inventory.find(i => i.itemKey === itemKey), farm.buildings, Date.now(), porterStorageReservation(farm.farm.production.porter, itemKey));
         const building = destination.location === "warehouse" ? warehouse! : farmOrigin;
         const target = destination.location === "warehouse" ? warehouse!.loadingTile ?? { column: building.column, row: building.row + 2 } : INITIAL_FARM_CONFIG.farmerSpawn;
         await travel(target, building, true);
@@ -192,6 +253,33 @@ export default function IsometricFarm() {
     } finally {
       submitting.current = false;
       if (mounted.current) { setPending(false); renderer.setPlantingSelection(null, false); refresh.current(); }
+    }
+  };
+  const offerAtShrine = async (item: "bread" | "beer") => {
+    const farm = current.current, renderer = scene.current;
+    if (!farm || !renderer || !information || submitting.current) return;
+    const shrine = buildingAt(farm, information.cell);
+    if (!shrine || shrineOfferingBlocker(farm, shrine.id, item, Date.now())) return;
+    const home = INITIAL_FARM_CONFIG.farmerSpawn;
+    const toFarm = pickupPath(farm, renderer.farmerPosition(), home, Date.now());
+    const toShrine = shrine.loadingTile && pickupPath(farm, home, shrine.loadingTile, Date.now());
+    if (!toFarm || !toShrine) { setError("No clear path between the farm and shrine."); return; }
+    submitting.current = true; setPending(true); setError(null);
+    renderer.clearSelection(); renderer.setPlantingSelection(null, true);
+    try {
+      await new Promise<void>(resolve => window.setTimeout(resolve, renderer.presentMillDeliveryLeg(toFarm, farmOrigin, false)));
+      if (!mounted.current) return;
+      renderer.finishMillDeliveryLeg();
+      await new Promise<void>(resolve => window.setTimeout(resolve, renderer.presentMillDeliveryLeg(toShrine, shrine, true, item === "beer", item === "bread")));
+      if (!mounted.current) return;
+      renderer.finishMillDeliveryLeg();
+      const next = await executeGameCommand({ type: "shrine_offering", buildingId: shrine.id, item, expectedFarmVersion: current.current!.farm.version });
+      if (mounted.current) accept.current(next);
+    } catch (cause) {
+      if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not deliver the offering.");
+    } finally {
+      submitting.current = false;
+      if (mounted.current) { renderer.finishMillDeliveryLeg(); renderer.setPlantingSelection(null, false); setPending(false); refresh.current(); }
     }
   };
   const breweryAction = async (action: BrewerySupplyAction) => {
@@ -331,6 +419,7 @@ export default function IsometricFarm() {
     const openBuild = () => {
       if (location !== "farm") return;
       if (submitting.current) return;
+      setRoadPlan(null); setRoadError(null);
       scene.current?.endBuildingPlacement(); setPlacingBuilding(false); setBuildingTarget(null); setBuildingError(null);
       scene.current?.clearSelection(); setInformation(null);
       setManageTab("build"); setManageOpen(true);
@@ -391,7 +480,9 @@ export default function IsometricFarm() {
         renderer.shadowPreset = shadowPresetRef.current;
         market.shadowPreset = shadowPresetRef.current;
         marketScene.current = market; activeScene.current = renderer;
-        game = new Phaser.Game({ type: Phaser.AUTO, parent: parent.current, backgroundColor: "#f4e5c7", scene: [renderer, market],
+        const neighbourhood = new NeighbourhoodScene();
+        neighbourhoodScene.current = neighbourhood;
+        game = new Phaser.Game({ type: Phaser.AUTO, parent: parent.current, backgroundColor: "#f4e5c7", scene: [renderer, market, neighbourhood, BackgroundMusicScene],
           scale: { mode: Phaser.Scale.RESIZE, width: "100%", height: "100%" }, input: { windowEvents: false }, render: { antialias: true } });
       }
       clearTimeout(deadline);
@@ -413,9 +504,13 @@ export default function IsometricFarm() {
     const load = async () => {
       if (requestPending || submitting.current || document.visibilityState === "hidden") return;
       requestPending = true;
+      const startedAt = performance.now();
       try {
         const next = await fetchDevelopmentFarm(controller.signal);
+        renderDiagnostic("snapshot-fetch", startedAt);
+        const applyStarted = performance.now();
         if (!submitting.current) receive(next);
+        renderDiagnostic("snapshot-apply", applyStarted, { skipped: submitting.current });
         lastRead = Date.now();
       } catch { if (!controller.signal.aborted) setError("Could not refresh the farm. Retry when connected."); }
       finally { requestPending = false; }
@@ -461,23 +556,40 @@ export default function IsometricFarm() {
       if (mounted.current) { setPending(false); scene.current?.setPlantingSelection(selecting.current, false, selectionMode.current); refresh.current(); }
     }
   };
-  const storeBarley = async (granaryId?: string) => {
-    const farm = current.current;
-    if (!farm || !information || submitting.current || plantingBlocker(farm, Date.now())) return;
+  const storeBarley = async () => {
+    let farm = current.current;
+    if (!farm || !information || submitting.current || transferBlocker(farm, Date.now())) return;
     submitting.current = true; setPending(true); setError(null);
     scene.current?.setPlantingSelection(null, true);
     try {
-      const { plan } = barleyStoragePlan(farm, scene.current?.farmerPosition() ?? information.cell, Date.now(), granaryId);
-      if (!plan) throw new Error("No reachable storage available.");
-      const next = await executeGameCommand(plan.destination.type === "granary"
-        ? { type: "deposit_carried_item_in_granary", target: plan.destination.target, expectedFarmVersion: farm.farm.version }
-        : { type: "deposit_carried_item", expectedFarmVersion: farm.farm.version });
-      if (!mounted.current) return;
-      const duration = scene.current?.presentStorageDelivery(plan.path, farm, plan.destination.type === "granary" ? plan.destination.target : farmOrigin) ?? 0;
-      accept.current(next); scene.current?.clearSelection();
-      if (duration) await new Promise<void>(resolve => window.setTimeout(resolve, duration));
+      for (let stop = 0; stop < 3 && farm.farm.carriedItem; stop++) {
+        const from = scene.current?.farmerPosition() ?? information.cell;
+        const material = materialStoragePlan(farm, from, Date.now());
+        const { plan } = barleyStoragePlan(farm, from, Date.now());
+        if (material) {
+          const next = await executeGameCommand({ type: "deposit_carried_item", expectedFarmVersion: farm.farm.version });
+          if (!mounted.current) return;
+          const duration = scene.current?.presentStorageDelivery(material.path, farm, material.building) ?? 0;
+          accept.current(next); scene.current?.clearSelection();
+          if (duration) await new Promise<void>(resolve => window.setTimeout(resolve, duration));
+          if (!mounted.current) return;
+          farm = current.current!;
+          continue;
+        }
+        if (stop > 0 && !plan) break;
+        if (!plan) throw new Error("No reachable storage available.");
+        const next = await executeGameCommand(plan.destination.type === "granary"
+          ? { type: "deposit_carried_item_in_granary", target: plan.destination.target, expectedFarmVersion: farm.farm.version }
+          : { type: "deposit_carried_item", expectedFarmVersion: farm.farm.version });
+        if (!mounted.current) return;
+        const duration = scene.current?.presentStorageDelivery(plan.path, farm, plan.destination.type === "granary" ? plan.destination.target : farmOrigin) ?? 0;
+        accept.current(next); scene.current?.clearSelection();
+        if (duration) await new Promise<void>(resolve => window.setTimeout(resolve, duration));
+        if (!mounted.current) return;
+        farm = current.current!;
+      }
     } catch (cause) {
-      if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not store the barley. Refresh before retrying.");
+      if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not store the goods. Refresh before retrying.");
     } finally {
       submitting.current = false;
       if (mounted.current) { setPending(false); scene.current?.setPlantingSelection(null, false); refresh.current(); }
@@ -597,29 +709,102 @@ export default function IsometricFarm() {
       if (mounted.current) { setPending(false); scene.current?.setPlantingSelection(null, false); refresh.current(); }
     }
   };
+  const openNeighbourhood = async () => {
+    const farmId = current.current?.farm.id;
+    if (!farmId || (current.current?.farm.progression?.level ?? 1) < 7) return;
+    neighbourhoodRequest.current?.abort();
+    const controller = new AbortController(); neighbourhoodRequest.current = controller;
+    setNeighbourhoodLoad("loading");
+    try {
+      const data = await requestNeighbourhood(AbortSignal.any([controller.signal, AbortSignal.timeout(10_000)]));
+      if (controller.signal.aborted || !mounted.current || current.current?.farm.id !== farmId) return;
+      if (activeScene.current !== scene.current) { setNeighbourhoodLoad("idle"); return; }
+      setManageOpen(false); setInformation(null); scene.current?.clearSelection();
+      levelUiStore.getState().setOpen(false);
+      neighbourhoodScene.current?.setMembers(data.members);
+      scene.current?.scene.switch("neighbourhood");
+      activeScene.current = neighbourhoodScene.current; setNeighbourhoodOpen(true); setNeighbourhoodLoad("idle");
+    } catch {
+      if (!controller.signal.aborted && mounted.current && current.current?.farm.id === farmId) setNeighbourhoodLoad("error");
+    }
+  };
+  const roadBlocked = snapshot && roadPlan?.length ? roadPlanBlocker(snapshot, roadPlan, clock) : null;
   return <section className={styles.test} aria-label="Saved isometric farm preview">
-    {location === "farm" && <Dialog.Root open={manageOpen} onOpenChange={openManagement}>
+    {location === "farm" && !neighbourhoodOpen && <Dialog.Root open={manageOpen} onOpenChange={openManagement}>
       <div className={styles.manageControls}>
-        <Dialog.Trigger asChild>
-          <button className={styles.manageButton} disabled={!snapshot}>Manage</button>
-        </Dialog.Trigger>
-        {snapshot && <ShekelBalance amount={snapshot.player.shekelBalance} />}
+        <div className={styles.manageButtonRow}>
+          <Tooltip.Provider delayDuration={300}>
+            <Tooltip.Root {...navigationTooltip("manage")}>
+              <Tooltip.Trigger asChild>
+                <Dialog.Trigger asChild>
+                  <button className={`${styles.manageButton} ${actionStyles.button} ${styles.manageIconButton}`} disabled={!snapshot || roadPlan !== null} aria-label="Manage"><BuildingActionIcon kind="manage" /></button>
+                </Dialog.Trigger>
+              </Tooltip.Trigger>
+              <Tooltip.Portal><Tooltip.Content className={styles.navigationTooltip} side="bottom" sideOffset={6} collisionPadding={8}>Manage your estate<Tooltip.Arrow className={styles.navigationTooltipArrow} /></Tooltip.Content></Tooltip.Portal>
+            </Tooltip.Root>
+            {(snapshot?.farm.progression?.level ?? 1) >= 7 && <Tooltip.Root {...navigationTooltip("neighbourhood")}>
+              <Tooltip.Trigger asChild>
+                <button className={`${styles.manageButton} ${actionStyles.button} ${styles.manageIconButton}`} disabled={pending || placingBuilding || selection !== null || roadPlan !== null || neighbourhoodLoad === "loading"} aria-label="Neighbourhood" onClick={() => void openNeighbourhood()}><BuildingActionIcon kind="neighbourhood" /></button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal><Tooltip.Content className={styles.navigationTooltip} side="bottom" sideOffset={6} collisionPadding={8}>View your neighbourhood<Tooltip.Arrow className={styles.navigationTooltipArrow} /></Tooltip.Content></Tooltip.Portal>
+            </Tooltip.Root>}
+            <Tooltip.Root {...navigationTooltip("roads")}>
+              <Tooltip.Trigger asChild>
+                <button className={`${styles.manageButton} ${actionStyles.button} ${styles.manageIconButton}`}
+                  disabled={!snapshot || pending || roadBuilding || placingBuilding || selection !== null} aria-label="Build roads" aria-pressed={roadPlan !== null}
+                  onClick={() => { setRoadPlan(roadPlan === null ? [] : null); setRoadError(null); setManageOpen(false); setInformation(null); }}>
+                  <BuildingActionIcon kind="road" />
+                </button>
+              </Tooltip.Trigger>
+              <Tooltip.Portal><Tooltip.Content className={styles.navigationTooltip} side="bottom" sideOffset={6}>Build roads<Tooltip.Arrow className={styles.navigationTooltipArrow} /></Tooltip.Content></Tooltip.Portal>
+            </Tooltip.Root>
+            <SettingsDrawer onOpen={() => { setManageOpen(false); scene.current?.clearSelection(); setInformation(null); }} />
+          </Tooltip.Provider>
+        </div>
+        {neighbourhoodLoad === "loading" && <small role="status">Loading neighbours…</small>}
+        {neighbourhoodLoad === "error" && <small role="alert">Could not load neighbours.<br />Press Neighbourhood to retry.</small>}
+        {snapshot && <div className={styles.resourceBalanceRow}>
+          <ShekelBalance amount={snapshot.player.shekelBalance} />
+          <BarleyBalance amount={storedPlantingBarley(snapshot, clock)} />
+        </div>}
       </div>
       <EstateManagementContent farmState={snapshot ? { type: "ready", snapshot } : { type: "loading" }}
         marketRoad={marketEntrance}
         storageClock={clock} manageTab={manageTab} setManageTab={setManageTab}
         buildContent={snapshot && <IsometricBuildingCatalogue snapshot={snapshot} now={clock} onBuild={beginBuilding} />} />
     </Dialog.Root>}
+    {neighbourhoodOpen && <div className={styles.manageControls}>
+      <div className={styles.manageButtonRow}>
+        <Tooltip.Provider delayDuration={300}>
+          <Tooltip.Root {...navigationTooltip("leaderboard")}>
+            <Tooltip.Trigger asChild>
+              <button className={`${styles.manageButton} ${actionStyles.button} ${styles.manageIconButton}`} aria-label="Leaderboard" aria-haspopup="dialog" onClick={() => setNeighbourhoodLeaderboardOpen(true)}><BuildingActionIcon kind="leaderboard" /></button>
+            </Tooltip.Trigger>
+            <Tooltip.Portal><Tooltip.Content className={styles.navigationTooltip} side="bottom" sideOffset={6} collisionPadding={8}>View the leaderboard<Tooltip.Arrow className={styles.navigationTooltipArrow} /></Tooltip.Content></Tooltip.Portal>
+          </Tooltip.Root>
+          <Tooltip.Root {...navigationTooltip("return")}>
+            <Tooltip.Trigger asChild>
+              <button className={`${styles.manageButton} ${actionStyles.button} ${styles.manageIconButton}`} aria-label="Back to your farm" onClick={() => {
+                setNeighbourhoodLeaderboardOpen(false);
+                neighbourhoodScene.current?.scene.switch("isometric-farm");
+                activeScene.current = scene.current; setNeighbourhoodOpen(false); refresh.current();
+              }}><BuildingActionIcon kind="neighbourhood" /></button>
+            </Tooltip.Trigger>
+            <Tooltip.Portal><Tooltip.Content className={styles.navigationTooltip} side="bottom" sideOffset={6} collisionPadding={8}>Back to your farm<Tooltip.Arrow className={styles.navigationTooltipArrow} /></Tooltip.Content></Tooltip.Portal>
+          </Tooltip.Root>
+        </Tooltip.Provider>
+      </div>
+    </div>}
     <div className={styles.toolbar}>
-      {location === "market" ? <span>Market{snapshot ? ` · Level ${snapshot.farm.progression?.level ?? 1}` : ""}</span>
-        : <button disabled={!snapshot || pending} aria-haspopup="dialog" onClick={() => {
+      {neighbourhoodOpen ? <strong>Neighbourhood</strong> : location === "market" ? <span>Market{snapshot ? ` · Level ${snapshot.farm.progression?.level ?? 1}` : ""}</span>
+        : <button disabled={!snapshot || pending || roadPlan !== null} aria-haspopup="dialog" onClick={() => {
           cancelBuilding(); scene.current?.clearSelection(); setInformation(null);
           levelUiStore.getState().setOpen(true);
         }}>Farm level {snapshot?.farm.progression?.level ?? 1}</button>}
       <button onClick={() => activeScene.current?.zoomBy(1.2)} aria-label="Zoom in">+</button>
       <button onClick={() => activeScene.current?.zoomBy(1 / 1.2)} aria-label="Zoom out">−</button>
       <button onClick={() => activeScene.current?.fit()}>Fit</button>
-      <label>Shadows <select aria-label="Shadow time preview" value={shadowPreset} onChange={event => {
+      {!neighbourhoodOpen && <label>Shadows <select aria-label="Shadow time preview" value={shadowPreset} onChange={event => {
         const preset = SHADOW_PRESETS.find(value => value === event.target.value) ?? "local";
         setShadowPreset(preset); shadowPresetRef.current = preset;
         if (scene.current) scene.current.shadowPreset = preset;
@@ -630,9 +815,11 @@ export default function IsometricFarm() {
         <option value="midday">Midday · 14:00</option>
         <option value="evening">Evening · 19:00</option>
         <option value="night">Night · 22:00</option>
-      </select></label>
+      </select></label>}
     </div>
     <div ref={parent} className={styles.canvas} />
+    {neighbourhoodOpen && (snapshot?.farm.progression?.level ?? 1) >= 7 &&
+      <NeighbourhoodLeaderboardDialog open={neighbourhoodLeaderboardOpen} onOpenChange={setNeighbourhoodLeaderboardOpen} />}
     <MarketDialog />
     <FarmLevelDialog onLevelClaimed={(farmId, level) => {
       const renderer = scene.current;
@@ -650,7 +837,7 @@ export default function IsometricFarm() {
     </aside>}
     {demolitionId && snapshot && <DestroyBuildingDialog key={demolitionId} snapshot={snapshot} buildingId={demolitionId} now={clock}
       onClose={() => setDemolitionId(null)} onDestroyed={next => accept.current(next)} />}
-    {(selection !== null || batch || error || fishingActive || preparingBread) && <aside className={styles.planting} aria-label={preparingBread ? "Preparing bread" : fishingActive ? "Fishing" : harvesting ? "Barley harvesting" : "Barley planting"}>
+    {!neighbourhoodOpen && (selection !== null || batch || error || fishingActive || preparingBread) && <aside className={styles.planting} aria-label={preparingBread ? "Preparing bread" : fishingActive ? "Fishing" : harvesting ? "Barley harvesting" : "Barley planting"}>
       {preparingBread ? <p role="status">Collecting flour for baking…</p> : fishingActive ? <p role="status">{fishingMessage && `${fishingMessage} `}{fishingStatus}</p>
         : batch && snapshot ? <BarleyWorkProgress action={harvesting ? "Harvesting" : "Sowing"} total={batch.total}
         progress={harvesting ? harvestingProgress(snapshot, clock) : sowingProgress(batch, clock)} delivering={batch.phase.type === "delivering"} />
@@ -664,7 +851,7 @@ export default function IsometricFarm() {
         <button disabled={pending} onClick={() => { updateSelection(null); setError(null); }}>Cancel</button>
       </div>}
     </aside>}
-    {information && snapshot && selection === null && !error && !pending && (information.kind === "market" || information.kind === "farmReturn" || information.kind === "barleyMarket" || information.kind === "beerMarket" || information.kind === "bakingMarket"
+    {!neighbourhoodOpen && information && snapshot && selection === null && !error && !pending && (information.kind === "market" || information.kind === "farmReturn" || information.kind === "barleyMarket" || information.kind === "beerMarket" || information.kind === "bakingMarket"
       ? <IsometricTravelPopup anchor={information} available={information.kind === "farmReturn" || canVisitIsometricMarket(snapshot, clock)}
         onClose={() => activeScene.current?.clearSelection()} onTravel={() => {
           if (information.kind === "farmReturn") marketScene.current?.goBackToFarm();
@@ -682,19 +869,32 @@ export default function IsometricFarm() {
         }).finally(() => { if (mounted.current) setPending(false); });
       }}
       onDestroyBuilding={id => { scene.current?.clearSelection(); setInformation(null); setDemolitionId(id); }}
-      onStore={granaryId => void storeBarley(granaryId)}
+      onStore={() => void storeBarley()}
       onGather={itemKey => void gather(itemKey)}
       onMill={(recipe, worker) => void startMill(recipe, worker)}
       onBake={() => void startBaking()}
       onBreweryAction={action => void breweryAction(action)}
       onStoreBread={id => void storeBread(id)}
+      onOffer={item => void offerAtShrine(item)}
       onPickupMill={id => void collectMillBags(id)}
       onFish={() => void fish()}
       onFishTransfer={action => void transferFish(action)}
       onPickup={() => void tileAction("pickup_ground_item")}
       onDestroyMaterial={() => void tileAction("destroy_ground_material")}
-      onClose={() => scene.current?.clearSelection()} onSelect={beginSelection} onWalk={() => scene.current?.walkTo(information.cell)} onDrop={() => void tileAction("drop_carried_item")} onBuildIrrigation={() => void tileAction("build_irrigation")} onDestroyIrrigation={() => void tileAction("destroy_irrigation")} onBuildRoad={() => void tileAction("build_road")} onDestroyRoad={() => void tileAction("destroy_road")} />)}
-    {!(location === "farm" && snapshot?.farm.fishing) && <p className={styles.status}>{selection !== null ? "Tap yellow fields to select · Green fields are selected" : "Tap a tile for actions · Drag to pan"}</p>}
+      onClose={() => scene.current?.clearSelection()} onSelect={beginSelection} onWalk={() => scene.current?.walkTo(information.cell)} onDrop={() => void tileAction("drop_carried_item")} onBuildIrrigation={() => void tileAction("build_irrigation")} onDestroyIrrigation={() => void tileAction("destroy_irrigation")} onDestroyRoad={() => void tileAction("destroy_road")} />)}
+    {roadPlan !== null && snapshot && <section className={styles.planting} aria-label="Road plan">
+      {roadBuilding ? <p role="status">Building roads…</p> : <>
+      <p>{roadPlan.length ? `${roadPlan.length} road ${roadPlan.length === 1 ? "tile" : "tiles"} selected` : "Select adjoining tiles, starting beside a road."}</p>
+      {(roadError || roadBlocked || plantingBlocker(snapshot, clock) || snapshot.farm.carriedItem) && <InfoAlert>
+        {roadError ?? roadBlocked ?? plantingBlocker(snapshot, clock) ?? "Empty your hands first."}
+      </InfoAlert>}
+      <div>
+        <button disabled={pending || !roadPlan.length || !!roadBlocked} onClick={() => void submitRoadPlan()}>Build road</button>
+        <button disabled={pending} onClick={() => { setRoadPlan(null); setRoadError(null); }}>Dismiss</button>
+      </div>
+      </>}
+    </section>}
+    {!neighbourhoodOpen && !(location === "farm" && snapshot?.farm.fishing) && <p className={styles.status}>{selection !== null ? "Tap yellow fields to select · Green fields are selected" : "Tap a tile for actions · Drag to pan"}</p>}
     {(snapshot?.farm.progression?.level ?? 1) >= 7 && <MerchantRequests visual />}
   </section>;
 }
