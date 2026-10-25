@@ -27,7 +27,7 @@ export const CROP_DEFINITIONS = {
     seedItemKey: null, saplingCost: 25, maximumPlants: 2,
     harvestItemKey: "dates", sowingDurationMs: 10_000,
     growthDurationMs: 24 * 60 * 60_000,
-    ripeningDurationMs: 12 * 60 * 60_000,
+    ripeningDurationMs: 24 * 60 * 60_000,
     harvestDurationMs: 10_000, harvestYield: 2
   }
 } as const satisfies Record<

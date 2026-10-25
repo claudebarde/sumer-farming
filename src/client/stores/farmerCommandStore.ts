@@ -1,7 +1,6 @@
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { createStore } from "zustand/vanilla";
 import { farmStore } from "./farmStore";
-import { batchPlantingStore } from "./batchPlantingStore";
 import type { MillRecipe } from "../../game-data/milling";
 import { match } from "ts-pattern";
 import type {
@@ -145,7 +144,6 @@ export const farmerCommandStore = createStore<State>()(set => ({
       const farm = farmStore.getState().farm;
       if (command.type === "drop" && (state.carriedItem?.itemKey === "reed" || state.carriedItem?.itemKey === "clay")) return {};
       if (farm.type === "ready" && farm.snapshot.farm.production.materialDelivery && command.type !== "deposit" && command.type !== "drop") return {};
-      if (batchPlantingStore.getState().active) return {};
       if (farm.type === "ready" && farm.snapshot.farm.production.planting) return {};
       if (farm.type === "ready" && farmerProductionJob(farm.snapshot.farm)) return {};
       if (farm.type === "ready" && farm.snapshot.farm.production.delivery && !(command.type === "production" && command.action === "store")) return {};

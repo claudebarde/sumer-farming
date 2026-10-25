@@ -6,8 +6,8 @@ in the same transaction. Production completion is settled lazily by
 `advanceFarmLifecycle`, exactly once under the farm lock. No background browser
 timer, server daemon or second "arrived" request is required.
 
-`productionStartCommand` covers manual milling, donkey milling, baking and brewing.
-The scene submits these before its visual trip. `planProductionJourney` computes
+`IsometricFarm.tsx` submits manual milling, donkey milling, baking and brewing
+commands before their visual trips. `planProductionJourney` computes
 and persists a road-preferred route, supply pickup index and donkey pickup/drop
 indices. Travel uses `WORKER_MOVE_DURATION_PER_TILE` with the farmer's departure-time
 happiness/hunger multiplier saved as `stepDurationMs`. Validated position hints

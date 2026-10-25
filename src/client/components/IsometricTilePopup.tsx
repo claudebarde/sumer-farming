@@ -1,12 +1,15 @@
+import PorterHireProgress from "./PorterHireProgress";
 import { Popover } from "radix-ui";
 import IsometricShrineActions from "./IsometricShrineActions";
+import PerennialCropContent, { PerennialCropAction } from "./PerennialCropContent";
+import { shrineBlessingActive } from "../../game-data/shrine";
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { IsometricTileAnchor } from "../game/phaser/scenes/IsometricFarmScene";
 import { isometricTilePopup } from "../game/phaser/isometricTilePopup";
 import FarmerPopupStatus from "./FarmerPopupStatus";
 import FarmerPortrait from "./FarmerPortrait";
 import IsometricMillActions from "./IsometricMillActions";
-import IsometricMillUpgrade from "./IsometricMillUpgrade";
+import IsometricBuildingUpgrade from "./IsometricBuildingUpgrade";
 import { activeBuildingUpgrade } from "../../game-data/buildingUpgrades";
 import BuildingActionIcon from "./BuildingActionIcon";
 import buildingActionStyles from "../styles/BuildingActionButton.module.scss";
@@ -31,12 +34,15 @@ import type { BrewerySupplyAction } from "../../game-core/farm/brewerySupplies";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import BrewingRequirements from "./BrewingRequirements";
 import ProductionProgress from "./ProductionProgress";
+import BarleyGrowthProgress from "./BarleyGrowthProgress";
 import { productionOutputFits, OUTPUT_FULL_MESSAGE } from "../../game-core/farm/productionOutputCapacity";
 import { BREAD_RECIPE } from "../../game-data/production";
 import { BEER_RECIPE } from "../../game-data/brewing";
 
-export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onSelect, onWalk, onDrop, onPickup, onGather, onFish, onFishTransfer, onBuildIrrigation, onDestroyIrrigation, onDestroyRoad, onStore, onDestroyBuilding, onDestroyMaterial, onMill, onPickupMill, onClaimLevel, onBake, onStoreBread, onBreweryAction, onOffer }: {
+export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onSelect, onWalk, onDrop, onPickup, onGather, onFish, onFishTransfer, onBuildIrrigation, onDestroyIrrigation, onDestroyRoad, onStore, onDestroyBuilding, onDestroyMaterial, onMill, onPickupMill, onClaimLevel, onBake, onStoreBread, onBreweryAction, onOffer, getFarmerPosition, onRequestPalm }: {
   snapshot: FarmSnapshot; anchor: IsometricTileAnchor; now: number; onClose: () => void;
+  getFarmerPosition?: () => IsometricTileAnchor["cell"] | undefined;
+  onRequestPalm?: () => void;
   onSelect: (mode: "plant" | "harvest", initial?: IsometricTileAnchor["cell"]) => void; onWalk: () => void; onDrop: () => void; onPickup: () => void; onBuildIrrigation: () => void;
   onStore: (granaryId?: string) => void;
   onGather: (itemKey: "reed" | "clay") => void;
@@ -56,13 +62,16 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
 }) {
   const content = isometricTilePopup(snapshot, anchor.cell, now);
   const farmer = anchor.kind === "farmer";
+  const porter = anchor.kind === "porter";
+  const growingBarley = !farmer ? snapshot.crops.find(c => c.cropKey === "barley" && c.column === anchor.cell.column && c.row === anchor.cell.row &&
+    !c.harvestCompletesAt && now >= Date.parse(c.plantedAt) && now < Date.parse(c.growthCompletesAt)) : undefined;
   const bakingJob = !farmer && anchor.kind !== "breadBasket" && content.building?.type === "breadOven"
     ? snapshot.farm.production.baking[content.building.id] : undefined;
   const millingJob = !farmer && anchor.kind !== "millBags" && content.building?.type === "mill" &&
     snapshot.farm.milling?.buildingId === content.building.id ? snapshot.farm.milling : undefined;
   const brewingJob = !farmer && anchor.kind !== "beerJars" && content.building?.type === "brewery"
     ? snapshot.farm.production.brewing?.[content.building.id] : undefined;
-  const inventoryPopup = !farmer && (content.home || content.building?.type === "warehouse");
+  const inventoryPopup = !porter && !farmer && (content.home || content.building?.type === "warehouse");
   const granaryInventory = !farmer && content.building?.type === "granary" && Date.parse(content.building.completesAt) <= now ? content.building : null;
   const bags = anchor.kind === "millBags";
   const bread = anchor.kind === "breadBasket" || anchor.kind === "beerJars";
@@ -73,7 +82,9 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
   const millStorageReason = bags && content.building ? millStorageBlocker(snapshot, content.building.id, now) : null;
   const progress = evaluateProgression(snapshot, now);
   const demolitionReason = content.building ? buildingDemolitionReason(snapshot, content.building.id, now) : null;
-  const title = anchor.kind === "beerJars" ? "Beer jars" : bread ? "Bread basket" : bags ? "Mill bags" : farmer ? snapshot.farm.farmerProfile?.identity.name ?? "Farmer" : content.title;
+  const shrineBlessed = !farmer && content.building?.type === "smallShrine" &&
+    shrineBlessingActive(snapshot.farm.production.shrineBlessing, now);
+  const title = porter ? "Porter" : anchor.kind === "beerJars" ? "Beer jars" : bread ? "Bread basket" : bags ? "Mill bags" : farmer ? snapshot.farm.farmerProfile?.identity.name ?? "Farmer" : content.title;
   const nameCuneiform = farmer ? farmerNameCuneiform(title) : "";
   const storageContext = farmer || content.home || content.building?.type === "warehouse" || content.building?.type === "granary";
   const storageFrom = farmer ? anchor.cell : INITIAL_FARM_CONFIG.farmerSpawn;
@@ -90,16 +101,21 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
       <div className={`${styles.popupBody} ${inventoryPopup ? styles.inventoryBody : ""}`}>
       <div className={`${styles.popupHeader} ${farmer ? styles.farmerHeader : ""}`}>
         {farmer && <FarmerPortrait name={title} variant="headshot" />}
-        <h2>{!farmer && <MapCuneiformLabel element={title} />}<span>{title}{outputQuantity !== null && ` (${outputQuantity})`}</span>{nameCuneiform && <span className="cuneiforms">{nameCuneiform}</span>}</h2>
-        {!farmer && !bread && !bags && content.level !== null && <span className={styles.levelBadge} aria-label={`${content.title} level ${content.level}`}>Lvl {content.level}</span>}
+        <h2>{!farmer && !porter && <MapCuneiformLabel element={title} />}<span>{title}{outputQuantity !== null && ` (${outputQuantity})`}</span>{nameCuneiform && <span className="cuneiforms">{nameCuneiform}</span>}</h2>
+        {!porter && !farmer && !bread && !bags && content.level !== null && <span className={styles.levelBadge} aria-label={`${content.title} level ${content.level}`}>Lvl {content.level}</span>}
       </div>
       <Popover.Close className={styles.popupClose} aria-label="Close tile popup"><span aria-hidden="true">×</span></Popover.Close>
+      {porter ? <PorterHireProgress porter={snapshot.farm.production.porter} now={now} /> : <>
       {farmer ? <>
         <FarmerPopupStatus snapshot={snapshot} now={now} walking={anchor.walking} />
       </> : content.details
+        .filter(detail => !growingBarley || !detail.startsWith("Ready in "))
         .filter(detail => !granaryInventory || !detail.endsWith(" barley stored"))
         .filter(detail => outputQuantity === null || !/^\d+ (?:bread|beer|flour bags?|groats bags?) ready$/.test(detail)).map(detail => <p key={detail}>{detail}</p>)}
       {granaryInventory && <GranaryStorageCard quantity={granaryInventory.storedBarley} farmLevel={snapshot.farm.progression?.level ?? 1} />}
+      {growingBarley && <BarleyGrowthProgress crop={growingBarley} now={now} />}
+      {!farmer && snapshot.crops.some(c => c.cropKey === "datePalm" && c.column === anchor.cell.column && c.row === anchor.cell.row) &&
+        <PerennialCropContent snapshot={snapshot} target={anchor.cell} now={now} isometric getFarmerPosition={getFarmerPosition} onStarted={onClose} />}
       {!farmer && content.building?.type === "smallShrine" && <>
         <p>A quiet place to honour the gods and ask for a blessing over your household.</p>
         <p>Offerings of 2 bread or 2 beer will slow happiness decay by 25% for 12 hours.</p>
@@ -111,17 +127,19 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
         visual
         barley={content.home ? snapshot.inventory.find(i => i.itemKey === "barley")?.quantity ?? 0 : content.building?.storedBarley ?? 0}
         warehouseComplete={warehouseComplete} warehouseId={content.building?.type === "warehouse" ? content.building.id : undefined} showFish={(snapshot.farm.progression?.level ?? 1) >= 4} showDates={(snapshot.farm.progression?.level ?? 1) >= 9} />}
-      {!farmer && !bread && !bags && content.building?.type === "brewery" && <BrewingRequirements snapshot={snapshot} building={content.building} />}
+      {!farmer && !bread && !bags && content.building?.type === "brewery" && !activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, content.building.id, now) && <BrewingRequirements snapshot={snapshot} building={content.building} />}
       <div className={styles.popupActions}>
         {!farmer && content.building?.type === "smallShrine" && <IsometricShrineActions snapshot={snapshot} buildingId={content.building.id} now={now} onOffer={onOffer} />}
+        {!shrineBlessed && <>
         {!farmer && !bread && !bags && content.building &&
           (content.building.type === "breadOven" || content.building.type === "brewery") &&
+          !activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, content.building.id, now) &&
           !productionOutputFits(snapshot.farm, content.building.id, content.building.type === "breadOven" ? BREAD_RECIPE.output : BEER_RECIPE.output) &&
           <button disabled>{OUTPUT_FULL_MESSAGE}</button>}
         {farmer && onBreweryAction && pourTarget && canSupplyBrewery(snapshot, pourTarget, "pour_water", now) &&
           <button onClick={() => onBreweryAction("pour_water")}>Discard water</button>}
         {!farmer && !bread && onBreweryAction && <>
-          {content.building?.type === "brewery" && ([['deliver', 'Deliver water'], ['stock_jars', 'Stock empty jars'], ['start_brewing', 'Brew beer']] as const).map(([action, label]) =>
+          {content.building?.type === "brewery" && !activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, content.building.id, now) && ([['deliver', 'Deliver water'], ['stock_jars', 'Stock empty jars'], ['start_brewing', 'Brew beer']] as const).map(([action, label]) =>
             canSupplyBrewery(snapshot, content.building!, action, now) && <button key={action} className={buildingActionStyles.button} onClick={() => onBreweryAction(action)}>
               {action === "deliver" && <BuildingActionIcon kind="water" />}{action === "stock_jars" && <BuildingActionIcon kind="emptyJars" />}{action === "start_brewing" && <BuildingActionIcon kind="brewBeer" />}<span>{label}</span>
             </button>)}
@@ -158,6 +176,9 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
           <BuildingActionIcon kind={content.actions.gather} className={content.actions.gather === "clay" ? buildingActionStyles.clayIcon : undefined} /><span>Collect {materialLabel(content.actions.gather)}</span>
         </button>}
         {content.actions.pickup && <button onClick={onPickup}>Pick up {materialLabel(content.groundItem!.itemKey)}</button>}
+        {content.actions.plant && <button className={buildingActionStyles.button} onClick={() => onSelect("plant", content.home ? undefined : anchor.cell)}><BuildingActionIcon kind="plantBarley" /><span>Plant barley</span></button>}
+        {content.title === "Arable ground" && (snapshot.farm.progression?.level ?? 1) >= 9 &&
+          <PerennialCropAction snapshot={snapshot} cropKey="datePalm" target={anchor.cell} now={now} action="plant" isometric getFarmerPosition={getFarmerPosition} onRequestPlant={onRequestPalm} />}
         {content.actions.irrigation && <button className={buildingActionStyles.button} onClick={onBuildIrrigation}><BuildingActionIcon kind="irrigation" /><span>Build irrigation canal</span></button>}
         {content.actions.destroyIrrigation && <button onClick={onDestroyIrrigation}>Destroy</button>}
         {content.actions.destroyRoad && <button onClick={onDestroyRoad}>Destroy</button>}
@@ -166,17 +187,18 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
           {snapshot.farm.carriedItem?.itemKey === "clay" && <BuildingActionIcon kind="clay" className={buildingActionStyles.clayIcon} />}
           <span>Drop {materialLabel(snapshot.farm.carriedItem!.itemKey)}</span>
         </button>}
-        {content.actions.plant && <button className={buildingActionStyles.button} onClick={() => onSelect("plant", content.home ? undefined : anchor.cell)}><BuildingActionIcon kind="plantBarley" /><span>Plant barley</span></button>}
         {content.actions.harvest && <button className={buildingActionStyles.button} onClick={() => onSelect("harvest", content.home ? undefined : anchor.cell)}><BuildingActionIcon kind="harvestBarley" /><span>Harvest barley</span></button>}
         {content.actions.walk && <button className={buildingActionStyles.button} onClick={onWalk}><BuildingActionIcon kind="walk" /><span>Walk here</span></button>}
         {content.actions.destroyMaterial && <button onClick={onDestroyMaterial}>Destroy {materialLabel(content.groundItem!.itemKey)}</button>}
+        {(content.building?.type === "mill" || content.building?.type === "breadOven" || content.building?.type === "brewery") && <IsometricBuildingUpgrade key={content.building.id} snapshot={snapshot} buildingId={content.building.id} now={now} onStarted={onClose} />}
         {content.building && !demolitionReason && <button className={["mill", "brewery", "breadOven", "smallShrine"].includes(content.building.type) ? buildingActionStyles.button : undefined} onClick={() => onDestroyBuilding(content.building!.id)}>
           {["mill", "brewery", "breadOven", "smallShrine"].includes(content.building.type) && <BuildingActionIcon kind="destroy" />}<span>Destroy the building</span>
         </button>}
-        {content.building?.type === "mill" && <IsometricMillUpgrade key={content.building.id} snapshot={snapshot} buildingId={content.building.id} now={now} />}
+        </>}
         </>}
         </>}
       </div>
+      </>}
       </div>
       <Popover.Arrow className={styles.popupArrow} width={20} height={10} aria-hidden="true" />
     </Popover.Content></Popover.Portal>

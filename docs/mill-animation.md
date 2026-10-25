@@ -48,7 +48,7 @@ samples the saved milling journey for collection, then runs this composite from
 the saved work start until completion. The separate walking farmer is hidden
 during lever work. Reduced motion freezes the pose but not the production bar.
 
-Finished output uses the flat map's shared `buildingOutputTile` helper: the
+Finished output uses the shared `buildingOutputTile` helper: the
 lower-left tile inside the mill's 2×2 footprint, projected into isometric space.
 Its quantity label follows the bags. The new `mill-flour-bags-isometric.png` artwork
 is prepared at 96px with 0.45 sharpening and LINEAR filtering (74px display frame).

@@ -2,16 +2,58 @@
 
 This is the living, player-facing reference for the game's implemented rules. Use it when explaining the game, preparing help text, or answering players' questions. Planned features are listed separately and are not promises of currently available gameplay.
 
+Building production and construction progress bars appear above the building,
+in front of trees and other world sprites. They stay inside the visible map view
+near screen edges and disappear when their building is fully offscreen.
+
 ## Starting your farm
+
+Click the hired porter on the farm map to open **Porter** and see his remaining
+hire time. The countdown follows his saved 24-hour hire deadline; the progress
+bar fills from left to right as that hire time elapses, including time away.
 
 Background music loops quietly across the farm, market and neighbourhood. It loads
 independently of the map and attempts automatic playback as soon as the music is loaded.
 If the browser blocks autoplay, a click, tap or keypress starts it instead. Switching to another tab pauses it; returning resumes
-from the same point with a short fade-in. Music never affects production timers.
+from the same point with a short fade-in. Starting or resuming explicitly fades from
+silence to the selected volume over 0.7 seconds. Music never affects production timers.
 Settings → Music Control offers quieter, Stop/Play, and louder buttons. Volume changes
 in 10% steps from 0–100%. Stop ends playback; Play restarts the track. Volume and the
 stopped/playing preference are remembered in this browser. Returning to the tab never
 overrides a deliberate Stop. The WAV test asset will be compressed before public release.
+
+Building work sounds play in the farm view: grinding loops during farmer or donkey
+milling, baking loops during oven production, and stirring loops only while the farmer
+prepares beer (not during supply travel or fermentation). Once stirring ends,
+fermentation plays bubbling clips with a random 5–12-second pause after each full
+clip. Bubbling never overlaps itself and stops when beer is ready. They follow the saved work
+timestamps and the existing Music Control volume and Stop/Play preference. They stop
+when leaving the farm or hiding the tab, returning only if work is still active.
+When multiple buildings are working, their sounds take turns without overlapping:
+each plays for 5–8 seconds with gentle fades, with 1–2 seconds of silence between
+buildings and 3–5 seconds before the next round. The sequence follows current work,
+including the brewery's stirring or bubbling phase, and removes finished jobs.
+With only one active building, its usual loop or intermittent bubbling resumes.
+Background music continues underneath. Returning from another tab starts a fresh
+sequence using only work still active. Sounds never affect production.
+
+Occasional wind gusts play over the music across the farm, market and neighbourhood,
+with a random 20–60-second pause before the first gust and after each finished gust.
+Gusts never overlap each other. For now they follow Music Control's volume and Stop/Play
+setting, at 60% of the selected music volume. Leaving the tab stops a gust and clears
+its timer; returning starts a fresh random wait, with no missed gusts replayed.
+
+Harvesting sound loops only while the farmer is actively cutting barley in the
+visible farm scene. It stops between fields, during deliveries, when harvesting
+ends, and when leaving the farm scene or browser tab. Returning or reloading plays
+it only if the saved job is currently in a harvesting phase, without replaying
+missed work. For now it follows the existing Music Control volume and Stop/Play
+setting, alongside the music and wind. Audio never controls harvest timing or yields.
+
+Footsteps loop while the farmer walks in the farm or market, including carrying
+goods and travelling to work. They stop when he stands still or works, and when
+the tab is hidden. They follow the same volume and Stop/Play controls; walking
+and harvesting sounds do not play simultaneously.
 
 Farm and market shadows subtly follow your device's local time. The sun travels
 east through north to west between 08:00 and 20:00, with the shortest shadows at
@@ -236,6 +278,8 @@ The signpost displays the current farm level in gold. The number changes to a la
 
 The signpost tile is permanently reserved. No part of a building's footprint may overlap it, and fields or irrigation canals cannot be placed on it.
 
+The fixed market building's 2 × 2 footprint is not walkable. Farmer walking and work journeys route around it; its entrance on the main road remains accessible.
+
 Leveling up is **manual**, not automatic. Meet every listed requirement, then press **Claim level**. The button stays disabled until the requirements and seed-safety check are satisfied. Required offerings are consumed when you claim the level, not while you are gathering them. Levels must be claimed in order.
 
 ### Playable levels
@@ -251,6 +295,7 @@ Leveling up is **manual**, not automatic. Meet every listed requirement, then pr
 | 7 — Trusted supplier | During level 6, produce at least 15 bread or beer combined and sell at least 10 bread or beer combined; have 5 stored bread/beer combined | 5 bread/beer in any combination (bread used first) | Merchant requests, 20-barley capacity per granary, and the mill donkey (30 shekels) |
 | 8 — Growing estate | Fulfil at least 3 merchant requests; have 20 barley stored in a completed granary; purchase a mill donkey; retain spare seed or an already-planted barley field | 20 granary barley | Warehouse and Small shrine |
 | 9 — Established producer | Complete a warehouse; during level 8, harvest 100 barley and produce 30 beer/bread combined; store 10 bread or 10 beer | 10 bread, otherwise 10 beer (not mixed) | Date palms, dates treats, and bread oven and brewery upgrades to building level 2 |
+| 10 — Community member | Have 2 mature palms; during level 9, harvest and store 4 baskets of dates and produce 40 bread/beer combined; complete either a bread oven or brewery upgrade to level 2; hold the offering | 2 stored baskets of dates and 10 bread/beer combined (bread used first) | Mill upgrade to building level 3 |
 
 Unlocking a building gives permission to construct it; the level claim does not build it or pay its construction materials.
 
@@ -269,6 +314,9 @@ reloading does not replay it. There is no music yet; future music will respect
 the game's sound settings.
 
 ### How requirements are counted
+
+- Level 10 counts date baskets only when a harvested load reaches warehouse storage, exactly once per saved job; merely picking fruit, current stock and purchased goods do not increment this counter. Bread/beer count when production completes. Both cumulative counters count activity during level 9 and remain earned after goods are used. Mature palms and the completed level-2-or-higher oven/brewery must still exist when claiming. Tending is optional. The offering consumes 2 stored date baskets and 10 stored bread/beer in any combination, taking bread first, in one transaction; retries cannot charge twice.
+- New level-9 entrants receive baselines when claiming level 9. Existing level-9 saves without baselines begin tracking once on their first load after this update, before pending work settles; earlier level-9 activity cannot be reliably reconstructed. Existing palms, upgrades and stock are retained and count toward their respective requirements. Reloads never reset the counters.
 
 - Level 8 checks current granary stock and permanent donkey ownership when claimed, alongside lifetime merchant requests. Farm storage, carried barley, ground barley, and unfinished granaries do not count toward the 20-barley offering. Claiming consumes 20 granary barley and keeps the donkey. Retain spare seed or an already-planted barley field, as with other barley offerings. Existing level-8 farms keep their level and are not charged retroactively.
 
@@ -296,11 +344,11 @@ A barley offering is blocked if it would leave you with no usable barley **and**
 - Expired barley and barley delivered to a brewery do not count as spare seed.
 - An already-planted field may be growing or ready to harvest. A sowing action that has not finished does not count yet.
 
-### Levels 10–11: not yet playable
+### Level 10 feature direction and later levels
 
-Level 9 is currently the highest claimable level.
+Level 10 is currently the highest claimable level.
 
-- Level 10 is intended to introduce neighbourhood and cooperative systems. Its final requirements are not implemented.
+- Level 10 is the intended milestone for access to most game systems, including the full core farm and social experience. Existing neighbourhood features remain available from level 7. Cooperative/social expansion and crop decay are planned, not unlocked playable features yet. Their implementation and acceptance remain separate work; claiming level 10 does not activate unimplemented systems. Selected buildings, upgrades and additional features may unlock above level 10.
 - Level 11's final progression requirements are not implemented.
 
 These future levels cannot be claimed yet, even if their previewed milestones have been met.
@@ -344,24 +392,43 @@ accepted batch's total instead; the server's happiness limits are unchanged.
 
 ## Date palms (level 9)
 
+The approved tending animation runs during real **Tend palm** jobs. The temporary
+tending and date-delivery preview buttons and test scene objects have been removed.
+
+The temporary date-harvesting preview has been removed. The approved sickle
+animation remains active for real harvests. The main toolbar's shadow-testing
+selector has also been removed; farm and market shadows follow local time.
+
+After harvesting, the farmer carries two baskets using the approved carrying
+sprites and walking frames along the saved warehouse route. The baskets disappear
+on arrival and normal idle behaviour resumes. Reloading during delivery shows the
+current position and carrying pose; reduced motion uses the still carrying sprite.
+Delivery timing and exactly-once storage remain server-authoritative.
+
 - Click empty, river-irrigated arable ground and choose **Plant date palm**. Each permanent, one-tile palm costs **25 shekels**, with an initial maximum of **2 palms**. The farmer needs empty hands and no other task underway. Planting takes 10 seconds plus travel; payment and the accepted job are saved immediately.
-- The sapling takes **24 hours after planting** to mature; its first **2 baskets of dates** are ready at that point. After harvesting, the same tree takes **12 hours** to ripen its next 2 baskets. Replanting is unnecessary. Unpicked ripe fruit waits without spoiling and does not accumulate additional batches. A basket, not an individual date, is the inventory unit; the dates-basket sprite represents it.
-- The popup shows maturity/ripening progress and remaining time. Saplings, bare palms and fruiting palms use distinct sprites.
+- In the isometric view, **Plant date palm** first opens a lower panel with the price, **Confirm** and **Cancel**. The chosen tile stays yellow while this panel is open; panning or clicking elsewhere does not change the planting target. Only Confirm submits the planting job and spends shekels; Cancel does neither. Availability is checked again at confirmation.
+- Planting uses the farmer's sowing motion on the right side of the palm's tile, without changing the arable ground into barley seed rows. A small work bar and a lower circular progress meter/countdown follow the saved job. The sapling appears when planting finishes; the farmer remains beside it before normal idle behaviour resumes. Returning during work shows its current phase rather than restarting it.
+- The sapling takes **24 hours after planting** to mature; its first **2 baskets of dates** are ready at that point. After harvesting, the same tree takes **24 hours** to ripen its next 2 baskets without care. Replanting is unnecessary. Unpicked ripe fruit waits without spoiling and does not accumulate additional batches. A basket, not an individual date, is the inventory unit; the dates-basket sprite represents it.
+- During the **first 12 hours after harvest**, choose **Tend palm** once to halve the remaining ripening time. Tending immediately gives a 12-hour cycle; tending after 6 hours gives a 15-hour total cycle. At exactly 12 hours the window closes; no extra time is added. The farmer needs empty hands and must be available, walks beside the palm and works for 10 seconds. No water or shekels are consumed. The server records the reduction when the action is accepted, independently of animation, and prevents repeat tending in the same cycle. Initial sapling maturation cannot be accelerated. Existing saved ripening deadlines are preserved; those legacy cycles become eligible only after their next harvest.
+- When tending is available, the isometric palm popup shows a live countdown to the end of its tending window and the time saved by tending now. Once unavailable, an info alert replaces that countdown and action. Tending sends the farmer to the right side of the palm's tile to kneel and loosen soil with a small hand hoe. A small work bar and the shared lower circular progress/countdown follow the saved schedule. He remains beside the tree afterward before resuming normal idle behaviour; returning during work resumes its current phase without reapplying the benefit.
+- The popup shows maturity/ripening progress and remaining time. The isometric map uses distinct sapling, bare, flowering and ripe palm sprites. During initial growth it shows the sapling for 12 hours, bare palm for 6 hours, then flowers for 6 hours. After harvest, the palm is bare for the first half of growth and flowering for the second half; tending accelerates this visual progress too. These cosmetic stages never change the saved harvest deadline or yield. Returning after time away shows the current stage immediately.
 - Harvest **one palm at a time**, taking 10 seconds plus travel and automatic delivery to the **warehouse only**. Each harvest collects exactly **2 baskets**, reserving both storage slots before starting. A completed, reachable warehouse with at least 2 free slots is required. With fewer than 2 free slots—including when there is only one—the button is disabled and reads **No storage space**; the server also rejects the action. There are no partial harvests, multi-palm queues or happiness-based barley field limits for palms. Finish delivery before selecting another palm.
+- In the isometric palm popup, a left-to-right ripening bar and countdown show when dates will be ready. **Harvest dates** appears when ready and available; an info alert explains blocked actions, including insufficient storage. Starting a harvest closes the popup, saves the full job immediately, and sends the farmer to the right side of the palm's own tile. He performs the approved sickle motion with separate baskets appearing during the first stroke, a small work bar and a lower circular progress/countdown. Reloading or returning resumes the saved phase. After harvesting he walks to the warehouse on the saved delivery route; the approved two-basket carrying animation is active during this trip.
 - The warehouse stores **5 baskets of dates**, separately from other goods. Neither the farm nor the granary stores dates. Resources shows baskets; only the warehouse popup shows their stock/capacity. There is no ground-dropping or manual storage step. Existing stock is preserved rather than truncated if it exceeds the new limit; consume it before harvesting again.
 - Planting, growth, harvest and delivery continue while away. Saved server times, not animation completion, determine progress. Dates are credited once when the delivery arrives. Barley batch planting/harvesting and barley progression totals exclude palms.
 - In **Manage estate → Farmer**, one stored basket of dates gives **+10 happiness**, capped at 100, with an independent **8-hour cooldown** (matching fish). It does not replace the automatic barley meal and does not count as feeding fish.
+- The isometric arable-ground popup offers **Plant date palm** from level 9 when planting is available, after Plant barley. The Farmer tab displays dates alongside the other treats, with a basket icon, happiness benefit, availability and cooldown.
 - Dates trading, sale prices, date recipes, and automatic porter harvesting are **not implemented**. Existing level-9 entry requirements are unchanged.
 
 ## Buildings
 
 ### Destroying buildings
 
-- In the isometric farm, a completed player-built building's popup offers **Destroy the building** when demolition is safe. The starting farm cannot be destroyed.
+- In the isometric farm, a completed player-built building's popup offers **Destroy the building** when demolition is safe. The starting farm cannot be destroyed. For the brewery and other buildings, this button is hidden while demolition is blocked and appears as the last action when available. All server demolition safeguards still apply. Once donkey milling preparation is finished, the donkey working at the mill does not block demolition of unrelated buildings; its own mill stays protected.
 - A confirmation dialog asks **Are you sure you want to destroy [building name]?** Cancel leaves everything unchanged. Confirming removes the building immediately, frees its footprint/loading tile, and returns no construction materials or upgrade payments. Rebuilding requires paying the normal costs again.
 - Granaries and warehouses must contain zero barley. Uncollected finished goods must be collected first. Buildings under construction or upgrade cannot be destroyed; active farming/production work and deliveries must finish first.
 - Warehouse removal requires its own inventory to be empty, including dates, even if the farm has free space. Removal must not strand reserved production or deliveries. No stored inventory is silently discarded or moved to another building by demolition.
-- Unused supplies inside an idle brewery are lost with it. Destroying a shrine ends its blessing. Both losses are stated in the confirmation dialog.
+- Unused supplies inside an idle brewery are lost with it, as stated in the confirmation dialog. A shrine cannot be destroyed while its blessing is active.
 - The server checks ownership, the latest farm version, storage and work state again on confirmation. The initial farm and other players' buildings cannot be removed through the API.
 - Granaries, mills, bread ovens and breweries can be built through Manage → Build in the isometric farm, paying the full construction cost. The mill unlocks at level 5, occupies 2×2 tiles and costs 2 reed and 4 clay; construction takes 2 minutes. The brewery unlocks at level 6, occupies 2×2 non-arable tiles and costs 4 reed, 6 clay and 2 stored brewing jars (not empty beer jars); construction takes 3 minutes. Its button checks materials, farmer availability and existing ownership like the bread oven. Choose a green placement beside a completed connected road, then confirm. Cancelling placement spends nothing. The farmer walks to the loading tile and works with his pickaxe; the saved construction timer continues after reloading. Brewery production controls and active artwork in the isometric view remain a separate migration step; other building placement remains planned.
 
@@ -392,7 +459,7 @@ Building levels are separate from estate levels. The Mill, Bread Oven and Brewer
 | Bread Oven | 9 | 11 |
 | Brewery | 9 | 11 |
 
-Estate progression currently stops at level 9, making level-2 bread oven and brewery upgrades available. Level-3 building upgrades remain locked in normal play until estate levels 10–11 and their requirements are implemented. Previously purchased mill upgrades, including upgrades already in progress, are retained regardless of the new gates.
+Estate progression currently reaches level 10, unlocking the level-3 mill upgrade. Level-3 bread oven and brewery upgrades require estate level 11 and remain locked in normal play. Previously purchased mill upgrades, including upgrades already in progress, are retained regardless of the new gates.
 
 | Mill level | Upgrade price | Upgrade time | Farmer batch | Donkey batch |
 |---|---:|---:|---:|---:|
@@ -402,16 +469,20 @@ Estate progression currently stops at level 9, making level-2 bread oven and bre
 
 All three buildings use the same upgrade prices and times above. Level 2 reduces base production time by 15%; level 3 reduces it by 30%, not cumulatively. Bread baking takes 5m / 4m 15s / 3m 30s, and beer brewing takes 15m / 12m 45s / 10m 30s at building levels 1/2/3.
 
+Active mill, bread oven and brewery upgrades use the same construction-site animation with a separate bricklaying worker and a progress bar above the site. Finished goods remain available for collection. The normal building returns when the saved upgrade finishes, including after time away. Completed past upgrades do not replay the animation. The same renderer is registered for other buildings for future upgrades; this does not unlock their upgrade controls or change their level requirements.
+
 Upgrade sequentially, with one building upgrade per estate at a time. Pay upfront; the farmer remains available. Finish the building's current production before upgrading. During an upgrade no new production can start there; finished goods can still be collected. Ingredients and output quantities are unchanged. The footprint and road access are unchanged.
 
-The isometric mill upgrade can be started while the farmer is idle, carrying goods,
+The isometric mill, bread oven and brewery upgrades can be started while the farmer is idle, carrying goods,
 working elsewhere, sowing or harvesting. It never interrupts or assigns work to
-the farmer. Existing milling and other active building upgrades still block it.
-The mill hides its upgrade explanation and button until the next tier's estate
-level is reached, and hides them at maximum building level. An upgrade already
+the farmer. Production in the building and other active building upgrades still block it.
+All three hide their upgrade explanation and button until the next tier's estate
+level is reached, and hide them at maximum building level. An upgrade already
 underway still shows its progress and countdown.
 
-Each production building popup shows its current level and an upgrade button, disabled when requirements or funds are missing. Locked upgrades show the required estate level. During an upgrade it shows construction progress and remaining time instead of production controls. Upgrades persist through reloads and finish offline; improved production times apply only to jobs started after completion. Level 3 is the current maximum. Storage-building upgrades remain planned.
+The isometric bread oven reuses the mill's upgrade icon and layout, with the benefit explanation and upgrade button after production actions and before demolition. In every building popup, **Destroy the building** is always the last action button when available. At estate level 9, pay 100 shekels for a five-minute upgrade to oven level 2; baking then takes 4m 15s per batch. During the upgrade, the oven becomes a construction site with a separate animated builder and a left-to-right progress bar above it. The farmer remains available. The saved timer determines progress after reloads or time away; the normal oven artwork returns automatically at completion. Recipes and output capacity stay unchanged. The level badge updates when the saved upgrade completes.
+
+The isometric mill, bread oven and brewery popups disable available upgrade buttons when requirements or funds are missing. During an upgrade they show progress and remaining time instead of production controls. Upgrades persist through reloads and finish offline; improved production times apply only to jobs started after completion. The brewery uses the same upgrade icon, explanation, construction animation and progress/countdown. At estate level 9, its level-2 upgrade costs 100 shekels and takes five minutes; fermentation then takes 12m 45s. Its level badge updates at completion, and the next upgrade stays hidden until estate level 11. Level 3 is the current maximum. Storage-building upgrades remain planned.
 
 ### Estate storage and warehouse
 
@@ -815,12 +886,17 @@ The market is a shared neighbourhood social space. Neighbours visiting at the sa
 
 ### Hired porter
 
+Hire the porter under **Manage estate → Build → Farm services**, below the building cards.
+The Farmer tab is reserved for farmer-focused actions and wellbeing.
+
 While hired, the porter also tops up each completed brewery to two empty beer
 jars, collecting available jars from the farm and carrying them along roads to
 the brewery. He can bring just one jar when that is all that is needed or
 available. Finished-goods storage jobs always take priority; restocking starts
 only when no storage trip can proceed (including when remaining goods cannot fit).
-He finishes a booked trip before choosing another job and returns to the market.
+He finishes a booked trip before choosing another job directly from his delivery
+destination. He returns to the market only when no reachable goods-storage or jar
+restocking job can proceed, or his hire has expired.
 He never buys jars or collects water. Jars in transit remain part of the estate
 total but become usable at the brewery only on arrival. Saved deliveries finish
 across reloads and offline time, even if the hire expires during a booked trip.
@@ -829,7 +905,11 @@ to estate stock rather than lost or added beyond the two-jar cap.
 
 The isometric porter walks empty-handed to available output, then uses closed
 bags for flour, groats and bread, or closed jars for beer. He stores goods and
-returns empty-handed to his saved market waiting point before taking another job.
+goes directly to the next pickup without a market detour. For example, with nine
+bread in a ten-capacity warehouse and two waiting at the oven, he takes one to
+the warehouse, returns directly to the oven, then takes the other to the farm.
+Partial pickup, warehouse-first priority and road-only travel remain unchanged.
+Once no job can proceed, he returns empty-handed to his saved market waiting point.
 Both deliveries and returns follow server-owned timestamps and resume on reload;
 no animation callback transfers goods. His sprite uses the farmer's ground anchor,
 position-based building depth and shared time-of-day shadow. Stopped-worker
@@ -865,6 +945,10 @@ going to the market.” in the bottom message bubble. Stored inventory does not 
 - Buying or selling filled beer and bread in either NPC or player markets unlocks at **level 6**, matching Brewery and Bread Oven construction. This includes buying player listings and creating sell listings. Reaching the level is sufficient; owning the building is not required. The API enforces the same item-level restriction as the interface.
 
 ### NPC prices
+
+Opening a market stand resets all buy/sell quantity selectors to 1 (subject to
+existing purchase limits), including NPC trades and player-market listings.
+The previous trade quantity is not remembered across openings.
 
 Sale quantity controls stop at the currently available stored stock, for both NPC
 sales and player-market listings. You can still lower the quantity at the limit.
@@ -957,7 +1041,7 @@ The isometric offering flow follows the existing flat-map rules:
 
 - Choose **Offer 2 bread** or **Offer 2 beer**. With empty hands, the farmer walks to the farm building, collects the chosen goods, and carries them to the shrine. The offering is charged and its blessing begins when delivery succeeds. Reloading before delivery cancels the uncharged trip; choose the offering again.
 - The blessing slows natural happiness decay by **25% for 12 hours**, including time offline. It does not restore happiness, replace barley meals, prevent hunger, or change treat cooldowns.
-- Only one blessing can be active. Further offerings are disabled until it expires; blessings cannot stack or be extended early.
+- Only one blessing can be active. While it lasts, the shrine popup hides both offering buttons and the destroy button, showing a progress bar with an hours:minutes:seconds countdown above it. Like other timed progress bars, it fills from left to right as elapsed time increases, including time away; the countdown shows time remaining. The server rejects further offerings and destruction of the blessed shrine until expiry; blessings cannot stack or be extended early. Available actions return after expiry.
 - The isometric shrine displays the chosen bread basket or beer jars beneath the statue's feet while blessed, at the same size as finished production goods. The chosen offering is saved across reloads and disappears after expiry. Legacy blessings without a saved offering type display bread. The shrine popup and Farmer tab show the remaining blessing time. The temporary preview button is removed.
 
 ## Quick answers

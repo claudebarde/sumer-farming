@@ -9,6 +9,7 @@ import { isometricTilePopup } from "../../src/client/game/phaser/isometricTilePo
 import { irrigationBuildBlocker } from "../../src/client/game/phaser/isometricIrrigation";
 import { roadBuildBlocker } from "../../src/client/game/phaser/isometricRoads";
 import { INITIAL_FARM_CONFIG } from "../../src/game-data/initialFarm";
+import { syncHarvestingAudio } from "../../src/client/game/phaser/harvestingAudio";
 
 const id = "00000000-0000-4000-8000-000000000001";
 const date = (n: number) => new Date(n).toISOString();
@@ -24,6 +25,18 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
 const delivery = () => harvestDeliveryPlan({ buildings: snapshot().buildings.map(b => ({ ...b, completesAt: 0 })), roads: [], from: second, at: 21540, happiness: 70, hungry: false, level: 1 })!;
 
 describe("isometric harvest presentation", () => {
+  it("gates the sound at exact field arrivals and endings, including after reload", () => {
+    const s = snapshot();
+    s.farm.production.planting = batch();
+    for (const [now, expected] of [[1359, false], [1360, true], [11359, true], [11360, false],
+      [11539, false], [11540, true], [21540, false], [100000, false]] as const) {
+      const restored = FarmSnapshotSchema.parse(JSON.parse(JSON.stringify(s)));
+      const sound = { isPlaying: false, setVolume: () => {},
+        play: () => { sound.isPlaying = true; return true; }, stop: () => { sound.isPlaying = false; } };
+      syncHarvestingAudio(sound, isometricHarvestPose(restored, now)?.type === "harvesting", true, 0.3);
+      expect(sound.isPlaying).toBe(expected);
+    }
+  });
   it("projects a warehouse unload without repeatedly visiting the same storage", () => {
     const s = snapshot();
     s.buildings[0]!.type = "warehouse";

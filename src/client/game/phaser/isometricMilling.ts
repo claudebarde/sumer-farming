@@ -28,7 +28,8 @@ export const millingJourneyPose = (snapshot: FarmSnapshot, now: number) => {
     .filter(stop => step >= stop.index).reduce((sum, stop) => sum + stop.quantity, 0)
     : step >= journey.supplyIndex ? job.barley : 0;
   const a = isoPoint(from), b = isoPoint(to);
-  return { position, carried, distance: step * Math.hypot(48, 24), facingLeft: b.x < a.x };
+  return { position, carried, walking: now >= journey.departedAt && (from.column !== to.column || from.row !== to.row),
+    distance: step * Math.hypot(48, 24), facingLeft: b.x < a.x };
 };
 
 export const millingProgress = (snapshot: FarmSnapshot, buildingId: string, now: number) => {

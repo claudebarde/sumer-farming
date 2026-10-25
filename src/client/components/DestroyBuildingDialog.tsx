@@ -33,7 +33,6 @@ export default function DestroyBuildingDialog({ snapshot, buildingId, now, onClo
         <Dialog.Title>Are you sure you want to destroy {building ? buildingNames[building.type] : "this building"}?</Dialog.Title>
         <Dialog.Description>This cannot be undone. Construction materials and upgrades are lost; nothing is refunded.</Dialog.Description>
         {building?.type === "brewery" && <p>Any remaining brewing supplies will also be lost.</p>}
-        {building?.type === "smallShrine" && <p>Any active shrine blessing will end.</p>}
         {(error || reason) && <p role="alert">{error ?? reason}</p>}
         <div className={styles["demolition-actions"]}>
           <button disabled={pending} onClick={onClose}>Cancel</button>

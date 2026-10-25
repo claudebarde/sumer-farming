@@ -93,3 +93,21 @@ it("bobs gently around the approved position in a continuous 4.8-second loop", (
   expect(merchantBoatBob(4800).angle).toBeCloseTo(0);
   for (const elapsed of [0, 1200, 3600, 100000]) expect(merchantBoatBob(elapsed, true)).toEqual({ y: 0, angle: 0 });
 });
+
+const anchor = 100_000;
+const board = { cycle: 0, closesAt: new Date(anchor + REQUEST_OPEN_MS).toISOString() };
+it("restores the merchant boat within redraw and mounts the shared request UI", () => {
+  const source = readFileSync(new URL("../../src/client/game/phaser/scenes/IsometricFarmScene.ts", import.meta.url), "utf8");
+  const draw = source.slice(source.indexOf("  private draw() {"), source.indexOf("  /** Called only after a successful claim"));
+  expect(draw.indexOf("this.updateMerchantCaravan()")).toBeGreaterThan(draw.indexOf("this.children.removeAll(true)"));
+  const shell = readFileSync(new URL("../../src/client/components/IsometricFarm.tsx", import.meta.url), "utf8");
+  expect(shell).toContain('>= 7 && <MerchantRequests visual />');
+  expect(shell).not.toContain("Preview merchant animation");
+  expect(source).toContain('visit.phase === "stopped"');
+  expect(source).toContain("merchantUiStore.getState().setOpen(true)");
+});
+it("keeps the level gate and never invents a schedule", () => {
+  expect(scheduledMerchantVisit(6, board, anchor)).toEqual({ phase: "away" });
+  expect(scheduledMerchantVisit(7, null, anchor)).toEqual({ phase: "away" });
+  expect(scheduledMerchantVisit(7, board, anchor)).toEqual({ phase: "stopped" });
+});

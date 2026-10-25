@@ -8,6 +8,7 @@ import { advanceFarmLifecycle } from "./farmLifecycle";
 import { readFarmSnapshot } from "./farmSnapshot";
 import { farmCrops, farms, players, shekelTransactions } from "../db/schema";
 import type { Database } from "../db/client";
+import { tendedPalmDeadline } from "../../game-data/datePalmCycle";
 
 export class PerennialCropRuleError extends Data.TaggedError("PerennialCropRuleError")<{ readonly message: string }> {}
 export class PerennialCropPersistenceError extends Data.TaggedError("PerennialCropPersistenceError")<{ readonly cause: unknown }> {}
@@ -32,6 +33,7 @@ export const tendPerennialCrop = (db: Database, input: Extract<GameCommand, { ty
     const id = crypto.randomUUID();
     let cropId: string;
     let quantity = 0;
+    let palmCycles = farm.production.palmCycles;
     if (input.action === "plant") {
       const [player] = await tx.select().from(players).where(eq(players.id, input.playerId)).for("update");
       if (!player || player.shekelBalance < definition.saplingCost) return new PerennialCropRuleError({ message: "Not enough shekels." });
@@ -41,6 +43,12 @@ export const tendPerennialCrop = (db: Database, input: Extract<GameCommand, { ty
       const [crop] = await tx.insert(farmCrops).values({ farmId: farm.id, cropKey: input.crop, ...input.target,
         sowingStartedAt: new Date(plan.workStartsAt), plantedAt: new Date(plan.workEndsAt), growthCompletesAt: new Date(plan.workEndsAt + definition.growthDurationMs) }).returning();
       cropId = crop!.id;
+    } else if (input.action === "tend") {
+      const crop = snapshot.crops.find(c => c.column === input.target.column && c.row === input.target.row)!;
+      cropId = crop.id;
+      palmCycles = { ...palmCycles, [cropId]: { ...palmCycles![cropId]!, tendedAt: now.getTime() } };
+      await tx.update(farmCrops).set({ growthCompletesAt: new Date(tendedPalmDeadline(Date.parse(crop.growthCompletesAt), now.getTime())) })
+        .where(and(eq(farmCrops.id, cropId), eq(farmCrops.farmId, farm.id)));
     } else {
       const crop = snapshot.crops.find(c => c.column === input.target.column && c.row === input.target.row)!;
       cropId = crop.id;
@@ -49,6 +57,7 @@ export const tendPerennialCrop = (db: Database, input: Extract<GameCommand, { ty
         .where(and(eq(farmCrops.id, cropId), eq(farmCrops.farmId, farm.id)));
     }
     const [updated] = await tx.update(farms).set({ production: { ...farm.production,
+      palmCycles,
       ...(input.action === "harvest" ? { cropYields: { ...farm.production.cropYields, [cropId]: definition.harvestYield } } : {}),
       cropWork: { ...plan, id, cropId, cropKey: input.crop, action: input.action, quantity, settled: false } },
       version: sql`${farms.version} + 1`, updatedAt: now }).where(eq(farms.id, farm.id)).returning();

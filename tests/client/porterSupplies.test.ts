@@ -19,6 +19,10 @@ describe("porter brewery supplies", () => {
     const input = { ...base, stacks: [{ buildingId: brewery.id, itemKey: "beer" as const, quantity: 2, readyAt: 0 }] };
     const first = advancePorter(input);
     expect(first.porter.job?.itemKey).toBe("beer");
+    const afterStorage = advancePorter({ ...input, ...first, now: first.porter.job!.completesAt });
+    expect(afterStorage.porter.returnTrip ?? null).toBeNull();
+    expect(afterStorage.porter.job?.itemKey).toBe("emptyBeerJar");
+    expect(afterStorage.porter.job?.path[0]).toEqual(first.porter.job!.path.at(-1));
     expect(first.inventory.emptyBeerJar).toBe(4);
     const done = advancePorter({ ...input, ...first, now: 50000 });
     expect(done.inventory.beer).toBe(2);

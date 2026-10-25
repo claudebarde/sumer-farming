@@ -1,4 +1,8 @@
-# Market scene prototype
+# Retired flat-map market prototype
+
+Historical implementation notes: `MarketScene` was removed with the flat-map
+entry points. The live market is `IsometricMarketScene`, opened by
+`IsometricFarmScene`; these prototype layout details are not current game rules.
 
 Click the estate's market building to start walking toward it. Enter `MarketScene`
 only when the farmer reaches the road tile directly beside the building. There

@@ -1,0 +1,13 @@
+Generated with the built-in image-generation tool using farmer-harvest-dates-front.png as the edit reference. Candidates only; not wired into gameplay. Generated dimensions: 1254 x 1254, despite requested 1024 x 1024. Registration and pose consistency need preview validation.
+
+Shared prompt:
+Use case: identity-preserve. Edit target: supplied front-view farmer sprite. Create ONE 1024x1024 transparent PNG animation frame, not a sprite sheet. Preserve the EXACT original canvas registration, farmer body size, feet positions, face, hair, clothing, colours, lighting and isometric front view. Keep feet, legs and hips stationary. Change only arms and hooked wooden pole for a small gentle harvesting motion. Preserve rigid pole length and curved metal hook shape; both hands must firmly grip the same shaft. Farmer remains lower-right, pole extends upper-left, fully visible. No tree, baskets, scenery, shadow, text or border. No re-centering, scaling, back view or body rotation.
+
+Frame 02:
+Extension phase: gently extend both arms a little upward-left, moving the pole about 20 source pixels along its axis away from his chest. Keep elbows soft, shoulders nearly unchanged.
+
+Frame 03:
+Pull phase: gently draw both hands toward his chest, sliding the whole rigid pole about 20 source pixels downward-right relative to the reference. Elbows slightly more bent. Do not tilt or shorten the pole.
+
+Frame 04:
+Recovery phase: halfway between the pull phase and original relaxed pose, pole about 10 source pixels downward-right relative to reference. Small relaxed elbow bend, preparing a seamless return to the original frame.

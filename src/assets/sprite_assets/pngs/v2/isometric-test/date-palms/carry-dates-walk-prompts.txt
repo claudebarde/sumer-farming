@@ -1,0 +1,18 @@
+Generated with the built-in image generation tool.
+Reference: farmer-carry-dates-idle-v2.png (approved corrected face).
+Four walking frames; game integration not changed.
+Use shared canvas framing, not per-frame silhouette cropping, when animating.
+
+Use case: identity-preserve. Edit this APPROVED date-basket-carrying farmer into ONE walking animation frame. Reference is the exact identity and registration master. Keep face, long rounded nose, oval eyes, eyebrows, beard, headband, hair, smile, head angle and size EXACTLY unchanged. Keep his two oversized date baskets, fruit arrangement, hands, arms, torso, scale, camera perspective, colors and lighting unchanged. Keep every upper-body pixel aligned as closely as possible: do not shift, rotate, zoom, recenter or redraw the head or baskets. Change only legs/feet below the kilt and minimal lower hem folds for a natural walking step. He walks toward lower-left in the same three-quarter orientation as the reference; small practical steps under a heavy load, not running or dancing. Single full-body sprite on same square 1254x1254 transparent canvas with identical framing and head placement, full feet visible with transparent margin. Exactly two legs, two feet, no extra limbs, no ground or shadow, no text, no sprite sheet. 
+
+farmer-carry-dates-walk-01.png
+FRAME 01 — contact A: the near leg (the leg on image-right in reference) reaches forward toward lower-left with heel touching ground and toes slightly raised; the far leg extends back toward upper-right with heel raised and toes touching. Clear modest stride, legs remain distinct.
+
+farmer-carry-dates-walk-02.png
+FRAME 02 — passing A: far leg is now the straight supporting leg beneath the pelvis, while the near leg bends at knee with foot lifted slightly off ground passing beside the supporting ankle toward lower-left. Feet close together but clearly distinct. Upper body remains fixed, no bobbing.
+
+farmer-carry-dates-walk-03.png
+FRAME 03 correction — change only legs below the kilt. The IMAGE-RIGHT LEG must be STRAIGHT and weight bearing, its bare foot near canvas x=780,y=1190, toes pointed toward screen-left. The IMAGE-LEFT LEG must be BEHIND, bent at the knee, with its foot lifted near canvas x=540,y=1080, heel raised. This is opposite to a pose with left leg straight/right leg bent. Crucial silhouette: straight leg on RIGHT of image, bent raised leg on LEFT. Do not mirror the whole farmer. Keep head, two baskets, torso, arms, color and framing exactly unchanged. Small natural stride.
+
+farmer-carry-dates-walk-04.png
+FRAME 04 — passing B: the leg rooted under the LEFT side of the kilt (image-left, far leg) is now the straight supporting leg with foot beneath the pelvis. The leg rooted under the RIGHT side of the kilt (image-right, near leg) bends at knee with its heel raised and foot floating behind the supporting ankle toward the right; it is swinging forward into the next stride. Keep both legs distinct. Only legs change; upper body absolutely still, no bobbing.

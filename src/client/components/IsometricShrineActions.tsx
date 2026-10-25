@@ -6,17 +6,27 @@ import BuildingActionIcon from "./BuildingActionIcon";
 import styles from "../styles/BuildingActionButton.module.scss";
 import InfoAlert from "./InfoAlert";
 import beer from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.png";
+import progressStyles from "../styles/ProductionProgress.module.scss";
 
 export default function IsometricShrineActions({ snapshot, buildingId, now, onOffer }: {
   snapshot: FarmSnapshot; buildingId: string; now: number; onOffer?: (item: "bread" | "beer") => void;
 }) {
   const blessing = snapshot.farm.production.shrineBlessing;
   const active = shrineBlessingActive(blessing, now);
-  const minutes = active ? Math.ceil((Date.parse(blessing!.expiresAt) - now) / 60000) : 0;
+  if (active && blessing) {
+    const remaining = Math.max(0, Date.parse(blessing.expiresAt) - now);
+    const duration = Math.max(1, Date.parse(blessing.expiresAt) - Date.parse(blessing.startedAt));
+    const percentage = Math.max(0, Math.min(100, (now - Date.parse(blessing.startedAt)) / duration * 100));
+    const seconds = Math.ceil(remaining / 1000);
+    const countdown = `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds / 60) % 60).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+    return <div className={progressStyles.progress}>
+      <div className={progressStyles.labels}><span>Blessing</span><span>{countdown} remaining</span></div>
+      <progress aria-label="Blessing progress" aria-valuetext={`${countdown} remaining`} max={100} value={percentage} />
+    </div>;
+  }
   // Carrying goods alone is not work; keep its separate empty-hands explanation.
   const busy = plantingBlocker({ ...snapshot, farm: { ...snapshot.farm, carriedItem: null } }, now) !== null;
   return <>
-    {active && <p>Blessing: {Math.floor(minutes / 60)}h {minutes % 60}m remaining.</p>}
     {busy ? <InfoAlert role="alert">The farmer is busy</InfoAlert> : (["bread", "beer"] as const).map(item => {
       const reason = shrineOfferingBlocker(snapshot, buildingId, item, now);
       return <div key={item}>

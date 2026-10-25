@@ -1,7 +1,7 @@
 import type { LeaderboardResponse } from "../../schemas/leaderboard";
 import { LEADERBOARD_METRICS } from "../../schemas/leaderboard";
 import { SUMER_CITIES } from "../../game-data/sumer";
-import farmerSprite from "../../assets/sprite_assets/pngs/farmer-stand-staff-1.png";
+import farmerSprite from "../../assets/sprite_assets/pngs/v2/farmer-idle-approved-design.png";
 import FarmerPortrait from "./FarmerPortrait";
 import styles from "../styles/Leaderboard.module.scss";
 

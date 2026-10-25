@@ -208,7 +208,12 @@ export class IsometricMarketScene extends Phaser.Scene {
     const key = `${this.selected}:${x}:${y}`;
     if (key !== this.reportedAnchor) { this.reportedAnchor = key; this.report({ cell, x, y, kind: this.selected }); }
   }
+  private walkingForAudio = false;
+  isWalkingForAudio(): boolean {
+    return this.ready && this.sys.isActive() && this.sys.isVisible() && this.actor.visible && this.walkingForAudio;
+  }
   private renderFarmer(walking: boolean) {
+    this.walkingForAudio = walking;
     const p = isoPoint(this.position);
     this.actor.setPosition(p.x, p.y).setDepth(p.y + 1).setTexture(farmerTravelTexture(this.distance, 0, walking)).setDisplaySize(64, 64);
     this.shadow.setPosition(p.x, p.y).setDepth(p.y);

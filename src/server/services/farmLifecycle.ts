@@ -144,6 +144,14 @@ export const advanceFarmLifecycle = async (
     await transaction.update(farms).set({ progressionStats }).where(eq(farms.id, farm.id));
     farm = { ...farm, progressionStats };
   }
+  if (farm.level === 9 && !farm.progressionStats.level9Baseline) {
+    const progressionStats = { ...farm.progressionStats, level9Baseline: {
+      produced: farm.progressionStats.beerProduced + (farm.progressionStats.breadProduced ?? 0),
+      datesStored: farm.progressionStats.datesStored ?? 0
+    } };
+    await transaction.update(farms).set({ progressionStats }).where(eq(farms.id, farm.id));
+    farm = { ...farm, progressionStats };
+  }
   farm = await advanceBatchPlanting(transaction, farm, now);
   farm = await advancePerennialCropWork(transaction, farm, now);
   if (!farm.progressionStats.builtFirstCanal || !farm.progressionStats.plantedFirstBarley) {

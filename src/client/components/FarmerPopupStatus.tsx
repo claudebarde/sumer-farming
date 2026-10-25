@@ -4,6 +4,7 @@ import RationMeter from "./RationMeter";
 import styles from "../styles/GameCanvas.module.scss";
 import { farmerActivity } from "../game/phaser/farmerActivity";
 import { FARM_SPRITES } from "../../assets/farmSprites";
+import datesIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.png";
 import flour from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.png";
 import brewersGroats from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.png";
 import road from "../../assets/sprite_assets/pngs/v2/isometric-test/roads/road-ne-sw.png";
@@ -13,7 +14,7 @@ import pickaxe from "../../assets/sprite_assets/pngs/v2/isometric-test/farmer-bu
 
 const activityImages = { barley: FARM_SPRITES.harvestedBarley, flour, brewersGroats, road, canal, stool, pickaxe,
   reed: FARM_SPRITES.reedBundle, clay: FARM_SPRITES.brickPile, fish: FARM_SPRITES.fish,
-  bread: FARM_SPRITES.breadBasket, beer: FARM_SPRITES.beerJars, dates: FARM_SPRITES.datesBasket, water: FARM_SPRITES.water };
+  bread: FARM_SPRITES.breadBasket, beer: FARM_SPRITES.beerJars, dates: datesIcon, water: FARM_SPRITES.water };
 
 export default function FarmerPopupStatus({ snapshot, now, walking = false }: { readonly snapshot: FarmSnapshot; readonly now: number; readonly walking?: boolean }) {
   const household = snapshot.farm.household;

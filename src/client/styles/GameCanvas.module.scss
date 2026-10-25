@@ -20,23 +20,6 @@
   }
 }
 
-.fishing-controls {
-  position: fixed;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 900;
-  width: min(420px, calc(100vw - 32px));
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px;
-  background: $color-parchment-light;
-  border: $container-border;
-  border-radius: $container-border-radius;
-  font-size: 0.8rem;
-}
-
 .farmer-portrait {
   display: block;
   width: 96px;
@@ -132,37 +115,6 @@
   font-size: 12px;
 }
 
-.canvas {
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  position: relative;
-}
-
-.game-viewport {
-  width: 100%;
-  height: 100%;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
-}
-
-.game-container {
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  position: relative;
-
-  canvas {
-    display: block;
-    touch-action: pan-y !important;
-  }
-}
-
 .tile-popover {
   box-sizing: border-box;
   background-color: $color-parchment-light;
@@ -194,11 +146,6 @@
     overflow-wrap: anywhere;
   }
 
-  .tile-popover-arrow {
-    width: 12px;
-    height: 6px;
-    fill: $color-parchment-light;
-  }
 }
 
 .tile-popover-content {
@@ -231,30 +178,6 @@
   gap: 8px;
 }
 
-.crop-growth-progress {
-  appearance: none;
-  display: block;
-  width: 100%;
-  height: 8px;
-  overflow: hidden;
-  border: 1px solid $color-sand;
-  border-radius: 999px;
-  background-color: $color-parchment;
-  color: $color-leaf;
-
-  &::-webkit-progress-bar {
-    background-color: $color-parchment;
-  }
-  &::-webkit-progress-value {
-    background-color: $color-leaf;
-    border-radius: 999px;
-  }
-  &::-moz-progress-bar {
-    background-color: $color-leaf;
-    border-radius: 999px;
-  }
-}
-
 .mill-select-trigger {
   display: flex;
   align-items: center;
@@ -279,28 +202,6 @@
     border-bottom: 1px solid $color-sand;
   }
 
-  thead {
-    background: $color-parchment;
-  }
-}
-
-.mill-recipe-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85em;
-  caption {
-    text-align: left;
-    padding-bottom: 0.25rem;
-  }
-  th,
-  td {
-    padding: 0.25rem 0.35rem;
-    text-align: center;
-    border-bottom: 1px solid $color-sand;
-  }
-  th:first-child {
-    text-align: left;
-  }
   thead {
     background: $color-parchment;
   }
@@ -332,38 +233,6 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
-}
-
-.tile-popover-close {
-  background: none;
-  border: none;
-  cursor: pointer;
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.tile-popover-alert {
-  margin: 0;
-  padding: 8px 12px;
-  border-left: 3px solid $color-barley-dark;
-  background-color: $color-parchment;
-  color: $color-ink;
-}
-
-.buttons-container {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: stretch;
-  gap: 10px;
-  z-index: 10;
 }
 
 .city-onboarding { position: relative; height: calc(100dvh - 80px); min-height: 650px; }
@@ -570,20 +439,6 @@
   }
 }
 
-.building-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-
-  img {
-    display: block;
-    flex-shrink: 0;
-    width: 48px;
-    height: 48px;
-    object-fit: contain;
-  }
-}
-
 .building-list li.building-card {
   display: grid;
   grid-template-columns: 160px minmax(0, 1fr);
@@ -678,24 +533,6 @@
     width: 32px;
     height: 32px;
     object-fit: contain;
-  }
-}
-
-.batch-planting-controls {
-  position: absolute;
-  bottom: 4%;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 20;
-  width: min(560px, calc(100% - 32px));
-  p {
-    margin: 0 0 8px;
-  }
-  > div {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: center;
   }
 }
 
@@ -952,13 +789,4 @@
   .manage-dialog-content {
     animation-duration: 1ms !important;
   }
-}
-.building-level-sign {
-  display: inline-block;
-  padding: 0.1em 0.4em;
-  border: 2px solid #795132;
-  border-radius: 4px;
-  background: #d9b97e;
-  font-size: 0.65em;
-  white-space: nowrap;
 }

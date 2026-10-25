@@ -2,6 +2,12 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 import BuildingActionIcon from "../../src/client/components/BuildingActionIcon";
+import { readFileSync } from "node:fs";
+
+it("places planting before irrigation in the isometric tile action list", () => {
+  const source = readFileSync(new URL("../../src/client/components/IsometricTilePopup.tsx", import.meta.url), "utf8");
+  expect(source.indexOf("<span>Plant barley</span>")).toBeLessThan(source.indexOf("<span>Build irrigation canal</span>"));
+});
 
 it.each([
   ["plantBarley", "plant-barley-icon.png"],

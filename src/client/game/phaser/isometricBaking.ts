@@ -56,5 +56,6 @@ export const bakingJourneyPose = (job: BakingJob | undefined, now: number) => {
   const index = Math.floor(step), fraction = step - index;
   const from = journey.path[index]!, to = journey.path[index + 1] ?? from;
   return { position: { column: from.column + (to.column - from.column) * fraction, row: from.row + (to.row - from.row) * fraction },
+    walking: now >= journey.departedAt && (from.column !== to.column || from.row !== to.row),
     carrying: step >= journey.supplyIndex, distance: step * Math.hypot(48, 24), facingLeft: isoPoint(to).x < isoPoint(from).x };
 };

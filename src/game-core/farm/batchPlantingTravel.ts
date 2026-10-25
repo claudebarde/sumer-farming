@@ -1,6 +1,7 @@
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { FarmCoordinate } from "./irrigation";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
+import { FARM_MARKET_FOOTPRINT } from "../../game-data/farmMarket";
 import { getBuildingFootprint } from "./buildings";
 import { findRoadPreferredPath } from "./roadPath";
 import { roadIsComplete } from "../../game-data/roads";
@@ -14,7 +15,7 @@ export const plantingTravelPath = (snapshot: FarmSnapshot, from: FarmCoordinate,
   const { worldBounds: bounds, buildingBounds: home, roadRow, riverRow } = INITIAL_FARM_CONFIG;
   const local = (p: FarmCoordinate) => ({ column: p.column - bounds.minimumColumn, row: p.row });
   const key = (p: FarmCoordinate) => `${p.column}:${p.row}`;
-  const blocked = snapshot.buildings.flatMap(b => getBuildingFootprint(b.type, b));
+  const blocked = [...snapshot.buildings.flatMap(b => getBuildingFootprint(b.type, b)), ...FARM_MARKET_FOOTPRINT];
   for (let row = home.minimumRow; row <= home.maximumRow; row++)
     for (let column = home.minimumColumn; column <= home.maximumColumn; column++) blocked.push({ column, row });
   for (let column = bounds.minimumColumn; column <= bounds.maximumColumn; column++) blocked.push({ column, row: riverRow });

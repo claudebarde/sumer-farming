@@ -2,8 +2,8 @@ import type { MarketItemKey } from "../../game-data/marketItems";
 import { FARM_SPRITES } from "../../assets/farmSprites";
 import MarketJarIcon from "./MarketJarIcon";
 import tools from "../../assets/sprite_assets/pngs/wooden-baking-tools.png";
-import bread from "../../assets/sprite_assets/pngs/bread-basket.png";
-import flour from "../../assets/sprite_assets/pngs/flour-bags.png";
+import bread from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.png";
+import flour from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.png";
 import groats from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.png";
 
 export default function MarketItemIcon({ itemKey }: { itemKey: MarketItemKey }) {

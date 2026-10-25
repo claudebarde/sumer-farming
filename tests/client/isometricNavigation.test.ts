@@ -6,17 +6,13 @@ vi.mock("../../src/client/components/DevelopmentPlayerSelector", () => ({ defaul
 import Header from "../../src/client/components/Header";
 
 afterEach(() => vi.unstubAllGlobals());
-it.each(["isometric-farm", "isometric"])("does not offer flat-map switching in %s", view => {
-  vi.stubGlobal("window", { location: { search: `?view=${view}` } });
+it.each(["", "?view=isometric", "?view=isometric-farm", "?view=flat"])("has no view selector for %s", search => {
+  vi.stubGlobal("window", { location: { search } });
   const html = renderToStaticMarkup(createElement(Header));
+  expect(html).toContain("A Home Between Rivers");
+  expect(html).not.toContain("<select");
   expect(html).not.toContain("Flat farm");
-  expect(html).not.toContain('value="flat"');
-  expect(html).toContain('value="isometric-farm"');
-  expect(html).toContain('value="isometric"');
-});
-it("preserves the existing legacy view until its retirement task", () => {
-  vi.stubGlobal("window", { location: { search: "" } });
-  expect(renderToStaticMarkup(createElement(Header))).toContain('value="flat"');
+  expect(html).not.toContain("Isometric test");
 });
 it.each(["IsometricFarm", "IsometricTilePopup", "IsometricTravelPopup"])("removes fallback links and text from %s", name => {
   const source = readFileSync(new URL(`../../src/client/components/${name}.tsx`, import.meta.url), "utf8");

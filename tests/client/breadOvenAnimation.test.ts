@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 vi.mock("phaser", () => ({ default: {} }));
+vi.mock("../../src/client/game/phaser/buildingProgressBar", () => ({ drawBuildingProgress: vi.fn() }));
 import type Phaser from "phaser";
 import { bakingPose, bakingWisps, BAKING_CYCLE_MS, BAKING_WORKER_TEXTURE_OPTIONS, createBakingAnimation, bakingTableTexture } from "../../src/client/game/phaser/breadOvenAnimation";
 import { bakingProgress, bakingJourneyPose } from "../../src/client/game/phaser/isometricBaking";

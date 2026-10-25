@@ -4,7 +4,6 @@
   flex-wrap: wrap;
   gap: 12px;
   padding-top: 16px;
-  // NES.css adds a bottom margin to labels, offsetting the adjacent button.
   label { display: flex; flex: 1 1 180px; flex-direction: column; gap: 4px; margin-bottom: 0; }
   select { width: 100%; min-height: 44px; font: inherit; color: inherit; }
   button { min-height: 44px; }

@@ -1,5 +1,6 @@
 import { PORTER_STEP_MS, type Porter, type PorterItem } from "../../game-data/porter";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
+import { FARM_MARKET_FOOTPRINT, FARM_MARKET_ENTRANCE } from "../../game-data/farmMarket";
 import { getBuildingFootprint } from "./buildings";
 import type { FarmBuildingType } from "../../game-data/buildings";
 import { findRoadPreferredPath } from "./roadPath";
@@ -13,7 +14,7 @@ type Position = { column: number; row: number };
 export type PorterBuilding = Position & { id: string; type: FarmBuildingType; completesAt: number; loadingTile: Position | null; emptyBeerJars?: number };
 export type PorterStack = { buildingId: string; itemKey: PorterItem; quantity: number; readyAt: number };
 export const PORTER_HOME: Position = { column: 3, row: INITIAL_FARM_CONFIG.roadRow };
-export const PORTER_MARKET: Position = { column: INITIAL_FARM_CONFIG.worldBounds.maximumColumn - 1, row: INITIAL_FARM_CONFIG.roadRow };
+export const PORTER_MARKET: Position = FARM_MARKET_ENTRANCE;
 
 export const porterRoadRemovalReason = (porter: Porter | null | undefined, target: Position): string | null => {
   const path = porter?.job?.path ?? porter?.returnTrip?.path ?? [];
@@ -26,7 +27,7 @@ export const porterPath = (buildings: readonly PorterBuilding[], roads: readonly
   const bounds = INITIAL_FARM_CONFIG.worldBounds;
   const local = (p: Position) => ({ column: p.column - bounds.minimumColumn, row: p.row });
   const key = (p: Position) => `${p.column}:${p.row}`;
-  const blocked = [...buildings.flatMap(b => getBuildingFootprint(b.type, b)), ...obstacles];
+  const blocked = [...buildings.flatMap(b => getBuildingFootprint(b.type, b)), ...FARM_MARKET_FOOTPRINT, ...obstacles];
   const home = INITIAL_FARM_CONFIG.buildingBounds;
   for (let row = home.minimumRow; row <= home.maximumRow; row++) for (let column = home.minimumColumn; column <= home.maximumColumn; column++) blocked.push({ column, row });
   const roadTiles = roads.filter(r => roadIsComplete(r, now)).map(local);
@@ -60,6 +61,12 @@ export const advancePorter = (input: {
     .map(([itemKey, quantity]) => [itemKey, input.locations?.[itemKey] ?? storedLocations({ itemKey, quantity }, input.buildings, input.now)]));
   const breweryJars = Object.fromEntries(input.buildings.filter(b => b.type === "brewery").map(b => [b.id, b.emptyBeerJars ?? 0]));
   let cursor = porter.checkedAt;
+  const returnToMarket = () => {
+    const path = porterRoadPath(input.buildings, input.roads, porter.position, porter.home ?? PORTER_MARKET, cursor);
+    if (!path || path.length <= 1) return false;
+    porter = { ...porter, returnTrip: { path: [...path], startedAt: cursor, completesAt: cursor + (path.length - 1) * PORTER_STEP_MS } };
+    return true;
+  };
   // Each trip consumes a positive stack quantity, making catch-up finite.
   while (true) {
     if (porter.returnTrip) {
@@ -83,13 +90,11 @@ export const advancePorter = (input: {
       }
       cursor = job.completesAt;
       porter = { ...porter, position: job.path[job.path.length - 1]!, job: null };
-      const path = porterRoadPath(input.buildings, input.roads, porter.position, porter.home ?? PORTER_MARKET, cursor);
-      if (path && path.length > 1) {
-        porter = { ...porter, returnTrip: { path: [...path], startedAt: cursor, completesAt: cursor + (path.length - 1) * PORTER_STEP_MS } };
-        continue;
-      }
     }
-    if (cursor >= porter.expiresAt) break;
+    if (cursor >= porter.expiresAt) {
+      if (returnToMarket()) continue;
+      break;
+    }
     const candidates = stacks.filter(s => s.quantity > 0).sort((a, b) => a.readyAt - b.readyAt || a.buildingId.localeCompare(b.buildingId) || a.itemKey.localeCompare(b.itemKey));
     const next = candidates.flatMap(stack => {
       const startedAt = Math.max(cursor, stack.readyAt, porter.hiredAt);
@@ -127,7 +132,10 @@ export const advancePorter = (input: {
           pickupAt: startedAt + pickupIndex * PORTER_STEP_MS,
           completesAt: startedAt + Math.max(1, path.length - 1) * PORTER_STEP_MS + 1000, path, pickupIndex }];
       })[0];
-      if (!supply) break;
+      if (!supply) {
+        if (returnToMarket()) continue;
+        break;
+      }
       inventory.emptyBeerJar -= supply.quantity;
       porter = { ...porter, job: supply };
       continue;

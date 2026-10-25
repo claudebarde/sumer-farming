@@ -7,6 +7,8 @@ export const INITIAL_PROGRESSION_STATS = {
   processedBarley: 0
 };
 export type ProgressionStats = typeof INITIAL_PROGRESSION_STATS & {
+  readonly datesStored?: number;
+  readonly level9Baseline?: { readonly produced: number; readonly datesStored: number };
   readonly buildingReadyAnnounced?: readonly import("./buildings").FarmBuildingType[];
   readonly builtFirstCanal?: boolean;
   readonly plantedFirstBarley?: boolean;
@@ -18,7 +20,12 @@ export type ProgressionStats = typeof INITIAL_PROGRESSION_STATS & {
     readonly sold: number;
   };
 };
-export const MAX_PLAYABLE_LEVEL = 9;
+export const MAX_PLAYABLE_LEVEL = 10;
+export const LEVEL_10_REQUIRED_PALMS = 2;
+export const LEVEL_10_REQUIRED_DATES = 4;
+export const LEVEL_10_REQUIRED_PRODUCTION = 40;
+export const LEVEL_10_DATE_OFFERING = 2;
+export const LEVEL_10_FOOD_OFFERING = 10;
 export const LEVEL_9_REQUIRED_BARLEY = 100;
 export const LEVEL_9_REQUIRED_PRODUCTION = 30;
 export const LEVEL_9_FOOD_OFFERING = 10;
@@ -66,7 +73,7 @@ export const LEVEL_UNLOCK_ITEMS = [
   ],
   ["Warehouse", "Small shrine", "Mill upgrade to building level 2"],
   ["Date palms", "Dates treats", "Bread oven and brewery upgrades to building level 2"],
-  ["Mill upgrade to building level 3", "Neighbourhood and cooperative projects (upcoming)"],
+  ["Mill upgrade to building level 3"],
   ["Bread oven and brewery upgrades to building level 3"]
 ] as const;
 // Notifications use the same unlock definitions in a compact sentence.

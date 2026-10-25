@@ -1,4 +1,5 @@
 @use "./variables" as *;
+@use "./base";
 @use "sass:color";
 @import url("https://fonts.googleapis.com/css2?family=Bree+Serif&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
@@ -52,11 +53,7 @@ h1 {
   }
 }
 
-.nes-btn {
-  border-image-repeat: stretch;
-}
-
-button:not(.nes-btn) {
+button {
   background-color: $color-sand;
   border: $container-border;
   border-radius: $container-border-radius;
@@ -97,22 +94,14 @@ button:focus-visible {
   box-sizing: border-box;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-family: "Press Start 2P", system-ui;
-  font-weight: 400;
-  font-style: normal;
-  font-size: 0.7rem;
-  background-color: white;
-
-  .nes-btn {
-    font: inherit;
-    white-space: normal;
-    max-width: 100%;
-  }
-
-  .nes-btn:focus-visible {
-    outline: 2px solid $color-ink;
-    outline-offset: 6px;
-  }
+  font-family: "Bree Serif", Georgia, serif;
+  font-size: 0.9rem;
+  background-color: $color-parchment-light;
+  color: $color-ink;
+  border: $container-border;
+  border-radius: $container-border-radius;
+  padding: $container-padding;
+  text-align: center;
 }
 
 .farm-inventory-chip {
@@ -131,4 +120,56 @@ button:focus-visible {
     border-color: $color-barley-dark;
     background-color: $color-barley-light;
   }
+}
+
+// Farmer hand cursors. Hotspots sit on the index fingertip in each 35px export.
+:root {
+  --farm-cursor-default: url("../assets/cursors/farmer-default-outlined.svg") 11 8, default;
+  --farm-cursor-pointer: url("../assets/cursors/farmer-pointer-outlined.svg") 15 7, pointer;
+}
+
+html,
+body,
+canvas {
+  cursor: var(--farm-cursor-default);
+}
+
+// Shared hand cursors for native controls and Radix controls.
+a,
+button,
+select,
+summary,
+[role="button"],
+[role="combobox"],
+[role="option"],
+[role="menuitem"],
+[role="tab"],
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+input[type="button"],
+input[type="submit"],
+label[for],
+canvas[style*="cursor: pointer"] {
+  cursor: var(--farm-cursor-pointer) !important;
+}
+
+button:disabled,
+select:disabled,
+input:disabled,
+[aria-disabled="true"],
+[data-disabled] {
+  cursor: not-allowed !important;
+}
+
+// Only the map canvas changes during field selection; overlays keep their UI cursors.
+canvas[data-field-cursor="sow"] {
+  cursor: url("../assets/cursors/farmer-sow-outlined.svg") 10 22, pointer !important;
+}
+canvas[data-field-cursor="unavailable"] {
+  cursor: not-allowed !important;
+}
+
+canvas[data-field-cursor="harvest"] {
+  cursor: url("../assets/cursors/farmer-harvest-outlined.svg") 16 2, pointer !important;
 }

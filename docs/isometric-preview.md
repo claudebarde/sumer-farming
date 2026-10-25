@@ -1,10 +1,17 @@
-# Saved-farm isometric checkpoint
+# Isometric implementation and migration notes
+
+The isometric farm is the sole production view. The flat-map scenes, isolated
+sandbox, view selector and legacy `view` routing have been retired. This document
+contains accumulated migration checkpoints; earlier statements about unavailable
+features or preview-only behavior describe their state at that checkpoint. Use
+`PROJECT.md` for current architecture and `game-rules.md` for playable rules.
 
 Mill animation v1 is approved and retained in `millAnimation.ts`, with regression
 tests in `millAnimation.test.ts`. See `docs/mill-animation.md` for its asset manifest,
 approved settings and integration contract. The temporary toolbar control, mock
 mill, yellow footprint, camera override and scene test lifecycle have been removed.
-The animation is not yet connected to real mill production.
+The approved animation is connected to saved mill production through
+`isometricMilling.ts` and `IsometricFarmScene.ts`.
 
 Reed/clay gathering is playable through contextual source popups. The existing
 start_gather_resource command is submitted immediately with keepalive. A local
@@ -155,9 +162,9 @@ types still require migration. The spatial-only mock is used only by tests.
 The readiness event opens the Build tab; modal
 overlay, Escape, close button and trigger focus restoration are preserved.
 
-Isometric farm/test headers no longer offer the Flat farm selector option, and
-isometric popups/drawer contain no flat-farm fallback links. Legacy routing/code
-remains until the separate retirement task; this is not a default-route change.
+The app opens the isometric farm after city onboarding. There is no view selector
+or flat-farm fallback link. Startup removes obsolete `view` parameters from old
+bookmarks while preserving other parameters and the URL hash.
 
 Farm/granary barley chips bounce for 420ms when their displayed quantity increases,
 with a small scale overshoot and 4px lift. Per-building count/time state survives
@@ -255,9 +262,8 @@ and hide the newly committed ground item until the placing motion ends. Then sho
 the authoritative remainder and ground pile. Both commands use keepalive and never
 depend on animation callbacks; failed requests do not start a transfer animation.
 
-Select **Isometric farm (preview)** to inspect the selected player's actual snapshot
-and plant or harvest barley. **Flat farm** retains the other gameplay actions. **Isometric test** preserves the isolated
-art/animation sandbox. Switching views preserves the selected development player.
+The isometric farm displays the selected player's saved snapshot and playable
+actions directly. The separate flat farm and artwork sandbox have been removed.
 
 The preview reads the same snapshot API as the flat view, refreshing every 30 seconds
 while visible and on visibility restoration; active batches also refresh

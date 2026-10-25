@@ -50,8 +50,20 @@ describe("isometric donkey wandering", () => {
     const retreat = advanceDonkeyWander(moving, options)!;
     expect(retreat.position).toEqual(moving.position);
     expect(retreat.motion).toMatchObject({ from: moving.position, to: a });
+    expect(retreat).toMatchObject({ facingLeft: true, facingBack: true });
     const rerouted = advanceDonkeyWander({ ...resting, motion: { from: a, to: b, elapsed: 0 } }, options)!;
     expect(rerouted.motion?.to).toEqual(alternative);
+  });
+  it.each([
+    [1, 0, true, true], [-1, 0, false, false],
+    [0, 1, false, true], [0, -1, true, false],
+  ] as const)("turns around when backtracking from direction %s,%s", (dc, dr, facingLeft, facingBack) => {
+    const target = { column: a.column + dc, row: a.row + dr };
+    const position = { column: a.column + dc / 2, row: a.row + dr / 2 };
+    const state = { ...resting, position, facingLeft: !facingLeft, facingBack: !facingBack,
+      motion: { from: a, to: target, elapsed: 450 } };
+    const result = advanceDonkeyWander(state, { ...input, cells: [a, target], occupied: [target] });
+    expect(result).toMatchObject({ position, facingLeft, facingBack, motion: { to: a } });
   });
   it("walks out of a newly occupied footprint without jumping, then rests", () => {
     const c = { column: 6, row: 4 };

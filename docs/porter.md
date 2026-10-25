@@ -6,7 +6,7 @@ The porter is independent of farmer commands and availability.
 - `src/game-core/farm/porter.ts`: pure routing, scheduling, expiry and catch-up.
 - `src/server/services/porter.ts`: transactional, idempotent hiring and payment.
 - `src/server/services/porterLifecycle.ts`: applies pure results under the farm lock.
-- `src/client/game/phaser/porter.ts`: timestamp-driven sprite presentation and refresh; installed and disposed by MainScene.
+- `src/client/game/phaser/isometricPorter.ts`: timestamp-driven porter poses rendered by `IsometricFarmScene`.
 - `src/client/components/PorterPanel.tsx`: hire action and countdown.
 
 State lives in the existing production JSON. No porter state migration is needed for older farms. Migration 0044 adds the payment ledger transaction type and updates its constraints.

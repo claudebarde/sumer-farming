@@ -1,153 +1,29 @@
-import groundUrl from "./sprite_assets/pngs/ground.png";
-import datePalmSaplingUrl from "./sprite_assets/pngs/date-palm-sapling.png";
-import datePalmGrowingUrl from "./sprite_assets/pngs/date-palm-without-fruits.png";
-import datePalmReadyUrl from "./sprite_assets/pngs/date-palm-with-fruits.png";
-import datesBasketUrl from "./sprite_assets/pngs/dates-basket.png";
-import porterIdleUrl from "./sprite_assets/pngs/porter-idle.png";
-import porterBusyUrl from "./sprite_assets/pngs/porter-busy.png";
-import donkeyUrl from "./sprite_assets/pngs/donkey-1.png";
-import millDonkeyUrl from "./sprite_assets/pngs/donkey-mill.png";
-import millUrl from "./sprite_assets/pngs/empty-mill.png";
-import breadOvenUrl from "./sprite_assets/pngs/bread-oven-idle.png";
-import breadOvenBusyUrl from "./sprite_assets/pngs/bread-oven-busy.png";
-import smallShrineUrl from "./sprite_assets/pngs/small-shrine.png";
-import warehouseUrl from "./sprite_assets/pngs/warehouse.png";
-import smallShrineWithOfferingsUrl from "./sprite_assets/pngs/small-shrine-with-offerings.png";
-import beerJarsUrl from "./sprite_assets/pngs/beer-jars.png";
-import breadBasketUrl from "./sprite_assets/pngs/bread-basket.png";
-import millBagsUrl from "./sprite_assets/pngs/flour-bags.png";
-import millBusyUrl from "./sprite_assets/pngs/busy-mill.png";
-import dogStandingUrl from "./sprite_assets/pngs/dog-on-four.png";
-import dogSittingUrl from "./sprite_assets/pngs/dog-sitting.png";
-import fishingUrl from "./sprite_assets/pngs/farmer-fishing.png";
-import withFishUrl from "./sprite_assets/pngs/farmer-with-fish.png";
+import donkeyUrl from "./sprite_assets/pngs/v2/isometric-test/donkey/donkey-idle-isometric.png";
+import millUrl from "./sprite_assets/pngs/v2/isometric-test/mill-isometric.png";
+import beerJarsUrl from "./sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.png";
+import breadBasketUrl from "./sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.png";
 import fishUrl from "./sprite_assets/pngs/fish.png";
-import groundVariantUrl from "./sprite_assets/pngs/ground-grass.png";
-import canalHorizontalUrl from "./sprite_assets/pngs/canal-horizontal.png";
-import canalBridgeUrl from "./sprite_assets/pngs/horizontal-bridge-over-irrigation-canal.png";
-import canalVerticalUrl from "./sprite_assets/pngs/canal-vertical.png";
-import canalCornerUrl from "./sprite_assets/pngs/canal-corner.png";
-import canalCrossUrl from "./sprite_assets/pngs/canal-intersection-a.png";
-import canalTJunctionUrl from "./sprite_assets/pngs/canal-intersection-b.png";
 import waterUrl from "./sprite_assets/pngs/water.png";
-import groundPathHorizontalUrl from "./sprite_assets/pngs/mud-road-horizontal.png";
-import roadCornerUrl from "./sprite_assets/pngs/mud-road-90-deg.png";
-import marketStandUrl from "./sprite_assets/pngs/market-barley-stand.png";
-import marketBeerStandUrl from "./sprite_assets/pngs/market-beer-stand.png";
-import marketBreadStandUrl from "./sprite_assets/pngs/market-bread-stand.png";
-import merchantChariotUrl from "./sprite_assets/pngs/merchant-chariot.png";
-import groundFenceUrl from "./sprite_assets/pngs/ground-fence-tile.png";
-import barleySeededUrl from "./sprite_assets/pngs/field-plowed.png";
-import barleyGrowingUrl from "./sprite_assets/pngs/field-seeded.png";
-import barleyReadyUrl from "./sprite_assets/pngs/field-wheat-ripe.png";
 import harvestedBarleyUrl from "./sprite_assets/pngs/wheat-sheaf.png";
 import farmerIdle0Url from "./sprite_assets/pngs/v2/farmer-idle-refined.png";
-import farmerIdle1Url from "./sprite_assets/pngs/farmer-stand-staff-2.png";
-import farmerIdle2Url from "./sprite_assets/pngs/farmer-stand-staff-3.png";
-import farmerIdle3Url from "./sprite_assets/pngs/farmer-stand-staff-4.png";
-import farmerIdle4Url from "./sprite_assets/pngs/farmer-stand-staff-5.png";
-import farmerIdle5Url from "./sprite_assets/pngs/farmer-stand-staff-6.png";
-import farmerWalk0Url from "./sprite_assets/pngs/farmer-walk-1.png";
-import farmerWalk1Url from "./sprite_assets/pngs/farmer-walk-2.png";
-import farmerWalk2Url from "./sprite_assets/pngs/farmer-walk-3.png";
-import farmerWalk3Url from "./sprite_assets/pngs/farmer-walk-4.png";
-import farmerPlant0Url from "./sprite_assets/pngs/farmer-plant-1.png";
-import farmerPlant1Url from "./sprite_assets/pngs/farmer-plant-2.png";
-import farmerPlant2Url from "./sprite_assets/pngs/farmer-plant-3.png";
-import farmerPlant3Url from "./sprite_assets/pngs/farmer-plant-4.png";
-import farmerHarvest0Url from "./sprite_assets/pngs/farmer-harvest-1.png";
-import farmerHarvest1Url from "./sprite_assets/pngs/farmer-harvest-2.png";
-import farmerHarvest2Url from "./sprite_assets/pngs/farmer-carry-wheat-1.png";
-import farmerHarvest3Url from "./sprite_assets/pngs/farmer-carry-wheat-2.png";
-import farmUrl from "./sprite_assets/pngs/farm.png";
-import palmTreeUrl from "./sprite_assets/pngs/palm-tree.png";
-import bushUrl from "./sprite_assets/pngs/bush.png";
 import reedsUrl from "./sprite_assets/pngs/reeds-plant.png";
-import rocksUrl from "./sprite_assets/pngs/rocks.png";
-import fenceUrl from "./sprite_assets/pngs/fence.png";
-import signpostUrl from "./sprite_assets/pngs/signpost.png";
-import marketUrl from "./sprite_assets/pngs/market.png";
-import granaryUrl from "./sprite_assets/pngs/granary.png";
 import reedBundleUrl from "./sprite_assets/pngs/reed-bundle.png";
 import brickPileUrl from "./sprite_assets/pngs/brick-pile.png";
-import breweryUrl from "./sprite_assets/pngs/brewery.png";
 
 // Keep gameplay names stable; only the artwork URLs change.
 // The generated assets use "wheat" filenames for our existing barley artwork.
 export const FARM_SPRITES = {
-  datePalmSapling: datePalmSaplingUrl,
-  datePalmGrowing: datePalmGrowingUrl,
-  datePalmReady: datePalmReadyUrl,
-  datesBasket: datesBasketUrl,
-  porterIdle: porterIdleUrl,
-  porterBusy: porterBusyUrl,
   donkey: donkeyUrl,
-  millDonkey: millDonkeyUrl,
-  breadOven: breadOvenUrl,
-  breadOvenBusy: breadOvenBusyUrl,
-  smallShrine: smallShrineUrl,
-  warehouse: warehouseUrl,
-  smallShrineWithOfferings: smallShrineWithOfferingsUrl,
   beerJars: beerJarsUrl,
   breadBasket: breadBasketUrl,
-  millBags: millBagsUrl,
-  dogStanding: dogStandingUrl,
-  dogSitting: dogSittingUrl,
-  farmerFishing: fishingUrl,
-  farmerWithFish: withFishUrl,
   fish: fishUrl,
-  ground: groundUrl,
-  groundVariant: groundVariantUrl,
-  canalHorizontal: canalHorizontalUrl,
-  canalBridge: canalBridgeUrl,
-  canalVertical: canalVerticalUrl,
-  canalCorner: canalCornerUrl,
-  canalCross: canalCrossUrl,
-  canalTJunction: canalTJunctionUrl,
   water: waterUrl,
-  groundPathHorizontal: groundPathHorizontalUrl,
-  roadCorner: roadCornerUrl,
-  marketStand: marketStandUrl,
-  marketBeerStand: marketBeerStandUrl,
-  marketBreadStand: marketBreadStandUrl,
-  merchantChariot: merchantChariotUrl,
-  groundFence: groundFenceUrl,
-  barleySeeded: barleySeededUrl,
-  barleyGrowing: barleyGrowingUrl,
-  barleyReady: barleyReadyUrl,
   harvestedBarley: harvestedBarleyUrl,
   farmerIdle0: farmerIdle0Url,
-  farmerIdle1: farmerIdle1Url,
-  farmerIdle2: farmerIdle2Url,
-  farmerIdle3: farmerIdle3Url,
-  farmerIdle4: farmerIdle4Url,
-  farmerIdle5: farmerIdle5Url,
-  farmerWalk0: farmerWalk0Url,
-  farmerWalk1: farmerWalk1Url,
-  farmerWalk2: farmerWalk2Url,
-  farmerWalk3: farmerWalk3Url,
-  farmerPlant0: farmerPlant0Url,
-  farmerPlant1: farmerPlant1Url,
-  farmerPlant2: farmerPlant2Url,
-  farmerPlant3: farmerPlant3Url,
-  farmerHarvest0: farmerHarvest0Url,
-  farmerHarvest1: farmerHarvest1Url,
-  farmerHarvest2: farmerHarvest2Url,
-  farmerHarvest3: farmerHarvest3Url,
-  farm: farmUrl,
-  palmTree: palmTreeUrl,
-  bush: bushUrl,
   reeds: reedsUrl,
-  rocks: rocksUrl,
-  fence: fenceUrl,
-  signpost: signpostUrl,
-  market: marketUrl,
-  granary: granaryUrl,
   reedBundle: reedBundleUrl,
   brickPile: brickPileUrl,
-  brewery: breweryUrl,
   mill: millUrl,
-  millBusy: millBusyUrl
 } as const;
 
 export type FarmSpriteName = keyof typeof FARM_SPRITES;

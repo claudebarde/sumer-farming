@@ -1,4 +1,11 @@
 .dialog { width: min(560px, calc(100vw - 24px)); }
+.title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  :global(.cuneiforms) { white-space: nowrap; }
+}
 .card {
   display: grid;
   grid-template-columns: 100px minmax(0, 1fr);

@@ -1,4 +1,7 @@
 import { match } from "ts-pattern";
+import { buildingLevel } from "../../game-data/buildingUpgrades";
+import { CROP_DEFINITIONS } from "../../game-data/crops";
+import { LEVEL_10_REQUIRED_PALMS, LEVEL_10_REQUIRED_DATES, LEVEL_10_REQUIRED_PRODUCTION, LEVEL_10_DATE_OFFERING, LEVEL_10_FOOD_OFFERING } from "../../game-data/progression";
 import { getRiverConnectedCanals } from "./irrigation";
 import { LEVEL_9_REQUIRED_BARLEY, LEVEL_9_REQUIRED_PRODUCTION, LEVEL_9_FOOD_OFFERING } from "../../game-data/progression";
 import { LEVEL_7_REQUIRED_PRODUCTION, LEVEL_7_REQUIRED_SALES, LEVEL_7_FOOD_OFFERING, LEVEL_8_REQUIRED_GRANARY_BARLEY, type ProgressionStats } from "../../game-data/progression";
@@ -6,7 +9,7 @@ import { LEVEL_6_PROCESSED_BARLEY, LEVEL_6_PROCESSED_GOODS_OFFERING } from "../.
 import type { FarmSnapshot } from "../../schemas/farm";
 import { INITIAL_PROGRESSION_STATS, LEVEL_4_REQUIRED_HARVESTS, LEVEL_6_REQUIRED_HARVESTS, LEVEL_4_BARLEY_OFFERING, LEVEL_5_BARLEY_OFFERING, MAX_PLAYABLE_LEVEL } from "../../game-data/progression";
 
-export type LevelOffering = { readonly source: "ground_barley" | "granary_barley" | "fish" | "processed_grain" | "prepared_food" | "bread" | "beer"; readonly quantity: number };
+export type LevelOffering = { readonly source: "ground_barley" | "granary_barley" | "fish" | "processed_grain" | "prepared_food" | "bread" | "beer" | "dates"; readonly quantity: number };
 export const evaluateProgression = (snapshot: FarmSnapshot, now: number) => {
   const progress = snapshot.farm.progression;
   const level = progress?.level ?? 1;
@@ -59,6 +62,14 @@ export const evaluateProgression = (snapshot: FarmSnapshot, now: number) => {
       requirement("Beer/bread produced during level 8", level8Produced, LEVEL_9_REQUIRED_PRODUCTION),
       requirement("Bread or beer in stock (10 of one kind, offering)", Math.max(breadStock, beerStock), LEVEL_9_FOOD_OFFERING)
     ])
+    .with(9, () => [
+      requirement("Mature date palms", snapshot.crops.filter(c => c.cropKey === "datePalm" && Date.parse(c.plantedAt) + CROP_DEFINITIONS.datePalm.growthDurationMs <= now).length, LEVEL_10_REQUIRED_PALMS),
+      requirement("Baskets of dates harvested and stored during level 9", Math.max(0, (stats.datesStored ?? 0) - (stats.level9Baseline?.datesStored ?? stats.datesStored ?? 0)), LEVEL_10_REQUIRED_DATES),
+      requirement("Bread oven or brewery upgraded to level 2", completed.some(b => (b.type === "breadOven" || b.type === "brewery") && buildingLevel(snapshot.farm.production.buildingUpgrades, b.id, now) >= 2) ? 1 : 0, 1),
+      requirement("Bread and beer produced during level 9", Math.max(0, produced - (stats.level9Baseline?.produced ?? produced)), LEVEL_10_REQUIRED_PRODUCTION),
+      requirement("Stored baskets of dates (offering)", snapshot.inventory.find(i => i.itemKey === "dates")?.quantity ?? 0, LEVEL_10_DATE_OFFERING),
+      requirement("Stored bread and beer (combined offering)", breadStock + beerStock, LEVEL_10_FOOD_OFFERING)
+    ])
     .otherwise(() => []);
   const offerings: readonly LevelOffering[] = match(level)
     .with(1, () => [{ source: "ground_barley" as const, quantity: 5 }])
@@ -69,6 +80,7 @@ export const evaluateProgression = (snapshot: FarmSnapshot, now: number) => {
     .with(6, () => [{ source: "prepared_food" as const, quantity: LEVEL_7_FOOD_OFFERING }])
     .with(7, () => [{ source: "granary_barley" as const, quantity: LEVEL_8_REQUIRED_GRANARY_BARLEY }])
     .with(8, () => [{ source: breadStock >= LEVEL_9_FOOD_OFFERING ? "bread" as const : "beer" as const, quantity: LEVEL_9_FOOD_OFFERING }])
+    .with(9, () => [{ source: "dates" as const, quantity: LEVEL_10_DATE_OFFERING }, { source: "prepared_food" as const, quantity: LEVEL_10_FOOD_OFFERING }])
     .otherwise(() => []);
   const barleyCost = offerings.reduce((sum, offering) => sum + (offering.source === "ground_barley" || offering.source === "granary_barley" ? offering.quantity : 0), 0);
   const seedSafe = level === 3 ? groundBarley > 0 || plantedBarley

@@ -11,16 +11,22 @@ export const advancePerennialCropWork = async (tx: DatabaseTransaction, farm: Fa
   if (!job || job.settled || now.getTime() < job.completesAt) return farm;
   const definition = CROP_DEFINITIONS[job.cropKey];
   let cropYields = farm.production.cropYields ?? {};
+  let palmCycles = farm.production.palmCycles;
   if (job.action === "harvest") {
     const remaining = (cropYields[job.cropId] ?? definition.harvestYield) - job.quantity;
     cropYields = { ...cropYields, [job.cropId]: remaining > 0 ? remaining : definition.harvestYield };
+    if (remaining === 0) palmCycles = { ...palmCycles, [job.cropId]: {
+      startedAt: job.workEndsAt, originalReadyAt: job.workEndsAt + definition.ripeningDurationMs
+    } };
     await tx.update(farmCrops).set({ harvestStartedAt: null, harvestCompletesAt: null,
       ...(remaining === 0 ? { growthCompletesAt: new Date(job.workEndsAt + definition.ripeningDurationMs) } : {})
     }).where(and(eq(farmCrops.id, job.cropId), eq(farmCrops.farmId, farm.id)));
     const [entry] = await tx.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, definition.harvestItemKey)));
     await setStoredQuantity(tx, farm.id, definition.harvestItemKey, (entry?.quantity ?? 0) + job.quantity, now);
   }
-  const [updated] = await tx.update(farms).set({ production: { ...farm.production, cropYields, cropWork: { ...job, settled: true } },
+  const [updated] = await tx.update(farms).set({
+    ...(job.action === "harvest" ? { progressionStats: { ...farm.progressionStats, datesStored: (farm.progressionStats.datesStored ?? 0) + job.quantity } } : {}),
+    production: { ...farm.production, cropYields, palmCycles, cropWork: { ...job, settled: true } },
     version: sql`${farms.version} + 1`, updatedAt: now }).where(eq(farms.id, farm.id)).returning();
   return updated!;
 };

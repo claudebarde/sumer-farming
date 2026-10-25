@@ -1,0 +1,30 @@
+// Layout defaults owned by the game, independent of any UI framework.
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+body { line-height: 1.5; text-align: left; background: #fff; -webkit-font-smoothing: antialiased; }
+
+h1, h2, h3, h4, h5, h6 { margin: 0 0 0.5rem; }
+p, ol, ul, dl, pre, blockquote, figure { margin-top: 0; margin-bottom: 1rem; }
+ol ol, ul ul, ol ul, ul ol { margin-bottom: 0; }
+dd { margin-left: 0; margin-bottom: 0.5rem; }
+small { font-size: 80%; }
+img, svg { vertical-align: middle; }
+img { border-style: none; }
+svg { overflow: hidden; }
+table { border-collapse: collapse; }
+th { text-align: inherit; }
+label { display: inline-block; margin-bottom: 0.5rem; }
+
+button, input, select, optgroup, textarea { margin: 0; font: inherit; }
+button, input { overflow: visible; }
+button, select { text-transform: none; }
+button, [type="button"], [type="reset"], [type="submit"] { appearance: button; }
+input[type="checkbox"], input[type="radio"] { padding: 0; }
+textarea { overflow: auto; resize: vertical; }
+fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+legend { width: 100%; max-width: 100%; padding: 0; margin-bottom: 0.5rem; font-size: 1.5rem; }
+progress { vertical-align: baseline; }
+[hidden] { display: none !important; }

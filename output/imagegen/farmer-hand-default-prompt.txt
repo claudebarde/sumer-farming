@@ -1,0 +1,8 @@
+Tool: built-in image_gen
+Use case: precise-object-edit.
+Edit the golden-tan farmer hand cursor; use the default NES.css cursor only as a pose reference.
+Create one separate diagonal default hand cursor: rotate the hand pose 45 degrees counterclockwise so the extended index points toward the upper-left and the short wrist toward the lower-right.
+Fold the thumb completely underneath the palm, hidden from this back-of-hand view: no projecting thumb or thumb-shaped bump.
+Preserve the three curled fingers beside the index, natural hand silhouette, original warm golden-tan skin palette, soft illustrated shading and dark brown outline.
+Match the diagonal NES.css pose but never its pixel-art style or white coloring. Smooth high-resolution edges, readable at small cursor size.
+Entire hand and wrist in frame, centered with small transparent margins. One hand only, transparent PNG background, no text, props, shadow, or border. Requested output 1024x1024.

@@ -57,11 +57,18 @@ export const claimFarmLevel = (database: Database, input: {
             if (take > 0) await setStoredQuantity(tx, farm.id, itemKey, quantity - take, new Date());
             remaining -= take;
           }
-        } else if (offering.source === "fish" || offering.source === "bread" || offering.source === "beer") {
+        } else if (offering.source === "fish" || offering.source === "bread" || offering.source === "beer" || offering.source === "dates") {
           await setStoredQuantity(tx, farm.id, offering.source, (snapshot.inventory.find(i => i.itemKey === offering.source)?.quantity ?? 0) - offering.quantity, new Date());
         }
       }
       const [updated] = await tx.update(farms).set({ level: farm.level + 1,
+        ...(farm.level === 8 ? { progressionStats: {
+          ...snapshot.farm.progression!.stats,
+          level9Baseline: {
+            produced: snapshot.farm.progression!.stats.beerProduced + snapshot.farm.progression!.stats.breadProduced,
+            datesStored: snapshot.farm.progression!.stats.datesStored ?? 0
+          }
+        } } : {}),
         ...(farm.level === 2 ? { progressionStats: {
           ...snapshot.farm.progression!.stats,
           level3Baseline: { harvests: snapshot.farm.progression!.stats.harvests }

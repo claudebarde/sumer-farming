@@ -1,5 +1,50 @@
 # Sumer Game — Project Architecture & Development Guide
 
+## Level-10 product milestone (approved October 25, 2026)
+
+Keep milestones, development plans and implementation status in project documentation,
+never in player-facing interface copy. The level popup shows playable unlocks,
+requirements/progress and offering costs. At the current level cap, show a concise
+highest-available-level message rather than unfinished requirements or roadmap text.
+
+By level 10 the player should have access to the full core farm experience and
+the social feature set. Earlier levels introduce those systems gradually. Selected
+buildings, advanced upgrades and additional features can still unlock later.
+This is the product target, not a claim that unfinished systems are already playable.
+Neighbourhood access already starts at level 7; do not move it to level 10.
+Cooperative/social expansion and crop decay still require their own implementation
+and acceptance. Level-10 progression is independent of other players' availability.
+See game-rules.md for implemented claim requirements and the separation of playable
+unlocks from planned features.
+
+## Building upgrade presentation standard
+
+All building upgrades in the isometric farm use the shared
+`buildingRenovationAnimation.ts` renderer: the approved construction site,
+bricklaying worker, and left-to-right progress bar above the site. The scene
+registers every completed building and reads its saved `buildingUpgrades` job;
+future building types and tiers must reuse this renderer, not add bespoke upgrade
+animations. Keep output piles accessible, restore original visuals on completion,
+and preserve the approved worker scale, wall mask, and reduced-motion support.
+Upgrade presentation never assigns work to the farmer or controls server timers.
+
+## Default game view
+
+The isometric farm is the only app view, reached through the existing city
+onboarding. There is no view selector or URL-based view switching. Startup
+removes the obsolete `view` query parameter from old bookmarks without reloading,
+preserving other query parameters and the hash. The flat-map Canvas and isolated
+artwork sandbox have been removed, along with their scene entry points and
+dedicated input handlers. City onboarding still uses `SumerScene`; shared domain
+rules and saved-job compatibility remain in use.
+
+## Interface styling
+
+The game owns its base layout styles in `src/client/styles/_base.scss` and shared
+controls in `index.scss`. NES.css has been removed; use the existing parchment
+panels, sand buttons, disabled states and custom farmer-hand cursors rather than
+reintroducing legacy framework classes or styles.
+
 ## 1. Project Vision
 
 This project is a browser-first economic simulation game set in Ancient Sumer.
@@ -1537,6 +1582,18 @@ persisted immediately; walking and work animations never gate completion.
 
 ## 36. Minimal player-facing text
 
+Walking characters must use foot-position-based isometric depth, including every
+farmer carrying/working-travel variant and other walking characters. They pass
+behind buildings and use the normal walking farmer's yellow occlusion arrow when
+hidden. Never force a walking character above all building depths to avoid corner
+overlap; preserve occlusion and use the marker instead. Reuse this rule for all
+new character sprites and animations.
+
+Always represent date palms in UI icons with the full-grown tree
+(`date-palms/date-palm-isometric-empty.png`), including planting, tending,
+confirmation and work-progress panels. Sapling artwork is reserved for the actual
+growth stage on the map. Quantities of dates retain the date-basket icon.
+
 The default Destroy building icon is `BuildingActionIcon` with `kind="destroy"`:
 two copies of the pickaxe in a 36px box, one mirrored, each rotated 18 degrees,
 scaled to 0.9 and shifted 4px inward to cross at mid-handle. Preserve these approved
@@ -1577,6 +1634,11 @@ other interfaces, flag those affected interfaces and confirm before applying
 the broader change. The explicitly requested component can proceed independently
 when practical.
 
+In every building popup, “Destroy the building” must always be the last action
+button. Place production, storage, offerings and upgrade controls before it.
+Apply this ordering to all existing and future building popups; preserve the
+existing rules that hide demolition when it is unavailable.
+
 Keep interface text to a minimum. Prefer concise labels, quantities, visual states,
 and short contextual button messages over persistent explanations. Explain detailed
 rules and their rationale in the game rules, not in every gameplay popup. A blocked
@@ -1594,6 +1656,11 @@ owning tile centre and use sprite origin (0.5, 0.71875), shared through
 `GROUND_ITEM_ORIGIN` in `isometricFarm.ts`. Apply this default to future goods too.
 Preserve owning-tile hit testing. Do not apply this anchor to carried items,
 characters, crops or buildings. New artwork should be framed to match this baseline.
+Date palms use their own `DATE_PALM_ORIGIN` (0.5, 120/128), placing the trunk
+base at the projected tile centre in all growth stages and the harvesting preview.
+Keep their 100px display size; barley and worker anchors remain unchanged.
+Palm textures are prepared at 256px with 0.25 RGB sharpening and smooth filtering;
+preserve transparent edges, shared source bounds and the trunk-base origin.
 
 ## 38. Flat-to-isometric migration parity
 
@@ -1654,10 +1721,27 @@ padding). Preserve the approved settings for other buildings.
 All isometric in-world action progress bars share `ACTION_PROGRESS` and
 `drawActionProgress`: 52×7 logical pixels, 2px inset, brown track and gold fill.
 Reuse these for mill, oven, brewery, construction and road/canal work; preserve
-each action's anchor. Exception: BarleyWorkProgress retains the approved round
+road, canal and crop-work anchors. Building production and construction bars sit
+above the visible building artwork with an eight-world-pixel gap, on a dedicated
+overlay depth above world sprites. Keep the whole bar within the camera viewport
+with an eight-screen-pixel margin as the player pans, zooms or resizes. Hide bars
+for fully offscreen buildings rather than pinning them to the edge. Reuse
+`drawBuildingProgress` for every building work bar.
+Exception: BarleyWorkProgress retains the approved round
 meter in the lower container for sowing and harvesting, with percentage inside
 and the field counter beside it. Status meters and
 material-availability bars are separate UI elements, not action timers.
+
+### Progress-bar direction standard
+
+All horizontal progress bars fill from left to right. Timed action and effect
+bars (including shrine blessings) start empty and increase from 0% to 100% as
+elapsed time increases; do not drain them to represent remaining time. Show time
+remaining separately as a countdown above the bar. Apply this consistently to
+popups, drawers and in-world indicators, using saved timestamps for timed progress.
+Storage and material-availability meters also fill from the left, but represent
+current quantity rather than elapsed time and may decrease when stock is used.
+Preserve the approved circular indicators for sowing and harvesting.
 
 Keep workers and their tools within the building's 2×2 footprint as far as
 possible, preserving normal character proportions and avoiding neighbouring

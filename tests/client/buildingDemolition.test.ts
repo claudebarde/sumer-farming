@@ -9,6 +9,17 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
   buildings: [{ id, type: "granary", column: 5, row: 3, storedBarley: 0, brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0,
     startedAt: new Date(0).toISOString(), completesAt: new Date(1).toISOString() }] });
 
+it("protects the blessed shrine until the exact expiry, without blocking other buildings", () => {
+  const s = snapshot();
+  s.buildings[0]!.type = "smallShrine";
+  s.farm.production.shrineBlessing = { buildingId: id, startedAt: new Date(10).toISOString(), expiresAt: new Date(200).toISOString() };
+  expect(buildingDemolitionReason(s, id, 100)).toContain("blessing expires");
+  expect(buildingDemolitionReason(s, id, 199)).toContain("blessing expires");
+  expect(buildingDemolitionReason(s, id, 200)).toBeNull();
+  s.buildings[0]!.type = "granary";
+  expect(buildingDemolitionReason(s, id, 100)).toBeNull();
+});
+
 it("requires empty barley storage and a finished building", () => {
   const s = snapshot();
   expect(buildingDemolitionReason(s, id, 100)).toBeNull();
@@ -52,4 +63,19 @@ it("cleans only target-owned state without modifying the input", () => {
   expect(next.production.buildingUpgrades).toEqual({});
   expect(next.production.pending.other).toEqual({ itemKey: "bread", quantity: 2 });
   expect(JSON.stringify(s)).toBe(before);
+});
+
+
+it("allows an idle brewery to be demolished while a donkey mills elsewhere, but protects preparation and the mill", () => {
+  const s = snapshot();
+  s.buildings[0]!.type = "brewery";
+  const millId = "00000000-0000-4000-8000-000000000002";
+  s.buildings.push({ ...s.buildings[0]!, id: millId, type: "mill", column: 8 });
+  s.farm.milling = { buildingId: millId, worker: "donkey", recipe: "brewersGroats",
+    startedAt: new Date(50).toISOString(), completesAt: new Date(200).toISOString(), barley: 2, output: 1 };
+  expect(buildingDemolitionReason(s, id, 40)).toContain("active work");
+  expect(buildingDemolitionReason(s, id, 100)).toBeNull();
+  expect(buildingDemolitionReason(s, millId, 100)).toContain("active work");
+  s.farm.milling.worker = "farmer";
+  expect(buildingDemolitionReason(s, id, 100)).toContain("active work");
 });

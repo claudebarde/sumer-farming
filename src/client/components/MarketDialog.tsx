@@ -4,7 +4,7 @@ import { Dialog, Tabs } from "radix-ui";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { match } from "ts-pattern";
 import { farmStore } from "../stores/farmStore";
-import { MARKET_TITLES, beerMarketBuyOrder, marketIncludesItem, marketUiStore } from "../stores/marketUiStore";
+import { MARKET_TITLES, beerMarketBuyOrder, marketIncludesItem, marketUiStore, subscribeMarketOpening } from "../stores/marketUiStore";
 import { canOpenMarketStand, marketUnlockLevel } from "../../game-data/progression";
 import { calculateFarmStorageCapacity, FARM_STORAGE_CAPACITY, estateResourceCapacity } from "../../game-data/storage";
 import { millStorageReserved } from "../../game-core/farm/millStorage";
@@ -24,8 +24,8 @@ import MarketQuantityControl from "./MarketQuantityControl";
 import { FARM_SPRITES } from "../../assets/farmSprites";
 import MarketJarIcon from "./MarketJarIcon";
 import bakingToolsImage from "../../assets/sprite_assets/pngs/wooden-baking-tools.png";
-import breadBasketImage from "../../assets/sprite_assets/pngs/bread-basket.png";
-import flourBagsImage from "../../assets/sprite_assets/pngs/flour-bags.png";
+import breadBasketImage from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.png";
+import flourBagsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.png";
 import groatsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.png";
 import styles from "../styles/GameCanvas.module.scss";
 type MarketQuoteState =
@@ -69,6 +69,11 @@ export default function MarketDialog() {
   );
   const marketScope = useStore(marketUiStore, state => state.scope);
   const setMarketDialogOpen = useStore(marketUiStore, state => state.setOpen);
+  useEffect(() => subscribeMarketOpening(() => {
+    // Stand openings also come from map clicks, not only Dialog.onOpenChange.
+    // Reset every buy/sell quantity, without remounting an in-flight trade.
+    setMarketQuantities({});
+  }), []);
   useEffect(() => {
     if (!isOpenMarketDialog) return;
     const timer = window.setInterval(() => setStorageClock(Date.now()), 1000);

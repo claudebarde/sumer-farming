@@ -9,6 +9,8 @@ import SumerMapControls from "./SumerMapControls";
 import FarmerCustomization from "./FarmerCustomization";
 import type { FarmerProfile } from "../../schemas/farmerProfile";
 import styles from "../styles/GameCanvas.module.scss";
+import GameLoadingScreen from "./GameLoadingScreen";
+import loadingStyles from "../styles/IsometricTest.module.scss";
 
 function OnboardingMap() {
   const parent = useRef<HTMLDivElement>(null);
@@ -44,7 +46,9 @@ export default function CityOnboarding({ children }: { readonly children: ReactN
     return () => controller.abort();
   }, [attempt]);
   if (state === "error") return <section role="alert">Your city could not be loaded. <button onClick={() => { setState("loading"); setAttempt(value => value + 1); }}>Retry</button></section>;
-  if (state === "loading") return <p role="status">Loading your estate…</p>;
+  if (state === "loading") return <section className={loadingStyles.test} aria-busy="true">
+    <GameLoadingScreen state="loading" retry={() => window.location.reload()} />
+  </section>;
   if (!profile) return <FarmerCustomization onSaved={setProfile} />;
   return residence ? children : <OnboardingMap />;
 }

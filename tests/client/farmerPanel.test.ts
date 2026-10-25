@@ -38,11 +38,12 @@ describe("Farmer management tab", () => {
     expect(html).toContain('width="96" height="96"');
   });
   afterEach(() => vi.restoreAllMocks());
-  it("leaves the level-nine dates treat in its existing layout", () => {
+  it("shows the level-nine dates treat with the compact card", () => {
     const html = render(9);
     expect(html).toContain("Dates treat");
-    expect(html).toContain("Stored baskets of dates: 0");
-    expect(html).toContain("One basket of dates every 8 hours.");
+    expect(html).toContain("No dates available");
+    expect(html).toContain("Every 8h");
+    expect(html).toContain('disabled="">Give one basket of dates</button>');
   });
   it("shows compact treat rows without stock chips or shortage messages when stocked", () => {
     const html = render(6);

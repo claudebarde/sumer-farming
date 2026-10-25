@@ -71,12 +71,20 @@ it("protects warehouse dates and inventory above the remaining capacity", async 
   expect(result.inventory.find(i => i.itemKey === "flour")?.quantity).toBe(10);
 });
 
-it("blocks active work and pending goods, then removes the shrine blessing on demolition", async () => {
+it("blocks pending goods and active blessings, allowing shrine demolition only after expiry", async () => {
   const f = await fixture("smallShrine");
   await db.update(farms).set({ production: { pending: { [f.building.id]: { itemKey: "bread", quantity: 2 } }, delivery: null, baking: {} } }).where(eq(farms.id, f.farm.id));
   await expect(Effect.runPromise(destroyBuilding(db, f.input))).rejects.toThrow("collect the goods");
   await db.update(farms).set({ production: { pending: {}, delivery: null, baking: {}, shrineBlessing: {
     buildingId: f.building.id, startedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 60000).toISOString()
+  } } }).where(eq(farms.id, f.farm.id));
+  await expect(Effect.runPromise(destroyBuilding(db, f.input))).rejects.toThrow("blessing expires");
+  expect(await db.select().from(farmBuildings).where(eq(farmBuildings.id, f.building.id))).toHaveLength(1);
+  const [protectedFarm] = await db.select().from(farms).where(eq(farms.id, f.farm.id));
+  expect(protectedFarm!.version).toBe(1);
+  expect(protectedFarm!.production.shrineBlessing?.buildingId).toBe(f.building.id);
+  await db.update(farms).set({ production: { pending: {}, delivery: null, baking: {}, shrineBlessing: {
+    buildingId: f.building.id, startedAt: new Date(0).toISOString(), expiresAt: new Date(1).toISOString()
   } } }).where(eq(farms.id, f.farm.id));
   const result = await Effect.runPromise(destroyBuilding(db, f.input));
   expect(result.farm.production.shrineBlessing).toBeNull();
@@ -86,4 +94,17 @@ it("rejects a stale version without removing the building", async () => {
   const f = await fixture();
   await expect(Effect.runPromise(destroyBuilding(db, { ...f.input, expectedFarmVersion: 99 }))).rejects.toThrow("farm changed");
   expect(await db.select().from(farmBuildings).where(eq(farmBuildings.id, f.building.id))).toHaveLength(1);
+});
+
+it("allows brewery demolition during independent donkey milling without removing the job or its mill", async () => {
+  const f = await fixture("brewery");
+  const [mill] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "mill",
+    column: 8, row: 3, loadingTile: { column: 8, row: 5 }, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+  const milling = { buildingId: mill!.id, worker: "donkey" as const, recipe: "brewersGroats" as const,
+    startedAt: new Date(Date.now() - 1000).toISOString(), completesAt: new Date(Date.now() + 60000).toISOString(), barley: 2, output: 1 };
+  await db.update(farms).set({ milling }).where(eq(farms.id, f.farm.id));
+  await expect(Effect.runPromise(destroyBuilding(db, { ...f.input, buildingId: mill!.id }))).rejects.toThrow("active work");
+  const result = await Effect.runPromise(destroyBuilding(db, f.input));
+  expect(result.buildings.map(b => b.id)).toEqual([mill!.id]);
+  expect(result.farm.milling).toEqual(milling);
 });

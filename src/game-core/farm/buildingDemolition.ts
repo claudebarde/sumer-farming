@@ -3,6 +3,7 @@ import { activeBuildingUpgrade } from "../../game-data/buildingUpgrades";
 import { estateResourceCapacity } from "../../game-data/storage";
 import { millStorageReserved } from "./millStorage";
 import { farmerProductionJob } from "./farmerProduction";
+import { shrineBlessingActive } from "../../game-data/shrine";
 
 /** Shared UI/server guard. The initial home is not a player-built building. */
 export const buildingDemolitionReason = (snapshot: FarmSnapshot, buildingId: string, now: number): string | null => {
@@ -12,9 +13,13 @@ export const buildingDemolitionReason = (snapshot: FarmSnapshot, buildingId: str
     return "Finish construction or upgrading first.";
   if (building.storedBarley > 0) return "Empty the building’s barley storage first.";
   const { farm } = snapshot;
+  if (building.type === "smallShrine" && farm.production.shrineBlessing?.buildingId === buildingId &&
+    shrineBlessingActive(farm.production.shrineBlessing, now))
+    return "Wait until the shrine blessing expires before destroying it.";
   // Pending journeys may refer to a source, destination or route around buildings.
+  // After preparation the donkey works in place: protect its mill, not unrelated buildings.
   if (farmerProductionJob(farm, now) || farm.production.planting || farm.production.delivery || farm.millGoods.delivery || farm.production.materialDelivery ||
-    farm.production.porter?.job || farm.gathering || farm.fishing || farm.milling ||
+    farm.production.porter?.job || farm.gathering || farm.fishing || farm.milling?.buildingId === buildingId ||
     Object.keys(farm.production.baking).length > 0 || (farm.production.cropWork && !farm.production.cropWork.settled))
     return "Finish active work and deliveries first.";
   if (building.beerReadyAt || (farm.production.pending[buildingId]?.quantity ?? 0) > 0 ||

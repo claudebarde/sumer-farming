@@ -14,7 +14,8 @@ const pathPose = (path: readonly IsoCell[], step: number) => {
   const from = path[index]!, to = path[index + 1] ?? from;
   const fraction = at - index;
   return { position: { column: from.column + (to.column - from.column) * fraction,
-    row: from.row + (to.row - from.row) * fraction }, facingLeft: isoPoint(to).x < isoPoint(from).x };
+    row: from.row + (to.row - from.row) * fraction }, facingLeft: isoPoint(to).x < isoPoint(from).x,
+    facingBack: isoPoint(to).y < isoPoint(from).y };
 };
 
 /** Saved server time drives escort poses, including reloads halfway through a trip. */

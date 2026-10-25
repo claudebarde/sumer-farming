@@ -9,6 +9,7 @@ import { marketUiStore } from "../stores/marketUiStore";
 import { merchantUiStore } from "../stores/merchantUiStore";
 import { getMerchantVisit } from "../game/phaser/merchantVisit";
 import NpcRequests from "./NpcRequests";
+import MapCuneiformLabel from "./MapCuneiformLabel";
 import styles from "../styles/GameCanvas.module.scss";
 import requestStyles from "../styles/MerchantRequests.module.scss";
 
@@ -56,7 +57,10 @@ export default function MerchantRequests({ visual = false }: { readonly visual?:
       <Dialog.Overlay className={styles["market-dialog-overlay"]} />
       <Dialog.Content className={`${styles["market-dialog-content"]} ${visual ? requestStyles.dialog : ""}`}>
         <header className={styles["market-dialog-header"]}>
-          <Dialog.Title>{visual ? "Merchant boat" : "Merchant chariot"}</Dialog.Title>
+          <Dialog.Title className={requestStyles.title}>
+            <MapCuneiformLabel element={visual ? "Merchant boat" : "Merchant chariot"} />
+            <span>{visual ? "Merchant boat" : "Merchant chariot"}</span>
+          </Dialog.Title>
           <Dialog.Close asChild><button className={styles["market-dialog-close"]} aria-label="Close merchant requests"><Cross2Icon /></button></Dialog.Close>
         </header>
         <div className={styles["market-dialog-body"]}>

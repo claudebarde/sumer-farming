@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { MillingJob } from "../../src/game-data/milling";
 import { donkeyEscortPath, donkeyMillingPose } from "../../src/client/game/phaser/donkeyMilling";
+import { donkeyDirectionalPose } from "../../src/client/game/phaser/donkeySprites";
 
 const job: MillingJob = {
   worker: "donkey", buildingId: "mill", recipe: "flour", barley: 6, output: 3,
@@ -11,6 +12,16 @@ const job: MillingJob = {
 };
 
 describe("saved donkey escort presentation", () => {
+  it.each([
+    [2150, "back", true], [3150, "front", true],
+    [906450, "back", false], [907350, "front", false],
+  ] as const)("faces along the current escort segment at %s, including return corners", (now, direction, flipX) => {
+    const pose = donkeyMillingPose(job, now)!;
+    const sprite = donkeyDirectionalPose(pose);
+    expect(sprite.texture).toMatch(new RegExp(`^isometric-donkey-${direction}-[0-3]$`));
+    expect(sprite.flipX).toBe(flipX);
+    expect(donkeyDirectionalPose(pose, true).texture).toBe(`isometric-donkey-${direction}-0`);
+  });
   it("waits at pickup, follows behind through corners, then enters the mill", () => {
     expect(donkeyMillingPose(job, 500)).toMatchObject({ phase: "waiting", walking: false, position: { column: -3, row: 5 } });
     expect(donkeyMillingPose(job, 2150)).toMatchObject({ phase: "following", walking: true, position: { column: -3, row: 4.5 } });

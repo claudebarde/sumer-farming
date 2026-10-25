@@ -164,6 +164,19 @@ Use alongside the animation and common questions for hired-worker logistics.
   route, available stock or an active hire? Reuse saved-job expiry and offline
   catch-up rules where applicable.
 
+## Perennial crops and optional care
+
+- **Cycle boundaries:** Separate first maturation from repeat harvest cycles;
+  define whether the next cycle starts at harvest or at delivery completion.
+- **Care window:** When is care available, how often per cycle, and does eligibility
+  use request acceptance, worker arrival or work completion? Define exact cutoff behaviour.
+- **Acceleration:** Change the remaining duration or growth rate without resetting
+  earned progress; agree progress-bar behaviour and whether the first maturation qualifies.
+- **Existing saves:** Preserve or migrate already-saved deadlines explicitly;
+  never silently delay existing crops when changing cycle length.
+- **Visual stages:** Choose sapling/empty/flowering/ripe transitions independently
+  of economic rules; clarify whether care changes stage timing or only readiness.
+
 ## Neighbourhood and social maps
 
 - **Membership baseline:** Reuse existing city/group assignment, capacity and saved

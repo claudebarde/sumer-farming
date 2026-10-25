@@ -127,6 +127,8 @@ export const advanceDonkeyWander = (state: DonkeyWander | null, input: {
     if (!allowed(to) || occupied(to)) {
       // Backtrack smoothly to the previous junction, then plan around the obstacle.
       if (state.motion.elapsed > 0) return { ...state,
+        facingLeft: isoPoint(from).x < isoPoint(state.position).x,
+        facingBack: isoPoint(from).y < isoPoint(state.position).y,
         motion: { from: state.position, to: from, elapsed: 0, escape: state.motion.escape }, rest: 0 };
       state = { ...state, position: from, motion: null, rest: 0 };
       return advanceDonkeyWander(state, { ...input, delta: 0 });

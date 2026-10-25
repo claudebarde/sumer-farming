@@ -46,3 +46,7 @@ export const marketUiStore = createStore<State>()(set => ({
     set({ isOpen });
   }
 }));
+
+export const subscribeMarketOpening = (onOpen: () => void) => marketUiStore.subscribe((next, previous) => {
+  if (next.isOpen && (!previous.isOpen || next.scope !== previous.scope)) onOpen();
+});

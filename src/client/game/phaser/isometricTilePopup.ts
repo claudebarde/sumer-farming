@@ -26,15 +26,14 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
   const home = !building && footprintContains(farmOrigin, 2, 2, cell);
   const level = home ? snapshot.farm.progression?.level ?? 1
     : building?.type === "granary" ? granaryLevelForFarmLevel(snapshot.farm.progression?.level ?? 1)
-    : building?.type === "mill" ? buildingLevel(snapshot.farm.production.buildingUpgrades, building.id, now)
-    : building && ["breadOven", "brewery"].includes(building.type) ? 1 : null;
+    : building && (building.type === "mill" || building.type === "breadOven" || building.type === "brewery") ? buildingLevel(snapshot.farm.production.buildingUpgrades, building.id, now) : null;
   const plantable = plantableFields(snapshot, now);
   const ripe = harvestableFields(snapshot, now);
   const canPlantHere = plantable.some(p => sameCell(p, cell));
   const canHarvestHere = ripe.some(p => sameCell(p, cell));
   const title = building ? buildingNames[building.type] : home ? "Farm" : tileInformation(snapshot, cell, now).split(" · ")[0]!;
   const details: string[] = [];
-  if (crop) {
+  if (crop && crop.cropKey !== "datePalm") {
     const end = crop.harvestCompletesAt ?? (Date.parse(crop.plantedAt) > now ? crop.plantedAt : crop.growthCompletesAt);
     details.push(crop.harvestCompletesAt ? "Harvesting…" : Date.parse(crop.plantedAt) > now ? "Sowing…" : Date.parse(end) > now ? `Ready in ${Math.max(1, Math.ceil((Date.parse(end) - now) / 60_000))}m` : "Ready to harvest");
   } else if (building) {
@@ -60,7 +59,7 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
       const beer = snapshot.farm.production.pending[building.id];
       if (beer) details.push(`${beer.quantity} beer ready`);
     }
-  } else if (!home) {
+  } else if (!home && !crop) {
     details.push(...tileInformation(snapshot, cell, now).split(" · ").slice(1));
   }
   const showCarriedItem = home || !!building || !!crop;

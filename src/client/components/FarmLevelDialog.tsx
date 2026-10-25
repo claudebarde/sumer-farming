@@ -87,9 +87,10 @@ export default function FarmLevelDialog({ onLevelClaimed }: { onLevelClaimed?: (
           </header>
           <div className={styles["market-dialog-body"]}>
             <Dialog.Description>
-              Complete the requirements, then claim your next level.
+              {progress.upcoming ? "You’ve reached the highest available farm level." : "Complete the requirements, then claim your next level."}
             </Dialog.Description>
             {message && <p role="status">{message}</p>}
+            {!progress.upcoming && <>
             <h3>
               Level {progress.nextLevel} · {LEVEL_NAMES[progress.nextLevel]}
             </h3>
@@ -155,17 +156,11 @@ export default function FarmLevelDialog({ onLevelClaimed }: { onLevelClaimed?: (
                 donkey is kept.
               </p>
             )}
-            {progress.offerings.length === 0 && (
+            {progress.offerings.length === 0 && !progress.upcoming && (
               <p>
                 {progress.level === 6
                   ? "Only production and completed sales during this level count. Claiming level 7 does not consume these goods or charge you again."
                   : "These are lifetime achievements; previously sold goods and completed deliveries are not charged again."}
-              </p>
-            )}
-            {progress.upcoming && (
-              <p>
-                Levels 10–11 are upcoming. Their progression requirements are
-                not implemented and they cannot be claimed yet.
               </p>
             )}
             <button
@@ -180,10 +175,9 @@ export default function FarmLevelDialog({ onLevelClaimed }: { onLevelClaimed?: (
               )}
               {pending
                 ? "Claiming level…"
-                : progress.upcoming
-                  ? "Upcoming level"
-                  : `Claim level ${progress.nextLevel}`}
+                : `Claim level ${progress.nextLevel}`}
             </button>
+            </>}
           </div>
         </Dialog.Content>
       </Dialog.Portal>

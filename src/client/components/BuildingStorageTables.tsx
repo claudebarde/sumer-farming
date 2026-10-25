@@ -6,6 +6,7 @@ import type { InventoryItemKey } from "../../game-data/inventoryItems";
 import styles from "../styles/GameCanvas.module.scss";
 import gridStyles from "../styles/BuildingStorageGrid.module.scss";
 import { FARM_SPRITES } from "../../assets/farmSprites";
+import datesIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.png";
 import breadImage from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.png";
 import flourImage from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.png";
 import beerImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.png";
@@ -15,7 +16,7 @@ const storageImages: Record<string, string> = {
   Bread: breadImage, Beer: beerImage, Flour: flourImage, Groats: groatsImage,
   Barley: FARM_SPRITES.harvestedBarley, Fish: FARM_SPRITES.fish,
   Reed: FARM_SPRITES.reedBundle, Clay: FARM_SPRITES.brickPile,
-  "Date baskets": FARM_SPRITES.datesBasket
+  "Date baskets": datesIcon
 };
 
 type Props = {

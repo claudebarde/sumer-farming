@@ -27,6 +27,7 @@ import FarmerPortrait from "./FarmerPortrait";
 import styles from "../styles/GameCanvas.module.scss";
 import treatStyles from "../styles/FarmerTreats.module.scss";
 import { FARM_SPRITES } from "../../assets/farmSprites";
+import datesIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.png";
 import breadIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.png";
 import beerIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.png";
 import {
@@ -220,13 +221,13 @@ export default function FarmerPanel({
               </Popover.Portal>
             </Popover.Root>
           ) : button;
-          if (item !== "dates") {
-            const boost = item === "fish" ? FISH_HAPPINESS_BOOST : item === "bread" ? BREAD_HAPPINESS_BOOST : BEER_HAPPINESS_BOOST;
-            const name = item === "fish" ? "Fish" : item === "bread" ? "Bread" : "Beer";
+          {
+            const boost = item === "dates" ? DATES_HAPPINESS_BOOST : item === "fish" ? FISH_HAPPINESS_BOOST : item === "bread" ? BREAD_HAPPINESS_BOOST : BEER_HAPPINESS_BOOST;
+            const name = item === "dates" ? "Dates" : item === "fish" ? "Fish" : item === "bread" ? "Bread" : "Beer";
             return <section key={item} className={treatStyles.card} data-locked={locked ? "true" : undefined} aria-label={`${name} treat`}>
               <div className={treatStyles.resource}>
                 <div className={treatStyles.artwork}>
-                  <img src={item === "fish" ? FARM_SPRITES.fish : item === "bread" ? breadIcon : beerIcon} alt="" width={56} height={56} />
+                  <img src={item === "dates" ? datesIcon : item === "fish" ? FARM_SPRITES.fish : item === "bread" ? breadIcon : beerIcon} alt="" width={56} height={56} />
                 </div>
                 <strong>{name}</strong>
                 {quantity === 0 && <small className={treatStyles.unavailable}>No {item} available</small>}
@@ -244,18 +245,6 @@ export default function FarmerPanel({
               {message?.item === item && <p className={treatStyles.message} role="status">{message.text}</p>}
             </section>;
           }
-          return (
-            <section key={item} data-locked={locked ? "true" : undefined}>
-              <h3>Dates treat</h3>
-              <p>Stored baskets of dates: {quantity}</p>
-              <p>
-                +{DATES_HAPPINESS_BOOST} happiness · One basket of dates every {interval / 3600000} hours.
-              </p>
-              {reason && <p>{reason}</p>}
-              {message?.item === item && <p role="status">{message.text}</p>}
-              {action}
-            </section>
-          );
         })}
       </div>
     </>

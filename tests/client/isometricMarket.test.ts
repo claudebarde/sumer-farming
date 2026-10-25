@@ -98,6 +98,8 @@ const harness = () => {
   state.draw = () => {}; state.renderFarmer = () => {}; state.renderRiverWaves = () => {};
   state.renderStorageChips = () => {}; state.renderFarmerMarker = () => {};
   state.scene = { switch: switched };
+  Reflect.set(scene, "game", { canvas: { dataset: {} } });
+  Reflect.set(scene, "input", { activePointer: { wasTouch: false } });
   Reflect.set(scene, "renderClouds", () => {});
   Reflect.set(scene, "daylightShadows", { render: () => {} });
   return { scene, state, entered, switched };

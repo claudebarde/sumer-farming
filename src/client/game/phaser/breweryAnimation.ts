@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { drawActionProgress } from "./actionProgressBar";
+import { drawBuildingProgress } from "./buildingProgressBar";
 import rest from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-brew-rest.png";
 import left from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-brew-stir-left.png";
 import right from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-brew-stir-right.png";
@@ -79,7 +79,7 @@ export const createBrewingTest = (scene: Phaser.Scene, brewery: Phaser.GameObjec
           .setDepth(brewery.depth + 0.75).setVisible(vesselCount > 0);
         seat.setPosition(brewery.x + placement.x, brewery.y + placement.seatY)
           .setDisplaySize(placement.size, placement.size).setDepth(brewery.depth + 0.5).setVisible(vesselCount > 0);
-        drawActionProgress(progress.setDepth(brewery.depth + 3), brewery.x, brewery.y - 18, pose.progress);
+        drawBuildingProgress(progress, brewery, pose.progress);
       } else {
         foam.setDepth(brewery.depth + 2);
         // Mouth centres in the approved 150px composite. No independent jar scaling.
@@ -94,7 +94,7 @@ export const createBrewingTest = (scene: Phaser.Scene, brewery: Phaser.GameObjec
           }
         }
       }
-      if (fermentationProgress !== undefined) drawActionProgress(progress.setDepth(brewery.depth + 3), brewery.x, brewery.y - 18, fermentationProgress);
+      if (fermentationProgress !== undefined) drawBuildingProgress(progress, brewery, fermentationProgress);
     },
     destroy() { worker.destroy(); seat.destroy(); wall.destroy(); foam.destroy(); progress.destroy(); },
   };

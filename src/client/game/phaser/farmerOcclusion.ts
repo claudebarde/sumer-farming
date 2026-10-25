@@ -1,3 +1,6 @@
+/** Walking/carrying variants share foot-based depth; buildings may hide them. */
+export const walkingCharacterDepth = (groundY: number) => groundY + 1;
+
 export type OcclusionSprite = {
   left: number; top: number; width: number; height: number; depth: number;
   opaqueAt: (u: number, v: number) => boolean;

@@ -15,7 +15,7 @@ export const farmerActivity = (snapshot: FarmSnapshot, now: number, walking = fa
   const batch = farm.production.planting;
   const cropWork = farm.production.cropWork;
   if (cropWork && !cropWork.settled) return activity(now < cropWork.workStartsAt ? "Walking"
-    : now < cropWork.workEndsAt ? cropWork.action === "plant" ? "Planting" : "Harvesting" : "Storing", "dates");
+    : now < cropWork.workEndsAt ? cropWork.action === "plant" ? "Planting" : cropWork.action === "tend" ? "Tending" : "Harvesting" : "Storing", "dates");
   if (batch) {
     if (batch.phase.type === "delivering") return activity("Storing", "barley");
     if (batch.mode === "harvest") return activity(batch.phase.type === "harvesting" ? "Harvesting" : "Walking", "barley");

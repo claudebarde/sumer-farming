@@ -31,6 +31,53 @@ const fixture = async (quantity = 5) => {
   return { farmId: farm!.id, input, snapshot };
 };
 describe("manual farm levels", () => {
+  it("initializes old level-9 counters once without crediting lifetime production", async () => {
+    const f = await fixture();
+    await db.update(farms).set({ level: 9, progressionStats: { ...INITIAL_PROGRESSION_STATS, breadProduced: 100, datesStored: 8 } }).where(eq(farms.id, f.farmId));
+    const first = await f.snapshot();
+    expect(first.farm.progression!.stats.level9Baseline).toEqual({ produced: 100, datesStored: 8 });
+    await db.update(farms).set({ progressionStats: { ...first.farm.progression!.stats, breadProduced: 102, datesStored: 10 } }).where(eq(farms.id, f.farmId));
+    const next = await f.snapshot();
+    expect(next.farm.progression!.stats.level9Baseline).toEqual({ produced: 100, datesStored: 8 });
+    expect(evaluateProgression(next, Date.now()).requirements.map(r => r.current).slice(1, 4)).toEqual([2, 0, 2]);
+  });
+  it.each(["ready-oven", "ready-brewery", "young-palm", "dates-history", "production", "upgrade", "dates-stock", "food-stock"])("checks level-10 requirements and atomic offering: %s", async scenario => {
+    const f = await fixture();
+    const now = Date.now(), iso = (time: number) => new Date(time).toISOString();
+    const [building] = await db.insert(farmBuildings).values({ farmId: f.farmId,
+      type: scenario === "ready-brewery" ? "brewery" : "breadOven", column: 5, row: 0, startedAt: new Date(0), completesAt: new Date(1000) }).returning();
+    await db.insert(farmBuildings).values({ farmId: f.farmId, type: "warehouse", column: 7, row: 0, startedAt: new Date(0), completesAt: new Date(1000) });
+    await db.update(farms).set({ level: 9, progressionStats: { ...INITIAL_PROGRESSION_STATS,
+      level9Baseline: { produced: 100, datesStored: 10 },
+      breadProduced: scenario === "production" ? 119 : 120, beerProduced: 20,
+      datesStored: scenario === "dates-history" ? 13 : 14 },
+      production: { pending: {}, delivery: null, baking: {}, buildingUpgrades: { [building!.id]: [{ level: 2,
+        startedAt: iso(now - 600000), completesAt: iso(scenario === "upgrade" ? now + 60000 : now - 1000), idempotencyKey: randomUUID() }] } }
+    }).where(eq(farms.id, f.farmId));
+    await db.insert(farmCrops).values([0,1].map(column => ({ farmId: f.farmId, cropKey: "datePalm" as const, column, row: 8,
+      sowingStartedAt: new Date(now - 90010000), plantedAt: new Date(scenario === "young-palm" && column === 1 ? now - 10000 : now - 90000000),
+      growthCompletesAt: new Date(now + 3600000) })));
+    const dates = scenario === "dates-stock" ? 1 : 3;
+    const beer = scenario === "food-stock" ? 3 : 4;
+    await db.insert(farmInventory).values([{ farmId: f.farmId, itemKey: "dates", quantity: dates },
+      { farmId: f.farmId, itemKey: "bread", quantity: 6 }, { farmId: f.farmId, itemKey: "beer", quantity: beer }]);
+    const snapshot = await f.snapshot();
+    const ready = scenario.startsWith("ready");
+    expect(evaluateProgression(snapshot, Date.now()).canClaim).toBe(ready);
+    const input = { ...f.input, expectedLevel: 9, expectedFarmVersion: snapshot.farm.version };
+    if (ready) {
+      const result = await Effect.runPromise(claimFarmLevel(db, input));
+      expect(result.farm.progression!.level).toBe(10);
+      expect(evaluateProgression(result, Date.now())).toMatchObject({ upcoming: true, canClaim: false });
+      expect((await Effect.runPromise(claimFarmLevel(db, input))).farm.progression!.level).toBe(10);
+    } else expect(await Effect.runPromise(Effect.flip(claimFarmLevel(db, input)))).toMatchObject({ _tag: "LevelClaimRuleError" });
+    const after = await f.snapshot();
+    const quantity = (key: string) => after.inventory.find(i => i.itemKey === key)?.quantity ?? 0;
+    expect(quantity("dates")).toBe(dates - (ready ? 2 : 0));
+    expect(quantity("bread")).toBe(ready ? 0 : 6);
+    expect(quantity("beer")).toBe(ready ? 0 : beer);
+    expect(after.farm.progression!.stats.datesStored).toBe(scenario === "dates-history" ? 13 : 14);
+  });
   it("claims building readiness once across concurrent clients and subsequent reloads", async () => {
     const f = await fixture();
     await db.update(farms).set({ level: 2 }).where(eq(farms.id, f.farmId));
@@ -454,7 +501,7 @@ describe("manual farm levels", () => {
     expect(snapshot.farm.progression?.stats.level5Baseline).toEqual({ harvests: 53 });
     expect(evaluateProgression(snapshot, Date.now()).requirements.find(r => r.label === "Crop plantings harvested")?.current).toBe(0);
     expect(snapshot.buildings[0]?.storedBarley).toBe(0);
-    expect(snapshot.inventory.find(i => i.itemKey === "fish")?.quantity).toBe(0);
+    expect(snapshot.inventory.find(i => i.itemKey === "fish")?.quantity ?? 0).toBe(0);
     await db.insert(farmBuildings).values({ farmId: f.farmId, type: "brewery", column: 2, row: 2, startedAt: new Date(0), completesAt: new Date(1000) });
     await db.insert(farmBuildings).values({ farmId: f.farmId, type: "mill", column: 0, row: 6, startedAt: new Date(0), completesAt: new Date(1000) });
     await db.insert(farmInventory).values({ farmId: f.farmId, itemKey: "flour", quantity: 2 });
@@ -479,7 +526,7 @@ describe("manual farm levels", () => {
     expect(snapshot.farm.progression?.stats.level8Baseline).toEqual({ harvestedBarley: 6, produced: 21 });
     await db.update(farms).set({ progressionStats: { ...snapshot.farm.progression!.stats, harvestedBarley: 106, breadProduced: 30 } }).where(eq(farms.id, f.farmId));
     snapshot = await claim(); expect(snapshot.farm.progression?.level).toBe(9);
-    expect(evaluateProgression(snapshot, Date.now())).toMatchObject({ upcoming: true, canClaim: false });
+    expect(evaluateProgression(snapshot, Date.now())).toMatchObject({ upcoming: false, canClaim: false });
     expect((await db.select().from(farmGroundItems).where(and(eq(farmGroundItems.farmId, f.farmId), eq(farmGroundItems.itemKey, "barley"))))[0]?.quantity).toBe(1);
   });
 });

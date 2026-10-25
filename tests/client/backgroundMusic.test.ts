@@ -1,5 +1,25 @@
 import { expect, it, vi } from "vitest";
-import { backgroundMusicAction, tryMusicAutoplay } from "../../src/client/game/phaser/backgroundMusic";
+import { createRequire } from "node:module";
+import { backgroundMusicAction, backgroundMusicFade, tryMusicAutoplay } from "../../src/client/game/phaser/backgroundMusic";
+
+// Use the installed Phaser tween builder without booting its DOM renderer.
+const getValueOp = createRequire(import.meta.url)("../../node_modules/phaser/src/tweens/builders/GetValueOp.js");
+it.each([0, 0.1, 0.3, 1])("starts the fade at silence even if the audio gain still reports full volume (target %s)", volume => {
+  const target = { volume: 1 };
+  // Reproduce the old numeric tween picking up a stale/full-volume reading.
+  expect(getValueOp("volume", volume).getStart(target, "volume", target.volume)).toBe(1);
+  const fade = backgroundMusicFade(volume);
+  const ops = getValueOp("volume", fade.volume);
+  const start = ops.getStart(target, "volume", target.volume);
+  const end = ops.getEnd(target, "volume", target.volume);
+  expect(start).toBe(0);
+  expect(end).toBe(volume);
+  for (const fraction of [0, 0.01, 0.5, 1]) {
+    const gain = start + (end - start) * fraction;
+    expect(gain).toBeGreaterThanOrEqual(0);
+    expect(gain).toBeLessThanOrEqual(volume);
+  }
+});
 
 it("attempts autoplay even before a gesture and reconciles after permission succeeds", async () => {
   const ready = vi.fn();

@@ -1,45 +1,43 @@
-# Ancient Sumer Sprite Asset Inventory
+# Sprite asset inventory
 
-## Farm dog
+The flat-map artwork audit removed 64 unused root PNGs, followed by six images
+whose consumers now use the existing isometric/newer artwork. Unused registry
+entries and retired dog, porter, market visitor, and chariot renderers were also
+removed. Production artwork under `pngs/v2/` remains in use.
 
-- dog-on-four (1254×1254, displayed at 0.75×0.75 tiles; standing/running fetch pose with a temporary bobbing animation)
-- dog-sitting (1254×1254, displayed at 0.75×0.75 tiles; idle and stopped fetch pose)
-- The fetch stick and aiming arrow are temporary Phaser graphics, not PNG assets.
+## Replaced artwork
 
-## Extracted existing assets
+| Removed root image | Replacement under `pngs/` |
+| --- | --- |
+| `bread-basket.png` | `v2/isometric-test/bread-oven-active/bread-basket-isometric.png` |
+| `beer-jars.png` | `v2/isometric-test/brewery/beer-jars-full-isometric.png` |
+| `flour-bags.png` | `v2/isometric-test/mill-active/mill-flour-bags-isometric.png` |
+| `donkey-1.png` | `v2/isometric-test/donkey/donkey-idle-isometric.png` |
+| `empty-mill.png` | `v2/isometric-test/mill-isometric.png` |
+| `farmer-stand-staff-1.png` | `v2/farmer-idle-approved-design.png` |
 
-- Terrain tiles: ground, ground-grass, canal-horizontal, canal-vertical, canal-corner, canal-intersection-a, canal-intersection-b, water, mud-road-horizontal, ground-fence-tile, field-plowed, field-seeded, field-wheat-ripe
-- Standalone objects: wheat-sheaf, reed-bundle, brick-pile, palm-tree, bush, reeds-plant, rocks, fence, signpost
-- Buildings: farm, granary
-- Farmer poses: farmer-stand-staff-1 through farmer-stand-staff-6; farmer-walk-1 through farmer-walk-4; farmer-plant-1 through farmer-plant-4; farmer-harvest-1 through farmer-harvest-2; farmer-carry-wheat-1 through farmer-carry-wheat-2
+Construction requirements use `brewery/brewery-left-bottom-jar.png` for brewing
+vessels, matching the market's brewing-vessel image instead of finished beer.
+Groats continue to use their dedicated icon rather than flour bags.
 
-## Newly generated assets
+## Retained root artwork
 
-- brewery (512×512, 2×2 building)
-- empty-mill / busy-mill (512×512, 2×2 building; idle and farmer-operated milling)
-- flour-bags (512×512; shared Flour/Groats output stack at the Mill and Resources icon)
-- market (512×512, 2×2 building; opens the market dialog on click/tap)
-- market-sign (256×256, 1×1; legacy artwork, replaced on the canvas by market)
+These eight images still have consumers and no equivalent replacement asset:
 
-The original signpost artwork is also retained, but is not used as the market entrance.
+- `wheat-sheaf.png`: harvested barley bundle, inventory and balance icons.
+- `wooden-baking-tools.png`: construction and market baking tools.
+- `brick-pile.png`: clay resource and action icons.
+- `reed-bundle.png`: harvested reeds and resource actions.
+- `water.png`: collected water and recipe requirements (not a river tile).
+- `shekels.png`: currency balances and trade rewards.
+- `fish.png`: fish icons and river fish texture.
+- `reeds-plant.png`: reeds growing on the map (not harvested bundles).
 
-- farmer-fishing (256×256, 1×1; farmer using a rod)
-- farmer-with-fish (256×256, 1×1; farmer carrying one fish)
-- fish (256×256, 1×1; swimming fishing target)
+`farmSprites.ts` contains shared artwork still referenced by the client.
+`manifest.json` and `manifest.csv` retain available historical metadata for the
+remaining root files; they are not runtime loaders or exhaustive v2 inventories.
+`contact-sheet.png` is a historical generation reference, not a current catalog.
 
-- horizontal-bridge-over-irrigation-canal (1254×1254, 1×1; road crossing over irrigation)
-
-The horizontal mud road spans row index 5. Irrigation on that row uses the bridge
-texture while retaining its canal connections and normal construction rules.
-
-- mud-road-90-deg (1254×1254, 1×1; rotated corners of the market square)
-- market-stand (512×512, 2×2; generic artwork for the barley and decorative stands)
-- market-beer-stand (1303×1207, displayed at 2×2; dedicated beer market artwork)
-
-- `merchant-chariot.png`: user-supplied 512×256 merchant and chariot, displayed at 3×1.5 tiles with its wheels/feet anchored to the estate road's centerline for periodic request visits.
-
-Total PNG assets: 52
-
-`farmSprites.ts` registers runtime textures; `manifest.json` and `manifest.csv`
-catalog the PNG files. `contact-sheet.png` is the original generation preview,
-not a current catalog (it does not include market, market-sign, or fishing assets).
+Runtime glob imports load dog-walking and lyre-procession frames only from
+`pngs/v2/isometric-test/`. This folder name is historical: it contains production
+assets and must not be treated as an unused test directory.

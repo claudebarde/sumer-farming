@@ -29,8 +29,13 @@ export const DONKEY_FRAME_BOUNDS = { left: 70, top: 82, right: 1008, bottom: 931
 export const donkeyFrameBounds = (key: string) => /isometric-donkey-(front|back)-/.test(key)
   ? { left: 0, top: 0, right: 1024, bottom: 1024 } : DONKEY_FRAME_BOUNDS;
 export const donkeyWanderPose = (state: DonkeyWander, reducedMotion = false) => {
+  return donkeyDirectionalPose({ ...state, walking: !!state.motion, elapsed: state.motion?.elapsed ?? 0 }, reducedMotion);
+};
+export const donkeyDirectionalPose = (state: {
+  facingBack?: boolean; facingLeft: boolean; walking: boolean; elapsed: number;
+}, reducedMotion = false) => {
   const direction = state.facingBack ? "back" : "front";
-  const frame = !state.motion || reducedMotion ? 0 : Math.floor(Math.max(0, state.motion.elapsed) / (DONKEY_STEP_MS / 4)) % 4;
+  const frame = !state.walking || reducedMotion ? 0 : Math.floor(Math.max(0, state.elapsed) / (DONKEY_STEP_MS / 4)) % 4;
   return { texture: `isometric-donkey-${direction}-${frame}`, flipX: !state.facingLeft };
 };
 export const donkeyTexture = (elapsed: number | null, reducedMotion = false) =>

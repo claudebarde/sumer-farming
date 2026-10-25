@@ -7,7 +7,7 @@ const labels: Readonly<Record<string, string>> = {
   Barley: "𒊺",
   Farm: "𒂍",
   Granary: "𒉌𒁾",
-  Warehouse: "𒉌𒁾",
+  Warehouse: "𒂍𒍑𒁍𒁕",
   Mill: "𒂍𒄯",
   Brewery: "𒂍𒋆",
   "Bread oven": "𒌅𒊒𒈾",
@@ -20,7 +20,9 @@ const labels: Readonly<Record<string, string>> = {
   Market: "𒆠𒇴",
   Reeds: "𒄀",
   Rocks: "𒎎",
-  Bush: "𒄉"
+  Bush: "𒄉",
+  "Date palm": "𒊷",
+  "Merchant boat": "𒈣 𒁮𒃼𒀀"
 };
 
 export default function MapCuneiformLabel({ element }: { element: string }) {

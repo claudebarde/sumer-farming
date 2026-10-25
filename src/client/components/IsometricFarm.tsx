@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { renderDiagnostic } from "../game/phaser/renderDiagnostics";
 import { shrineOfferingBlocker } from "../game/phaser/isometricShrine";
-import { SHADOW_PRESETS, type ShadowPreset } from "../game/phaser/daylightShadows";
 import Phaser from "phaser";
 import { roadRemovalReason } from "../../game-core/farm/roads";
 import type { FarmSnapshot } from "../../schemas/farm";
@@ -35,6 +34,9 @@ import FarmLevelDialog from "./FarmLevelDialog";
 import { constructionCommands, constructionNames, constructionSummary } from "../game/phaser/isometricBuildingPlacement";
 import { claimFarmLevel } from "../api/claimFarmLevel";
 import BarleyWorkProgress from "./BarleyWorkProgress";
+import PalmPlantingProgress from "./PalmPlantingProgress";
+import PalmHarvestProgress from "./PalmHarvestProgress";
+import PalmPlantingConfirmation from "./PalmPlantingConfirmation";
 import { sowingProgress } from "../game/phaser/isometricPlanting";
 import { harvestingProgress } from "../game/phaser/isometricHarvesting";
 import { levelUiStore } from "../stores/levelUiStore";
@@ -75,8 +77,11 @@ import { useNavigationTooltip } from "./useNavigationTooltip";
 import { newlyPurchasedDonkey } from "../game/phaser/donkeyFollow";
 import { roadPlanBlocker, toggleRoadPlan, roadWorkActive } from "../game/phaser/isometricRoads";
 import InfoAlert from "./InfoAlert";
+import GameLoadingScreen from "./GameLoadingScreen";
+import { monitorGameLoading, type GameLoadingState } from "../game/phaser/gameLoading";
 
 export default function IsometricFarm() {
+  const [gameLoading, setGameLoading] = useState<GameLoadingState>("loading");
   const navigationTooltip = useNavigationTooltip();
   const parent = useRef<HTMLDivElement>(null);
   const scene = useRef<IsometricFarmScene | null>(null);
@@ -89,8 +94,6 @@ export default function IsometricFarm() {
   const [neighbourhoodLeaderboardOpen, setNeighbourhoodLeaderboardOpen] = useState(false);
   const activeScene = useRef<IsometricFarmScene | IsometricMarketScene | NeighbourhoodScene | null>(null);
   const [location, setLocation] = useState<"farm" | "market">("farm");
-  const [shadowPreset, setShadowPreset] = useState<ShadowPreset>("local");
-  const shadowPresetRef = useRef<ShadowPreset>("local");
   useEffect(() => {
     marketUiStore.getState().setLocation(location);
     levelUiStore.getState().setOpen(false);
@@ -117,6 +120,12 @@ export default function IsometricFarm() {
   const [fishingMessage, setFishingMessage] = useState("");
   const [fishingStatus, setFishingStatus] = useState("Getting ready…");
   const [information, setInformation] = useState<IsometricTileAnchor | null>(null);
+  const [palmTarget, setPalmTarget] = useState<IsoCell | null>(null);
+  useEffect(() => {
+    const renderer = scene.current;
+    renderer?.setPalmConfirmationTarget(palmTarget);
+    return () => renderer?.setPalmConfirmationTarget(null);
+  }, [palmTarget]);
   const [clock, setClock] = useState(() => Date.now());
   const [placementFarmer, setPlacementFarmer] = useState<IsoCell>(farmOrigin);
   const [roadPlan, setRoadPlan] = useState<readonly IsoCell[] | null>(null);
@@ -440,6 +449,7 @@ export default function IsometricFarm() {
     levelUiStore.getState().setOpen(false);
     const controller = new AbortController();
     let game: Phaser.Game | undefined, requestPending = false, lastRead = 0;
+    let stopLoadingMonitor: (() => void) | undefined;
     let deadline: ReturnType<typeof setTimeout> | undefined;
     const receive = (next: FarmSnapshot) => {
       if (controller.signal.aborted || !parent.current) return;
@@ -461,7 +471,8 @@ export default function IsometricFarm() {
           const harvesting = selectionMode.current === "harvest";
           const selected = togglePlantingField(selecting.current, cell, (harvesting ? harvestableFields : plantableFields)(farm, Date.now()), harvesting ? harvestFieldLimit(farm.farm.household.happiness) : plantingSelectionLimit(farm, Date.now()));
           selecting.current = selected; setSelection(selected); scene.current?.setPlantingSelection(selected, false, selectionMode.current);
-        }, () => { activeScene.current = marketScene.current; setInformation(null); setLocation("market"); });
+        }, () => {
+          activeScene.current = marketScene.current; setInformation(null); setLocation("market"); });
         const market = new IsometricMarketScene(anchor => {
           const scope = isometricTradeScope(anchor?.kind);
           if (scope && canOpenMarketStand(scope, current.current?.farm.progression?.level ?? 1)) {
@@ -477,12 +488,13 @@ export default function IsometricFarm() {
         renderer.setFishingCastHandler(aim => void castFish(aim));
         renderer.setFishingStatusHandler(setFishingStatus);
         scene.current = renderer;
-        renderer.shadowPreset = shadowPresetRef.current;
-        market.shadowPreset = shadowPresetRef.current;
         marketScene.current = market; activeScene.current = renderer;
         const neighbourhood = new NeighbourhoodScene();
         neighbourhoodScene.current = neighbourhood;
         game = new Phaser.Game({ type: Phaser.AUTO, parent: parent.current, backgroundColor: "#f4e5c7", scene: [renderer, market, neighbourhood, BackgroundMusicScene],
+          callbacks: { postBoot: readyGame => {
+            if (!controller.signal.aborted) stopLoadingMonitor = monitorGameLoading(readyGame, [renderer, market, neighbourhood], setGameLoading);
+          } },
           scale: { mode: Phaser.Scale.RESIZE, width: "100%", height: "100%" }, input: { windowEvents: false }, render: { antialias: true } });
       }
       clearTimeout(deadline);
@@ -491,7 +503,8 @@ export default function IsometricFarm() {
         .concat(Object.values(next.farm.production.brewing ?? {}).flatMap(job => [job.arrivedAt, job.startedAt, job.completesAt]), next.buildings.map(b => b.beerReadyAt ?? undefined))
         .filter((value): value is string => !!value).map(Date.parse), ...next.farm.roads.map(r => r.completesAt ?? 0),
         next.farm.production.porter?.job?.pickupAt ?? 0, next.farm.production.porter?.job?.completesAt ?? 0,
-        next.farm.production.porter?.returnTrip?.completesAt ?? 0].filter(time => time > now);
+        next.farm.production.porter?.returnTrip?.completesAt ?? 0,
+        next.farm.production.cropWork?.workStartsAt ?? 0, next.farm.production.cropWork?.workEndsAt ?? 0, next.farm.production.cropWork?.completesAt ?? 0].filter(time => time > now);
       if (due.length) deadline = setTimeout(() => refresh.current(), Math.max(100, Math.min(...due) - now + 25));
     };
     accept.current = receive;
@@ -512,7 +525,10 @@ export default function IsometricFarm() {
         if (!submitting.current) receive(next);
         renderDiagnostic("snapshot-apply", applyStarted, { skipped: submitting.current });
         lastRead = Date.now();
-      } catch { if (!controller.signal.aborted) setError("Could not refresh the farm. Retry when connected."); }
+      } catch { if (!controller.signal.aborted) {
+        setError("Could not refresh the farm. Retry when connected.");
+        if (!game) setGameLoading("error");
+      } }
       finally { requestPending = false; }
     };
     refresh.current = () => { void load(); };
@@ -526,7 +542,7 @@ export default function IsometricFarm() {
       if (current.current?.farm.gathering || current.current?.farm.production.planting || current.current?.farm.roads.some(r => (r.completesAt ?? 0) > Date.now()) || current.current?.improvements.some(i => improvementWorkActive(i, Date.now())) || Date.now() - lastRead >= 30_000) void load();
     }, 1000);
     document.addEventListener("visibilitychange", visible);
-    return () => { mounted.current = false; controller.abort(); unsubscribe(); levelUiStore.getState().setOpen(false); marketUiStore.getState().setOpen(false); clearTimeout(deadline); window.clearInterval(timer); document.removeEventListener("visibilitychange", visible); scene.current = null; marketScene.current = null; activeScene.current = null; game?.destroy(true); };
+    return () => { mounted.current = false; controller.abort(); stopLoadingMonitor?.(); unsubscribe(); levelUiStore.getState().setOpen(false); marketUiStore.getState().setOpen(false); clearTimeout(deadline); window.clearInterval(timer); document.removeEventListener("visibilitychange", visible); scene.current = null; marketScene.current = null; activeScene.current = null; game?.destroy(true); };
   }, []);
 
   const batch = snapshot?.farm.production.planting;
@@ -730,6 +746,7 @@ export default function IsometricFarm() {
   };
   const roadBlocked = snapshot && roadPlan?.length ? roadPlanBlocker(snapshot, roadPlan, clock) : null;
   return <section className={styles.test} aria-label="Saved isometric farm preview">
+    <div className={styles.gameContent} inert={gameLoading !== "ready"} aria-busy={gameLoading !== "ready"}>
     {location === "farm" && !neighbourhoodOpen && <Dialog.Root open={manageOpen} onOpenChange={openManagement}>
       <div className={styles.manageControls}>
         <div className={styles.manageButtonRow}>
@@ -804,18 +821,6 @@ export default function IsometricFarm() {
       <button onClick={() => activeScene.current?.zoomBy(1.2)} aria-label="Zoom in">+</button>
       <button onClick={() => activeScene.current?.zoomBy(1 / 1.2)} aria-label="Zoom out">−</button>
       <button onClick={() => activeScene.current?.fit()}>Fit</button>
-      {!neighbourhoodOpen && <label>Shadows <select aria-label="Shadow time preview" value={shadowPreset} onChange={event => {
-        const preset = SHADOW_PRESETS.find(value => value === event.target.value) ?? "local";
-        setShadowPreset(preset); shadowPresetRef.current = preset;
-        if (scene.current) scene.current.shadowPreset = preset;
-        if (marketScene.current) marketScene.current.shadowPreset = preset;
-      }}>
-        <option value="local">Local time</option>
-        <option value="morning">Morning · 09:00</option>
-        <option value="midday">Midday · 14:00</option>
-        <option value="evening">Evening · 19:00</option>
-        <option value="night">Night · 22:00</option>
-      </select></label>}
     </div>
     <div ref={parent} className={styles.canvas} />
     {neighbourhoodOpen && (snapshot?.farm.progression?.level ?? 1) >= 7 &&
@@ -837,6 +842,22 @@ export default function IsometricFarm() {
     </aside>}
     {demolitionId && snapshot && <DestroyBuildingDialog key={demolitionId} snapshot={snapshot} buildingId={demolitionId} now={clock}
       onClose={() => setDemolitionId(null)} onDestroyed={next => accept.current(next)} />}
+    {!neighbourhoodOpen && location === "farm" && palmTarget && snapshot &&
+      <PalmPlantingConfirmation key={`${palmTarget.column}:${palmTarget.row}`} snapshot={snapshot} target={palmTarget} now={clock}
+        getFarmerPosition={() => { const p = scene.current?.farmerPosition(); return p && { column: Math.round(p.column), row: Math.round(p.row) }; }}
+        onCancel={() => setPalmTarget(null)}
+        onStarted={next => { accept.current(next); setPalmTarget(null); scene.current?.clearSelection(); setInformation(null); }} />}
+    {!neighbourhoodOpen && location === "farm" && snapshot?.farm.production.cropWork?.action === "harvest" &&
+      !snapshot.farm.production.cropWork.settled && clock < snapshot.farm.production.cropWork.completesAt &&
+      <aside className={styles.planting} aria-label="Date harvesting">
+        <PalmHarvestProgress job={snapshot.farm.production.cropWork} now={clock} />
+      </aside>}
+    {!neighbourhoodOpen && location === "farm" && snapshot?.farm.production.cropWork &&
+      (snapshot.farm.production.cropWork.action === "plant" || snapshot.farm.production.cropWork.action === "tend") &&
+      !snapshot.farm.production.cropWork.settled && clock < snapshot.farm.production.cropWork.completesAt &&
+      <aside className={styles.planting} aria-label={snapshot.farm.production.cropWork.action === "tend" ? "Date palm tending" : "Date palm planting"}>
+        <PalmPlantingProgress job={snapshot.farm.production.cropWork} now={clock} />
+      </aside>}
     {!neighbourhoodOpen && (selection !== null || batch || error || fishingActive || preparingBread) && <aside className={styles.planting} aria-label={preparingBread ? "Preparing bread" : fishingActive ? "Fishing" : harvesting ? "Barley harvesting" : "Barley planting"}>
       {preparingBread ? <p role="status">Collecting flour for baking…</p> : fishingActive ? <p role="status">{fishingMessage && `${fishingMessage} `}{fishingStatus}</p>
         : batch && snapshot ? <BarleyWorkProgress action={harvesting ? "Harvesting" : "Sowing"} total={batch.total}
@@ -858,6 +879,8 @@ export default function IsometricFarm() {
           else if (!scene.current?.goToMarket()) setError("Cannot reach the market right now.");
         }} />
       : <IsometricTilePopup snapshot={snapshot} anchor={information} now={clock}
+        onRequestPalm={() => { setPalmTarget(information.cell); scene.current?.clearSelection(); setInformation(null); setError(null); }}
+        getFarmerPosition={() => { const position = scene.current?.farmerPosition(); return position && { column: Math.round(position.column), row: Math.round(position.row) }; }}
       onClaimLevel={() => {
         setPending(true);
         void claimFarmLevel().then(next => {
@@ -896,5 +919,7 @@ export default function IsometricFarm() {
     </section>}
     {!neighbourhoodOpen && !(location === "farm" && snapshot?.farm.fishing) && <p className={styles.status}>{selection !== null ? "Tap yellow fields to select · Green fields are selected" : "Tap a tile for actions · Drag to pan"}</p>}
     {(snapshot?.farm.progression?.level ?? 1) >= 7 && <MerchantRequests visual />}
+    </div>
+    {gameLoading !== "ready" && <GameLoadingScreen state={gameLoading} retry={() => window.location.reload()} />}
   </section>;
 }

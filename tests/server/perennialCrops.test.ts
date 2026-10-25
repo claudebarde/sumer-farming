@@ -27,7 +27,7 @@ const fixture = async (level = 9, balance = 100) => {
   await db.insert(farmBuildings).values({ farmId: farm!.id, type: "warehouse", column: 5, row: 3, loadingTile: { column: 5, row: 5 }, startedAt: new Date(0), completesAt: new Date(1) });
   await db.insert(farmImprovements).values([8,9].map(row => ({ farmId: farm!.id, type: "irrigation" as const, column: 3, row, startedAt: new Date(0), completesAt: new Date(1) })));
   const read = async () => (await db.select().from(farms).where(eq(farms.id, farm!.id)))[0]!;
-  const act = async (action: "plant" | "harvest", position = target, version?: number) => Effect.runPromise(tendPerennialCrop(db, {
+  const act = async (action: "plant" | "harvest" | "tend", position = target, version?: number) => Effect.runPromise(tendPerennialCrop(db, {
     type: "tend_perennial_crop", action, playerId, crop: "datePalm", target: position, expectedFarmVersion: version ?? (await read()).version
   }));
   const mature = async () => {
@@ -44,6 +44,37 @@ const fixture = async (level = 9, balance = 100) => {
 };
 
 describe("perennial crops", () => {
+  it("persists a single tending reduction immediately and preserves it through offline settlement", async () => {
+    const f = await fixture(); const crop = await f.mature();
+    const start = Date.now() - 6 * 3600000, readyAt = start + 24 * 3600000;
+    await db.update(farmCrops).set({ growthCompletesAt: new Date(readyAt) }).where(eq(farmCrops.id, crop.id));
+    const farm = await f.read();
+    await db.update(farms).set({ production: { ...farm.production, palmCycles: { [crop.id]: { startedAt: start, originalReadyAt: readyAt } } } }).where(eq(farms.id, f.farmId));
+    const result = await f.act("tend");
+    const cycle = result.farm.production.palmCycles![crop.id]!;
+    const deadline = cycle.tendedAt! + Math.ceil((readyAt - cycle.tendedAt!) / 2);
+    expect(Date.parse(result.crops[0]!.growthCompletesAt)).toBe(deadline);
+    expect(result.player.shekelBalance).toBe(100);
+    expect(result.farm.production.cropWork).toMatchObject({ action: "tend", quantity: 0 });
+    await expect(f.act("tend", target, result.farm.version)).rejects.toThrow();
+    await f.catchUp(deadline + 1);
+    const restored = await f.read();
+    expect(restored.production.palmCycles![crop.id]).toEqual(cycle);
+    expect(await f.stock()).toBe(0);
+    await expect(f.act("tend")).rejects.toThrow(/already/);
+    const [tree] = await db.select().from(farmCrops).where(eq(farmCrops.id, crop.id));
+    expect(tree!.growthCompletesAt.getTime()).toBe(deadline);
+  });
+  it("rejects late tending and legacy cycles without changing their saved deadline", async () => {
+    const f = await fixture(); const crop = await f.mature();
+    const start = Date.now() - 13 * 3600000, readyAt = start + 24 * 3600000;
+    await db.update(farmCrops).set({ growthCompletesAt: new Date(readyAt) }).where(eq(farmCrops.id, crop.id));
+    await expect(f.act("tend")).rejects.toThrow(/next harvest/);
+    const farm = await f.read();
+    await db.update(farms).set({ production: { ...farm.production, palmCycles: { [crop.id]: { startedAt: start, originalReadyAt: readyAt } } } }).where(eq(farms.id, f.farmId));
+    await expect(f.act("tend")).rejects.toThrow(/closed/);
+    expect((await db.select().from(farmCrops).where(eq(farmCrops.id, crop.id)))[0]!.growthCompletesAt.getTime()).toBe(readyAt);
+  });
   it("charges once, saves travel + planting, and matures without completion commands", async () => {
     const f = await fixture();
     const snapshot = await f.act("plant");
@@ -51,9 +82,15 @@ describe("perennial crops", () => {
     const crop = snapshot.crops[0]!;
     expect(snapshot.player.shekelBalance).toBe(75);
     expect(job.workStartsAt).toBeGreaterThan(job.startedAt);
+    expect(job.outbound.at(-1)).toEqual(target);
+    expect(job.inbound).toEqual([target]);
+    expect(job.workEndsAt - job.workStartsAt).toBe(10000);
     expect(Date.parse(crop.plantedAt)).toBe(job.workEndsAt);
     expect(Date.parse(crop.growthCompletesAt) - Date.parse(crop.plantedAt)).toBe(24 * 3600000);
     await expect(f.act("plant", target, 1)).rejects.toThrow();
+    const duringTravel = await f.catchUp(job.workStartsAt - 1);
+    expect(duringTravel.production.cropWork?.settled).toBe(false);
+    expect(duringTravel.production.cropWork?.workEndsAt).toBe(job.workEndsAt);
     const done = await f.catchUp(job.completesAt + 86400000);
     expect(done.production.cropWork?.settled).toBe(true);
     expect((await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, f.playerId)))).toHaveLength(1);
@@ -73,18 +110,27 @@ describe("perennial crops", () => {
     await db.insert(farmCrops).values([0,1].map(column => ({ farmId: f.farmId, cropKey: "datePalm" as const, column, row: 0, sowingStartedAt: new Date(0), plantedAt: new Date(1), growthCompletesAt: new Date(86400001) })));
     await expect(f.act("plant")).rejects.toThrow(/Maximum 2/);
   });
-  it("delivers two baskets to the warehouse offline, retains the tree, and starts exactly twelve hours from harvest", async () => {
+  it("delivers two baskets offline and starts a fresh untended 24-hour cycle from harvest", async () => {
     const f = await fixture(); const crop = await f.mature();
     const snapshot = await f.act("harvest"); const job = snapshot.farm.production.cropWork!;
+    expect(job.outbound.at(-1)).toEqual(target);
+    expect(job.inbound[0]).toEqual(target);
+    expect(job.workEndsAt - job.workStartsAt).toBe(10000);
+    await f.catchUp(job.workStartsAt + 5000);
+    expect((await f.read()).production.cropWork).toEqual(job);
+    expect(await f.stock()).toBe(0);
     expect(job.inbound.at(-1)).toEqual({ column: 5, row: 5 });
     expect(await f.stock()).toBe(0);
     const done = await f.catchUp(job.completesAt + 100000);
     expect(done.production.cropWork?.settled).toBe(true); expect(await f.stock()).toBe(2);
     const [tree] = await db.select().from(farmCrops).where(eq(farmCrops.id, crop.id));
-    expect(tree!.growthCompletesAt.getTime()).toBe(job.workEndsAt + 12 * 3600000);
+    expect(tree!.growthCompletesAt.getTime()).toBe(job.workEndsAt + 24 * 3600000);
+    expect(done.production.palmCycles?.[crop.id]).toEqual({ startedAt: job.workEndsAt, originalReadyAt: job.workEndsAt + 24 * 3600000 });
     expect(tree!.plantedAt).toEqual(crop.plantedAt);
     expect(done.progressionStats.harvestedBarley).toBe(0);
+    expect(done.progressionStats.datesStored).toBe(2);
     await f.catchUp(job.completesAt + 200000); expect(await f.stock()).toBe(2);
+    expect((await f.read()).progressionStats.datesStored).toBe(2);
     await expect(f.act("harvest")).rejects.toThrow(/still growing/);
   });
   it.each([0,1,2,3])("stores a full harvest only in the warehouse with %i baskets already stored", async stored => {

@@ -1,5 +1,5 @@
 import type { FarmSnapshot } from "../../../schemas/farm";
-import { cropSprite } from "./cropPresentation";
+import { isometricCropSprite } from "./isometricDatePalm";
 import { hasFarmerPopup } from "./isometricTilePopup";
 import { porterAwaitingPickup } from "./isometricPorter";
 import { shrineBlessingActive } from "../../../game-data/shrine";
@@ -13,7 +13,7 @@ export const farmRenderKey = (s: FarmSnapshot, now: number): string => {
   return JSON.stringify({
     level: s.farm.progression?.level, inventory: s.inventory,
     objects: s.objects, groundItems: s.groundItems,
-    crops: s.crops.map(c => [c, cropSprite(c, now)]),
+    crops: s.crops.map(c => [c, isometricCropSprite(c, now, production.palmCycles?.[c.id])]),
     buildings: s.buildings.map(b => [b, Date.parse(b.completesAt) <= now, porterAwaitingPickup(production.porter, b.id, now)]),
     roads: s.farm.roads.map(r => [r, (r.completesAt ?? 0) <= now]),
     improvements: s.improvements.map(i => [i, Date.parse(i.completesAt) <= now, !!i.destroyCompletesAt && Date.parse(i.destroyCompletesAt) <= now]),

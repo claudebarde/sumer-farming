@@ -82,3 +82,27 @@
   p { flex: 1; margin: 0; }
   button { padding: 4px 12px; }
 }
+
+.gameContent { height: 100%; }
+.loadingScreen {
+  position: absolute; inset: 0; z-index: 100;
+  display: grid; place-items: center; padding: 24px;
+  background: #f4e5c7; color: #392518;
+}
+.loadingCard {
+  width: min(100%, 420px); box-sizing: border-box; text-align: center;
+  padding: 32px; border: 2px solid #dfbd80; border-radius: 16px;
+  background: #fff7e8;
+  h2 { margin: 12px 0; font-size: 1.25rem; }
+  p { margin: 12px 0; font-size: .8rem; line-height: 1.5; }
+  button { margin-top: 12px; }
+}
+.loadingEmblem { color: #82501c; font-size: 2.2rem; }
+.loadingTrack {
+  height: 8px; overflow: hidden; border-radius: 8px; margin-top: 24px;
+  background: #ead9b9;
+  span { display: block; width: 35%; height: 100%; background: #858e48;
+    border-radius: inherit; animation: estateLoading 1.6s ease-in-out infinite alternate; }
+}
+@keyframes estateLoading { from { transform: translateX(0); } to { transform: translateX(185%); } }
+@media (prefers-reduced-motion: reduce) { .loadingTrack span { animation: none; margin: auto; } }

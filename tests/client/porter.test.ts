@@ -9,6 +9,33 @@ const warehouse: PorterBuilding = { id: "warehouse", type: "warehouse", column: 
 const stack: PorterStack = { buildingId: "mill", itemKey: "flour", quantity: 3, readyAt: 0 };
 const base = { porter, buildings: [mill, warehouse], roads: [], inventory: {}, reserved: {}, stacks: [stack], now: 0 };
 describe("automatic porter", () => {
+  it("chains split bread pickups directly from warehouse to oven to farm, then returns home", () => {
+    const oven: PorterBuilding = { ...mill, id: "oven", type: "breadOven" };
+    const input = { ...base, porter: { ...porter, home: PORTER_MARKET, position: PORTER_MARKET },
+      buildings: [oven, warehouse], inventory: { bread: 9 }, locations: { bread: { farm: 0, warehouse: 9 } },
+      stacks: [{ buildingId: oven.id, itemKey: "bread" as const, quantity: 2, readyAt: 0 }] };
+    const first = advancePorter(input);
+    expect(first.porter.job).toMatchObject({ quantity: 1, storageId: warehouse.id });
+    const second = advancePorter({ ...input, ...first, now: first.porter.job!.completesAt });
+    expect(second.locations.bread).toMatchObject({ warehouse: 10 });
+    expect(second.porter.returnTrip ?? null).toBeNull();
+    expect(second.porter.job).toMatchObject({ quantity: 1, storageId: "farm", startedAt: first.porter.job!.completesAt });
+    const job = second.porter.job!;
+    expect(job.path[0]).toEqual(warehouse.loadingTile);
+    expect(job.path[job.pickupIndex]).toEqual(first.porter.job!.path[first.porter.job!.pickupIndex]);
+    expect(job.path.at(-1)).toEqual({ column: 1, row: 5 });
+    expect(job.path).not.toContainEqual(PORTER_MARKET);
+    const finished = advancePorter({ ...input, ...JSON.parse(JSON.stringify(second)), now: job.completesAt });
+    expect(finished.inventory.bread).toBe(11);
+    expect(finished.locations.bread).toEqual({ warehouse: 10, farm: 1 });
+    expect(finished.porter.job).toBeNull();
+    expect(finished.porter.returnTrip?.path.at(-1)).toEqual(PORTER_MARKET);
+    const offline = advancePorter({ ...input, ...first, now: 100000 });
+    expect(offline.inventory.bread).toBe(11);
+    expect(offline.locations.bread).toEqual(finished.locations.bread);
+    expect(offline.porter.position).toEqual(PORTER_MARKET);
+    expect(advancePorter({ ...input, ...offline, now: 200000 }).inventory.bread).toBe(11);
+  });
   it.each(["flour", "brewersGroats", "bread", "beer"] as const)("takes one of two %s when only one space remains", itemKey => {
     const input = { ...base, porter: { ...porter, position: PORTER_MARKET }, buildings: [mill], inventory: { [itemKey]: 9 }, stacks: [{ ...stack, itemKey, quantity: 2 }] };
     const started = advancePorter(input);

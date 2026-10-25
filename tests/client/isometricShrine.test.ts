@@ -40,8 +40,25 @@ it("blocks missing stock, occupied hands, construction and active blessings", ()
   s.farm.production.shrineBlessing = { buildingId: id, item: "beer", startedAt: new Date(0).toISOString(), expiresAt: new Date(3600000).toISOString() };
   expect(shrineOfferingBlocker(s, id, "bread", 1000)).toContain("blessing");
   const html = renderToStaticMarkup(createElement(IsometricShrineActions, { snapshot: s, buildingId: id, now: 1000, onOffer: () => {} }));
-  expect(html).toContain("Blessing: 1h 0m remaining.");
-  expect(html.match(/disabled=""/g)).toHaveLength(2);
+  expect(html).toContain("0:59:59 remaining");
+  expect(html).toContain('aria-label="Blessing progress"');
+  expect(html).not.toContain("<button");
+});
+
+it("counts down from saved timestamps and restores offering controls at expiry", () => {
+  const s = fixture();
+  s.farm.production.shrineBlessing = { buildingId: id, item: "bread", startedAt: new Date(0).toISOString(), expiresAt: new Date(43200000).toISOString() };
+  const render = (now: number) => renderToStaticMarkup(createElement(IsometricShrineActions, { snapshot: s, buildingId: id, now, onOffer: () => {} }));
+  expect(render(0)).toContain('value="0"');
+  expect(render(10800000)).toContain('value="25"');
+  expect(render(10800000)).toContain("9:00:00 remaining");
+  expect(render(32400000)).toContain('value="75"');
+  expect(render(32400000)).toContain("3:00:00 remaining");
+  expect(render(21600000)).toContain("6:00:00 remaining");
+  expect(render(21600000)).toContain('value="50"');
+  expect(render(43199000)).toContain("0:00:01 remaining");
+  expect(render(43200000)).not.toContain("<progress");
+  expect(render(43200000).match(/<button/g)).toHaveLength(2);
 });
 
 it("replaces both offering buttons with one busy alert during work", () => {

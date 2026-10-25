@@ -6,14 +6,14 @@ import FarmerPanel from "./FarmerPanel";
 import PorterPanel from "./PorterPanel";
 import { FARM_SPRITES } from "../../assets/farmSprites";
 import styles from "../styles/GameCanvas.module.scss";
-import flourBagsImage from "../../assets/sprite_assets/pngs/flour-bags.png";
+import flourBagsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.png";
 import groatsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.png";
 import shekelsImage from "../../assets/sprite_assets/pngs/shekels.png";
 import barleyImage from "../../assets/sprite_assets/pngs/wheat-sheaf.png";
-import breadBasketImage from "../../assets/sprite_assets/pngs/bread-basket.png";
-import beerJarsImage from "../../assets/sprite_assets/pngs/beer-jars.png";
+import breadBasketImage from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.png";
+import beerJarsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.png";
 import fishImage from "../../assets/sprite_assets/pngs/fish.png";
-import datesImage from "../../assets/sprite_assets/pngs/dates-basket.png";
+import datesImage from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.png";
 import reedImage from "../../assets/sprite_assets/pngs/reed-bundle.png";
 import clayImage from "../../assets/sprite_assets/pngs/brick-pile.png";
 import { estateEmptyJars } from "../../game-core/farm/estateEmptyJars";
@@ -69,6 +69,11 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                 value="build"
               >
                 {buildContent}
+                {farmState.type === "ready" && <PorterPanel
+                  marketRoad={marketRoad}
+                  snapshot={farmState.snapshot}
+                  now={storageClock}
+                />}
               </Tabs.Content>
 
               <Tabs.Content
@@ -282,11 +287,6 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                 {farmState.type === "ready" ? (
                   <>
                     <FarmerPanel
-                      snapshot={farmState.snapshot}
-                      now={storageClock}
-                    />
-                    <PorterPanel
-                      marketRoad={marketRoad}
                       snapshot={farmState.snapshot}
                       now={storageClock}
                     />
