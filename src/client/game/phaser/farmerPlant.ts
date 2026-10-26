@@ -1,6 +1,6 @@
 import plant01 from "../../../assets/sprite_assets/pngs/v2/planting-test/farmer-plant-01.png";
 import plant02 from "../../../assets/sprite_assets/pngs/v2/planting-test/farmer-plant-02.png";
-import plant04 from "../../../assets/sprite_assets/pngs/v2/planting-test/farmer-plant-04.png";
+import plant04 from "../../../assets/sprite_assets/pngs/v2/planting-test/farmer-plant-04.webp";
 
 export const FARMER_PLANT_SOURCES = [plant01, plant02, plant04] as const;
 // 01 → 02 → 04 → 02 → 01, with the endpoint shared between loops.

@@ -1,7 +1,7 @@
-import reach from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-harvest-dates-sickle-01.png";
-import cut from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-harvest-dates-sickle-02.png";
-import lower from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-harvest-dates-sickle-03.png";
-import release from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-harvest-dates-sickle-04.png";
+import reach from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-harvest-dates-sickle-01.webp";
+import cut from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-harvest-dates-sickle-02.webp";
+import lower from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-harvest-dates-sickle-03.webp";
+import release from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-harvest-dates-sickle-04.webp";
 
 export const DATE_HARVEST_PREVIEW_SOURCES = { dateHarvestReach: reach, dateHarvestCut: cut, dateHarvestLower: lower, dateHarvestRelease: release } as const;
 const sequence = ["dateHarvestReach", "dateHarvestCut", "dateHarvestLower", "dateHarvestRelease"] as const;

@@ -22,6 +22,9 @@ in 10% steps from 0–100%. Stop ends playback; Play restarts the track. Volume 
 stopped/playing preference are remembered in this browser. Returning to the tab never
 overrides a deliberate Stop. The WAV test asset will be compressed before public release.
 
+Construction sound loops during saved building construction and upgrades, sharing
+the same sound rotation and controls as production. It stops at completion and
+does not replay completed work after time away. Roads and canals do not use it.
 Building work sounds play in the farm view: grinding loops during farmer or donkey
 milling, baking loops during oven production, and stirring loops only while the farmer
 prepares beer (not during supply travel or fermentation). Once stirring ends,
@@ -54,6 +57,10 @@ Footsteps loop while the farmer walks in the farm or market, including carrying
 goods and travelling to work. They stop when he stands still or works, and when
 the tab is hidden. They follow the same volume and Stop/Play controls; walking
 and harvesting sounds do not play simultaneously.
+
+The donkey brays once when the farmer reaches him to lead him to the mill.
+This follows the same volume and Stop/Play controls and stops when leaving the
+farm view or browser tab. Missed brays are not replayed on return or reload.
 
 Farm and market shadows subtly follow your device's local time. The sun travels
 east through north to west between 08:00 and 20:00, with the shortest shadows at

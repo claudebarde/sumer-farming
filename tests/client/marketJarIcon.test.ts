@@ -17,10 +17,10 @@ it("distinguishes brewing equipment from beer packaging with names and artwork",
   expect(brewing).toContain('width="48" height="48"');
   expect(brewing).toContain("object-fit:contain");
   const packaging = renderToStaticMarkup(createElement(MarketJarIcon, { itemKey: "emptyBeerJar" }));
-  expect(packaging).toContain("/beer-jars-empty-isometric.png");
+  expect(packaging).toContain("/beer-jars-empty-isometric.webp");
   expect(packaging).not.toContain("brewery-left-bottom-jar");
   const beer = renderToStaticMarkup(createElement(MarketJarIcon, { itemKey: "beer" }));
-  expect(beer).toContain("/beer-jars-full-isometric.png");
+  expect(beer).toContain("/beer-jars-full-isometric.webp");
 });
 
 it("orders brewing jars before empty jars and beer without removing groats", () => {

@@ -1,12 +1,12 @@
 import { INITIAL_FARM_CONFIG as config } from "../../../game-data/initialFarm";
 
 export const LYRE_SOURCES = Object.entries(import.meta.glob([
-  "../../../assets/sprite_assets/pngs/v2/isometric-test/lyre-musician-walk-*.png",
-  "../../../assets/sprite_assets/pngs/v2/isometric-test/lyre-musician-female-walk-*.png",
+  "../../../assets/sprite_assets/pngs/v2/isometric-test/lyre-musician-walk-*.webp",
+  "../../../assets/sprite_assets/pngs/v2/isometric-test/lyre-musician-female-walk-*.webp",
 ], {
   eager: true, query: "?url", import: "default",
 })).sort(([a], [b]) => a.localeCompare(b)).map(([path, url]) => ({
-  key: `lyre-${path.includes("-female-") ? "female" : "male"}-walk-${Number(path.match(/walk-(\d+)\.png$/)![1]) - 1}`,
+  key: `lyre-${path.includes("-female-") ? "female" : "male"}-walk-${Number(path.match(/walk-(\d+)\.webp$/)![1]) - 1}`,
   url: url as string,
 }));
 export const PROCESSION_COUNT = 5;

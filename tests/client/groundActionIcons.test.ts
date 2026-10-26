@@ -15,11 +15,11 @@ it.each([
   ["walk", "walk-here-icon.png"],
   ["irrigation", "canal-ne-sw.png"],
   ["road", "road-ne-sw.png"],
-  ["emptyJars", "beer-jars-empty-isometric.png"],
-  ["brewBeer", "brewing-beer-icon.png"],
-  ["fish", "fish.png"],
-  ["reed", "reed-bundle.png"],
-  ["clay", "brick-pile.png"],
+  ["emptyJars", "beer-jars-empty-isometric.webp"],
+  ["brewBeer", "brewing-beer-icon.webp"],
+  ["fish", "fish.webp"],
+  ["reed", "reed-bundle.webp"],
+  ["clay", "brick-pile.webp"],
 ] as const)("uses the shared %s action artwork", (kind, filename) => {
   const html = renderToStaticMarkup(createElement(BuildingActionIcon, { kind }));
   expect(html).toContain(filename);

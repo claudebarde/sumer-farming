@@ -8,8 +8,8 @@ mill-active-base.png: 1024 x 1024, transparent. Horizontal lever removed;
 vertical spindle retained. Original artwork retained outside the repair area.
 mill-lever-01.png through 08: 1024 x 1024, transparent directional layers.
 farmer-mill-push-01.png through 04: 512 x 512, transparent, empty hands.
-mill-assembled-preview.png: labelled four-position assembly for review only.
-lever-review.png and farmer-review.png: additional review sheets.
+Historical assembly and review sheets were removed during asset cleanup;
+they remain recoverable from git history.
 alignment.json: export anchors, intended lever endpoints, approximate hand points.
 prompts.json: prompt set, generated with the built-in image generation tool.
 

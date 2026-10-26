@@ -47,7 +47,7 @@ describe("isometric harvest presentation", () => {
     expect(isometricHarvestPose(s, 100000)).toMatchObject({ type: "done", position: { column: 1, row: 5 }, seeds: 0 });
     expect(JSON.stringify(s)).toBe(before);
   });
-  it("omits carried goods from scenery and water popups but retains them on ground", () => {
+  it("omits carried goods from scenery, water and empty ground but retains them at storage", () => {
     const s = snapshot();
     s.farm.carriedItem = { itemKey: "barley", quantity: 4 };
     const cell = { column: 4, row: 9 };
@@ -57,7 +57,8 @@ describe("isometric harvest presentation", () => {
     }
     expect(isometricTilePopup(s, { column: 4, row: INITIAL_FARM_CONFIG.riverRow }, 1000).details).not.toContain("Carrying 4 barley");
     s.objects = [];
-    expect(isometricTilePopup(s, cell, 1000).details).toContain("Carrying 4 barley");
+    expect(isometricTilePopup(s, cell, 1000).details).not.toContain("Carrying 4 barley");
+    expect(isometricTilePopup(s, { column: 1, row: 3 }, 1000).details).toContain("Carrying 4 barley");
   });
   it("counts completed fields and work time without counting travel", () => {
     const s = snapshot();
@@ -86,15 +87,15 @@ describe("isometric harvest presentation", () => {
       expect(harvestSelectionMaximum(capacity, ripe)).toBe(expected);
     }
   );
-  it("shows independent farm and granary levels, counting only completed upgrades", () => {
+  it("shows automatic granary level two at estate level seven and above", () => {
     const s = snapshot();
     expect(isometricTilePopup(s, { column: 1, row: 3 }, 1000).level).toBe(1);
     s.farm.progression = { level: 9, breadSold: 0, barleySold: 0, beerSold: 0, requestsDelivered: 0,
       stats: { breadProduced: 0, processedBarley: 0, harvestedBarley: 0, harvests: 0, beerProduced: 0, fishFed: 0 } };
     expect(isometricTilePopup(s, { column: 1, row: 3 }, 1000).level).toBe(9);
-    expect(isometricTilePopup(s, { column: 6, row: 4 }, 1000).level).toBe(1);
+    expect(isometricTilePopup(s, { column: 6, row: 4 }, 1000).level).toBe(2);
     s.farm.production.buildingUpgrades = { [id]: [{ level: 2, startedAt: date(0), completesAt: date(2000), idempotencyKey: id }] };
-    expect(isometricTilePopup(s, { column: 6, row: 4 }, 1999).level).toBe(1);
+    expect(isometricTilePopup(s, { column: 6, row: 4 }, 1999).level).toBe(2);
     expect(isometricTilePopup(s, { column: 6, row: 4 }, 2000).level).toBe(2);
     expect(isometricTilePopup(s, first, 2000).level).toBeNull();
   });
@@ -186,7 +187,7 @@ describe("isometric interaction popup model", () => {
     const s = snapshot();
     s.groundItems = [{ id, ...first, itemKey: "barley", quantity: 1, expiresAt: date(10000) }];
     const popup = isometricTilePopup(s, first, 1000);
-    expect(popup.actions).toEqual({ gather: null, pickup: true, irrigation: false, road: false, drop: false, plant: false, harvest: false, walk: true });
+    expect(popup.actions).toEqual({ destroyRoad: false, destroyIrrigation: false, destroyMaterial: false, fish: false, gather: null, pickup: true, irrigation: false, road: false, drop: false, plant: false, harvest: false, walk: true });
     expect(popup.details).not.toContain("Connect an adjacent irrigation canal to the river.");
     s.farm.carriedItem = { itemKey: "barley", quantity: 2, expiresAt: null };
     expect(isometricTilePopup(s, first, 1000).actions.pickup).toBe(false);

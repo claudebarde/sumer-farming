@@ -2,7 +2,7 @@ import type { CropWork } from "../../game-data/cropWork";
 import { palmPlantingPose } from "../game/phaser/palmPlanting";
 import meter from "../styles/HappinessMeter.module.scss";
 import styles from "../styles/IsometricTest.module.scss";
-import palm from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-empty.png";
+import palm from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-empty.webp";
 
 export default function PalmPlantingProgress({ job, now }: { job: CropWork; now: number }) {
   const pose = palmPlantingPose(job, job.outbound.at(-1)!, now);

@@ -1,9 +1,9 @@
 import type { FarmSnapshot } from "../../schemas/farm";
 import { FARM_BUILDING_DEFINITIONS, type FarmBuildingType } from "../../game-data/buildings";
-import reed from "../../assets/sprite_assets/pngs/reed-bundle.png";
-import clay from "../../assets/sprite_assets/pngs/brick-pile.png";
+import reed from "../../assets/sprite_assets/pngs/reed-bundle.webp";
+import clay from "../../assets/sprite_assets/pngs/brick-pile.webp";
 import jars from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-left-bottom-jar.png";
-import tools from "../../assets/sprite_assets/pngs/wooden-baking-tools.png";
+import tools from "../../assets/sprite_assets/pngs/wooden-baking-tools.webp";
 import styles from "../styles/BuildingRequirements.module.scss";
 import MaterialRequirements from "./MaterialRequirements";
 

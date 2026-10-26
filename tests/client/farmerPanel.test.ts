@@ -32,7 +32,7 @@ describe("Farmer management tab", () => {
   });
   it("keeps the existing standing farmer portrait and heading", () => {
     const html = render(6);
-    expect(html).toContain("farmer-idle-approved-design.png");
+    expect(html).toContain("farmer-idle-approved-design.webp");
     expect(html).toContain('alt="Meskalamdug, your farmer"');
     expect(html.indexOf('<h2')).toBeLessThan(html.indexOf('<img '));
     expect(html).toContain('width="96" height="96"');
@@ -49,7 +49,7 @@ describe("Farmer management tab", () => {
     const html = render(6);
     expect(html).not.toContain("in stock");
     for (const item of ["fish", "bread", "beer"]) expect(html).not.toContain(`No ${item} available`);
-    for (const icon of ["fish.png", "bread-basket-isometric.png", "beer-jars-full-isometric.png"]) expect(html).toContain(icon);
+    for (const icon of ["fish.webp", "bread-basket-isometric.webp", "beer-jars-full-isometric.webp"]) expect(html).toContain(icon);
     for (const hours of [8, 6, 12]) expect(html).toContain(`Every ${hours}h`);
     expect(html).toContain('aria-label="+10 happiness"');
     expect(html.match(/aria-label="\+15 happiness"/g)).toHaveLength(2);

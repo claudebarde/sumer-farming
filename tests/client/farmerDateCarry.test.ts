@@ -20,6 +20,6 @@ it("cycles through all four walking frames and keeps the corrected idle sprite",
   expect([0,160,320,480,640].map(t => farmerDateCarryTexture(t))).toEqual([
     "farmer-dates-walk-0", "farmer-dates-walk-1", "farmer-dates-walk-2", "farmer-dates-walk-3", "farmer-dates-walk-0"
   ]);
-  expect(FARMER_DATE_SOURCES["farmer-dates-idle"]).toContain("idle-v2.png");
+  expect(FARMER_DATE_SOURCES["farmer-dates-idle"]).toContain("idle-v2.webp");
   expect(farmerDateCarryTexture(500, false)).toBe("farmer-dates-idle");
 });

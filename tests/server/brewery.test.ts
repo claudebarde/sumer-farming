@@ -137,12 +137,12 @@ describe("brewery construction and equipment", () => {
     expect(await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, input.playerId))).toHaveLength(1);
   });
 
-  it.each(["brewery", "breadOven"] as const)("consumes 4 reed, 6 clay and two brewing jars and persists a 3-minute %s", async buildingType => {
+  it.each(["brewery", "breadOven"] as const)("consumes materials, retains permanent equipment and persists a 3-minute %s", async buildingType => {
     const input = { ...await fixture(), building: buildingType };
     if (buildingType === "breadOven") await db.update(farmInventory).set({ itemKey: "bakingTools" }).where(and(eq(farmInventory.farmId, input.farmId), eq(farmInventory.itemKey, "brewingVessels")));
     const snapshot = await Effect.runPromise(buildFarmBuilding(db, input));
     expect(snapshot.groundItems).toHaveLength(0);
-    expect(snapshot.inventory.find(item => item.itemKey === (buildingType === "breadOven" ? "bakingTools" : "brewingVessels"))?.quantity).toBe(0);
+    expect(snapshot.inventory.find(item => item.itemKey === (buildingType === "breadOven" ? "bakingTools" : "brewingVessels"))?.quantity).toBe(2);
     expect(snapshot.buildings).toHaveLength(1);
     const building = snapshot.buildings[0]!;
     expect(building.type).toBe(buildingType);

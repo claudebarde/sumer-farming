@@ -16,11 +16,11 @@ it("shows the existing story, product, required amount, stock and reward", () =>
   expect(html).toContain("3 needed");
   expect(html).toContain("You have <strong>10</strong>");
   expect(html).toContain("5 shekels");
-  expect(html).toContain("/shekels.png");
+  expect(html).toContain("/shekels.webp");
   expect(html).not.toContain("disabled");
 });
 it("uses the full beer icon and shows both goods for a mixed request", () => {
-  expect(render(1)).toContain("beer-jars-full-isometric.png");
+  expect(render(1)).toContain("beer-jars-full-isometric.webp");
   const html = render(2);
   expect(html).toContain("4 needed");
   expect(html).toContain("2 needed");

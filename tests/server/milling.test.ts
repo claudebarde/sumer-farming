@@ -48,8 +48,7 @@ const fixture = async (barley = 8) => {
 };
 
 describe("persistent single-farmer milling", () => {
-  it.each([["farmer", 5, true], ["farmer", 6, false], ["donkey", 3, true], ["donkey", 4, false], ["donkey", 8, false]] as const)
-    ("enforces combined output capacity for %s with %i bags", async (worker, count, fits) => {
+  it.each([["farmer", 5, true], ["farmer", 6, false], ["donkey", 3, true], ["donkey", 4, false], ["donkey", 8, false]] as const)("enforces combined output capacity for %s with %i bags", async (worker, count, fits) => {
       const f = await fixture();
       await db.update(farms).set({ level: 7, millGoods: { pending: { [f.mill.id]: { flour: count - 1, brewersGroats: 1 } }, delivery: null } }).where(eq(farms.id, f.farm.id));
       await db.insert(farmInventory).values({ farmId: f.farm.id, itemKey: "donkey", quantity: 1 });

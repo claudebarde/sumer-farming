@@ -26,7 +26,7 @@ describe("Porter management card", () => {
   it("shows the service heading, idle porter and hire terms", () => {
     const html = render(5);
     expect(html).toContain("<h2>Farm services</h2>");
-    expect(html).toContain("porter-empty-idle.png");
+    expect(html).toContain("porter-empty-idle.webp");
     expect(html).toContain("20 shekels");
     expect(html).toContain("For 24 hours");
     expect(html).toContain("No automatic renewal");

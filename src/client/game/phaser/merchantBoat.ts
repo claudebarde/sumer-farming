@@ -1,5 +1,5 @@
 import type Phaser from "phaser";
-import boat from "../../../assets/sprite_assets/pngs/v2/isometric-test/merchant-boat/merchant-reed-boat-idle-no-pole.png";
+import boat from "../../../assets/sprite_assets/pngs/v2/isometric-test/merchant-boat/merchant-reed-boat-idle-no-pole.webp";
 import pole from "../../../assets/sprite_assets/pngs/v2/isometric-test/merchant-boat/merchant-reed-boat-pole.png";
 import { INITIAL_FARM_CONFIG as config } from "../../../game-data/initialFarm";
 import { isoPoint } from "./isometricProjection";
@@ -12,6 +12,15 @@ export const MERCHANT_POLE_SOURCE = pole;
 export const MERCHANT_BOAT_SIZE = 205;
 export const MERCHANT_BOAT_TEXTURE_SIZE = 512;
 export const MERCHANT_BOAT_SHARPEN = 0.15;
+
+/** World bounds include transparent padding; only painted pixels intercept tile clicks. */
+export const merchantPartHit = (image: Phaser.GameObjects.Image, x: number, y: number): boolean => {
+  if (!image.visible || image.alpha <= 0.05) return false;
+  const local = image.getWorldTransformMatrix().applyInverse(x, y);
+  const textureX = Math.floor(local.x + image.displayOriginX);
+  const textureY = Math.floor(local.y + image.displayOriginY);
+  return (image.scene.textures.getPixelAlpha(textureX, textureY, image.texture.key, image.frame.name) ?? 0) >= 32;
+};
 
 /** Preserve full-frame registration while filtering fine detail before GPU scaling. */
 export const prepareMerchantBoatTexture = (source: HTMLImageElement) => {
@@ -163,7 +172,10 @@ export const createMerchantBoat = (scene: Phaser.Scene) => {
       pole.setAngle(merchantPoleAngle(elapsed, reducedMotion || !travel.moving));
       name.setPosition(travel.x, travel.y - 85 + bob.y).setAlpha(travel.alpha).setVisible(showName && travel.visible);
     },
-    contains(x: number, y: number) { return group.visible && group.alpha > 0.05 && body.getBounds().contains(x, y); },
+    contains(x: number, y: number) {
+      return group.visible && group.alpha > 0.05 &&
+        [body, pole].some(part => merchantPartHit(part, x, y));
+    },
     destroy() { wake.destroy(); group.destroy(); name.destroy(); },
   };
 };

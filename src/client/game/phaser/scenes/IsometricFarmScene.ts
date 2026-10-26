@@ -2,7 +2,7 @@ import Phaser from "phaser";
 import { palmPlantingPose } from "../palmPlanting";
 import { buildingAudioActive, type BuildingAudioKey } from "../buildingAudio";
 import { DATE_HARVEST_PREVIEW_SOURCES, dateHarvestPreviewFrame, dateHarvestPreviewOrigin, dateHarvestPreviewBasketsVisible } from "../dateHarvestPreview";
-import dateHarvestBaskets from "../../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.png";
+import dateHarvestBaskets from "../../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 import { palmHarvestPose, palmHarvestCarrier } from "../palmHarvesting";
 import { FARMER_DATE_SOURCES, FARMER_DATE_BOUNDS, FARMER_DATE_ORIGIN, FARMER_DATE_DISPLAY_SIZE } from "../farmerDateCarry";
 import { DONKEY_SOURCES, donkeyFrameBounds, donkeyDirectionalPose, donkeyWanderPose } from "../donkeySprites";
@@ -18,7 +18,7 @@ import { drawBuildingProgress } from "../buildingProgressBar";
 import { createShadowLayer } from "../shadowLayer";
 import type { ShadowPreset } from "../daylightShadows";
 import { BAKING_SOURCES, prepareBakingAnimation, createBakingAnimation } from "../breadOvenAnimation";
-import renovationSprite from "../../../../assets/sprite_assets/pngs/v2/isometric-test/building-renovation.png";
+import renovationSprite from "../../../../assets/sprite_assets/pngs/v2/isometric-test/building-renovation.webp";
 import { RENOVATION_BUILDER_SOURCES, prepareRenovationBuilder } from "../renovationBuilder";
 import { renovationProgress } from "../renovationProgress";
 import { createBuildingRenovationAnimation } from "../buildingRenovationAnimation";
@@ -34,12 +34,12 @@ import { LYRE_SOURCES, PROCESSION_COUNT, PROCESSION_DURATION_MS, processionPose 
 import { DOG_SOURCES, initialDog, dogTexture, type DogState } from "../isometricDog";
 import { stepDogConstructionEscape } from "../dogConstructionEscape";
 import { initialWandering, stepWandering } from "../dogWandering";
-import granaryUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/granary-isometric-test.png";
-import breadOvenUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-isometric.png";
-import smallShrineUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/small-shrine-isometric.png";
-import warehouseUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/warehouse-isometric.png";
-import breweryUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-left-bottom-shell.png";
-import breweryRightTopUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-right-top-shell.png";
+import granaryUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/granary-isometric-test.webp";
+import breadOvenUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-isometric.webp";
+import smallShrineUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/small-shrine-isometric.webp";
+import warehouseUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/warehouse-isometric.webp";
+import breweryUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-left-bottom-shell.webp";
+import breweryRightTopUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-right-top-shell.webp";
 import breweryJarUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-left-bottom-jar.png";
 import { prepareBreweryLayout, breweryVesselCount, breweryVesselTexture } from "../breweryLayout";
 import { breweryOrientationTexture } from "../breweryOrientation";
@@ -47,12 +47,12 @@ import { activeBrewingPreparation, breweryOutputPlacement } from "../isometricBr
 import { MILL_ANIMATION_SOURCES, prepareMillAnimation, renderMillAnimation, millShadowCasters, millWorkerForegroundDepths, type MillAnimationImages } from "../millAnimation";
 import { millingJourneyPose, millingProgress } from "../isometricMilling";
 import { roadsideOutputPlacement, isometricOutputPosition } from "../buildingOutputPlacement";
-import millOutputBagsUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.png";
+import millOutputBagsUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.webp";
 import { mockGranaryPlacement, buildingPlacement, buildingBuildBlocker, type PlaceableBuilding } from "../isometricBuildingPlacement";
-import marketUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/market-isometric-test.png";
+import marketUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/market-isometric-test.webp";
 import groundUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/ground-non-arable.png";
-import arableGroundUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/ground-arable.png";
-import riverWaterUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/river-water-isometric.png";
+import arableGroundUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/ground-arable.webp";
+import riverWaterUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/river-water-isometric.webp";
 import { riverRipples } from "../riverRipples";
 import { FISHING_SOURCES, fishingTexture, FISHING_CAST_DURATION } from "../farmerFishing";
 import { CAST_DELAY_MS, CAST_COOLDOWN_MS } from "../../../../game-data/fishing";
@@ -64,7 +64,7 @@ import roadCornerUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-te
 import roadJunctionUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/roads/road-nw-ne-se.png";
 import canalStraightUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/canals/canal-ne-sw.png";
 import canalCornerUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/canals/canal-nw-ne.png";
-import canalJunctionUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/canals/canal-nw-ne-se.png";
+import canalJunctionUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/canals/canal-nw-ne-se.webp";
 import { canalConnectionMask } from "../isometricIrrigation";
 import { roadTextures } from "../roadTextures";
 import { roadConnectionMask, roadGhostPreview, roadWorkActive } from "../isometricRoads";
@@ -1282,9 +1282,13 @@ export class IsometricFarmScene extends Phaser.Scene {
     });
   }
   private walkingForAudio = false;
+  donkeyMillingForAudio(): MillingJob | null {
+    return this.ready && !this.graphicsLost && this.sys.isActive() && this.sys.isVisible()
+      ? this.snapshot.farm.milling ?? null : null;
+  }
   isBuildingActiveForAudio(key: BuildingAudioKey, now: number): boolean {
     return this.ready && !this.graphicsLost && this.sys.isActive() && this.sys.isVisible() &&
-      buildingAudioActive(this.snapshot.farm, key, now);
+      buildingAudioActive(this.snapshot.farm, key, now, this.snapshot.buildings);
   }
   isWalkingForAudio(): boolean {
     return this.ready && !this.graphicsLost && this.sys.isActive() && this.sys.isVisible() &&

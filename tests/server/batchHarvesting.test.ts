@@ -252,25 +252,24 @@ describe("four-field batch harvesting", () => {
     expect(returned.farm.progression?.stats.harvests).toBe(4);
   });
   it("accumulates 2, 4, 6, 8 carried barley, counts each field once, and supports partial storage", async () => {
-    const f = await fixture(); await Effect.runPromise(f.start());
+    const f = await fixture();
+    const started = await Effect.runPromise(f.start());
+    const batch = started.farm.production.planting!;
+    let arrival = Date.parse(batch.nextStepAt!);
     for (let count = 1; count <= 4; count++) {
-      const started = await f.advance("harvest");
-      const crop = started.crops.find(c => c.harvestStartedAt !== null)!;
-      expect(Date.parse(crop.harvestCompletesAt!) - Date.parse(crop.harvestStartedAt!)).toBe(10000);
-      await expect(f.advance("finish")).rejects.toThrow(/still being/);
-      await f.finishTimer();
-      const retry = await f.command("finish");
-      const done = await Effect.runPromise(batchPlantingAction(db, retry));
-      expect(done.farm.carriedItem?.quantity).toBe(count * 2);
-      expect(done.farm.progression?.stats.harvests).toBe(count);
-      expect(done.crops).toHaveLength(5 - count);
-      if (count < 4) {
-        const repeated = await Effect.runPromise(batchPlantingAction(db, retry));
-        expect(repeated.farm.carriedItem?.quantity).toBe(count * 2);
-        expect(repeated.farm.progression?.stats.harvests).toBe(count);
-      } else {
-        await expect(Effect.runPromise(Effect.flip(batchPlantingAction(db, retry)))).resolves.toMatchObject({ _tag: "BatchPlantingError" });
-      }
+      const working = await catchUp(f.farmId, arrival);
+      expect(working.production.planting?.phase.type).toBe("harvesting");
+      const beforeCompletion = await catchUp(f.farmId, arrival + 9999);
+      expect(beforeCompletion.carriedItemQuantity).toBe((count - 1) * 2);
+      const done = await catchUp(f.farmId, arrival + 10000);
+      expect(done.carriedItemQuantity).toBe(count * 2);
+      expect(done.progressionStats.harvests).toBe(count);
+      expect(await db.select().from(farmCrops).where(eq(farmCrops.farmId, f.farmId))).toHaveLength(5 - count);
+      const repeated = await catchUp(f.farmId, arrival + 10000);
+      expect(repeated.carriedItemQuantity).toBe(count * 2);
+      expect(repeated.progressionStats.harvests).toBe(count);
+      expect(repeated.version).toBe(done.version);
+      arrival += 10000 + (batch.travelMs?.[count] ?? 0);
     }
     expect((await f.read()).production.planting).toBeNull();
     const deposited = await Effect.runPromise(depositCarriedItem(db, { playerId: f.playerId, expectedFarmVersion: (await f.read()).version }));

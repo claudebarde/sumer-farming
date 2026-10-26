@@ -1,8 +1,10 @@
+import actionStyles from "../styles/BuildingActionButton.module.scss";
+import BuildingActionIcon from "./BuildingActionIcon";
 import type { NpcRequests } from "../../schemas/npcRequests";
 import { canDeliverRequest } from "../../game-core/market/npcRequests";
 import { FARM_SPRITES } from "../../assets/farmSprites";
-import beer from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.png";
-import shekels from "../../assets/sprite_assets/pngs/shekels.png";
+import beer from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.webp";
+import shekels from "../../assets/sprite_assets/pngs/shekels.webp";
 import styles from "../styles/MerchantRequests.module.scss";
 
 export default function MerchantRequestCard({ request, stock, pending, onDeliver }: {
@@ -35,10 +37,10 @@ export default function MerchantRequestCard({ request, stock, pending, onDeliver
       <div className={styles.footer}>
         <div className={styles.reward}><img src={shekels} alt="" width={36} height={36} /><span><small>Reward</small><strong>{request.reward} shekels</strong></span></div>
         {request.completed ? <strong className={styles.delivered}>Delivered ✓</strong> :
-          <button disabled={!enough || pending} onClick={onDeliver}
-            aria-label={`Deliver to ${request.customer} for ${request.reward} shekels`}>
+          <button className={actionStyles.button} disabled={!enough || pending} onClick={onDeliver}
+            aria-label={`Deliver to ${request.customer} for ${request.reward} shekels`}>{request.barley > 0 && <BuildingActionIcon kind="barley" />}{request.beer > 0 && <BuildingActionIcon kind="beer" />}<span>
             {pending ? "Delivering…" : "Deliver"}
-          </button>}
+          </span></button>}
       </div>
     </div>
   </section>;

@@ -191,3 +191,11 @@ it("walks, pauses and walks again beside a baking oven without blocking the road
   const interrupted = stepWandering(result.dog, initialWandering(), s, area.anchor, 50, 62000, 100, area.reserved);
   expect(interrupted.state.goal).toBeNull();
 });
+
+it("loads each lossless walking frame once in stride order", () => {
+  expect(Object.keys(DOG_SOURCES)).toHaveLength(7);
+  for (let frame = 0; frame < 6; frame++) {
+    expect(DOG_SOURCES[String(frame)]).toContain(`dog-walk-0${frame + 1}.webp`);
+  }
+  expect(DOG_SOURCES.sit).toContain("dog-idle-sitting.png");
+});

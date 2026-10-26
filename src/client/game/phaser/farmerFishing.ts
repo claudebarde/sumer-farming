@@ -1,7 +1,7 @@
 import idle from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-fishing-idle.png";
 import lift from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-fishing-cast-01.png";
 import backswing from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-fishing-cast-02.png";
-import forward from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-fishing-cast-03.png";
+import forward from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-fishing-cast-03.webp";
 import followThrough from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-fishing-cast-04.png";
 
 export const FISHING_SOURCES = { "fishing-idle": idle, "fishing-lift": lift, "fishing-backswing": backswing,

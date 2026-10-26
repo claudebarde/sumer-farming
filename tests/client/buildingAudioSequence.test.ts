@@ -3,7 +3,7 @@ import { createBuildingAudioSequence } from "../../src/client/game/phaser/buildi
 import type { BuildingAudioKey } from "../../src/client/game/phaser/buildingAudio";
 
 const fixture = () => {
-  const entries = (["grinding", "baking", "stirring", "bubbling"] as const).map(key => {
+  const entries = (["grinding", "baking", "stirring", "bubbling", "construction"] as const).map(key => {
     const sound = { isPlaying: false, loop: false, volume: 0,
       play: vi.fn(() => { sound.isPlaying = true; return true; }),
       stop: vi.fn(() => { sound.isPlaying = false; }),
@@ -18,6 +18,22 @@ const fixture = () => {
   };
   return { entries, update, playing: () => entries.find(entry => entry.sound.isPlaying)?.key };
 };
+
+it("rotates construction with production, stops when hidden, and loops alone", () => {
+  const f = fixture();
+  f.update(["baking", "construction"], 0);
+  expect(f.playing()).toBe("baking");
+  f.update(["baking", "construction"], 5000);
+  f.update(["baking", "construction"], 6000);
+  expect(f.playing()).toBe("construction");
+  f.update(["construction"], 6500, false);
+  expect(f.playing()).toBeUndefined();
+  f.update(["construction"], 7000);
+  expect(f.playing()).toBe("construction");
+  expect(f.entries[4]!.sound.loop).toBe(true);
+  f.update([], 8000);
+  expect(f.playing()).toBeUndefined();
+});
 
 it("rotates without overlap with fades, short gaps and a longer pause after the round", () => {
   const f = fixture(); const active: BuildingAudioKey[] = ["baking", "bubbling"];

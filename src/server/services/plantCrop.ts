@@ -143,23 +143,22 @@ export const plantCrop = (
             sowingStartedAt
           );
 
-          const [groundItems, objects, improvements, crops, buildings] =
-            await Promise.all([
-              transaction
+          // A transaction uses one PostgreSQL connection; await each query.
+          const groundItems = await transaction
                 .select({
                   column: farmGroundItems.column,
                   row: farmGroundItems.row
                 })
                 .from(farmGroundItems)
-                .where(eq(farmGroundItems.farmId, farm.id)),
-              transaction
+                .where(eq(farmGroundItems.farmId, farm.id));
+          const objects = await transaction
                 .select({
                   column: farmObjects.column,
                   row: farmObjects.row
                 })
                 .from(farmObjects)
-                .where(eq(farmObjects.farmId, farm.id)),
-              transaction
+                .where(eq(farmObjects.farmId, farm.id));
+          const improvements = await transaction
                 .select({
                   type: farmImprovements.type,
                   column: farmImprovements.column,
@@ -168,23 +167,22 @@ export const plantCrop = (
                   destroyCompletesAt: farmImprovements.destroyCompletesAt
                 })
                 .from(farmImprovements)
-                .where(eq(farmImprovements.farmId, farm.id)),
-              transaction
+                .where(eq(farmImprovements.farmId, farm.id));
+          const crops = await transaction
                 .select({
                   column: farmCrops.column,
                   row: farmCrops.row
                 })
                 .from(farmCrops)
-                .where(eq(farmCrops.farmId, farm.id)),
-              transaction
+                .where(eq(farmCrops.farmId, farm.id));
+          const buildings = await transaction
                 .select({
                   type: farmBuildings.type,
                   column: farmBuildings.column,
                   row: farmBuildings.row
                 })
                 .from(farmBuildings)
-                .where(eq(farmBuildings.farmId, farm.id))
-            ]);
+                .where(eq(farmBuildings.farmId, farm.id));
 
           const occupiedCoordinates = [
             ...farm.roads,

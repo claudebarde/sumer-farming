@@ -5,6 +5,17 @@ import { MillingJobSchema } from "../../src/game-data/milling";
 import { syncActionLoopAudio } from "../../src/client/game/phaser/actionLoopAudio";
 
 const iso = (time: number) => new Date(time).toISOString();
+it.each(["construction", "upgrade"])("construction audio follows saved %s boundaries, including reload and offline completion", kind => {
+  const job = { startedAt: iso(1000), completesAt: iso(10000) };
+  const production = { ...emptyProductionState(), buildingUpgrades: kind === "upgrade"
+    ? { oven: [{ ...job, level: 2, idempotencyKey: "upgrade" }] } : {} };
+  const state = { milling: null, production };
+  const buildings = kind === "construction" ? [job] : [];
+  for (const [now, active] of [[999, false], [1000, true], [5000, true], [9999, true], [10000, false], [86400000, false]] as const) {
+    expect(buildingAudioActive(state, "construction", now, buildings)).toBe(active);
+  }
+  expect(buildingAudioActive({ milling: null, production: emptyProductionState() }, "construction", 5000)).toBe(false);
+});
 const farm = {
   milling: MillingJobSchema.parse({ buildingId: "00000000-0000-4000-8000-000000000001", recipe: "flour", worker: "donkey",
     startedAt: iso(1000), completesAt: iso(10000), barley: 6, output: 3 }),

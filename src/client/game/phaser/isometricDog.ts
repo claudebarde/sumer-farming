@@ -8,7 +8,7 @@ import { dogFacingMouse } from "./dogFacing";
 
 export const DOG_SOURCES = Object.fromEntries<string>([
   ["sit", new URL("../../../assets/sprite_assets/pngs/v2/isometric-test/dog-idle-sitting.png", import.meta.url).href],
-  ...Object.entries(import.meta.glob("../../../assets/sprite_assets/pngs/v2/isometric-test/dog-walk-*.png", { eager: true, query: "?url", import: "default" }))
+  ...Object.entries(import.meta.glob("../../../assets/sprite_assets/pngs/v2/isometric-test/dog-walk-*.webp", { eager: true, query: "?url", import: "default" }))
     .sort(([a], [b]) => a.localeCompare(b)).map(([, url], index): [string, string] => [String(index), url as string]),
 ]);
 export type DogState = Readonly<{ position: IsoCell; target: IsoCell | null; elapsed: number; walking: boolean; flip: boolean; checkIn: number;

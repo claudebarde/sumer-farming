@@ -351,7 +351,7 @@ describe.sequential("farm item storage actions", () => {
     const snapshot = await Effect.runPromise(destroyGroundMaterial(database, input));
     expect(snapshot.groundItems.find(i => i.id === pile!.id)?.quantity).toBe(1);
     expect(snapshot.groundItems.find(i => i.id === other!.id)?.quantity).toBe(1);
-    expect(snapshot.inventory).toContainEqual({ itemKey, quantity: 3 });
+    expect(snapshot.inventory).toContainEqual({ itemKey, quantity: 3, locations: { farm: 3 } });
     expect(snapshot.farm.carriedItem).toBeNull();
     expect(snapshot.farm.version).toBe(2);
     await expect(Effect.runPromise(Effect.flip(destroyGroundMaterial(database, input))))

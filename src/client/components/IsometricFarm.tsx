@@ -790,6 +790,17 @@ export default function IsometricFarm() {
         storageClock={clock} manageTab={manageTab} setManageTab={setManageTab}
         buildContent={snapshot && <IsometricBuildingCatalogue snapshot={snapshot} now={clock} onBuild={beginBuilding} />} />
     </Dialog.Root>}
+    {location === "market" && !neighbourhoodOpen && <div className={styles.manageControls}>
+      <div className={styles.manageButtonRow}>
+        <Tooltip.Provider delayDuration={300}>
+          <SettingsDrawer onOpen={() => {
+            marketScene.current?.clearSelection();
+            setInformation(null);
+            marketUiStore.getState().setOpen(false);
+          }} />
+        </Tooltip.Provider>
+      </div>
+    </div>}
     {neighbourhoodOpen && <div className={styles.manageControls}>
       <div className={styles.manageButtonRow}>
         <Tooltip.Provider delayDuration={300}>
@@ -809,6 +820,10 @@ export default function IsometricFarm() {
             </Tooltip.Trigger>
             <Tooltip.Portal><Tooltip.Content className={styles.navigationTooltip} side="bottom" sideOffset={6} collisionPadding={8}>Back to your farm<Tooltip.Arrow className={styles.navigationTooltipArrow} /></Tooltip.Content></Tooltip.Portal>
           </Tooltip.Root>
+          <SettingsDrawer onOpen={() => {
+            setNeighbourhoodLeaderboardOpen(false);
+            setInformation(null);
+          }} />
         </Tooltip.Provider>
       </div>
     </div>}

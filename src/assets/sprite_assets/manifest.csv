@@ -1,7 +1,7 @@
 filename,dimensions,tile_footprint,asset_type,source
-water.png,256x256,1x1,terrain tile,extracted
-wheat-sheaf.png,256x256,1x1,standalone object,extracted
-reed-bundle.png,256x256,1x1,standalone object,extracted
-brick-pile.png,256x256,1x1,standalone object,extracted
-reeds-plant.png,256x256,1x1,standalone object,extracted
-fish.png,256x256,1x1,standalone object,newly generated
+water.png,1254x1254,1x1,resource icon,approved isometric generation
+wheat-sheaf.png,1254x1254,1x1,resource icon,approved isometric generation
+reed-bundle.png,1254x1254,1x1,resource icon,approved isometric generation
+brick-pile.png,1254x1254,1x1,resource icon,approved isometric generation
+reeds-plant.png,1254x1254,1x1,map plant,approved isometric generation
+fish.png,1254x1254,1x1,resource icon,approved isometric generation

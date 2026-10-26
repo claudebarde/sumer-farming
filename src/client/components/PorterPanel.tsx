@@ -6,7 +6,7 @@ import { farmStore } from "../stores/farmStore";
 import { workerLocationStore } from "../stores/workerLocationStore";
 import styles from "../styles/GameCanvas.module.scss";
 import cardStyles from "../styles/FarmerTreats.module.scss";
-import porterIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-empty-idle.png";
+import porterIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-empty-idle.webp";
 
 export default function PorterPanel({ snapshot, now, marketRoad }: { snapshot: FarmSnapshot; now: number; marketRoad?: { column: number; row: number } }) {
   const [pending, setPending] = useState(false);

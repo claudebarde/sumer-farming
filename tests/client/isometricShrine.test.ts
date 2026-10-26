@@ -22,8 +22,8 @@ it("offers bread and beer with their approved icons", () => {
   const html = renderToStaticMarkup(createElement(IsometricShrineActions, { snapshot: s, buildingId: id, now: 1000, onOffer: () => {} }));
   expect(html).toContain("Offer 2 bread");
   expect(html).toContain("Offer 2 beer");
-  expect(html).toContain("bread-basket-isometric.png");
-  expect(html).toContain("beer-jars-full-isometric.png");
+  expect(html).toContain("bread-basket-isometric.webp");
+  expect(html).toContain("beer-jars-full-isometric.webp");
   expect(html).not.toContain('disabled=""');
 });
 
@@ -40,7 +40,7 @@ it("blocks missing stock, occupied hands, construction and active blessings", ()
   s.farm.production.shrineBlessing = { buildingId: id, item: "beer", startedAt: new Date(0).toISOString(), expiresAt: new Date(3600000).toISOString() };
   expect(shrineOfferingBlocker(s, id, "bread", 1000)).toContain("blessing");
   const html = renderToStaticMarkup(createElement(IsometricShrineActions, { snapshot: s, buildingId: id, now: 1000, onOffer: () => {} }));
-  expect(html).toContain("0:59:59 remaining");
+  expect(html).toContain("59m 59s remaining");
   expect(html).toContain('aria-label="Blessing progress"');
   expect(html).not.toContain("<button");
 });
@@ -51,12 +51,12 @@ it("counts down from saved timestamps and restores offering controls at expiry",
   const render = (now: number) => renderToStaticMarkup(createElement(IsometricShrineActions, { snapshot: s, buildingId: id, now, onOffer: () => {} }));
   expect(render(0)).toContain('value="0"');
   expect(render(10800000)).toContain('value="25"');
-  expect(render(10800000)).toContain("9:00:00 remaining");
+  expect(render(10800000)).toContain("9h 0m 0s remaining");
   expect(render(32400000)).toContain('value="75"');
-  expect(render(32400000)).toContain("3:00:00 remaining");
-  expect(render(21600000)).toContain("6:00:00 remaining");
+  expect(render(32400000)).toContain("3h 0m 0s remaining");
+  expect(render(21600000)).toContain("6h 0m 0s remaining");
   expect(render(21600000)).toContain('value="50"');
-  expect(render(43199000)).toContain("0:00:01 remaining");
+  expect(render(43199000)).toContain("1s remaining");
   expect(render(43200000)).not.toContain("<progress");
   expect(render(43200000).match(/<button/g)).toHaveLength(2);
 });

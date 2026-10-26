@@ -8,7 +8,7 @@ it.each(["Sowing", "Harvesting"] as const)("shows the shared %s work meter", act
     action, total: 4, progress: { completed: 1, totalMs: 40000, percentage: 37 }
   }));
   expect(html).toContain(`${action} barley...`);
-  expect(html).toContain("wheat-sheaf.png");
+  expect(html).toContain("wheat-sheaf.webp");
   expect(html).toContain('width="48" height="48"');
   expect(html.indexOf('<img ')).toBeLessThan(html.indexOf('<section>'));
   expect(html).toContain("1/4 fields");

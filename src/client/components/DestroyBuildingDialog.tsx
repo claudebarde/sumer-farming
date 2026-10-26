@@ -1,3 +1,5 @@
+import BuildingActionIcon from "./BuildingActionIcon";
+import actionStyles from "../styles/BuildingActionButton.module.scss";
 import { useRef, useState } from "react";
 import { Dialog } from "radix-ui";
 import type { FarmSnapshot } from "../../schemas/farm";
@@ -35,8 +37,8 @@ export default function DestroyBuildingDialog({ snapshot, buildingId, now, onClo
         {building?.type === "brewery" && <p>Any remaining brewing supplies will also be lost.</p>}
         {(error || reason) && <p role="alert">{error ?? reason}</p>}
         <div className={styles["demolition-actions"]}>
-          <button disabled={pending} onClick={onClose}>Cancel</button>
-          {!reason && <button disabled={pending} onClick={() => void destroy()}>{pending ? "Destroying…" : "Destroy the building"}</button>}
+          <button className={actionStyles.button} disabled={pending} onClick={onClose}><BuildingActionIcon kind="cancel" /><span>Cancel</span></button>
+          {!reason && <button className={actionStyles.button} disabled={pending} onClick={() => void destroy()}><BuildingActionIcon kind="destroy" /><span>{pending ? "Destroying…" : "Destroy the building"}</span></button>}
         </div>
       </Dialog.Content>
     </Dialog.Portal>

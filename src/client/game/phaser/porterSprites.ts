@@ -1,12 +1,12 @@
-import empty from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-empty-idle.png";
-import empty1 from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-empty-walk-01.png";
-import empty2 from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-empty-walk-02.png";
-import bags from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-sacks-idle.png";
-import bags1 from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-bags-walk-01.png";
-import bags2 from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-bags-walk-02.png";
-import jars from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-jars-idle.png";
-import jars1 from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-jars-walk-01.png";
-import jars2 from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-jars-walk-02.png";
+import empty from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-empty-idle.webp";
+import empty1 from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-empty-walk-01.webp";
+import empty2 from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-empty-walk-02.webp";
+import bags from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-sacks-idle.webp";
+import bags1 from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-bags-walk-01.webp";
+import bags2 from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-bags-walk-02.webp";
+import jars from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-jars-idle.webp";
+import jars1 from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-jars-walk-01.webp";
+import jars2 from "../../../assets/sprite_assets/pngs/v2/isometric-test/porter/porter-jars-walk-02.webp";
 
 export const PORTER_SOURCES = {
   "porter-empty-idle": empty, "porter-empty-walk-0": empty1, "porter-empty-walk-1": empty2,

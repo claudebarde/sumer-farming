@@ -2,10 +2,10 @@ import type { FarmSnapshot } from "../../../schemas/farm";
 import { CROP_DEFINITIONS } from "../../../game-data/crops";
 import type { PalmCycle } from "../../../game-data/datePalmCycle";
 import { cropSprite } from "./cropPresentation";
-import sapling from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-sapling.png";
-import empty from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-empty.png";
-import flowering from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-flowering.png";
-import ripe from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-ripe.png";
+import sapling from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-sapling.webp";
+import empty from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-empty.webp";
+import flowering from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-flowering.webp";
+import ripe from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-ripe.webp";
 
 export const DATE_PALM_SOURCES = {
   datePalmSapling: sapling, datePalmGrowing: empty,

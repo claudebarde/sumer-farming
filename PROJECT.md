@@ -45,6 +45,22 @@ controls in `index.scss`. NES.css has been removed; use the existing parchment
 panels, sand buttons, disabled states and custom farmer-hand cursors rather than
 reintroducing legacy framework classes or styles.
 
+## Build and database maintenance
+
+The client build separates Phaser, React/Radix UI dependencies, other dependencies,
+and application code for independent caching. `vite.config.ts` enforces a 500 kB
+minified, uncompressed budget per client JavaScript chunk. The installed Phaser
+4.2.1 distribution is one prebuilt module (about 1.375 MB), with a separate
+1.45 MB budget. Exceeding either budget fails the build; do not raise the general
+limit to accommodate application growth. Chunk splitting does not reduce the
+total first-load download. Server build output uses its own Cloudflare pipeline.
+
+Await queries sequentially within a PostgreSQL transaction: one transaction owns
+one connection, and pg deprecates submitting another query while it is busy.
+Concurrency tests must use separate connected clients for simultaneous requests,
+so they exercise real transaction isolation and row locks. Always close the extra
+clients in `finally`.
+
 ## 1. Project Vision
 
 This project is a browser-first economic simulation game set in Ancient Sumer.
@@ -1752,8 +1768,11 @@ staggered white wisps. Its progress bar follows server start/completion timestam
 The table and progress bar share the real batch duration: two doughs
 in the first third, one in the second third, and empty during the final third.
 Completion restores the idle oven, releases the farmer and displays saved bread.
-The paddle loop never resets batch progress. Table frames share
-512px framing, 128px preparation and 62px display size, anchored at oven +(22,9).
+The paddle loop never resets batch progress.
+The oven worker uses an external filter mask with the main camera in WebGL;
+only the Canvas renderer uses a geometry mask. Preserve the world-space paddle
+clipping shape, and destroy the worker's filter before destroying its mask source.
+Table frames share 512px framing, 128px preparation and 62px display size, anchored at oven +(22,9).
 The active table is lowered to match the idle table and clear the finished basket.
 Reduced motion holds the resting pose and steady glow without smoke.
 The baking worker's full-frame texture is prepared at 140px with 0.15 RGB

@@ -1,3 +1,5 @@
+import actionStyles from "../styles/BuildingActionButton.module.scss";
+import BuildingActionIcon from "./BuildingActionIcon";
 import { useRef, useState } from "react";
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { FarmCoordinate } from "../../game-core/farm/irrigation";
@@ -6,7 +8,7 @@ import { perennialActionReason } from "../../game-core/farm/perennialCrops";
 import { plantingBlocker } from "../game/phaser/isometricPlanting";
 import { executeGameCommand } from "../api/gameActions";
 import InfoAlert from "./InfoAlert";
-import palmIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-empty.png";
+import palmIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-empty.webp";
 import styles from "../styles/IsometricTest.module.scss";
 
 export default function PalmPlantingConfirmation({ snapshot, target, now, getFarmerPosition, onStarted, onCancel }: {
@@ -35,7 +37,7 @@ export default function PalmPlantingConfirmation({ snapshot, target, now, getFar
     </div>
     {reason && <InfoAlert>{reason}</InfoAlert>}
     {error && <p role="alert">{error}</p>}
-    <div><button disabled={pending || reason !== null} onClick={() => void confirm()}>{pending ? "Planting…" : "Confirm"}</button>
-      <button disabled={pending} onClick={onCancel}>Cancel</button></div>
+    <div><button className={actionStyles.button} disabled={pending || reason !== null} onClick={() => void confirm()}><BuildingActionIcon kind="confirm" /><span>{pending ? "Planting…" : "Confirm"}</span></button>
+      <button className={actionStyles.button} disabled={pending} onClick={onCancel}><BuildingActionIcon kind="cancel" /><span>Cancel</span></button></div>
   </aside>;
 }

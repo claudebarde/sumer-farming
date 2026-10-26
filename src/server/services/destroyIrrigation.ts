@@ -147,8 +147,8 @@ export const destroyIrrigation = (
             throw new FarmerUnavailableError({ message: "The farmer must be idle and empty-handed to destroy a canal." });
           }
 
-          const [activeCanals, crops] = await Promise.all([
-            transaction
+          // A transaction uses one PostgreSQL connection; await each query.
+          const activeCanals = await transaction
               .select({
                 column: farmImprovements.column,
                 row: farmImprovements.row,
@@ -161,15 +161,14 @@ export const destroyIrrigation = (
                   eq(farmImprovements.type, "irrigation"),
                   isNull(farmImprovements.destroyCompletesAt)
                 )
-              ),
-            transaction
+              );
+          const crops = await transaction
               .select({
                 column: farmCrops.column,
                 row: farmCrops.row
               })
               .from(farmCrops)
-              .where(eq(farmCrops.farmId, farm.id))
-          ]);
+              .where(eq(farmCrops.farmId, farm.id));
           if (irrigationRemovalBlocked(input.target, activeCanals, crops)) {
             return { type: "has_dependents" };
           }

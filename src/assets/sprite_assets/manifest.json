@@ -1,44 +1,44 @@
 [
   {
     "filename": "water.png",
-    "dimensions": "256x256",
+    "dimensions": "1254x1254",
     "tile_footprint": "1x1",
-    "asset_type": "terrain tile",
-    "source": "extracted"
+    "asset_type": "resource icon",
+    "source": "approved isometric generation"
   },
   {
     "filename": "wheat-sheaf.png",
-    "dimensions": "256x256",
+    "dimensions": "1254x1254",
     "tile_footprint": "1x1",
-    "asset_type": "standalone object",
-    "source": "extracted"
+    "asset_type": "resource icon",
+    "source": "approved isometric generation"
   },
   {
     "filename": "reed-bundle.png",
-    "dimensions": "256x256",
+    "dimensions": "1254x1254",
     "tile_footprint": "1x1",
-    "asset_type": "standalone object",
-    "source": "extracted"
+    "asset_type": "resource icon",
+    "source": "approved isometric generation"
   },
   {
     "filename": "brick-pile.png",
-    "dimensions": "256x256",
+    "dimensions": "1254x1254",
     "tile_footprint": "1x1",
-    "asset_type": "standalone object",
-    "source": "extracted"
+    "asset_type": "resource icon",
+    "source": "approved isometric generation"
   },
   {
     "filename": "reeds-plant.png",
-    "dimensions": "256x256",
+    "dimensions": "1254x1254",
     "tile_footprint": "1x1",
-    "asset_type": "standalone object",
-    "source": "extracted"
+    "asset_type": "map plant",
+    "source": "approved isometric generation"
   },
   {
     "filename": "fish.png",
-    "dimensions": "256x256",
+    "dimensions": "1254x1254",
     "tile_footprint": "1x1",
-    "asset_type": "standalone object",
-    "source": "newly generated"
+    "asset_type": "resource icon",
+    "source": "approved isometric generation"
   }
 ]

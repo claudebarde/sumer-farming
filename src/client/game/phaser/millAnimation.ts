@@ -1,14 +1,14 @@
 import Phaser from "phaser";
 import bowl from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-active-bowl.png";
 import bags from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-active-bags.png";
-import base from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-active-base.png";
+import base from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-active-base.webp";
 import lever from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-lever-01.png";
 import farmerFront from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/farmer-mill-push-01.png";
 import farmerBack from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/farmer-mill-push-03.png";
-import donkeyFront from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/donkey-mill-forward.png";
-import donkeyBack from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/donkey-mill-backward.png";
-import donkeyFrontStride from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/donkey-mill-forward-02.png";
-import donkeyBackStride from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/donkey-mill-backward-02.png";
+import donkeyFront from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/donkey-mill-forward.webp";
+import donkeyBack from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/donkey-mill-backward.webp";
+import donkeyFrontStride from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/donkey-mill-forward-02.webp";
+import donkeyBackStride from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/donkey-mill-backward-02.webp";
 import { isoPoint } from "./isometricProjection";
 import { prepareBuildingTexture } from "./buildingTexture";
 

@@ -1,6 +1,6 @@
-import reach from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-tend-palm-01.png";
-import loosen from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-tend-palm-02.png";
-import drawBack from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-tend-palm-03.png";
+import reach from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-tend-palm-01.webp";
+import loosen from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-tend-palm-02.webp";
+import drawBack from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-tend-palm-03.webp";
 
 export const PALM_TENDING_SOURCES = { "farmer-tend-0": reach, "farmer-tend-1": loosen, "farmer-tend-2": drawBack } as const;
 // Full common canvas preserves head, knees and tool registration across frames.

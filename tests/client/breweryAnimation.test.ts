@@ -12,11 +12,12 @@ it.each([0, 1, 2])("layers the worker for %i visible vessels and cleans up", cou
     images.push(obj); return obj;
   };
   const graphics = () => {
-    const obj = Object.fromEntries(["clear", "setDepth", "fillStyle", "fillRoundedRect", "fillRect", "fillEllipse", "fillCircle", "destroy"]
+    const obj = Object.fromEntries(["clear", "once", "setDepth", "fillStyle", "fillRoundedRect", "fillRect", "fillEllipse", "fillCircle", "destroy"]
       .map(key => [key, vi.fn().mockReturnThis()]));
+    Object.assign(obj, { scene });
     drawn.push(obj); return obj;
   };
-  const scene = { add: { image, graphics } } as unknown as Phaser.Scene;
+  const scene = { events: { on: vi.fn(), off: vi.fn() }, add: { image, graphics } } as unknown as Phaser.Scene;
   const brewery = { x: 100, y: 200, depth: 176, displayWidth: 150, displayHeight: 150, originX: 0.5, originY: 120 / 128,
     texture: { key: "brewery", getSourceImage: () => ({ width: 256, height: 256 }) } } as unknown as Phaser.GameObjects.Image;
   const animation = createBrewingTest(scene, brewery, false, count);

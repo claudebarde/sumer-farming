@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { CROP_DEFINITIONS, type PerennialCropKey } from "../../game-data/crops";
 import { perennialActionReason } from "../../game-core/farm/perennialCrops";
-import datesIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.png";
+import datesIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { FarmCoordinate } from "../../game-core/farm/irrigation";
 import { executeGameCommand } from "../api/gameActions";
@@ -13,7 +13,7 @@ import { PALM_TENDING_WINDOW_MS, palmTendingReason } from "../../game-data/dateP
 import InfoAlert from "./InfoAlert";
 import actionStyles from "../styles/BuildingActionButton.module.scss";
 import popupStyles from "../styles/IsometricTest.module.scss";
-import grownPalmIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-empty.png";
+import grownPalmIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-empty.webp";
 import { plantingBlocker } from "../game/phaser/isometricPlanting";
 import CropGrowthProgress from "./CropGrowthProgress";
 import PalmHarvestProgress from "./PalmHarvestProgress";

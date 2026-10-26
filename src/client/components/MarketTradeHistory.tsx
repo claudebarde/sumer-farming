@@ -1,3 +1,5 @@
+import actionStyles from "../styles/BuildingActionButton.module.scss";
+import BuildingActionIcon from "./BuildingActionIcon";
 import { useEffect, useState } from "react";
 import { Dialog } from "radix-ui";
 import { Cross2Icon } from "@radix-ui/react-icons";
@@ -61,7 +63,7 @@ function TradeList({ trades }: { readonly trades: TradeHistory["trades"] }) {
 
 function HistoryPage({ result, retry, scope }: { readonly result: HistoryResult | null; readonly retry: () => void; readonly scope: MarketScope }) {
   if (result === null) return <p role="status">Loading trades…</p>;
-  if (result.type === "failed") return <div><p role="alert">{result.message}</p><button onClick={retry}>Retry</button></div>;
+  if (result.type === "failed") return <div><p role="alert">{result.message}</p><button className={actionStyles.button} onClick={retry}><BuildingActionIcon kind="refresh" /><span>Retry</span></button></div>;
   const trades = result.page.trades.filter(trade => trade.itemKey !== null && marketIncludesItem(scope, trade.itemKey, {
     market: trade.source, action: trade.type === "market_purchase" ? "buy" : "sell"
   }));
@@ -77,14 +79,14 @@ function FullTradeHistory({ scope }: { readonly scope: MarketScope }) {
 
   return (
     <>
-      <button onClick={() => { setCursors([undefined]); setRefresh(value => value + 1); }}>Refresh latest trades</button>
+      <button className={actionStyles.button} onClick={() => { setCursors([undefined]); setRefresh(value => value + 1); }}><BuildingActionIcon kind="refresh" /><span>Refresh latest trades</span></button>
       <HistoryPage result={result} retry={() => setRefresh(value => value + 1)} scope={scope} />
       <nav className={styles.navigation} aria-label="Trade history pages">
-        <button disabled={cursors.length === 1} onClick={() => setCursors(values => values.slice(0, -1))}>Newer</button>
+        <button className={actionStyles.button} disabled={cursors.length === 1} onClick={() => setCursors(values => values.slice(0, -1))}><BuildingActionIcon kind="previous" /><span>Newer</span></button>
         <span>Page {cursors.length}</span>
-        <button disabled={nextCursor === null} onClick={() => {
+        <button className={actionStyles.button} disabled={nextCursor === null} onClick={() => {
           if (nextCursor !== null) setCursors(values => [...values, nextCursor]);
-        }}>Older</button>
+        }}><BuildingActionIcon kind="next" /><span>Older</span></button>
       </nav>
     </>
   );
@@ -98,7 +100,7 @@ export default function MarketTradeHistory({ refresh, scope }: { readonly refres
       <h3>Recent trades</h3>
       <HistoryPage result={result} retry={() => setRetry(value => value + 1)} scope={scope} />
       <Dialog.Root>
-        <Dialog.Trigger asChild><button>View all trades</button></Dialog.Trigger>
+        <Dialog.Trigger asChild><button className={actionStyles.button}><BuildingActionIcon kind="manage" /><span>View all trades</span></button></Dialog.Trigger>
         <Dialog.Portal>
           <Dialog.Overlay className={styles.overlay} />
           <Dialog.Content className={styles.dialog}>

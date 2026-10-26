@@ -45,7 +45,8 @@ it.each(["granary", "mill", "brewery", "breadOven", "warehouse", "smallShrine"] 
   const f = await fixture(type);
   const result = await Effect.runPromise(destroyBuilding(db, f.input));
   expect(result.buildings).toHaveLength(0);
-  expect(result.inventory).toHaveLength(0);
+  expect(result.inventory).toEqual(type === "brewery" ? [{ itemKey: "brewingVessels", quantity: 2 }]
+    : type === "breadOven" ? [{ itemKey: "bakingTools", quantity: 2 }] : []);
   expect(result.player.shekelBalance).toBe(100);
   expect(result.farm.version).toBeGreaterThan(1);
   expect(await db.select().from(farmBuildings).where(eq(farmBuildings.id, f.building.id))).toHaveLength(0);

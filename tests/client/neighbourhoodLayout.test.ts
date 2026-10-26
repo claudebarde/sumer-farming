@@ -45,7 +45,7 @@ it("keeps the map read-only with a level-seven entry and return navigation", () 
   const ui = readFileSync(new URL("../../src/client/components/IsometricFarm.tsx", import.meta.url), "utf8");
   expect(ui).toContain('(snapshot?.farm.progression?.level ?? 1) >= 7 && <Tooltip.Root {...navigationTooltip("neighbourhood")}>');
   const controls = ui.slice(ui.indexOf('<div className={styles.manageControls}>'), ui.indexOf('<EstateManagementContent'));
-  expect(controls.match(/styles.manageButton}/g)).toHaveLength(2);
+  expect(controls.match(/styles.manageButton}/g)).toHaveLength(3); // Manage, neighbourhood and road planning.
   expect(controls).toContain('<div className={styles.manageButtonRow}>');
   expect(controls).toContain('aria-label="Manage"><BuildingActionIcon kind="manage" /></button>');
   expect(controls).toContain('Manage your estate<Tooltip.Arrow');

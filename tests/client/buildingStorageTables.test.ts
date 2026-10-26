@@ -29,8 +29,8 @@ describe("building storage displays", () => {
     expect(html).toContain('aria-label="farm inventory"');
     expect(html.match(/<progress /g)).toHaveLength(8);
     expect(html.match(/<img /g)).toHaveLength(8);
-    expect(html).toContain("brewers-groats-icon.png");
-    expect(html).toContain("mill-flour-bags-isometric.png");
+    expect(html).toContain("brewers-groats-icon.webp");
+    expect(html).toContain("mill-flour-bags-isometric.webp");
     for (const count of ["6/10", "5/10", "0/10", "3/5", "1/5", "0/6"]) expect(html).toContain(count);
     expect(html).toContain('aria-label="Bread storage" aria-valuetext="6 of 10"');
     expect(html).not.toContain("<table");

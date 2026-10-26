@@ -19,7 +19,7 @@ it("connects the boat renderer to the saved request schedule, not the preview cl
 });
 
 it("uses the new reed boat on the river row closest to the fields", () => {
-  expect(MERCHANT_BOAT_SOURCE).toContain("merchant-reed-boat-idle-no-pole.png");
+  expect(MERCHANT_BOAT_SOURCE).toContain("merchant-reed-boat-idle-no-pole.webp");
   expect(MERCHANT_BOAT_CELL.row).toBe(config.riverRow);
   expect(MERCHANT_BOAT_CELL.column).toBeGreaterThan(config.plotBounds.maximumColumn + 2);
   expect(MERCHANT_BOAT_CELL.column).toBeLessThan(config.worldBounds.maximumColumn);
@@ -110,4 +110,32 @@ it("keeps the level gate and never invents a schedule", () => {
   expect(scheduledMerchantVisit(6, board, anchor)).toEqual({ phase: "away" });
   expect(scheduledMerchantVisit(7, null, anchor)).toEqual({ phase: "away" });
   expect(scheduledMerchantVisit(7, board, anchor)).toEqual({ phase: "stopped" });
+});
+
+it("lets transparent boat padding pass through and samples transformed artwork pixels", async () => {
+  const { merchantPartHit } = await import("../../src/client/game/phaser/merchantBoat");
+  // A translated, rotated, scaled part, as when the boat bobs or the pole swings.
+  const angle = Math.PI / 6, scale = 0.4, origin = { x: 271, y: 302 };
+  const world = (x: number, y: number) => ({
+    x: 500 + scale * ((x - origin.x) * Math.cos(angle) - (y - origin.y) * Math.sin(angle)),
+    y: 300 + scale * ((x - origin.x) * Math.sin(angle) + (y - origin.y) * Math.cos(angle)),
+  });
+  const image = {
+    visible: true, alpha: 1, displayOriginX: origin.x, displayOriginY: origin.y,
+    texture: { key: "merchant-boat" }, frame: { name: "__BASE" },
+    getWorldTransformMatrix: () => ({ applyInverse: (x: number, y: number) => ({
+      x: ((x - 500) * Math.cos(angle) + (y - 300) * Math.sin(angle)) / scale,
+      y: (-(x - 500) * Math.sin(angle) + (y - 300) * Math.cos(angle)) / scale,
+    }) }),
+    scene: { textures: { getPixelAlpha: (x: number, y: number) =>
+      x < 0 || y < 0 || x >= 512 || y >= 512 ? null : x >= 200 && y >= 300 ? 255 : 0 } },
+  } as unknown as import("phaser").GameObjects.Image;
+  const hit = (x: number, y: number) => { const p = world(x, y); return merchantPartHit(image, p.x, p.y); };
+  expect(hit(250.5, 350.5)).toBe(true);
+  expect(hit(250.5, 100.5)).toBe(false); // Transparent upper padding over the palm.
+  expect(hit(-10, 350)).toBe(false);
+  image.visible = false;
+  expect(hit(250.5, 350.5)).toBe(false);
+  image.visible = true; image.alpha = 0;
+  expect(hit(250.5, 350.5)).toBe(false);
 });

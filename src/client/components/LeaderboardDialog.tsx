@@ -1,3 +1,5 @@
+import actionStyles from "../styles/BuildingActionButton.module.scss";
+import BuildingActionIcon from "./BuildingActionIcon";
 import { useStore } from "zustand";
 import { useEffect, useState } from "react";
 import { Dialog, Tabs } from "radix-ui";
@@ -43,7 +45,7 @@ export function LeaderboardContent({ localOnly = false }: { readonly localOnly?:
       <label>Rank by<select value={query.metric} onChange={event => setQuery({ ...query, metric: event.target.value as LeaderboardQuery["metric"] })}>
         {Object.entries(LEADERBOARD_METRICS).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}
       </select></label>
-      <button onClick={() => setRefresh(value => value + 1)}>Refresh</button>
+      <button className={actionStyles.button} onClick={() => setRefresh(value => value + 1)}><BuildingActionIcon kind="refresh" /><span>Refresh</span></button>
     </div>
     {!localOnly && <p className={boardStyles.note}>{LEADERBOARD_METRICS[query.metric].description}</p>}
     <Results key={`${query.scope}:${query.metric}:${refresh}`} query={query} compact={localOnly} />

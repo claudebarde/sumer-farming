@@ -1,3 +1,5 @@
+import actionStyles from "../styles/BuildingActionButton.module.scss";
+import BuildingActionIcon from "./BuildingActionIcon";
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
 import { Dialog } from "radix-ui";
@@ -164,19 +166,19 @@ export default function FarmLevelDialog({ onLevelClaimed }: { onLevelClaimed?: (
               </p>
             )}
             <button
-              className={styles["level-claim-button"]}
+              className={`${styles["level-claim-button"]} ${actionStyles.button}` }
               disabled={pending || !progress.canClaim}
               onClick={() => {
                 void claim();
               }}
-            >
+            ><BuildingActionIcon kind="upgrade" /><span>
               {!pending && !progress.canClaim && (
                 <LockClosedIcon aria-hidden="true" />
               )}
               {pending
                 ? "Claiming level…"
                 : `Claim level ${progress.nextLevel}`}
-            </button>
+            </span></button>
             </>}
           </div>
         </Dialog.Content>

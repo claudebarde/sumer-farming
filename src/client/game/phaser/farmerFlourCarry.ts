@@ -1,6 +1,6 @@
-import idle from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/farmer-carry-flour-idle.png";
-import walk01 from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/farmer-carry-flour-walk-01.png";
-import walk02 from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/farmer-carry-flour-walk-02.png";
+import idle from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/farmer-carry-flour-idle.webp";
+import walk01 from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/farmer-carry-flour-walk-01.webp";
+import walk02 from "../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/farmer-carry-flour-walk-02.webp";
 
 export const FARMER_FLOUR_SOURCES = {
   "farmer-flour-idle": idle,

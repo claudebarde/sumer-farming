@@ -148,16 +148,8 @@ export const buildIrrigation = (
             return { type: "invalid_location", reason: location.type };
           }
 
-          const [
-            existingImprovement,
-            occupyingGroundItem,
-            occupyingObject,
-            occupyingCrop,
-            completedCanals,
-            buildings
-          ] =
-            await Promise.all([
-              transaction
+          // A transaction uses one PostgreSQL connection; await each query.
+          const existingImprovement = await transaction
                 .select({ id: farmImprovements.id })
                 .from(farmImprovements)
                 .where(
@@ -167,8 +159,8 @@ export const buildIrrigation = (
                     eq(farmImprovements.row, input.target.row)
                   )
                 )
-                .limit(1),
-              transaction
+                .limit(1);
+          const occupyingGroundItem = await transaction
                 .select({ id: farmGroundItems.id })
                 .from(farmGroundItems)
                 .where(
@@ -178,8 +170,8 @@ export const buildIrrigation = (
                     eq(farmGroundItems.row, input.target.row)
                   )
                 )
-                .limit(1),
-              transaction
+                .limit(1);
+          const occupyingObject = await transaction
                 .select({ id: farmObjects.id, type: farmObjects.type })
                 .from(farmObjects)
                 .where(
@@ -189,8 +181,8 @@ export const buildIrrigation = (
                     eq(farmObjects.row, input.target.row)
                   )
                 )
-                .limit(1),
-              transaction
+                .limit(1);
+          const occupyingCrop = await transaction
                 .select({ id: farmCrops.id })
                 .from(farmCrops)
                 .where(
@@ -200,8 +192,8 @@ export const buildIrrigation = (
                     eq(farmCrops.row, input.target.row)
                   )
                 )
-                .limit(1),
-              transaction
+                .limit(1);
+          const completedCanals = await transaction
                 .select({
                   column: farmImprovements.column,
                   row: farmImprovements.row
@@ -214,8 +206,8 @@ export const buildIrrigation = (
                     lte(farmImprovements.completesAt, startedAt),
                     isNull(farmImprovements.destroyCompletesAt)
                   )
-                ),
-              transaction
+                );
+          const buildings = await transaction
                 .select({
                   type: farmBuildings.type,
                   loadingTile: farmBuildings.loadingTile,
@@ -223,8 +215,7 @@ export const buildIrrigation = (
                   row: farmBuildings.row
                 })
                 .from(farmBuildings)
-                .where(eq(farmBuildings.farmId, farm.id))
-            ]);
+                .where(eq(farmBuildings.farmId, farm.id));
 
           if (existingImprovement.length > 0) {
             return { type: "already_exists" };

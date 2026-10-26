@@ -40,7 +40,7 @@ it("shows oven upgrade progress, blocks baking and hides the locked next tier on
   expect(canBakeBread(s, id, 1000)).toBe(true);
   s.farm.production.buildingUpgrades = { [id]: [{ level: 2, startedAt: date(1000), completesAt: date(301000), idempotencyKey: id }] };
   expect(render(s, 151000)).toContain('aria-label="Bread oven upgrade progress" max="100" value="50"');
-  expect(render(s, 151000)).toContain("2:30");
+  expect(render(s, 151000)).toContain("2m 30s remaining");
   expect(render(s, 151000)).not.toContain("<button");
   expect(canBakeBread(s, id, 151000)).toBe(false);
   expect(isometricTilePopup(s, { column: 4, row: 3 }, 301000).level).toBe(2);
@@ -67,7 +67,7 @@ it("shows saved progress and updates the mill badge at the deadline without new 
   const s = fixture();
   s.farm.production.buildingUpgrades = { [id]: [{ level: 2, startedAt: date(1000), completesAt: date(301000), idempotencyKey: id }] };
   expect(render(s, 151000)).toContain('aria-label="Mill upgrade progress" max="100" value="50"');
-  expect(render(s, 151000)).toContain("2:30");
+  expect(render(s, 151000)).toContain("2m 30s remaining");
   expect(render(s, 151000)).not.toContain("<button");
   expect(isometricTilePopup(s, { column: 4, row: 3 }, 300999).level).toBe(1);
   expect(isometricTilePopup(s, { column: 4, row: 3 }, 301000).level).toBe(2);
@@ -104,7 +104,7 @@ it("shows saved brewery progress and updates its badge after time away, hiding t
   const s = fixture(); s.buildings[0]!.type = "brewery"; s.farm.progression!.level = 9;
   s.farm.production.buildingUpgrades = { [id]: [{ level: 2, startedAt: date(1000), completesAt: date(301000), idempotencyKey: id }] };
   expect(render(s, 151000)).toContain('aria-label="Brewery upgrade progress" max="100" value="50"');
-  expect(render(s, 151000)).toContain("2:30");
+  expect(render(s, 151000)).toContain("2m 30s remaining");
   expect(render(s, 151000)).not.toContain("<button");
   expect(isometricTilePopup(s, { column: 4, row: 3 }, 300999).level).toBe(1);
   expect(isometricTilePopup(s, { column: 4, row: 3 }, 301000).level).toBe(2);

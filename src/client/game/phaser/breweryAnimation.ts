@@ -1,8 +1,8 @@
 import Phaser from "phaser";
 import { drawBuildingProgress } from "./buildingProgressBar";
-import rest from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-brew-rest.png";
-import left from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-brew-stir-left.png";
-import right from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-brew-stir-right.png";
+import rest from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-brew-rest.webp";
+import left from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-brew-stir-left.webp";
+import right from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-brew-stir-right.webp";
 import stool from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-idle-stool.png";
 import { prepareFarmerTexture } from "./farmerTexture";
 import { prepareBuildingTexture } from "./buildingTexture";

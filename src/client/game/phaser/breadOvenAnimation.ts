@@ -1,14 +1,14 @@
 import Phaser from "phaser";
 import { drawBuildingProgress } from "./buildingProgressBar";
-import base from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-oven-active-base.png";
-import rest from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/farmer-bake-rest.png";
-import half from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/farmer-bake-push-half.png";
-import full from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/farmer-bake-push-full.png";
-import pull from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/farmer-bake-pull-half.png";
+import base from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-oven-active-base.webp";
+import rest from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/farmer-bake-rest.webp";
+import half from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/farmer-bake-push-half.webp";
+import full from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/farmer-bake-push-full.webp";
+import pull from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/farmer-bake-pull-half.webp";
 import tableTwo from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-table-dough-2.png";
 import tableOne from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-table-dough-1.png";
 import tableEmpty from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-table-empty.png";
-import basketUrl from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.png";
+import basketUrl from "../../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.webp";
 import { prepareBuildingTexture } from "./buildingTexture";
 import { bakingProgress, type BakingJob } from "./isometricBaking";
 
@@ -50,8 +50,15 @@ export const createBakingAnimation = (scene: Phaser.Scene, oven: Phaser.GameObje
   // Mask only the forward paddle end: it enters the dark opening rather than
   // drawing across the oven's right-hand brickwork. Coordinates share the oven frame.
   const maskShape = scene.make.graphics({ x: 0, y: 0 }, false);
-  const mask = maskShape.createGeometryMask();
-  worker.setMask(mask);
+  // Geometry masks are Canvas-only in Phaser 4. Use a camera-space filter
+  // for WebGL so this world-space clipping shape follows zoom and pan.
+  const canvasMask = scene.game.renderer.type === Phaser.CANVAS
+    ? maskShape.createGeometryMask() : null;
+  if (canvasMask) worker.setMask(canvasMask);
+  else {
+    worker.enableFilters();
+    worker.filters!.external.addMask(maskShape, false, scene.cameras.main);
+  }
   let shadowVisible = false;
   return {
     // Foot contact in the shared full-frame worker artwork, not the canvas
@@ -84,8 +91,10 @@ export const createBakingAnimation = (scene: Phaser.Scene, oven: Phaser.GameObje
     },
     destroy() {
       shadowVisible = false;
-      worker.clearMask(); mask.destroy(); maskShape.destroy();
-      worker.destroy(); table.destroy(); glow.destroy(); smoke.destroy(); progress.destroy();
+      worker.clearMask();
+      // Destroy the filter owner before its source; this releases the WebGL mask texture.
+      worker.destroy(); canvasMask?.destroy(); maskShape.destroy();
+      table.destroy(); glow.destroy(); smoke.destroy(); progress.destroy();
     }
   };
 };

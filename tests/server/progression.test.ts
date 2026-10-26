@@ -298,8 +298,17 @@ describe("manual farm levels", () => {
     expect(evaluateProgression(snapshot, Date.now()).canClaim).toBe(enough);
     if (enough) {
       // Concurrent retries must share the farm lock and charge only once.
-      const results = await Promise.all([Effect.runPromise(claimFarmLevel(db, input)), Effect.runPromise(claimFarmLevel(db, input))]);
-      expect(results.every(r => r.farm.progression?.level === 7)).toBe(true);
+      const second = new Client({ connectionString });
+      await second.connect();
+      try {
+        const results = await Promise.all([
+          Effect.runPromise(claimFarmLevel(db, input)),
+          Effect.runPromise(claimFarmLevel(createDatabase(second), input))
+        ]);
+        expect(results.every(r => r.farm.progression?.level === 7)).toBe(true);
+      } finally {
+        await second.end();
+      }
     } else {
       expect(await Effect.runPromise(Effect.flip(claimFarmLevel(db, input)))).toMatchObject({ _tag: "LevelClaimRuleError" });
     }

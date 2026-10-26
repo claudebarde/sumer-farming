@@ -2,7 +2,7 @@ import type { CropWork } from "../../game-data/cropWork";
 import { palmHarvestPose } from "../game/phaser/palmHarvesting";
 import meter from "../styles/HappinessMeter.module.scss";
 import styles from "../styles/IsometricTest.module.scss";
-import baskets from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.png";
+import baskets from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 
 export default function PalmHarvestProgress({ job, now }: { job: CropWork; now: number }) {
   const pose = palmHarvestPose(job, job.outbound.at(-1)!, now);

@@ -8,6 +8,7 @@ import type { IsometricMarketScene } from "./IsometricMarketScene";
 import { syncActionLoopAudio } from "../actionLoopAudio";
 import { BUILDING_AUDIO, type BuildingAudioKey } from "../buildingAudio";
 import { createBuildingAudioSequence } from "../buildingAudioSequence";
+import { createDonkeyBrayAudio, donkeyPickupCue, DONKEY_BRAY_KEY, DONKEY_BRAY_URL } from "../donkeyBrayAudio";
 
 /** Independent loader/lifetime: scene navigation and map redraws never restart music. */
 export class BackgroundMusicScene extends Phaser.Scene {
@@ -19,6 +20,7 @@ export class BackgroundMusicScene extends Phaser.Scene {
     this.load.audio(WIND_GUST_KEY, WIND_GUST_URL);
     this.load.audio(HARVEST_AUDIO_KEY, HARVEST_AUDIO_URL);
     this.load.audio("farmer-walking", "/audio/walking.mp3");
+    this.load.audio(DONKEY_BRAY_KEY, DONKEY_BRAY_URL);
     for (const [key, url] of Object.entries(BUILDING_AUDIO)) this.load.audio(`building-${key}`, url);
   }
 
@@ -51,6 +53,10 @@ export class BackgroundMusicScene extends Phaser.Scene {
       return [{ key, sound }];
     });
     const buildingAudio = createBuildingAudioSequence(buildingSounds);
+    const braySound = this.cache.audio.exists(DONKEY_BRAY_KEY)
+      ? this.sound.add(DONKEY_BRAY_KEY, { loop: false, volume: 0 }) as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound
+      : undefined;
+    const brayAudio = braySound ? createDonkeyBrayAudio(braySound) : undefined;
     this.syncHarvest = () => {
       if (disposed) return;
       const { enabled, volume } = musicSettingsStore.getState();
@@ -62,6 +68,8 @@ export class BackgroundMusicScene extends Phaser.Scene {
       if (walkingSound) syncActionLoopAudio(walkingSound,
         !harvesting && (!!farm?.isWalkingForAudio() || !!market?.isWalkingForAudio()), allowed, volume);
       const now = Date.now();
+      brayAudio?.(donkeyPickupCue(farm?.donkeyMillingForAudio()), now,
+        allowed && !!farm?.sys.isActive() && !!farm?.sys.isVisible(), volume);
       buildingAudio(buildingSounds.filter(({ key }) => farm?.isBuildingActiveForAudio(key, now)).map(({ key }) => key),
         allowed, volume, performance.now());
     };
@@ -109,6 +117,7 @@ export class BackgroundMusicScene extends Phaser.Scene {
       this.syncHarvest = undefined;
       harvestSound?.destroy();
       walkingSound?.destroy();
+      braySound?.destroy();
       buildingSounds.forEach(({ sound }) => sound.destroy());
       unsubscribe();
       document.removeEventListener("visibilitychange", attempt);

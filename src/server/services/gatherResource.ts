@@ -78,9 +78,8 @@ const isTileEmpty = async (
   farmId: string,
   target: FarmCoordinate
 ): Promise<boolean> => {
-  const [groundItems, crops, improvements, objects, buildings] =
-    await Promise.all([
-    transaction
+  // A transaction uses one PostgreSQL connection; await each query.
+  const groundItems = await transaction
       .select({ id: farmGroundItems.id })
       .from(farmGroundItems)
       .where(
@@ -90,8 +89,8 @@ const isTileEmpty = async (
           eq(farmGroundItems.row, target.row)
         )
       )
-      .limit(1),
-    transaction
+      .limit(1);
+  const crops = await transaction
       .select({ id: farmCrops.id })
       .from(farmCrops)
       .where(
@@ -101,8 +100,8 @@ const isTileEmpty = async (
           eq(farmCrops.row, target.row)
         )
       )
-      .limit(1),
-    transaction
+      .limit(1);
+  const improvements = await transaction
       .select({ id: farmImprovements.id })
       .from(farmImprovements)
       .where(
@@ -112,8 +111,8 @@ const isTileEmpty = async (
           eq(farmImprovements.row, target.row)
         )
       )
-      .limit(1),
-    transaction
+      .limit(1);
+  const objects = await transaction
       .select({ id: farmObjects.id })
       .from(farmObjects)
       .where(
@@ -123,16 +122,15 @@ const isTileEmpty = async (
           eq(farmObjects.row, target.row)
         )
       )
-      .limit(1),
-    transaction
+      .limit(1);
+  const buildings = await transaction
       .select({
         type: farmBuildings.type,
         column: farmBuildings.column,
         row: farmBuildings.row
       })
       .from(farmBuildings)
-      .where(eq(farmBuildings.farmId, farmId))
-  ]);
+      .where(eq(farmBuildings.farmId, farmId));
 
   return (
     [groundItems, crops, improvements, objects].every(

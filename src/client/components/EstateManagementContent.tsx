@@ -6,16 +6,16 @@ import FarmerPanel from "./FarmerPanel";
 import PorterPanel from "./PorterPanel";
 import { FARM_SPRITES } from "../../assets/farmSprites";
 import styles from "../styles/GameCanvas.module.scss";
-import flourBagsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.png";
-import groatsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.png";
-import shekelsImage from "../../assets/sprite_assets/pngs/shekels.png";
-import barleyImage from "../../assets/sprite_assets/pngs/wheat-sheaf.png";
-import breadBasketImage from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.png";
-import beerJarsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.png";
-import fishImage from "../../assets/sprite_assets/pngs/fish.png";
-import datesImage from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.png";
-import reedImage from "../../assets/sprite_assets/pngs/reed-bundle.png";
-import clayImage from "../../assets/sprite_assets/pngs/brick-pile.png";
+import flourBagsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.webp";
+import groatsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.webp";
+import shekelsImage from "../../assets/sprite_assets/pngs/shekels.webp";
+import barleyImage from "../../assets/sprite_assets/pngs/wheat-sheaf.webp";
+import breadBasketImage from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.webp";
+import beerJarsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.webp";
+import fishImage from "../../assets/sprite_assets/pngs/fish.webp";
+import datesImage from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
+import reedImage from "../../assets/sprite_assets/pngs/reed-bundle.webp";
+import clayImage from "../../assets/sprite_assets/pngs/brick-pile.webp";
 import { estateEmptyJars } from "../../game-core/farm/estateEmptyJars";
 
 /** Shared drawer contents; each renderer supplies its own building placement entry. */

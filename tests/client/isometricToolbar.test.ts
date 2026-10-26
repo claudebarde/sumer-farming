@@ -9,7 +9,7 @@ it("keeps view controls without top-level planting and harvesting shortcuts", ()
   expect(html).toContain('aria-label="Zoom in"');
   expect(html).toContain('aria-label="Zoom out"');
   expect(html).toContain(">Fit</button>");
-  expect(html).toContain(">Manage</button>");
+  expect(html).toContain('aria-label="Manage"');
   expect(html).not.toContain("Test procession");
   expect(html).not.toContain("Start mill test");
   expect(html).not.toContain("Stop mill test");

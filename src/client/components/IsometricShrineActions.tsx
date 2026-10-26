@@ -5,8 +5,9 @@ import { plantingBlocker } from "../game/phaser/isometricPlanting";
 import BuildingActionIcon from "./BuildingActionIcon";
 import styles from "../styles/BuildingActionButton.module.scss";
 import InfoAlert from "./InfoAlert";
-import beer from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.png";
+import beer from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.webp";
 import progressStyles from "../styles/ProductionProgress.module.scss";
+import { countdownLabel } from "./countdownLabel";
 
 export default function IsometricShrineActions({ snapshot, buildingId, now, onOffer }: {
   snapshot: FarmSnapshot; buildingId: string; now: number; onOffer?: (item: "bread" | "beer") => void;
@@ -17,8 +18,7 @@ export default function IsometricShrineActions({ snapshot, buildingId, now, onOf
     const remaining = Math.max(0, Date.parse(blessing.expiresAt) - now);
     const duration = Math.max(1, Date.parse(blessing.expiresAt) - Date.parse(blessing.startedAt));
     const percentage = Math.max(0, Math.min(100, (now - Date.parse(blessing.startedAt)) / duration * 100));
-    const seconds = Math.ceil(remaining / 1000);
-    const countdown = `${Math.floor(seconds / 3600)}:${String(Math.floor(seconds / 60) % 60).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+    const countdown = countdownLabel(remaining);
     return <div className={progressStyles.progress}>
       <div className={progressStyles.labels}><span>Blessing</span><span>{countdown} remaining</span></div>
       <progress aria-label="Blessing progress" aria-valuetext={`${countdown} remaining`} max={100} value={percentage} />

@@ -1,7 +1,7 @@
-import sweep01 from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-sweep-01.png";
-import sweep02 from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-sweep-02.png";
-import sweep03 from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-sweep-03.png";
-import sweep04 from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-sweep-04.png";
+import sweep01 from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-sweep-01.webp";
+import sweep02 from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-sweep-02.webp";
+import sweep03 from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-sweep-03.webp";
+import sweep04 from "../../../assets/sprite_assets/pngs/v2/isometric-test/farmer-sweep-04.webp";
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { INITIAL_FARM_CONFIG as config } from "../../../game-data/initialFarm";
 import { WORKER_MOVE_DURATION_PER_TILE } from "../../../game-data/movement";

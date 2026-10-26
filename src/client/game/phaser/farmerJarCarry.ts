@@ -1,6 +1,6 @@
-import idle from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-carrying-jars-idle.png";
-import walk01 from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-carrying-jars-walk-01.png";
-import walk02 from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-carrying-jars-walk-02.png";
+import idle from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-carrying-jars-idle.webp";
+import walk01 from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-carrying-jars-walk-01.webp";
+import walk02 from "../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/farmer-carrying-jars-walk-02.webp";
 
 export const FARMER_JAR_SOURCES = {
   "farmer-jars-idle": idle,

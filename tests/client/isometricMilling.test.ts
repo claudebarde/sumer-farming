@@ -34,8 +34,8 @@ it("explains each shortage in mixed mill bags and enables storage when the whole
 it("shows flour then groats and replaces both with the exact insufficient-barley message", () => {
   const s = snapshot(), render = () => renderToStaticMarkup(createElement(IsometricMillActions, { snapshot: s, buildingId: id, now: 1000, onMill: () => {} }));
   const html = render();
-  expect(html).toContain("mill-flour-bags-isometric.png");
-  expect(html).toContain("brewers-groats-icon.png");
+  expect(html).toContain("mill-flour-bags-isometric.webp");
+  expect(html).toContain("brewers-groats-icon.webp");
   expect(html.indexOf("Make flour (for bread)")).toBeLessThan(html.indexOf("Make groats (for beer)"));
   s.inventory[0]!.quantity = 1;
   expect(render()).toBe('<button disabled="">You don&#x27;t have enough barley</button>');

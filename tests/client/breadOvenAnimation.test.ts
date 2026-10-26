@@ -1,6 +1,6 @@
 import { expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-vi.mock("phaser", () => ({ default: {} }));
+vi.mock("phaser", () => ({ default: { CANVAS: 1, WEBGL: 2 } }));
 vi.mock("../../src/client/game/phaser/buildingProgressBar", () => ({ drawBuildingProgress: vi.fn() }));
 import type Phaser from "phaser";
 import { bakingPose, bakingWisps, BAKING_CYCLE_MS, BAKING_WORKER_TEXTURE_OPTIONS, createBakingAnimation, bakingTableTexture } from "../../src/client/game/phaser/breadOvenAnimation";
@@ -84,17 +84,29 @@ it("keeps smoke sparse and light with invisible recycling", () => {
   }
 });
 
-it("restores idle artwork at completion and cleans up objects and mask", () => {
+it.each([1, 2])("restores idle artwork and cleans up the renderer-specific mask (renderer %i)", renderer => {
   const mask = { destroy: vi.fn() };
+  const addMask = vi.fn();
   const sprite = () => ({ x: 0, y: 0, depth: 0, ...Object.fromEntries(
-    ["setTexture", "setOrigin", "setPosition", "setDisplaySize", "setDepth", "setVisible", "setMask", "clearMask", "clear", "fillStyle", "fillRect", "fillRoundedRect", "fillEllipse", "destroy"].map(k => [k, vi.fn().mockReturnThis()])),
+    ["setTexture", "setOrigin", "setPosition", "setDisplaySize", "setDepth", "setVisible", "setMask", "enableFilters", "clearMask", "clear", "fillStyle", "fillRect", "fillRoundedRect", "fillEllipse", "destroy"].map(k => [k, vi.fn().mockReturnThis()])),
+    filters: { external: { addMask } },
     createGeometryMask: () => mask });
   const images: ReturnType<typeof sprite>[] = [];
   const make = () => { const s = sprite(); images.push(s); return s; };
   const addImage = vi.fn(make);
-  const scene = { add: { image: addImage, graphics: make }, make: { graphics: make } } as unknown as Phaser.Scene;
+  const camera = {};
+  const scene = { game: { renderer: { type: renderer } }, cameras: { main: camera },
+    add: { image: addImage, graphics: make }, make: { graphics: make } } as unknown as Phaser.Scene;
   const oven = sprite();
   const preview = createBakingAnimation(scene, oven as unknown as Phaser.GameObjects.Image);
+  if (renderer === 1) {
+    expect(images[0]!.setMask).toHaveBeenCalledWith(mask);
+    expect(addMask).not.toHaveBeenCalled();
+  } else {
+    expect(images[0]!.setMask).not.toHaveBeenCalled();
+    expect(images[0]!.enableFilters).toHaveBeenCalledOnce();
+    expect(addMask).toHaveBeenCalledWith(images[5], false, camera);
+  }
   expect(preview.shadowAnchor().visible).toBe(false);
   preview.render(job, 1000, false);
   expect(preview.shadowAnchor()).toEqual({ x: -44, y: -21, visible: true });
@@ -114,6 +126,6 @@ it("restores idle artwork at completion and cleans up objects and mask", () => {
   expect(images[1]!.setVisible).toHaveBeenLastCalledWith(false);
   preview.destroy();
   expect(preview.shadowAnchor().visible).toBe(false);
-  expect(mask.destroy).toHaveBeenCalledOnce();
+  expect(mask.destroy).toHaveBeenCalledTimes(renderer === 1 ? 1 : 0);
   for (const image of images) expect(image.destroy).toHaveBeenCalledOnce();
 });

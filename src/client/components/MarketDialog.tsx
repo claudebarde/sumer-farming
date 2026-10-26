@@ -1,3 +1,5 @@
+import actionStyles from "../styles/BuildingActionButton.module.scss";
+import BuildingActionIcon from "./BuildingActionIcon";
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { Dialog, Tabs } from "radix-ui";
@@ -23,10 +25,10 @@ import MarketTransactionPreview from "./MarketTransactionPreview";
 import MarketQuantityControl from "./MarketQuantityControl";
 import { FARM_SPRITES } from "../../assets/farmSprites";
 import MarketJarIcon from "./MarketJarIcon";
-import bakingToolsImage from "../../assets/sprite_assets/pngs/wooden-baking-tools.png";
-import breadBasketImage from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.png";
-import flourBagsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.png";
-import groatsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.png";
+import bakingToolsImage from "../../assets/sprite_assets/pngs/wooden-baking-tools.webp";
+import breadBasketImage from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.webp";
+import flourBagsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.webp";
+import groatsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.webp";
 import styles from "../styles/GameCanvas.module.scss";
 type MarketQuoteState =
   | { readonly type: "idle" }
@@ -635,7 +637,7 @@ export default function MarketDialog() {
                                           className={styles["market-actions"]}
                                         >
                                           {action === "buy" && (
-                                            <button
+                                            <button className={actionStyles.button}
                                               disabled={
                                                 marketTradePending ||
                                                 (item.itemKey === "brewingVessels" && missingBrewingJars === 0) ||
@@ -654,7 +656,7 @@ export default function MarketDialog() {
                                                   marketQuantity
                                                 );
                                               }}
-                                            >
+                                            ><BuildingActionIcon kind="shekels" /><span>
                                               {item.itemKey === "brewingVessels" && missingBrewingJars === 0
                                                 ? "Already owned"
                                                 : !item.npcMarket.canBuy
@@ -669,10 +671,10 @@ export default function MarketDialog() {
                                                       purchaseCost
                                                     ? "Not enough shekels"
                                                     : `Buy for ${formatShekels(purchaseCost)}`}
-                                            </button>
+                                            </span></button>
                                           )}
                                           {action === "sell" && (
-                                            <button
+                                            <button className={actionStyles.button}
                                               disabled={
                                                 marketTradePending ||
                                                   !item.npcMarket.canSell || reserveBlocked ||
@@ -686,14 +688,14 @@ export default function MarketDialog() {
                                                   marketQuantity
                                                 );
                                               }}
-                                            >
+                                            ><BuildingActionIcon kind="shekels" /><span>
                                               {reserveBlocked ? BARLEY_RESERVE_MESSAGE : !item.npcMarket.canSell
                                                 ? "Selling unavailable"
                                                 : storedQuantity <
                                                     marketQuantity
                                                   ? `Not enough stored ${item.label.toLowerCase()}`
                                                   : `Sell for ${formatShekels(saleValue)}`}
-                                            </button>
+                                            </span></button>
                                           )}
                                         </div>
                                       )}
@@ -806,7 +808,7 @@ export default function MarketDialog() {
                                                     .suggestedSellPrice
                                                 )}
                                               </span>
-                                              <button
+                                              <button className={actionStyles.button}
                                                 disabled={
                                                   marketTradePending ||
                                                   !item.playerMarket
@@ -821,7 +823,7 @@ export default function MarketDialog() {
                                                     marketQuantity
                                                   );
                                                 }}
-                                              >
+                                              ><BuildingActionIcon kind="manage" /><span>
                                                 {reserveBlocked ? BARLEY_RESERVE_MESSAGE : !item.playerMarket
                                                   .canCreateSellOrder
                                                   ? "Player listings unavailable"
@@ -831,7 +833,7 @@ export default function MarketDialog() {
                                                     : `Create sell listing: ${marketQuantity} for ${formatShekels(
                                                         listingPrice
                                                       )} each`}
-                                              </button>
+                                              </span></button>
                                             </div>
                                           )}
                                           <MarketListings
@@ -880,14 +882,14 @@ export default function MarketDialog() {
               ) : marketQuoteState.type === "failed" ? (
                 <div>
                   <p role="alert">{marketQuoteState.reason}</p>
-                  <button
+                  <button className={actionStyles.button}
                     onClick={() => {
                       setMarketQuoteState({ type: "loading" });
                       setMarketQuoteRefresh(refresh => refresh + 1);
                     }}
-                  >
+                  ><BuildingActionIcon kind="refresh" /><span>
                     Retry
-                  </button>
+                  </span></button>
                 </div>
               ) : (
                 <p>

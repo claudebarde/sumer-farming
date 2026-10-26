@@ -1,5 +1,4 @@
-// Copy the existing flat-map labels, not new translations. Titles without an
-// existing label intentionally render nothing.
+// Approved title labels. Unconfigured titles intentionally render nothing.
 const labels: Readonly<Record<string, string>> = {
   Road: "𒆜",
   Ground: "𒅖",

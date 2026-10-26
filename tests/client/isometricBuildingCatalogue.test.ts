@@ -85,8 +85,8 @@ it("keeps unlocked buildings available when materials are missing", () => {
   const html = render(atLevel(6));
   expect(html).toContain("Available (4)");
   expect(html).toContain("Future unlocks (2)");
-  expect(html).toContain("brewery-isometric.png");
-  expect(html).toContain("bread-oven-isometric.png");
+  expect(html).toContain("brewery-isometric.webp");
+  expect(html).toContain("bread-oven-isometric.webp");
   expect(html).toContain('aria-label="Brewing jars"');
   expect(html).toContain('aria-label="Baking tools"');
   expect(html).toContain("Building time: 3 minutes");
@@ -129,7 +129,7 @@ it("shows all unlocked building cards with their original artwork and descriptio
   expect(html.match(/width="160" height="160"/g)).toHaveLength(6);
   expect(html).toContain("The farmer is occupied during milling.");
   expect(html).toContain("Turn Flour into bread.");
-  expect(html).toContain("warehouse-isometric.png");
-  expect(html).toContain("small-shrine-isometric.png");
+  expect(html).toContain("warehouse-isometric.webp");
+  expect(html).toContain("small-shrine-isometric.webp");
   expect(html).not.toContain("Construction coming soon.");
 });

@@ -137,62 +137,77 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
           !productionOutputFits(snapshot.farm, content.building.id, content.building.type === "breadOven" ? BREAD_RECIPE.output : BEER_RECIPE.output) &&
           <button disabled>{OUTPUT_FULL_MESSAGE}</button>}
         {farmer && onBreweryAction && pourTarget && canSupplyBrewery(snapshot, pourTarget, "pour_water", now) &&
-          <button onClick={() => onBreweryAction("pour_water")}>Discard water</button>}
+          <button className={buildingActionStyles.button} onClick={() => onBreweryAction("pour_water")}><BuildingActionIcon kind="water" /><span>Discard water</span></button>}
         {!farmer && !bread && onBreweryAction && <>
           {content.building?.type === "brewery" && !activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, content.building.id, now) && ([['deliver', 'Deliver water'], ['stock_jars', 'Stock empty jars'], ['start_brewing', 'Brew beer']] as const).map(([action, label]) =>
             canSupplyBrewery(snapshot, content.building!, action, now) && <button key={action} className={buildingActionStyles.button} onClick={() => onBreweryAction(action)}>
               {action === "deliver" && <BuildingActionIcon kind="water" />}{action === "stock_jars" && <BuildingActionIcon kind="emptyJars" />}{action === "start_brewing" && <BuildingActionIcon kind="brewBeer" />}<span>{label}</span>
             </button>)}
           {content.title === "River" && canSupplyBrewery(snapshot, { column: anchor.cell.column, row: INITIAL_FARM_CONFIG.riverRow }, "collect_water", now) && <button className={buildingActionStyles.button} onClick={() => onBreweryAction("collect_water")}><BuildingActionIcon kind="emptyJars" /><span>Collect water</span></button>}
-          {content.title === "River" && canSupplyBrewery(snapshot, anchor.cell, "pour_water", now) && <button onClick={() => onBreweryAction("pour_water")}>Pour water</button>}
+          {content.title === "River" && canSupplyBrewery(snapshot, anchor.cell, "pour_water", now) && <button className={buildingActionStyles.button} onClick={() => onBreweryAction("pour_water")}><BuildingActionIcon kind="water" /><span>Pour water</span></button>}
         </>}
         {bread && content.building && onStoreBread && <>
           {breadStorageReason && <p>{breadStorageReason}</p>}
-          <button disabled={breadStorageReason !== null} onClick={() => onStoreBread(content.building!.id)}>Store</button>
+          <button className={buildingActionStyles.button} disabled={breadStorageReason !== null} onClick={() => onStoreBread(content.building!.id)}><BuildingActionIcon kind={anchor.kind === "beerJars" ? "beer" : "bread"} /><span>Store</span></button>
         </>}
-        {(farmer || inventoryPopup) && snapshot.farm.production.delivery && onStoreBread && <button onClick={() => onStoreBread(snapshot.farm.production.delivery!.buildingId)}>Store {snapshot.farm.production.delivery.itemKey}</button>}
+        {(farmer || inventoryPopup) && snapshot.farm.production.delivery && onStoreBread && <button className={buildingActionStyles.button} onClick={() => onStoreBread(snapshot.farm.production.delivery!.buildingId)}><BuildingActionIcon kind={snapshot.farm.production.delivery.itemKey} /><span>Store {snapshot.farm.production.delivery.itemKey}</span></button>}
         {!farmer && !bread && content.building?.type === "breadOven" && onBake && canBakeBread(snapshot, content.building.id, now) && <button className={buildingActionStyles.button} onClick={onBake}><BuildingActionIcon kind="bread" /><span>Bake bread</span></button>}
-        {!farmer && !bags && content.home && progress.canClaim && onClaimLevel && <button onClick={onClaimLevel}>Claim level {progress.nextLevel}</button>}
+        {!farmer && !bags && content.home && progress.canClaim && onClaimLevel && <button className={buildingActionStyles.button} onClick={onClaimLevel}><BuildingActionIcon kind="upgrade" /><span>Claim level {progress.nextLevel}</span></button>}
         {bags && content.building && onPickupMill && <>
           {millStorageReason && <p>{millStorageReason}</p>}
-          <button disabled={millStorageReason !== null} onClick={() => onPickupMill(content.building!.id)}>Store</button>
+          <button className={buildingActionStyles.button} disabled={millStorageReason !== null} onClick={() => onPickupMill(content.building!.id)}>
+            {(millOutput?.flour ?? 0) > 0 && <BuildingActionIcon kind="flour" />}
+            {(millOutput?.brewersGroats ?? 0) > 0 && <BuildingActionIcon kind="groats" />}
+            <span>Store</span>
+          </button>
         </>}
         {!bags && !bread && <>
-        {(farmer || inventoryPopup) && snapshot.farm.millGoods.delivery && onPickupMill && <button onClick={() => onPickupMill(snapshot.farm.millGoods.delivery!.millId)}>Store bags</button>}
+        {(farmer || inventoryPopup) && snapshot.farm.millGoods.delivery && onPickupMill && <button className={buildingActionStyles.button} onClick={() => onPickupMill(snapshot.farm.millGoods.delivery!.millId)}>
+          {snapshot.farm.millGoods.delivery.bags.flour > 0 && <BuildingActionIcon kind="flour" />}
+          {snapshot.farm.millGoods.delivery.bags.brewersGroats > 0 && <BuildingActionIcon kind="groats" />}
+          <span>Store bags</span>
+        </button>}
         {!farmer && content.building?.type === "mill" && <>
           {onMill && !activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, content.building.id, now) && <IsometricMillActions snapshot={snapshot} buildingId={content.building.id} now={now} onMill={onMill} />}
         </>}
         {storageContext && carriedBarley > 0 && storage && (!storage.hasStorage
-          ? <button disabled>No storage available</button>
-          : storage.plan && !plantingBlocker(snapshot, now) && <button onClick={() => onStore()}>Store barley</button>)}
-        {(farmer || inventoryPopup) && materialStorage && !transferBlocker(snapshot, now) && <button onClick={() => onStore()}>Store {snapshot.farm.carriedItem?.itemKey}</button>}
+          ? <button className={buildingActionStyles.button} disabled><BuildingActionIcon kind="barley" /><span>No storage available</span></button>
+          : storage.plan && !plantingBlocker(snapshot, now) && <button className={buildingActionStyles.button} onClick={() => onStore()}><BuildingActionIcon kind="barley" /><span>Store barley</span></button>)}
+        {(farmer || inventoryPopup) && materialStorage && !transferBlocker(snapshot, now) && <button className={buildingActionStyles.button} onClick={() => onStore()}>
+          <BuildingActionIcon kind={snapshot.farm.carriedItem?.itemKey === "clay" ? "clay" : "reed"} className={snapshot.farm.carriedItem?.itemKey === "clay" ? buildingActionStyles.clayIcon : undefined} />
+          <span>Store {snapshot.farm.carriedItem?.itemKey}</span>
+        </button>}
         {!farmer && <>
         {snapshot.farm.carriedItem?.itemKey === "fish" && !transferBlocker(snapshot, now) && onFishTransfer && <>
-          {content.home && (snapshot.inventory.find(i => i.itemKey === "fish")?.quantity ?? 0) < FISH_CAPACITY && <button onClick={() => onFishTransfer("store")}>Store fish</button>}
-          {content.title === "River" && <button onClick={() => onFishTransfer("release")}>Release fish</button>}
+          {content.home && (snapshot.inventory.find(i => i.itemKey === "fish")?.quantity ?? 0) < FISH_CAPACITY && <button className={buildingActionStyles.button} onClick={() => onFishTransfer("store")}><BuildingActionIcon kind="fish" /><span>Store fish</span></button>}
+          {content.title === "River" && <button className={buildingActionStyles.button} onClick={() => onFishTransfer("release")}><BuildingActionIcon kind="fish" /><span>Release fish</span></button>}
         </>}
         {content.actions.fish && onFish && <button className={buildingActionStyles.button} onClick={onFish}><BuildingActionIcon kind="fish" /><span>Go fishing</span></button>}
         {content.actions.gather && <button className={buildingActionStyles.button} onClick={() => onGather(content.actions.gather!)}>
           <BuildingActionIcon kind={content.actions.gather} className={content.actions.gather === "clay" ? buildingActionStyles.clayIcon : undefined} /><span>Collect {materialLabel(content.actions.gather)}</span>
         </button>}
-        {content.actions.pickup && <button onClick={onPickup}>Pick up {materialLabel(content.groundItem!.itemKey)}</button>}
+        {content.actions.pickup && <button className={buildingActionStyles.button} onClick={onPickup}>
+          <BuildingActionIcon kind={content.groundItem?.itemKey === "clay" ? "clay" : content.groundItem?.itemKey === "reed" ? "reed" : "barley"} className={content.groundItem?.itemKey === "clay" ? buildingActionStyles.clayIcon : undefined} />
+          <span>Pick up {materialLabel(content.groundItem!.itemKey)}</span>
+        </button>}
         {content.actions.plant && <button className={buildingActionStyles.button} onClick={() => onSelect("plant", content.home ? undefined : anchor.cell)}><BuildingActionIcon kind="plantBarley" /><span>Plant barley</span></button>}
         {content.title === "Arable ground" && (snapshot.farm.progression?.level ?? 1) >= 9 &&
           <PerennialCropAction snapshot={snapshot} cropKey="datePalm" target={anchor.cell} now={now} action="plant" isometric getFarmerPosition={getFarmerPosition} onRequestPlant={onRequestPalm} />}
         {content.actions.irrigation && <button className={buildingActionStyles.button} onClick={onBuildIrrigation}><BuildingActionIcon kind="irrigation" /><span>Build irrigation canal</span></button>}
-        {content.actions.destroyIrrigation && <button onClick={onDestroyIrrigation}>Destroy</button>}
-        {content.actions.destroyRoad && <button onClick={onDestroyRoad}>Destroy</button>}
-        {content.actions.drop && <button className={snapshot.farm.carriedItem?.itemKey === "reed" || snapshot.farm.carriedItem?.itemKey === "clay" ? buildingActionStyles.button : undefined} onClick={onDrop}>
+        {content.actions.destroyIrrigation && <button className={buildingActionStyles.button} onClick={onDestroyIrrigation}><BuildingActionIcon kind="destroy" /><span>Destroy</span></button>}
+        {content.actions.destroyRoad && <button className={buildingActionStyles.button} onClick={onDestroyRoad}><BuildingActionIcon kind="destroy" /><span>Destroy</span></button>}
+        {content.actions.drop && <button className={buildingActionStyles.button} onClick={onDrop}>
+          {snapshot.farm.carriedItem?.itemKey === "barley" && <BuildingActionIcon kind="barley" />}
           {snapshot.farm.carriedItem?.itemKey === "reed" && <BuildingActionIcon kind="reed" />}
           {snapshot.farm.carriedItem?.itemKey === "clay" && <BuildingActionIcon kind="clay" className={buildingActionStyles.clayIcon} />}
           <span>Drop {materialLabel(snapshot.farm.carriedItem!.itemKey)}</span>
         </button>}
         {content.actions.harvest && <button className={buildingActionStyles.button} onClick={() => onSelect("harvest", content.home ? undefined : anchor.cell)}><BuildingActionIcon kind="harvestBarley" /><span>Harvest barley</span></button>}
         {content.actions.walk && <button className={buildingActionStyles.button} onClick={onWalk}><BuildingActionIcon kind="walk" /><span>Walk here</span></button>}
-        {content.actions.destroyMaterial && <button onClick={onDestroyMaterial}>Destroy {materialLabel(content.groundItem!.itemKey)}</button>}
+        {content.actions.destroyMaterial && <button className={buildingActionStyles.button} onClick={onDestroyMaterial}><BuildingActionIcon kind="destroy" /><span>Destroy {materialLabel(content.groundItem!.itemKey)}</span></button>}
         {(content.building?.type === "mill" || content.building?.type === "breadOven" || content.building?.type === "brewery") && <IsometricBuildingUpgrade key={content.building.id} snapshot={snapshot} buildingId={content.building.id} now={now} onStarted={onClose} />}
-        {content.building && !demolitionReason && <button className={["mill", "brewery", "breadOven", "smallShrine"].includes(content.building.type) ? buildingActionStyles.button : undefined} onClick={() => onDestroyBuilding(content.building!.id)}>
-          {["mill", "brewery", "breadOven", "smallShrine"].includes(content.building.type) && <BuildingActionIcon kind="destroy" />}<span>Destroy the building</span>
+        {content.building && !demolitionReason && <button className={buildingActionStyles.button} onClick={() => onDestroyBuilding(content.building!.id)}>
+          <BuildingActionIcon kind="destroy" /><span>Destroy the building</span>
         </button>}
         </>}
         </>}

@@ -1,5 +1,5 @@
 export const BACKGROUND_MUSIC_KEY = "estate-background-music";
-export const BACKGROUND_MUSIC_URL = "/audio/background-music.wav";
+export const BACKGROUND_MUSIC_URL = "/audio/background-music.mp3";
 export const BACKGROUND_MUSIC_VOLUME = 0.3;
 
 /** Never infer the fade's start from Web Audio's asynchronously updated gain.value. */

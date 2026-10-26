@@ -1,7 +1,7 @@
 import styles from "../styles/MarketTrade.module.scss";
 import type { MarketItemKey } from "../../game-data/marketItems";
 import MarketItemIcon from "./MarketItemIcon";
-import shekelsImage from "../../assets/sprite_assets/pngs/shekels.png";
+import shekelsImage from "../../assets/sprite_assets/pngs/shekels.webp";
 
 type Props = {
   readonly label: string;

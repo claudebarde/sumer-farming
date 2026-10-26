@@ -1,4 +1,4 @@
-import shekels from "../../assets/sprite_assets/pngs/shekels.png";
+import shekels from "../../assets/sprite_assets/pngs/shekels.webp";
 import styles from "../styles/IsometricTest.module.scss";
 
 export default function ShekelBalance({ amount }: { readonly amount: number }) {

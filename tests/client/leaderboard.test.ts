@@ -26,7 +26,7 @@ describe("leaderboard presentation", () => {
     for (const text of ["Lvl 7", "123", "Meskalamdug", "(You)"]) expect(html).toContain(text);
     expect(html).not.toContain("Reed quarter");
     expect(html).not.toContain("Sample farm");
-    expect(html).toContain("farmer-idle-approved-design.png");
+    expect(html).toContain("farmer-idle-approved-design.webp");
     expect(html).toContain("head-and-shoulders portrait");
     expect(html).not.toContain("farmer-stand-staff-1.png");
   });
@@ -45,7 +45,7 @@ describe("leaderboard presentation", () => {
     const html = renderToStaticMarkup(createElement(LeaderboardTable, { board }));
     for (const text of ["Meskalamdug", "(You)", "Lagash", "Reed quarter", "Estate level", "<img", "Top 1 of 1"]) expect(html).toContain(text);
     expect(html).not.toContain("Your rank:");
-    expect(html).toContain("farmer-idle-approved-design.png");
+    expect(html).toContain("farmer-idle-approved-design.webp");
   });
   it("shows own rank outside top ten", () => {
     const html = renderToStaticMarkup(createElement(LeaderboardTable, { board: { ...board, entries: [{ ...row, isYou: false, playerId: "00000000-0000-4000-8000-000000000002" }], total: 20, self: { ...row, rank: 15 } } }));

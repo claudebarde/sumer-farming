@@ -28,8 +28,8 @@ it("shows compact recipe progress using estate groats but only delivered water a
   expect(html.match(/<progress/g)).toHaveLength(3);
   expect(html).toContain('value="2" max="2"');
   expect(html).toContain('width="28"');
-  expect(html).toContain("beer-jars-empty-isometric.png");
-  expect(html).toContain("brewers-groats-icon.png");
+  expect(html).toContain("beer-jars-empty-isometric.webp");
+  expect(html).toContain("brewers-groats-icon.webp");
   expect(html).not.toContain("Building time");
 });
 

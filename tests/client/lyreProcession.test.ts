@@ -2,6 +2,8 @@ import { expect, it } from "vitest";
 import { LYRE_SOURCES, PROCESSION_COUNT, PROCESSION_DURATION_MS, processionPose } from "../../src/client/game/phaser/lyreProcession";
 it("loads four poses and previews five staggered musicians", () => {
   expect(LYRE_SOURCES).toHaveLength(8);
+  expect(new Set(LYRE_SOURCES.map(source => source.key)).size).toBe(8);
+  expect(LYRE_SOURCES.every(source => source.url.endsWith(".webp"))).toBe(true);
   expect(PROCESSION_COUNT).toBe(5);
   const poses = Array.from({ length: 5 }, (_, i) => processionPose(6000, i));
   expect(poses.every(p => p.visible && p.cell.row === 5)).toBe(true);

@@ -1,3 +1,5 @@
+import actionStyles from "../styles/BuildingActionButton.module.scss";
+import BuildingActionIcon from "./BuildingActionIcon";
 import { useEffect, useState } from "react";
 import type { MarketItemKey } from "../../game-data/marketItems";
 import type { MarketListingCursor, MarketListingsPage } from "../../schemas/marketListings";
@@ -53,7 +55,7 @@ export default function MarketListings(props: Props) {
   return (
     <section aria-label={action === "buy" ? "Available to buy" : "Your active sell listings"}>
       <h4>{action === "buy" ? "Available to buy" : "Your active sell listings"}</h4>
-      <button disabled={props.pending} onClick={() => setRefresh(value => value + 1)}>Refresh listings</button>
+      <button className={actionStyles.button} disabled={props.pending} onClick={() => setRefresh(value => value + 1)}><BuildingActionIcon kind="refresh" /><span>Refresh listings</span></button>
       {result === undefined ? <p role="status">Loading listings…</p> : result.type === "failed" ? (
         <p role="alert">{result.message}</p>
       ) : result.page.orders.length === 0 ? (
@@ -72,26 +74,26 @@ export default function MarketListings(props: Props) {
                 transaction={{ type: "buy", quantity: props.quantity, unitPrice: order.unitPrice }}
               />}
               {action === "sell" ? (
-                <button disabled={props.pending || props.availableStorage < order.remainingQuantity}
-                  onClick={() => { void props.cancel(order.id); }}>
+                <button className={actionStyles.button} disabled={props.pending || props.availableStorage < order.remainingQuantity}
+                  onClick={() => { void props.cancel(order.id); }}><BuildingActionIcon kind="cancel" /><span>
                   {props.availableStorage < order.remainingQuantity ? "Free storage before cancelling" : "Cancel listing"}
-                </button>
+                </span></button>
               ) : (
-                <button disabled={props.pending || props.quantity > order.remainingQuantity || props.quantity > props.availableStorage || props.quantity * order.unitPrice > props.balance}
-                  onClick={() => { void props.buy(order.id, order.unitPrice); }}>
+                <button className={actionStyles.button} disabled={props.pending || props.quantity > order.remainingQuantity || props.quantity > props.availableStorage || props.quantity * order.unitPrice > props.balance}
+                  onClick={() => { void props.buy(order.id, order.unitPrice); }}><BuildingActionIcon kind="shekels" /><span>
                   {props.quantity > order.remainingQuantity ? "Not enough listed" : props.quantity > props.availableStorage ? "Not enough storage" : props.quantity * order.unitPrice > props.balance ? "Not enough shekels" : `Buy ${props.quantity} for ${props.quantity * order.unitPrice} ${props.quantity * order.unitPrice === 1 ? "shekel" : "shekels"}`}
-                </button>
+                </span></button>
               )}
             </li>
           ))}
         </ul>
       )}
       <nav className={styles["market-pagination"]} aria-label={action === "buy" ? "Buy listing pages" : "Sell listing pages"}>
-        <button disabled={props.pending || cursors.length === 1}
-          onClick={() => setCursors(values => values.slice(0, -1))}>Previous</button>
+        <button className={actionStyles.button} disabled={props.pending || cursors.length === 1}
+          onClick={() => setCursors(values => values.slice(0, -1))}><BuildingActionIcon kind="previous" /><span>Previous</span></button>
         <span aria-live="polite">Page {cursors.length}</span>
-        <button disabled={props.pending || nextCursor === null}
-          onClick={() => { if (nextCursor !== null) setCursors(values => [...values, nextCursor]); }}>Next</button>
+        <button className={actionStyles.button} disabled={props.pending || nextCursor === null}
+          onClick={() => { if (nextCursor !== null) setCursors(values => [...values, nextCursor]); }}><BuildingActionIcon kind="next" /><span>Next</span></button>
       </nav>
     </section>
   );

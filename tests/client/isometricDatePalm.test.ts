@@ -12,10 +12,9 @@ const crop = { id, cropKey: "datePalm" as const, column: 4, row: 8,
   harvestStartedAt: null, harvestCompletesAt: null };
 
 describe("isometric palm stages", () => {
-  it("uses the trunk-base anchor for planted palms and the preview tree", () => {
+  it("uses the trunk-base anchor for planted palms", () => {
     const source = readFileSync(new URL("../../src/client/game/phaser/scenes/IsometricFarmScene.ts", import.meta.url), "utf8");
     expect(source).toContain('this.add.image(p.x, p.y, sprite).setOrigin(DATE_PALM_ORIGIN.x, DATE_PALM_ORIGIN.y).setDisplaySize(100, 100)');
-    expect(source).toMatch(/this\.datePreviewTree = this\.add\.image\(p\.x, p\.y, "datePalmReady"\)\s*\.setOrigin\(DATE_PALM_ORIGIN\.x, DATE_PALM_ORIGIN\.y\)/);
   });
   it("loads all four new sprites", () => {
     expect(Object.values(DATE_PALM_SOURCES)).toHaveLength(4);

@@ -1,8 +1,8 @@
 import type { FarmSnapshot } from "../../schemas/farm";
 import { BEER_RECIPE } from "../../game-data/brewing";
-import groats from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.png";
-import water from "../../assets/sprite_assets/pngs/water.png";
-import jars from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-empty-isometric.png";
+import groats from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.webp";
+import water from "../../assets/sprite_assets/pngs/water.webp";
+import jars from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-empty-isometric.webp";
 import MaterialRequirements from "./MaterialRequirements";
 
 export default function BrewingRequirements({ snapshot, building }: {

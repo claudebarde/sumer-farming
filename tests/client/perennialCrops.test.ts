@@ -71,7 +71,7 @@ describe("date palm presentation and rules", () => {
     expect(growing).toContain("12h 0m remaining");
     expect(growing).not.toContain("Harvest dates</span>");
     expect(render(mature)).toContain("Harvest dates</span>");
-    expect(render(mature)).toContain("baskets-dates.png");
+    expect(render(mature)).toContain("baskets-dates.webp");
     expect(render(mature, snapshot(4))).toContain("No storage space");
     expect(render(mature, snapshot(4))).not.toContain("Harvest dates</span>");
     const plan = planCropWork(s, s.crops[0]!, "datePalm", "harvest", mature)!;
@@ -85,9 +85,9 @@ describe("date palm presentation and rules", () => {
       onStarted: () => { throw new Error("Rendering must never start planting"); }, onCancel: () => {}
     }));
     expect(html).toContain("25 shekels");
-    expect(html).toContain("date-palm-isometric-empty.png");
-    expect(html).toContain("Confirm</button>");
-    expect(html).toContain("Cancel</button>");
+    expect(html).toContain("date-palm-isometric-empty.webp");
+    expect(html).toContain("Confirm</span></button>");
+    expect(html).toContain("Cancel</span></button>");
     expect(html).toContain('disabled=""');
     expect(html).toContain("Plant on empty irrigated arable ground");
   });
@@ -97,7 +97,7 @@ describe("date palm presentation and rules", () => {
     expect(blocked).toBe("");
     const panel = renderToStaticMarkup(createElement(FarmerPanel, { snapshot: s, now: planted }));
     expect(panel).toContain('aria-label="Dates treat"');
-    expect(panel).toContain("baskets-dates.png");
+    expect(panel).toContain("baskets-dates.webp");
     expect(panel).toContain("No dates available");
     expect(panel).not.toContain("Stored baskets of dates:");
   });
@@ -135,7 +135,7 @@ describe("date palm presentation and rules", () => {
     expect(panel).toContain("Dates treat"); expect(panel).toContain("Give one basket of dates");
     const ready = renderToStaticMarkup(createElement(PerennialCropContent, { snapshot: s, target: { column: 4, row: 8 }, now: mature }));
     expect(ready).toContain("2 baskets of dates ready to harvest");
-    expect(ready).toContain("baskets-dates.png");
+    expect(ready).toContain("baskets-dates.webp");
     expect(ready).not.toContain("Harvest multiple");
   });
   it("has no farm fallback or granary capacity and requires the warehouse to be finished", () => {

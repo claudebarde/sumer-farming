@@ -1,8 +1,8 @@
-import idle from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-carry-dates-idle-v2.png";
-import walk01 from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-carry-dates-walk-01.png";
-import walk02 from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-carry-dates-walk-02.png";
-import walk03 from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-carry-dates-walk-03.png";
-import walk04 from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-carry-dates-walk-04.png";
+import idle from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-carry-dates-idle-v2.webp";
+import walk01 from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-carry-dates-walk-01.webp";
+import walk02 from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-carry-dates-walk-02.webp";
+import walk03 from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-carry-dates-walk-03.webp";
+import walk04 from "../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/farmer-carry-dates-walk-04.webp";
 
 export const FARMER_DATE_SOURCES = {
   "farmer-dates-idle": idle, "farmer-dates-walk-0": walk01,
