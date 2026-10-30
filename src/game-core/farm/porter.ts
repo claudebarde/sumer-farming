@@ -25,7 +25,7 @@ export const porterRoadRemovalReason = (porter: Porter | null | undefined, targe
 /** Persist the actual road-preferred route, so offline deadlines and animation agree. */
 export const porterPath = (buildings: readonly PorterBuilding[], roads: readonly FarmRoad[], from: Position, to: Position, now: number, obstacles: readonly Position[] = [], roadsOnly = false): readonly Position[] | null => {
   const bounds = INITIAL_FARM_CONFIG.worldBounds;
-  const local = (p: Position) => ({ column: p.column - bounds.minimumColumn, row: p.row });
+  const local = (p: Position) => ({ column: p.column - bounds.minimumColumn, row: p.row - bounds.minimumRow });
   const key = (p: Position) => `${p.column}:${p.row}`;
   const blocked = [...buildings.flatMap(b => getBuildingFootprint(b.type, b)), ...FARM_MARKET_FOOTPRINT, ...obstacles];
   const home = INITIAL_FARM_CONFIG.buildingBounds;
@@ -38,11 +38,11 @@ export const porterPath = (buildings: readonly PorterBuilding[], roads: readonly
   const roadKeys = new Set(roadTiles.map(key));
   if (roadsOnly) {
     if (!roadKeys.has(key(local(from))) || !roadKeys.has(key(local(to)))) return null;
-    for (let column = bounds.minimumColumn; column <= bounds.maximumColumn; column++) for (let row = 0; row <= bounds.maximumRow; row++) {
+    for (let column = bounds.minimumColumn; column <= bounds.maximumColumn; column++) for (let row = bounds.minimumRow; row <= bounds.maximumRow; row++) {
       if (!roadKeys.has(key(local({ column, row })))) blocked.push({ column, row });
     }
   }
-  return findRoadPreferredPath(local(from), local(to), { columns: bounds.maximumColumn - bounds.minimumColumn + 1, rows: bounds.maximumRow + 1 }, new Set(blocked.map(p => key(local(p)))), roadKeys)?.map(p => ({ column: p.column + bounds.minimumColumn, row: p.row })) ?? null;
+  return findRoadPreferredPath(local(from), local(to), { columns: bounds.maximumColumn - bounds.minimumColumn + 1, rows: bounds.maximumRow - bounds.minimumRow + 1 }, new Set(blocked.map(p => key(local(p)))), roadKeys)?.map(p => ({ column: p.column + bounds.minimumColumn, row: p.row + bounds.minimumRow })) ?? null;
 };
 
 /** Strict porter routing, separate from the road-preferred helper used by farmer jobs. */

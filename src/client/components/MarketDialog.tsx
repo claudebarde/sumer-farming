@@ -1,3 +1,5 @@
+import { cropWorkReserved } from "../../game-data/cropWork";
+import MarketItemIcon from "./MarketItemIcon";
 import actionStyles from "../styles/BuildingActionButton.module.scss";
 import BuildingActionIcon from "./BuildingActionIcon";
 import { useEffect, useState } from "react";
@@ -7,7 +9,7 @@ import { Cross2Icon } from "@radix-ui/react-icons";
 import { match } from "ts-pattern";
 import { farmStore } from "../stores/farmStore";
 import { MARKET_TITLES, beerMarketBuyOrder, marketIncludesItem, marketUiStore, subscribeMarketOpening } from "../stores/marketUiStore";
-import { canOpenMarketStand, marketUnlockLevel } from "../../game-data/progression";
+import { canOpenMarketStand, marketStandUnlockLevel, marketUnlockLevel } from "../../game-data/progression";
 import { calculateFarmStorageCapacity, FARM_STORAGE_CAPACITY, estateResourceCapacity } from "../../game-data/storage";
 import { millStorageReserved } from "../../game-core/farm/millStorage";
 import { porterReserved } from "../../game-data/porter";
@@ -319,13 +321,13 @@ export default function MarketDialog() {
             </header>
             <div className={styles["market-dialog-body"]}>
               <Dialog.Description>
-                Trade {marketScope} with the NPC market or buy listings from
+                Trade {marketScope === "produce" ? "produce" : marketScope} with the NPC market or buy listings from
                 other players.
               </Dialog.Description>
-              {farmLevel < (marketScope === "barley" ? 3 : 6) && (
+              {farmLevel < marketStandUnlockLevel(marketScope) && (
                 <p role="note">
                   This market unlocks at level{" "}
-                  {marketScope === "barley" ? 3 : 6}.
+                  {marketStandUnlockLevel(marketScope)}.
                 </p>
               )}
               {farmState.type === "ready" &&
@@ -346,7 +348,7 @@ export default function MarketDialog() {
                     </div>
                     <div>
                       <dt>
-                        {marketScope === "beer"
+                        {marketScope === "produce" ? "Stored dates" : marketScope === "beer"
                           ? "Filled beer jars"
                           : marketScope === "bread"
                             ? "Stored bread"
@@ -355,7 +357,7 @@ export default function MarketDialog() {
                       <dd>
                         {marketScope !== "barley"
                           ? (farmState.snapshot.inventory.find(
-                              item => item.itemKey === marketScope
+                              item => item.itemKey === (marketScope === "produce" ? "dates" : marketScope)
                             )?.quantity ?? 0)
                           : `${storedHouseholdBarley} / ${householdBarleyCapacity}`}
                       </dd>
@@ -478,6 +480,8 @@ export default function MarketDialog() {
                                       "flour",
                                       "brewersGroats",
                                       "donkey",
+                                      "dates",
+                                      "sesame",
                                       () =>
                                         farmState.snapshot.inventory.find(
                                           entry =>
@@ -517,6 +521,7 @@ export default function MarketDialog() {
                                           farmState.snapshot.buildings,
                                           storageClock
                                         ) - storedQuantity
+                                          - cropWorkReserved(farmState.snapshot.farm.production, item.itemKey)
                                           - millStorageReserved(farmState.snapshot.farm, item.itemKey)
                                           - porterReserved(farmState.snapshot.farm.production.porter, item.itemKey)
                                       )
@@ -555,6 +560,7 @@ export default function MarketDialog() {
                                       key={item.itemKey}
                                     >
                                       <h3>
+                                        {(item.itemKey === "dates" || item.itemKey === "sesame") && <MarketItemIcon itemKey={item.itemKey} />}
                                         {item.itemKey === "donkey" && (
                                           <img
                                             src={FARM_SPRITES.donkey}

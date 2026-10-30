@@ -15,7 +15,7 @@ export const preservesBuildingAccess = (context: {
   readonly columnBounds?: { readonly minimumColumn: number; readonly maximumColumn: number };
 }): boolean => {
   const bounds = context.columnBounds ?? INITIAL_FARM_CONFIG.worldBounds;
-  const { buildingBounds, riverRow } = INITIAL_FARM_CONFIG;
+  const { buildingBounds, riverRow, worldBounds: { minimumRow } } = INITIAL_FARM_CONFIG;
   const farmFootprint = Array.from(
     { length: (buildingBounds.maximumColumn - buildingBounds.minimumColumn + 1) *
       (buildingBounds.maximumRow - buildingBounds.minimumRow + 1) },
@@ -27,10 +27,10 @@ export const preservesBuildingAccess = (context: {
   const footprints = [farmFootprint, ...context.buildings.map(building => getBuildingFootprint(building.type, building))];
   const blocked = new Set(footprints.flat().map(key));
   const inside = ({ column, row }: BuildingCoordinate): boolean =>
-    column >= bounds.minimumColumn && column <= bounds.maximumColumn && row >= 0 && row < riverRow;
-  const start = Array.from({ length: riverRow * (bounds.maximumColumn - bounds.minimumColumn + 1) }, (_, i) => ({
+    column >= bounds.minimumColumn && column <= bounds.maximumColumn && row >= minimumRow && row < riverRow;
+  const start = Array.from({ length: (riverRow - minimumRow) * (bounds.maximumColumn - bounds.minimumColumn + 1) }, (_, i) => ({
     column: bounds.minimumColumn + i % (bounds.maximumColumn - bounds.minimumColumn + 1),
-    row: Math.floor(i / (bounds.maximumColumn - bounds.minimumColumn + 1))
+    row: minimumRow + Math.floor(i / (bounds.maximumColumn - bounds.minimumColumn + 1))
   })).find(tile => !blocked.has(key(tile)));
   if (!start) return false;
   const queue: BuildingCoordinate[] = [start];
@@ -43,7 +43,7 @@ export const preservesBuildingAccess = (context: {
       }
     }
   }
-  for (let row = 0; row < riverRow; row++) {
+  for (let row = minimumRow; row < riverRow; row++) {
     for (let column = bounds.minimumColumn; column <= bounds.maximumColumn; column++) {
       const coordinate = key({ column, row });
       if (!blocked.has(coordinate) && !reached.has(coordinate)) return false;

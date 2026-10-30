@@ -1,6 +1,8 @@
 import type { FarmCoordinate } from "../../../game-core/farm/irrigation";
 
 export type IsoCell = FarmCoordinate;
+/** Animation poses can lie between tiles; commands and routes require a tile. */
+export const nearestTile = ({ column, row }: IsoCell): IsoCell => ({ column: Math.round(column), row: Math.round(row) });
 export const ISO_WIDTH = 96;
 export const ISO_HEIGHT = 48;
 /** World-space projection only. Camera zoom/pan must be removed before picking. */

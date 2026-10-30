@@ -1,3 +1,4 @@
+import sesameIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png";
 import { sharedStorageAllocation } from "../../game-core/farm/storageDisplay";
 import { FARM_STORAGE_CAPACITY } from "../../game-data/storage";
 import { FARM_BUILDING_DEFINITIONS } from "../../game-data/buildings";
@@ -16,7 +17,7 @@ const storageImages: Record<string, string> = {
   Bread: breadImage, Beer: beerImage, Flour: flourImage, Groats: groatsImage,
   Barley: FARM_SPRITES.harvestedBarley, Fish: FARM_SPRITES.fish,
   Reed: FARM_SPRITES.reedBundle, Clay: FARM_SPRITES.brickPile,
-  "Date baskets": datesIcon
+  "Date baskets": datesIcon, Sesame: sesameIcon
 };
 
 type Props = {
@@ -27,10 +28,11 @@ type Props = {
   readonly warehouseComplete: boolean;
   readonly showFish?: boolean;
   readonly showDates?: boolean;
+  readonly showSesame?: boolean;
   readonly visual?: boolean;
 };
 
-export default function BuildingStorageTables({ location, inventory, barley, warehouseComplete, warehouseId, showFish = false, showDates = false, visual = false }: Props) {
+export default function BuildingStorageTables({ location, inventory, barley, warehouseComplete, warehouseId, showFish = false, showDates = false, showSesame = false, visual = false }: Props) {
   const quantity = (key: InventoryItemKey) => inventory.find(item => item.itemKey === key)?.quantity ?? 0;
   const shared = (key: Parameters<typeof sharedStorageAllocation>[0], label: string) => ({ label, ...sharedStorageAllocation(key, quantity(key), warehouseComplete, inventory.find(i => i.itemKey === key)?.locations, warehouseId)[location] });
   const groups = [
@@ -39,6 +41,7 @@ export default function BuildingStorageTables({ location, inventory, barley, war
       { label: "Barley", quantity: barley, capacity: location === "farm" ? FARM_STORAGE_CAPACITY : warehouseComplete ? FARM_BUILDING_DEFINITIONS.warehouse.barleyStorageBonus : 0 },
       ...(location === "farm" && showFish ? [{ label: "Fish", quantity: quantity("fish"), capacity: FISH_CAPACITY }] : []),
       ...(showDates && location === "warehouse" ? [shared("dates", "Date baskets")] : []),
+      ...(showSesame && location === "warehouse" ? [shared("sesame", "Sesame")] : []),
       shared("reed", "Reed"), shared("clay", "Clay")
     ] }
   ];

@@ -1,5 +1,6 @@
 import type { FarmSnapshot } from "../../schemas/farm";
 import { CROP_DEFINITIONS, type PerennialCropKey } from "../../game-data/crops";
+import type { CropWork } from "../../game-data/cropWork";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import { WORKER_MOVE_DURATION_PER_TILE } from "../../game-data/movement";
 import { estateResourceCapacity } from "../../game-data/storage";
@@ -33,7 +34,7 @@ export const perennialActionReason = (snapshot: FarmSnapshot, cropKey: Perennial
 };
 
 /** Work on the palm tile; the client presents the farmer beside its trunk. */
-export const planCropWork = (snapshot: FarmSnapshot, target: FarmCoordinate, cropKey: PerennialCropKey, action: "plant" | "harvest" | "tend", now: number, hint?: FarmCoordinate) => {
+export const planCropWork = (snapshot: FarmSnapshot, target: FarmCoordinate, cropKey: CropWork["cropKey"], action: "plant" | "harvest" | "tend", now: number, hint?: FarmCoordinate) => {
   const definition = CROP_DEFINITIONS[cropKey];
   const buildings = snapshot.buildings.map(b => ({ ...b, completesAt: Date.parse(b.completesAt) }));
   const home = INITIAL_FARM_CONFIG.farmerSpawn;

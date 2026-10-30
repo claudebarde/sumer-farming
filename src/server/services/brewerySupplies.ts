@@ -35,7 +35,12 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
         if (!loaded) return new BrewerySupplyRuleError({ type: "farm_not_found", message: "The farm does not exist." });
         const farm = await advanceFarmLifecycle(transaction, loaded, now);
         if (farm.fishing || farm.carriedItemKey === "fish") return new BrewerySupplyRuleError({ type: "farmer_busy", message: "Finish fishing and store or release the fish first." });
-        if (farm.version !== input.expectedFarmVersion) return new BrewerySupplyRuleError({ type: "farm_version_conflict", message: "The farm changed. Please try again." });
+        // Water occupies the farmer's hands, not estate storage. Porter/lifecycle
+        // updates may change the version during the walk to the river. Revalidate
+        // this action against the latest state under the farm lock instead; retain
+        // version protection for all inventory-consuming/transferring commands.
+        const collectingWater = input.type === "brewery_supply" && input.action === "collect_water";
+        if (!collectingWater && farm.version !== input.expectedFarmVersion) return new BrewerySupplyRuleError({ type: "farm_version_conflict", message: "The farm changed. Please try again." });
         const [workingCrop] = await transaction.select({ id: farmCrops.id }).from(farmCrops).where(and(
           eq(farmCrops.farmId, farm.id),
           sql`(${gt(farmCrops.plantedAt, now)} OR ${isNotNull(farmCrops.harvestStartedAt)})`

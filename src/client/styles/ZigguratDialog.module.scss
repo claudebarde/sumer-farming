@@ -1,0 +1,34 @@
+.dialog { width: min(640px, calc(100vw - 32px)); }
+.body { display: grid; gap: 18px; padding-top: 18px; }
+.body p { margin: 0; line-height: 1.45; }
+.benefit {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #f3e3c8;
+  h3 { margin: 0 0 8px; font-size: 1.1em; }
+  p + p { margin-top: 8px; }
+}
+.interest {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+  > strong { font-size: 1.15em; }
+  button { width: 100%; }
+  small { line-height: 1.4; }
+}
+.material {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 8px;
+  background: #f3e3c8;
+  > div { flex: 1; min-width: 150px; }
+  progress { display: block; width: 100%; height: 12px; margin: 8px 0; accent-color: #7d9047; }
+  label { display: grid; gap: 6px; }
+  input { width: 90px; }
+}

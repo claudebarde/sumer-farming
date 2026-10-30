@@ -1,8 +1,8 @@
 import { createStore } from "zustand/vanilla";
 
-export type MarketScope = "barley" | "beer" | "bread";
+export type MarketScope = "barley" | "beer" | "bread" | "produce";
 export const MARKET_TITLES: Record<MarketScope, string> = {
-  barley: "Barley market", beer: "Beer market", bread: "Baking market"
+  barley: "Barley market", beer: "Beer market", bread: "Baking market", produce: "Fruit and vegetables"
 };
 /** Keep brewing equipment, packaging and finished beer together, in that order. */
 export const beerMarketBuyOrder = (itemKey: string): number =>
@@ -13,6 +13,7 @@ export const marketIncludesItem = (
   trade?: { readonly market: "npc" | "player"; readonly action: "buy" | "sell" }
 ): boolean =>
   scope === itemKey ||
+  (scope === "produce" && (itemKey === "dates" || itemKey === "sesame")) ||
   (scope === "bread" && itemKey === "flour") ||
   (scope === "beer" && itemKey === "brewersGroats") ||
   (scope === "bread" && (itemKey === "bakingTools" || itemKey === "donkey") && trade?.market === "npc" && trade.action === "buy") ||

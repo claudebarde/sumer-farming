@@ -4,7 +4,7 @@ import { INITIAL_FARM_CONFIG } from "./initialFarm";
 const bounds = INITIAL_FARM_CONFIG.worldBounds;
 export const WorkerPositionSchema = z.object({
   column: z.int().min(bounds.minimumColumn).max(bounds.maximumColumn),
-  row: z.int().min(0).max(INITIAL_FARM_CONFIG.riverRow - 1)
+  row: z.int().min(bounds.minimumRow).max(INITIAL_FARM_CONFIG.riverRow - 1)
 });
 export const ProductionJourneySchema = z.object({
   departedAt: z.number(),

@@ -12,6 +12,7 @@ import { GatherableResourceKeySchema } from "../game-data/resources";
 import { FarmBuildingTypeSchema } from "../game-data/buildings";
 
 export const FarmSnapshotSchema = z.object({
+  rewards: z.array(z.object({id:z.uuid(), objectId:z.uuid().nullable(), awardedAt:z.iso.datetime()})).default([]),
   created: z.boolean(),
   player: z.object({
     shekelBalance: z.int().nonnegative()
@@ -87,6 +88,7 @@ export const FarmSnapshotSchema = z.object({
     z.object({
       id: z.uuid(),
       cropKey: CropKeySchema,
+      decayEligible: z.boolean().optional(),
       column: z.int(),
       row: z.int(),
       sowingStartedAt: z.iso.datetime(),

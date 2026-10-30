@@ -1,13 +1,21 @@
-import { isoPoint } from "./isometricProjection";
+import { isoPoint, footprintFront, type IsoCell } from "./isometricProjection";
 import { ROAD_CONNECTIONS } from "./isometricRoads";
 import type { Neighbourhood } from "../../../schemas/neighbourhood";
 
-const origins = [[-6, -8], [0, -8], [6, -8], [8, -2], [8, 4],
-  [6, 10], [0, 10], [-6, 10], [-11, 4], [-11, -2]] as const;
-export const neighbourhoodBounds = { minimumColumn: -13, maximumColumn: 13, minimumRow: -10, maximumRow: 15 };
-export const neighbourhoodRoads = Array.from({ length: 14 * 14 }, (_, i) => ({
-  column: i % 14 - 6, row: Math.floor(i / 14) - 4,
-})).filter(p => p.column === -6 || p.column === 7 || p.row === -4 || p.row === 9 || p.column === 1 || p.row === 2);
+import { neighbourhoodPlotOrigins as origins, neighbourhoodMarket, neighbourhoodRoads } from "../../../game-data/neighbourhoodGeometry";
+export { neighbourhoodBounds, neighbourhoodMarket, neighbourhoodRoads, neighbourhoodMarketRoadLoop } from "../../../game-data/neighbourhoodGeometry";
+// Dedicated loop around the market, directly beside its footprint.
+// Ordered cardinal steps are shared by terrain rendering and character routes.
+export const neighbourhoodMarketDepth = footprintFront(neighbourhoodMarket,
+  neighbourhoodMarket.columns, neighbourhoodMarket.rows).y - 24;
+/** Sort around the two front footprint edges, including their side corners. */
+export const neighbourhoodMarketCharacterDepth = (position: IsoCell) => {
+  const inFront = position.column >= neighbourhoodMarket.column + neighbourhoodMarket.columns - 0.5 ||
+    position.row >= neighbourhoodMarket.row + neighbourhoodMarket.rows - 0.5;
+  const groundDepth = isoPoint(position).y + 1;
+  return inFront ? Math.max(groundDepth, neighbourhoodMarketDepth + 1)
+    : Math.min(groundDepth, neighbourhoodMarketDepth - 1);
+};
 export const neighbourhoodRoadMask = (column: number, row: number) => ROAD_CONNECTIONS.reduce((mask, d) =>
   neighbourhoodRoads.some(p => p.column === column + d.column && p.row === row + d.row) ? mask | d.bit : mask, 0);
 
@@ -39,7 +47,7 @@ export const neighbourhoodScenery = [
     column: column!, row: row!, type: "bush" as const, texture: index % 2 ? "bush02" : "bush01",
   })),
   ...[[-10, -6], [-3, -10], [4, -9], [11, -6], [12, 1],
-    [11, 11], [4, 14], [-8, 13], [-12, -4], [4, 6]].map(([column, row], index) => ({
+    [11, 11], [4, 14], [-8, 13], [-12, -4], [5, 7]].map(([column, row], index) => ({
     column: column!, row: row!, type: "rock" as const, texture: index % 2 ? "rocks02" : "rocks01",
   })),
 ] as const;

@@ -72,8 +72,8 @@ export const LEVEL_UNLOCK_ITEMS = [
     "Mill donkey (30 shekels at the Baking market)"
   ],
   ["Warehouse", "Small shrine", "Mill upgrade to building level 2"],
-  ["Date palms", "Dates treats", "Bread oven and brewery upgrades to building level 2"],
-  ["Mill upgrade to building level 3"],
+  ["Date palms", "Fruit and vegetables market", "Dates treats", "Bread oven and brewery upgrades to building level 2"],
+  ["Mill upgrade to building level 3", "Barley withering after 24 hours ripe", "Meet neighbours at the market"],
   ["Bread oven and brewery upgrades to building level 3"]
 ] as const;
 // Notifications use the same unlock definitions in a compact sentence.
@@ -91,7 +91,7 @@ export const BREAD_OVEN_UNLOCK_LEVEL = 6;
 export const canEnterMarket = (level: number = 1) =>
   level >= MARKET_UNLOCK_LEVEL;
 export const marketUnlockLevel = (item: string) =>
-  item === "barley"
+  item === "sesame" ? 10 : item === "dates" ? 9 : item === "barley"
     ? MARKET_UNLOCK_LEVEL
     : item === "donkey"
       ? 7
@@ -100,10 +100,10 @@ export const marketUnlockLevel = (item: string) =>
         : item === "bread" || item === "bakingTools"
           ? BREAD_OVEN_UNLOCK_LEVEL
           : BREWERY_UNLOCK_LEVEL;
-export const marketStandUnlockLevel = (scope: "barley" | "beer" | "bread") =>
-  scope === "barley" ? MARKET_UNLOCK_LEVEL : 5;
+export const marketStandUnlockLevel = (scope: "barley" | "beer" | "bread" | "produce") =>
+  scope === "produce" ? 9 : scope === "barley" ? MARKET_UNLOCK_LEVEL : 5;
 export const canOpenMarketStand = (
-  scope: "barley" | "beer" | "bread",
+  scope: "barley" | "beer" | "bread" | "produce",
   level: number = 1
 ) => level >= marketStandUnlockLevel(scope);
 export const granaryLimitForLevel = (level: number) =>

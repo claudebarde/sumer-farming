@@ -1,3 +1,4 @@
+import type { SavedZigguratStage, ZigguratMaterials } from "../../game-data/ziggurat";
 import { sql } from "drizzle-orm";
 import type { FishingSession } from "../../game-data/fishing";
 import { INITIAL_PROGRESSION_STATS, type ProgressionStats } from "../../game-data/progression";
@@ -95,6 +96,63 @@ export const neighbourhoodMembers = pgTable("neighbourhood_members", {
   unique("neighbourhood_slot_unique").on(table.neighbourhoodId, table.slot),
   check("neighbourhood_slot_range", sql`${table.slot} BETWEEN 1 AND 10`)
 ]);
+
+export const zigguratProjects = pgTable("ziggurat_projects", {
+  neighbourhoodId: uuid("neighbourhood_id").primaryKey().references(() => neighbourhoods.id, { onDelete: "cascade" }),
+  fundraisingOpenedAt: timestamp("fundraising_opened_at", { withTimezone: true }),
+  laterStages: jsonb("later_stages").$type<Record<string, SavedZigguratStage>>().default({}).notNull(),
+  foundationClay: integer("foundation_clay").default(0).notNull(),
+  foundationReed: integer("foundation_reed").default(0).notNull(),
+  foundationsStartedAt: timestamp("foundations_started_at", { withTimezone: true }),
+  foundationsCompleteAt: timestamp("foundations_complete_at", { withTimezone: true })
+}, table => [
+  check("ziggurat_projects_foundation_clay_check", sql`${table.foundationClay} BETWEEN 0 AND 30`),
+  check("ziggurat_projects_foundation_reed_check", sql`${table.foundationReed} BETWEEN 0 AND 15`),
+  check("ziggurat_foundations_timing", sql`(${table.foundationsStartedAt} IS NULL AND ${table.foundationsCompleteAt} IS NULL) OR
+    (${table.fundraisingOpenedAt} IS NOT NULL AND ${table.foundationClay} = 30 AND ${table.foundationReed} = 15
+      AND ${table.foundationsStartedAt} IS NOT NULL AND ${table.foundationsCompleteAt} IS NOT NULL
+      AND ${table.foundationsCompleteAt} = ${table.foundationsStartedAt} + interval '6 hours')`)
+]);
+
+export const zigguratDonations = pgTable("ziggurat_donations", {
+  neighbourhoodId: uuid("neighbourhood_id").notNull().references(() => neighbourhoods.id, { onDelete: "cascade" }),
+  playerId: uuid("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  idempotencyKey: uuid("idempotency_key").notNull(),
+  stage: integer("stage").default(0).notNull(),
+  requestedMaterials: jsonb("requested_materials").$type<ZigguratMaterials>(),
+  acceptedMaterials: jsonb("accepted_materials").$type<ZigguratMaterials>(),
+  requestedClay: integer("requested_clay").notNull(),
+  requestedReed: integer("requested_reed").notNull(),
+  clay: integer("clay").notNull(),
+  reed: integer("reed").notNull(),
+  points: integer("points").notNull(),
+  donatedAt: timestamp("donated_at", { withTimezone: true }).defaultNow().notNull()
+}, table => [
+  primaryKey({ columns: [table.playerId, table.idempotencyKey] }),
+  index("ziggurat_donations_neighbourhood").on(table.neighbourhoodId),
+  check("ziggurat_donations_requested_clay_check", sql`${table.requestedClay} BETWEEN 0 AND 60`),
+  check("ziggurat_donations_requested_reed_check", sql`${table.requestedReed} BETWEEN 0 AND 15`),
+  check("ziggurat_donations_clay_check", sql`${table.clay} >= 0 AND ${table.clay} <= ${table.requestedClay}`),
+  check("ziggurat_donations_reed_check", sql`${table.reed} >= 0 AND ${table.reed} <= ${table.requestedReed}`),
+  check("ziggurat_donations_points_check", sql`${table.points} > 0`)
+]);
+
+export const zigguratDeliveries = pgTable("ziggurat_deliveries", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  neighbourhoodId: uuid("neighbourhood_id").notNull().references(() => neighbourhoods.id, { onDelete: "cascade" }),
+  playerId: uuid("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  slot: integer("slot").notNull(),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  completesAt: timestamp("completes_at", { withTimezone: true }).notNull()
+}, table => [index("ziggurat_deliveries_queue").on(table.neighbourhoodId, table.completesAt),
+  check("ziggurat_deliveries_slot_check", sql`${table.slot} BETWEEN 1 AND 10`),
+  check("ziggurat_deliveries_check", sql`${table.completesAt} > ${table.startsAt}`)]);
+
+export const zigguratInterests = pgTable("ziggurat_interests", {
+  neighbourhoodId: uuid("neighbourhood_id").notNull().references(() => neighbourhoods.id, { onDelete: "cascade" }),
+  playerId: uuid("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  registeredAt: timestamp("registered_at", { withTimezone: true }).defaultNow().notNull()
+}, table => [primaryKey({ columns: [table.neighbourhoodId, table.playerId] })]);
 
 export const shekelTransactions = pgTable(
   "shekel_transactions",
@@ -359,6 +417,7 @@ export const farmCrops = pgTable(
       .notNull()
       .references(() => farms.id, { onDelete: "cascade" }),
     cropKey: varchar("crop_key", { length: 50 }).$type<CropKey>().notNull(),
+    decayEligible: boolean("decay_eligible").notNull().default(false),
     column: integer("column").notNull(),
     row: integer("row").notNull(),
     sowingStartedAt: timestamp("sowing_started_at", {
@@ -531,3 +590,12 @@ export const farmImprovements = pgTable(
     )
   ]
 );
+
+/** One immutable award per winning contributor and completed neighbourhood project. */
+export const zigguratRewards = pgTable("ziggurat_rewards", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  playerId: uuid("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  neighbourhoodId: uuid("neighbourhood_id").notNull().references(() => neighbourhoods.id),
+  awardedAt: timestamp("awarded_at", { withTimezone: true }).notNull(),
+  objectId: uuid("object_id").references(() => farmObjects.id, { onDelete: "set null" })
+}, table => [unique("ziggurat_reward_once").on(table.playerId, table.neighbourhoodId)]);

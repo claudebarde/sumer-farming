@@ -1,3 +1,5 @@
+import sesame from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png";
+import dates from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 import type { MarketItemKey } from "../../game-data/marketItems";
 import { FARM_SPRITES } from "../../assets/farmSprites";
 import MarketJarIcon from "./MarketJarIcon";
@@ -8,6 +10,6 @@ import groats from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/br
 
 export default function MarketItemIcon({ itemKey }: { itemKey: MarketItemKey }) {
   if (itemKey === "beer" || itemKey === "emptyBeerJar" || itemKey === "brewingVessels") return <MarketJarIcon itemKey={itemKey} />;
-  const images = { barley: FARM_SPRITES.harvestedBarley, donkey: FARM_SPRITES.donkey, bakingTools: tools, bread, flour, brewersGroats: groats };
+  const images = { sesame, dates, barley: FARM_SPRITES.harvestedBarley, donkey: FARM_SPRITES.donkey, bakingTools: tools, bread, flour, brewersGroats: groats };
   return <img src={images[itemKey]} alt="" width={40} height={40} />;
 }

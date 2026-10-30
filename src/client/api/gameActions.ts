@@ -24,7 +24,7 @@ export const executeGameCommand = async (
     method: "POST",
     // Small start intentions should survive navigating away immediately after
     // confirmation. A job is guaranteed only once accepted by the server.
-    keepalive: command.type === "start_gather_resource" || command.type === "build_granary" || command.type === "deposit_carried_item" || command.type === "deposit_carried_item_in_granary" || command.type === "drop_carried_item" || command.type === "pickup_ground_item" || command.type === "build_road" || command.type === "build_irrigation" || command.type === "start_batch_planting" || command.type === "start_batch_harvesting" || command.type === "start_milling" || command.type === "start_baking" || command.type === "tend_perennial_crop" ||
+    keepalive: command.type === "work_sesame" || command.type === "start_gather_resource" || command.type === "build_granary" || command.type === "deposit_carried_item" || command.type === "deposit_carried_item_in_granary" || command.type === "drop_carried_item" || command.type === "pickup_ground_item" || command.type === "build_road" || command.type === "build_irrigation" || command.type === "start_batch_planting" || command.type === "start_batch_harvesting" || command.type === "start_milling" || command.type === "start_baking" || command.type === "tend_perennial_crop" ||
       (command.type === "brewery_supply" && command.action === "start_brewing"),
     headers: {
       ...developmentPlayerHeaders(),

@@ -1,3 +1,5 @@
+import { barleyHasExpired, barleyHarvestYield, BARLEY_WITHERING_MS, BARLEY_CLEARING_MS } from "../../../game-core/farm/barleyDecay";
+import { countdownLabel } from "../../components/countdownLabel";
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { plantableFields, harvestableFields, plantingSelectionLimit } from "../../../game-core/farm/batchPlanting";
 import { FARMER_CARRY_CAPACITY, granaryCapacityForLevel, granaryLevelForFarmLevel } from "../../../game-data/storage";
@@ -22,7 +24,7 @@ import { canStackMaterial } from "../../../game-core/farm/materialPiles";
 
 export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: number) => {
   const building = buildingAt(snapshot, cell);
-  const crop = snapshot.crops.find(c => sameCell(c, cell));
+  const crop = snapshot.crops.find(c => sameCell(c, cell) && !barleyHasExpired(c, now));
   const home = !building && footprintContains(farmOrigin, 2, 2, cell);
   const level = home ? snapshot.farm.progression?.level ?? 1
     : building?.type === "granary" ? granaryLevelForFarmLevel(snapshot.farm.progression?.level ?? 1)
@@ -33,9 +35,15 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
   const canHarvestHere = ripe.some(p => sameCell(p, cell));
   const title = building ? buildingNames[building.type] : home ? "Farm" : tileInformation(snapshot, cell, now).split(" · ")[0]!;
   const details: string[] = [];
-  if (crop && crop.cropKey !== "datePalm") {
+  if (crop && crop.cropKey === "barley") {
     const end = crop.harvestCompletesAt ?? (Date.parse(crop.plantedAt) > now ? crop.plantedAt : crop.growthCompletesAt);
     details.push(crop.harvestCompletesAt ? "Harvesting…" : Date.parse(crop.plantedAt) > now ? "Sowing…" : Date.parse(end) > now ? `Ready in ${Math.max(1, Math.ceil((Date.parse(end) - now) / 60_000))}m` : "Ready to harvest");
+    if (crop.decayEligible && !crop.harvestStartedAt && now >= Date.parse(crop.growthCompletesAt)) {
+      const quantity = barleyHarvestYield(crop, now);
+      const deadline = Date.parse(crop.growthCompletesAt) + (quantity === 2 ? BARLEY_WITHERING_MS : BARLEY_CLEARING_MS);
+      details.push(`${quantity} barley available`);
+      details.push(`${quantity === 2 ? "Withers" : "Clears automatically"} in ${countdownLabel(deadline - now)}`);
+    }
   } else if (building) {
     if (Date.parse(building.completesAt) > now) details.push("Under construction");
     else if (building.type === "mill") {

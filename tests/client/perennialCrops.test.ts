@@ -10,7 +10,6 @@ import { perennialActionReason, planCropWork } from "../../src/game-core/farm/pe
 import { harvestableFields, plantableFields } from "../../src/game-core/farm/batchPlanting";
 import { validateDatesTreat, happinessAfterDates, happinessAfterFish } from "../../src/game-core/farm/wellbeing";
 import { GameCommandSchema } from "../../src/schemas/gameCommands";
-import { MarketItemKeySchema } from "../../src/game-data/marketItems";
 import { commandUnlockLevel } from "../../src/game-core/farm/commandUnlock";
 import { estateResourceCapacity } from "../../src/game-data/storage";
 import { sharedDeliveryStop } from "../../src/game-core/farm/storageDelivery";
@@ -155,11 +154,10 @@ describe("date palm presentation and rules", () => {
     expect(validateDatesTreat(1, 60, planted, planted + 8 * 3600000)).toBeNull();
     expect(validateDatesTreat(0, 60, null, planted)).toBe("no_dates");
   });
-  it("unlocks at level 9 without enabling trading", () => {
+  it("unlocks palm planting and date treats at level 9", () => {
     const command = GameCommandSchema.parse({ type: "tend_perennial_crop", action: "plant", crop: "datePalm", target: { column: 4, row: 8 }, expectedFarmVersion: 1 });
     expect(commandUnlockLevel(command)).toBe(9);
     expect(commandUnlockLevel({ type: "give_farmer_dates", expectedFarmVersion: 1 })).toBe(9);
-    expect(MarketItemKeySchema.safeParse("dates").success).toBe(false);
   });
   it("uses a saved timeline for travel, work and carrying, even after a long absence", () => {
     const plan = planCropWork(snapshot(), { column: 4, row: 8 }, "datePalm", "harvest", mature)!;

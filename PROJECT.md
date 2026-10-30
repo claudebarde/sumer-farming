@@ -2,6 +2,10 @@
 
 ## Level-10 product milestone (approved October 25, 2026)
 
+See [game-progression.md](game-progression.md) for the level-by-level feature
+reference and explicitly provisional level 11–20 economy proposals. Playable
+rules remain in [game-rules.md](game-rules.md).
+
 Keep milestones, development plans and implementation status in project documentation,
 never in player-facing interface copy. The level popup shows playable unlocks,
 requirements/progress and offering costs. At the current level cap, show a concise
@@ -12,8 +16,8 @@ the social feature set. Earlier levels introduce those systems gradually. Select
 buildings, advanced upgrades and additional features can still unlock later.
 This is the product target, not a claim that unfinished systems are already playable.
 Neighbourhood access already starts at level 7; do not move it to level 10.
-Cooperative/social expansion and crop decay still require their own implementation
-and acceptance. Level-10 progression is independent of other players' availability.
+Cooperative/social expansion still requires implementation and acceptance.
+Level-10 barley decay is implemented for newly started planting jobs; see game-rules.md. Level-10 progression is independent of other players' availability.
 See game-rules.md for implemented claim requirements and the separation of playable
 unlocks from planned features.
 
@@ -44,6 +48,13 @@ The game owns its base layout styles in `src/client/styles/_base.scss` and share
 controls in `index.scss`. NES.css has been removed; use the existing parchment
 panels, sand buttons, disabled states and custom farmer-hand cursors rather than
 reintroducing legacy framework classes or styles.
+
+Always use Radix Tooltip for interface tooltips, with the game's parchment
+styling. Never use HTML `title` attributes to provide native browser tooltips.
+Keep accessible names (`aria-label` or image `alt`) separate from tooltip text,
+support keyboard focus, and prevent restored tab focus from opening tooltips
+automatically (reuse `useNavigationTooltip`). Portalled tooltip content must use
+the shared tooltip layer above dialogs, including when the trigger is inside a modal.
 
 ## Build and database maintenance
 

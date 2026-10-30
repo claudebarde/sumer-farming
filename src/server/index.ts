@@ -1,3 +1,5 @@
+import { DecorationCommandSchema } from "../schemas/decorations";
+import { changeDecoration } from "./services/decorations";
 // src/server/index.ts
 import { claimBuildingReadiness } from "./services/buildingReadiness";
 import { tendPerennialCrop, PerennialCropRuleError, PerennialCropPersistenceError } from "./services/perennialCrops";
@@ -6,6 +8,8 @@ import { Effect, Either } from "effect";
 import { LeaderboardQuerySchema } from "../schemas/leaderboard";
 import { readLeaderboard } from "./services/leaderboard";
 import { readNeighbourhood } from "./services/neighbourhood";
+import { zigguratInterest, donateZiggurat } from "./services/ziggurat";
+import { ZigguratInterestCommandSchema, ZigguratDonationCommandSchema } from "../schemas/ziggurat";
 import { MarketPresenceCommandSchema } from "../schemas/marketPresence";
 import { updateMarketPresence } from "./services/marketPresence";
 import { NameFarmerCommandSchema } from "../schemas/farmerProfile";
@@ -246,6 +250,50 @@ app.post("/api/market/presence", async c => {
     console.error("Market presence connection failed", error);
     return c.json({ error: { message: "Live neighbours are temporarily unavailable." } }, 503);
   } finally { await client.end().catch(error => console.error("Closing presence connection failed", error)); }
+});
+
+app.post("/api/decorations", async c => {
+  c.header("Cache-Control", "no-store");
+  const command=DecorationCommandSchema.safeParse(await c.req.json().catch(()=>null));
+  if(!command.success)return c.json({error:{message:"Choose a valid decoration action."}},400);
+  const client=new Client({connectionString:c.env.HYPERDRIVE.connectionString});
+  try {
+    await client.connect();
+    const result=await changeDecoration(createDatabase(client),c.get("developmentPlayer").id,command.data);
+    return result.ok?c.json(result.snapshot):c.json({error:{message:result.message}},409);
+  }catch(error){console.error("Decoration update failed",error);return c.json({error:{message:"Could not update your decoration. Please retry."}},503);}
+  finally{await client.end().catch(error=>console.error("Closing decoration connection failed",error));}
+});
+
+app.post("/api/neighbourhood/ziggurat/donations", async c => {
+  c.header("Cache-Control", "no-store");
+  const command = ZigguratDonationCommandSchema.safeParse(await c.req.json().catch(() => null));
+  if (!command.success) return c.json({ error: { message: "Choose valid material quantities to donate." } }, 400);
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await donateZiggurat(createDatabase(client), c.get("developmentPlayer").id, command.data);
+    return result.ok ? c.json({ data: result.data, receipt: result.receipt }) : c.json({ error: { message: result.message } }, 409);
+  } catch (error) {
+    console.error("Ziggurat donation failed", error);
+    return c.json({ error: { message: "Could not confirm your donation. Please retry." } }, 503);
+  } finally { await client.end().catch(error => console.error("Closing ziggurat donation connection failed", error)); }
+});
+
+app.on(["GET", "POST"], "/api/neighbourhood/ziggurat", async c => {
+  c.header("Cache-Control", "no-store");
+  const command = c.req.method === "POST"
+    ? ZigguratInterestCommandSchema.safeParse(await c.req.json().catch(() => null)) : null;
+  if (command && !command.success) return c.json({ error: { message: "Choose whether to register interest." } }, 400);
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await zigguratInterest(createDatabase(client), c.get("developmentPlayer").id, command?.data?.interested);
+    return result.ok ? c.json(result.data) : c.json({ error: { message: result.message } }, 409);
+  } catch (error) {
+    console.error("Ziggurat request failed", error);
+    return c.json({ error: { message: "The ziggurat is temporarily unavailable. Please try again." } }, 503);
+  } finally { await client.end().catch(error => console.error("Closing ziggurat connection failed", error)); }
 });
 
 app.get("/api/neighbourhood", async c => {
@@ -538,6 +586,7 @@ app.post("/api/game/action", async c => {
           .with({ type: "give_farmer_beer" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "give_farmer_fish" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "give_farmer_dates" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: "work_sesame" }, command => tendPerennialCrop(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "tend_perennial_crop" }, command => tendPerennialCrop(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "give_farmer_bread" }, command => supplyBrewery(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "build_irrigation" }, command =>

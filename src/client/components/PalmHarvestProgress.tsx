@@ -2,13 +2,15 @@ import type { CropWork } from "../../game-data/cropWork";
 import { palmHarvestPose } from "../game/phaser/palmHarvesting";
 import meter from "../styles/HappinessMeter.module.scss";
 import styles from "../styles/IsometricTest.module.scss";
+import sesame from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png";
 import baskets from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 
 export default function PalmHarvestProgress({ job, now }: { job: CropWork; now: number }) {
   const pose = palmHarvestPose(job, job.outbound.at(-1)!, now);
-  const label = pose.phase === "approaching" ? "Walking to harvest dates…" : pose.phase === "harvesting" ? "Harvesting dates…" : "Delivering dates to warehouse…";
+  const resource = job.cropKey === "sesame" ? "sesame" : "dates";
+  const label = pose.phase === "approaching" ? `Walking to harvest ${resource}…` : pose.phase === "harvesting" ? `Harvesting ${resource}…` : `Delivering ${resource} to warehouse…`;
   return <div className={styles.sowingProgress}>
-    <img className={styles.barleyWorkIcon} src={baskets} alt="" width={48} height={48} />
+    <img className={styles.barleyWorkIcon} src={job.cropKey === "sesame" ? sesame : baskets} alt="" width={48} height={48} />
     <section><p role="status">{label}</p><p>{pose.remainingSeconds}s remaining</p></section>
     <div className={meter.meter} data-mood="content" role="progressbar" aria-label={label}
       aria-valuemin={0} aria-valuemax={100} aria-valuenow={pose.percentage}>

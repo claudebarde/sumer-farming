@@ -1,3 +1,7 @@
+import produceStandUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/fruit-vegetable-market-stand-isometric.png";
+import { createMarketPresenceSession } from "../../marketPresenceSession";
+import { createMarketVisitors } from "../marketVisitors";
+import { MARKET_PRESENCE_UNLOCK_LEVEL } from "../../../../schemas/marketPresence";
 import Phaser from "phaser";
 import { createAmbientCloudLayer } from "../ambientClouds";
 import { marketScenery } from "../marketScenery";
@@ -27,16 +31,27 @@ import { advanceDonkeyFollow, appendDonkeyTrail, donkeyFollowPose, startDonkeyFo
 const merchantSources = { "market-merchant-01": merchant01, "market-merchant-02": merchant02 };
 // Align the donkey's visible hooves with the road centre without altering its route.
 const DONKEY_ROAD_OFFSET_Y = 8;
-export const merchantTextures = { barley: "market-merchant-01", beer: "market-merchant-02", baking: "market-merchant-01" } as const;
+export const merchantTextures = { barley: "market-merchant-01", beer: "market-merchant-02", baking: "market-merchant-01", produce: "market-merchant-02" } as const;
 
 export const stands = [
   { scope: "barley", kind: "barleyMarket", url: barleyStandUrl, origin: { column: 2, row: 2 }, merchant: { column: 3, row: 4.5 } },
   { scope: "beer", kind: "beerMarket", url: beerStandUrl, origin: { column: 5, row: 2 }, merchant: { column: 6, row: 4.5 } },
   { scope: "baking", kind: "bakingMarket", url: bakingStandUrl, origin: { column: 2, row: 8 }, merchant: { column: 3, row: 10.5 } },
+  { scope: "produce", kind: "produceMarket", url: produceStandUrl, origin: { column: 5, row: 8 }, merchant: { column: 6, row: 10.5 } },
 ] as const;
 
-/** Market presentation trial. Farmer and terrain textures are shared with the farm. */
+/** Isometric market; farmer and terrain textures are shared with the farm. */
 export class IsometricMarketScene extends Phaser.Scene {
+  private presence?: ReturnType<typeof createMarketPresenceSession>;
+  private visitors?: ReturnType<typeof createMarketVisitors>;
+  private standBuildings: Phaser.GameObjects.Image[] = [];
+  private presenceEligible = () => this.ready && this.sys.isActive() && this.sys.isVisible() &&
+    !document.hidden && this.farmLevel() >= MARKET_PRESENCE_UNLOCK_LEVEL;
+  private syncPresence = () => {
+    if (!this.presence) return;
+    if (this.presenceEligible()) this.presence.start(); else this.presence.stop();
+  };
+  private stopPresence = () => { this.presence?.stop(); };
   private clouds?: ReturnType<typeof createAmbientCloudLayer>;
   private ready = false;
   private baseZoom = 1;
@@ -79,6 +94,7 @@ export class IsometricMarketScene extends Phaser.Scene {
       this.textures.addCanvas(key, prepareFarmerTexture(source))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
     this.merchants = [];
+    this.standBuildings = [];
     this.greeting = initialGreetingState();
     this.reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     for (const stand of stands) if (!this.textures.exists(`market-${stand.scope}`)) {
@@ -114,6 +130,17 @@ export class IsometricMarketScene extends Phaser.Scene {
       .setOrigin(0.5).setResolution(2);
     this.speech = this.add.container(0, 0, [this.speechBackground, this.speechText])
       .setDepth(10000).setName("merchant-speech-bubble").setVisible(false);
+    this.visitors = createMarketVisitors(this, () => [this.returnFarm, ...this.standBuildings]);
+    this.presence = createMarketPresenceSession({ eligible: this.presenceEligible,
+      position: () => this.position, receive: visitors => {
+        this.visitors?.receive(visitors); this.visitors?.update(0, this.reducedMotion);
+      } });
+    document.addEventListener("visibilitychange", this.syncPresence);
+    window.addEventListener("pagehide", this.stopPresence);
+    window.addEventListener("pageshow", this.syncPresence);
+    this.events.on("sleep", this.stopPresence);
+    this.events.on("pause", this.stopPresence);
+    this.events.on("resume", this.syncPresence);
     this.ready = true; this.fit(); this.zoomBy(1.2 ** 2); this.renderFarmer(false);
     let last: { x: number; y: number } | null = null, dragged = false;
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => { last = { x: p.x, y: p.y }; dragged = false; });
@@ -147,6 +174,14 @@ export class IsometricMarketScene extends Phaser.Scene {
     this.events.on("sleep", () => { this.approaching = null; this.speech?.setVisible(false); });
     this.events.once("shutdown", () => {
       this.clouds?.destroy(); this.clouds = undefined;
+      this.presence?.stop(); this.presence = undefined;
+      this.visitors?.destroy(); this.visitors = undefined; this.standBuildings = [];
+      document.removeEventListener("visibilitychange", this.syncPresence);
+      window.removeEventListener("pagehide", this.stopPresence);
+      window.removeEventListener("pageshow", this.syncPresence);
+      this.events.off("sleep", this.stopPresence);
+      this.events.off("pause", this.stopPresence);
+      this.events.off("resume", this.syncPresence);
       this.ready = false; this.approaching = null; this.merchants = []; this.speech = undefined;
       this.donkeyFollow = null; this.donkeyArrival = null; this.donkey = undefined;
       this.speechText = undefined; this.speechBackground = undefined;
@@ -166,6 +201,7 @@ export class IsometricMarketScene extends Phaser.Scene {
     const building = this.add.image(front.x, front.y, `market-${stand.scope}`).setOrigin(0.5, 0.9).setDisplaySize(size, size)
       .setDepth(depth).setName(`${stand.scope}-stand-preview`).setData("marketScope", stand.scope).setInteractive({ pixelPerfect: true, useHandCursor: true });
     this.daylightShadows.addBuilding(building);
+    this.standBuildings.push(building);
   }
   clearSelection() { this.approaching = null; this.selected = null; this.reportedAnchor = ""; this.report(null); }
   private merchantEntrance(stand: typeof stands[number]): IsoCell {
@@ -246,6 +282,8 @@ export class IsometricMarketScene extends Phaser.Scene {
   update(_time: number, delta: number) {
     if (!this.ready) return;
     if (document.hidden) return;
+    this.syncPresence();
+    this.visitors?.update(delta, this.reducedMotion);
     this.clouds?.update(delta);
     let budget = Math.min(delta, 80) / WORKER_MOVE_DURATION_PER_TILE;
     while (budget > 0 && this.path[0]) {

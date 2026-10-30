@@ -1,8 +1,8 @@
-import { and, desc, eq, gt, lt, ne } from "drizzle-orm";
+import { and, desc, eq, gt, gte, lt, ne } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import type { Database } from "../db/client";
 import { farms, marketPresence, neighbourhoodMembers } from "../db/schema";
-import { MARKET_PRESENCE_TTL_MS, MarketPresenceCommandSchema, type MarketPresenceCommand, type MarketVisitor } from "../../schemas/marketPresence";
+import { MARKET_PRESENCE_TTL_MS, MARKET_PRESENCE_UNLOCK_LEVEL, MarketPositionSchema, MarketPresenceCommandSchema, type MarketPresenceCommand, type MarketVisitor } from "../../schemas/marketPresence";
 
 export class MarketPresenceError extends Data.TaggedError("MarketPresenceError")<{ readonly cause: unknown }> {}
 type Result = { readonly type: "ok"; readonly visitors: readonly MarketVisitor[] }
@@ -16,7 +16,7 @@ export const updateMarketPresence = (db: Database, playerId: string, input: Mark
     const [home] = await tx.select({ neighbourhoodId: neighbourhoodMembers.neighbourhoodId, profile: farms.farmerProfile, level: farms.level })
       .from(neighbourhoodMembers).innerJoin(farms, eq(farms.playerId, neighbourhoodMembers.playerId))
       .where(eq(neighbourhoodMembers.playerId, playerId));
-    if (!home?.profile || home.level < 3) return { type: "rejected", message: "Choose a home and farmer, and reach level 3 before visiting the market." };
+    if (!home?.profile || home.level < MARKET_PRESENCE_UNLOCK_LEVEL) return { type: "rejected", message: "Choose a home and farmer, and reach level 10 before joining the shared market." };
     const now = new Date();
     const key = and(eq(marketPresence.playerId, playerId), eq(marketPresence.sessionId, command.sessionId));
     // A leave creates a tombstone even if it beats the initial join request.
@@ -38,10 +38,10 @@ export const updateMarketPresence = (db: Database, playerId: string, input: Mark
       .from(marketPresence).innerJoin(neighbourhoodMembers, eq(neighbourhoodMembers.playerId, marketPresence.playerId))
       .innerJoin(farms, eq(farms.playerId, marketPresence.playerId))
       .where(and(eq(neighbourhoodMembers.neighbourhoodId, home.neighbourhoodId), ne(marketPresence.playerId, playerId),
-        eq(marketPresence.closed, false), gt(marketPresence.seenAt, new Date(now.getTime() - MARKET_PRESENCE_TTL_MS))))
+        gte(farms.level, MARKET_PRESENCE_UNLOCK_LEVEL), eq(marketPresence.closed, false), gt(marketPresence.seenAt, new Date(now.getTime() - MARKET_PRESENCE_TTL_MS))))
       .orderBy(desc(marketPresence.seenAt), marketPresence.sessionId);
     const visitors = new Map<string, MarketVisitor>();
-    for (const row of rows) if (row.profile && !visitors.has(row.playerId)) visitors.set(row.playerId,
+    for (const row of rows) if (row.profile && !visitors.has(row.playerId) && visitors.size < 9 && MarketPositionSchema.safeParse(row.position).success) visitors.set(row.playerId,
       { playerId: row.playerId, name: row.profile.identity.name, position: row.position });
     return { type: "ok", visitors: [...visitors.values()] };
   }),

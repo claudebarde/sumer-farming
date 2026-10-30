@@ -1,3 +1,4 @@
+import sesameImage from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png";
 import type { ReactNode } from "react";
 import { Dialog, Tabs } from "radix-ui";
 import { Cross2Icon } from "@radix-ui/react-icons";
@@ -19,9 +20,10 @@ import clayImage from "../../assets/sprite_assets/pngs/brick-pile.webp";
 import { estateEmptyJars } from "../../game-core/farm/estateEmptyJars";
 
 /** Shared drawer contents; each renderer supplies its own building placement entry. */
-export default function EstateManagementContent({ farmState, storageClock, manageTab, setManageTab, buildContent, marketRoad }: {
+export default function EstateManagementContent({ farmState, storageClock, manageTab, setManageTab, buildContent, decorationsContent, marketRoad }: {
   farmState: FarmLoadState; storageClock: number; manageTab: string;
   setManageTab: (tab: string) => void; buildContent: ReactNode;
+  decorationsContent?: ReactNode;
   marketRoad?: { column: number; row: number };
 }) {
   const snapshot = farmState.type === "ready" ? farmState.snapshot : null;
@@ -74,6 +76,7 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                   snapshot={farmState.snapshot}
                   now={storageClock}
                 />}
+                {decorationsContent}
               </Tabs.Content>
 
               <Tabs.Content
@@ -166,6 +169,7 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                               image: beerJarsImage
                             },
                             { key: "fish", label: "Fish", image: fishImage },
+                            ...(farmLevel >= 10 ? [{ key: "sesame" as const, label: "Sesame", image: sesameImage }] : []),
                             ...(farmLevel >= 9
                               ? [
                                   {

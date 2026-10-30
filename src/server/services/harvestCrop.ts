@@ -1,3 +1,4 @@
+import { barleyHarvestYield } from "../../game-core/farm/barleyDecay";
 import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
@@ -119,7 +120,7 @@ const executeHarvestAction = (
               .for("update")
           )[0];
 
-          if (crop === undefined || CROP_DEFINITIONS[crop.cropKey].kind !== "annual") {
+          if (crop === undefined || crop.cropKey !== "barley") {
             return { type: "rule_error", rule: { type: "crop_not_found" } };
           }
 
@@ -203,6 +204,7 @@ const executeHarvestAction = (
               }
 
               const cropDefinition = CROP_DEFINITIONS[crop.cropKey];
+              const yieldQuantity = crop.cropKey === "barley" ? barleyHarvestYield(crop, currentTimeMillis) : cropDefinition.harvestYield;
 
               await transaction
                 .delete(farmCrops)
@@ -213,9 +215,9 @@ const executeHarvestAction = (
                 .set({
                   carriedItemKey: cropDefinition.harvestItemKey,
                   progressionStats: { ...farm.progressionStats,
-                    harvestedBarley: farm.progressionStats.harvestedBarley + cropDefinition.harvestYield,
+                    harvestedBarley: farm.progressionStats.harvestedBarley + yieldQuantity,
                     harvests: farm.progressionStats.harvests + 1 },
-                  carriedItemQuantity: cropDefinition.harvestYield,
+                  carriedItemQuantity: yieldQuantity,
                   carriedItemExpiresAt: new Date(
                     now.getTime() + EXPOSED_BARLEY_LIFETIME_MS
                   ),

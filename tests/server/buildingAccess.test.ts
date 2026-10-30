@@ -10,11 +10,11 @@ describe("building access", () => {
   });
 
   it("rejects enclosing a two-tile pocket against the top boundary", () => {
-    expect(preservesBuildingAccess({ buildings: [building(3, 0), building(6, 0), building(4, 2)] })).toBe(false);
+    expect(preservesBuildingAccess({ buildings: [building(3, -3), building(6, -3), building(4, -1)] })).toBe(false);
   });
 
-  it("rejects sealing access to the farm building even without an empty pocket", () => {
-    expect(preservesBuildingAccess({ buildings: [building(1, 0), building(5, 0), building(3, 2)] })).toBe(false);
+  it("allows the northern bypass around the formerly trapping layout", () => {
+    expect(preservesBuildingAccess({ buildings: [building(1, 0), building(5, 0), building(3, 2)] })).toBe(true);
   });
 
   it("uses visible bounds rather than relying on an offscreen route", () => {
@@ -24,6 +24,6 @@ describe("building access", () => {
   });
 
   it("applies the same rule to breweries", () => {
-    expect(preservesBuildingAccess({ buildings: [building(3, 0), building(6, 0), { type: "brewery", column: 4, row: 2 }] })).toBe(false);
+    expect(preservesBuildingAccess({ buildings: [building(3, -3), building(6, -3), { type: "brewery", column: 4, row: -1 }] })).toBe(false);
   });
 });

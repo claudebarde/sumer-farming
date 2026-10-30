@@ -6,7 +6,7 @@ import { positionAlongPorterPath } from "./porterPresentation";
 
 /** The server schedule owns every phase, including return after time away. */
 export const palmHarvestPose = (job: CropWork, target: IsoCell, now: number) => {
-  const workPosition = palmPlantingPosition(target);
+  const workPosition = job.cropKey === "sesame" ? target : palmPlantingPosition(target);
   const phase = now < job.workStartsAt ? "approaching" : now < job.workEndsAt ? "harvesting"
     : now < job.completesAt ? "delivering" : "complete";
   const outbound = [...job.outbound.slice(0, -1), workPosition];

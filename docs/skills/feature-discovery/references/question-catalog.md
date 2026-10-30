@@ -177,18 +177,44 @@ Use alongside the animation and common questions for hired-worker logistics.
 - **Visual stages:** Choose sapling/empty/flowering/ripe transitions independently
   of economic rules; clarify whether care changes stage timing or only readiness.
 
+## Annual crop decay
+
+- **Eligibility and migration:** Which crops and levels are affected? Preserve existing fields and already-booked planting queues, or migrate them explicitly?
+- **Clock and yields:** Measure from ripening or planting; define exact yield thresholds and offline behaviour.
+- **Harvest boundary:** Lock yield at selection, arrival/work start, or completion? What happens to fields that expire during a queued journey?
+- **Expired fields:** Clear automatically or require labour? Define refunds, replanting eligibility, and how a skipped field affects delivery of goods already harvested.
+- **Presentation:** Which withering artwork, yield information and countdowns distinguish each stage?
+
 ## Neighbourhood and social maps
 
 - **Membership baseline:** Reuse existing city/group assignment, capacity and saved
   membership. Distinguish revealing a map from assigning or relocating players.
 - **Map representation:** Real geography or a symbolic layout? Shared stable plots
   or viewer-centred arrangement? How are empty slots and offline members shown?
+- **Live presence:** Are unlock restrictions checked for both viewer and visitor? Define scene/tab departure, reconnects, stale visits, duplicate tabs and whether movement follows actual paths or decorative wandering.
 - **Public information:** Which names, portraits, levels and estate details may
   other members see? Keep private inventory and account data out of map responses.
 - **Interaction scope:** Overview only, profile popup or farm visits? Identify
   excluded trading, messaging and cooperative actions explicitly.
 - **Navigation and assets:** Entry point, unlock level, return flow and relationship
   to city/world maps; reuse building artwork or create a dedicated map illustration?
+
+## Cooperative construction
+
+- **Shared ownership and location:** Which group owns the project, who may contribute,
+  and does its fixed footprint preserve member plots and access routes?
+- **Stages and contributions:** Define stage requirements, partial contributions,
+  resource sources, refunds, and handling of simultaneous final contributions.
+- **Start and labour:** Does funding automatically start each stage or require an
+  authorized player action? Are personal workers occupied or are builders independent?
+- **Participation and rewards:** Can a lone active member finish? Who receives benefits,
+  including later arrivals, lower-level members and contributors who leave the group?
+- **Persistence:** Define offline stage completion, membership changes, and whether
+  completed contributions or stage progress can ever expire or reset.
+
+- **Shared visual delivery queues:** Does a shared transport serve one trip at a
+  time? How are repeated donations combined, which timestamp drives all viewers,
+  and how do return/reload and local previews avoid replaying or charging goods?
 
 ## Adding a feature type
 

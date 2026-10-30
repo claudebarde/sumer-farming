@@ -9,7 +9,7 @@ export const palmPlantingPosition = (target: IsoCell): IsoCell => ({
 
 /** Present the saved schedule; never acknowledge work or change its deadline. */
 export const palmPlantingPose = (job: CropWork, target: IsoCell, now: number) => {
-  const destination = palmPlantingPosition(target);
+  const destination = job.cropKey === "sesame" ? target : palmPlantingPosition(target);
   const path = [...job.outbound.slice(0, -1), destination];
   const traveling = now < job.workStartsAt;
   const working = now >= job.workStartsAt && now < job.workEndsAt;

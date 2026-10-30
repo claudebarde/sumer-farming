@@ -51,15 +51,15 @@ describe("brewery construction and equipment", () => {
   it("rejects a trapping layout on the server without spending materials or changing the farm version", async () => {
     const input = await fixture();
     await db.update(farmGroundItems).set({ row: 6 }).where(eq(farmGroundItems.farmId, input.farmId));
-    await db.update(farms).set({ roads: [{ column: 4, row: 4 }] }).where(eq(farms.id, input.farmId));
+    await db.update(farms).set({ roads: [1,2,3,4].map(row => ({ column: 4, row })) }).where(eq(farms.id, input.farmId));
     await db.insert(farmBuildings).values([3, 6].map(column => ({
-      farmId: input.farmId, type: "granary" as const, column, row: 0,
+      farmId: input.farmId, type: "granary" as const, column, row: -3,
       startedAt: new Date(), completesAt: new Date(Date.now() + 120000)
     })));
     const before = await db.select().from(farmGroundItems).where(eq(farmGroundItems.farmId, input.farmId));
     const inventory = await db.select().from(farmInventory).where(eq(farmInventory.farmId, input.farmId));
     await expect(Effect.runPromise(Effect.flip(buildFarmBuilding(db, {
-      ...input, target: { column: 4, row: 2 }
+      ...input, target: { column: 4, row: -1 }
     })))).resolves.toMatchObject({ rule: { type: "access_blocked" } });
     expect(await db.select().from(farmGroundItems).where(eq(farmGroundItems.farmId, input.farmId))).toEqual(before);
     expect(await db.select().from(farmInventory).where(eq(farmInventory.farmId, input.farmId))).toEqual(inventory);

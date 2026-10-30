@@ -8,7 +8,7 @@ import type { MarketScope } from "../../stores/marketUiStore";
 
 /** Map stand/merchant selections to the shared flat/isometric trading dialogs. */
 export const isometricTradeScope = (kind: string | undefined): MarketScope | null =>
-  kind === "barleyMarket" ? "barley" : kind === "bakingMarket" ? "bread" : kind === "beerMarket" ? "beer" : null;
+  kind === "produceMarket" ? "produce" : kind === "barleyMarket" ? "barley" : kind === "bakingMarket" ? "bread" : kind === "beerMarket" ? "beer" : null;
 
 export const marketOrigin: IsoCell = FARM_MARKET_ORIGIN;
 export const marketEntrance: IsoCell = FARM_MARKET_ENTRANCE;

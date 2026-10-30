@@ -1,3 +1,4 @@
+import { cropWorkReserved } from "../../game-data/cropWork";
 import { and, asc, eq, lte, inArray } from "drizzle-orm";
 import { match } from "ts-pattern";
 import { porterReserved } from "../../game-data/porter";
@@ -108,13 +109,13 @@ export const loadMarketItemStorage = (
   match(itemKey)
     .returnType<Promise<MarketItemStorage>>()
     .with("barley", () => loadBarleyStorage(transaction, farmId, now))
-    .with("brewingVessels", "bakingTools", "emptyBeerJar", "beer", "bread", "flour", "brewersGroats", "donkey", async () => {
+    .with("brewingVessels", "bakingTools", "emptyBeerJar", "beer", "bread", "flour", "brewersGroats", "donkey", "dates", "sesame", async () => {
       const [entry] = await transaction.select().from(farmInventory).where(and(eq(farmInventory.farmId, farmId), eq(farmInventory.itemKey, itemKey))).for("update");
       const quantity = entry?.quantity ?? 0;
       const buildings = await transaction.select().from(farmBuildings).where(eq(farmBuildings.farmId, farmId));
       const capacity = estateResourceCapacity(itemKey, buildings, now.getTime());
       const [farm] = await transaction.select({ production: farms.production, millGoods: farms.millGoods, milling: farms.milling }).from(farms).where(eq(farms.id, farmId));
-      return { type: "estate_inventory", itemKey, farmId, farmQuantity: quantity, granaries: [], granaryCapacity: 0, storedQuantity: quantity, totalCapacity: capacity, availableCapacity: Math.max(0, capacity - quantity - porterReserved(farm?.production.porter, itemKey) - (farm ? millStorageReserved(farm, itemKey) : 0)) };
+      return { type: "estate_inventory", itemKey, farmId, farmQuantity: quantity, granaries: [], granaryCapacity: 0, storedQuantity: quantity, totalCapacity: capacity, availableCapacity: Math.max(0, capacity - quantity - (farm ? cropWorkReserved(farm.production, itemKey) : 0) - porterReserved(farm?.production.porter, itemKey) - (farm ? millStorageReserved(farm, itemKey) : 0)) };
     })
     .exhaustive();
 

@@ -20,11 +20,27 @@ const batch = () => BatchPlantingSchema.parse({ id, mode: "harvest", total: 2, h
   travelPaths: [[{ column: 2, row: 5 }, { column: 3, row: 5 }, first], [first, second]] });
 const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shekelBalance: 0 },
   farm: { id, playerId: id, version: 1, household: { happiness: 70, lastBeerAt: null, lastFishAt: null, hungrySince: null, cultivationStartedAt: null, nextBarleyConsumptionAt: null }, carriedItem: null, gathering: null },
-  inventory: [], objects: [], groundItems: [], crops: [], improvements: [], buildings: [{ id, type: "granary", column: 5, row: 3,
+  inventory: [], objects: [], groundItems: [], crops: [first, second].map((cell, i) => ({ ...cell,
+    id: `00000000-0000-4000-8000-00000000000${i + 1}`, cropKey: "barley", sowingStartedAt: date(-2000),
+    plantedAt: date(-1000), growthCompletesAt: date(0), harvestStartedAt: null, harvestCompletesAt: null })), improvements: [], buildings: [{ id, type: "granary", column: 5, row: 3,
     storedBarley: 0, brewingBarley: 0, brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0, loadingTile: { column: 5, row: 5 }, startedAt: date(0), completesAt: date(0) }] });
 const delivery = () => harvestDeliveryPlan({ buildings: snapshot().buildings.map(b => ({ ...b, completesAt: 0 })), roads: [], from: second, at: 21540, happiness: 70, hungry: false, level: 1 })!;
 
 describe("isometric harvest presentation", () => {
+  it("projects reduced yields and skips expired fields without a harvesting pose", () => {
+    const s = snapshot();
+    s.buildings = [];
+    s.farm.production.planting = batch();
+    const day = 24 * 3600000;
+    s.crops = s.crops.map((c, i) => ({ ...c, decayEligible: true,
+      growthCompletesAt: date(i === 0 ? -day : -2 * day) }));
+    expect(isometricHarvestPose(s, 2000)?.type).toBe("harvesting");
+    expect(isometricHarvestPose(s, 11540)).toMatchObject({ type: "done", seeds: 1 });
+    const popup = isometricTilePopup(s, first, 1000);
+    expect(popup.details).toContain("1 barley available");
+    expect(popup.details.some(d => d.startsWith("Clears automatically in "))).toBe(true);
+    expect(isometricTilePopup(s, second, 1000).actions.harvest).toBe(false);
+  });
   it("gates the sound at exact field arrivals and endings, including after reload", () => {
     const s = snapshot();
     s.farm.production.planting = batch();
@@ -185,6 +201,7 @@ describe("isometric harvest presentation", () => {
 describe("isometric interaction popup model", () => {
   it("shows only currently available actions on an occupied barley tile", () => {
     const s = snapshot();
+    s.crops = [];
     s.groundItems = [{ id, ...first, itemKey: "barley", quantity: 1, expiresAt: date(10000) }];
     const popup = isometricTilePopup(s, first, 1000);
     expect(popup.actions).toEqual({ destroyRoad: false, destroyIrrigation: false, destroyMaterial: false, fish: false, gather: null, pickup: true, irrigation: false, road: false, drop: false, plant: false, harvest: false, walk: true });
@@ -277,6 +294,7 @@ describe("isometric interaction popup model", () => {
   });
   it("offers dropping carried barley only on empty arable ground", () => {
     const s = snapshot();
+    s.crops = [];
     expect(isometricTilePopup(s, first, 1000).drop).toBe(false);
     s.farm.carriedItem = { itemKey: "barley", quantity: 2, expiresAt: null };
     expect(isometricTilePopup(s, first, 1000)).toMatchObject({ drop: true, dropDisabled: null });
@@ -287,6 +305,7 @@ describe("isometric interaction popup model", () => {
   });
   it("disables dropping during work and hides it after hands are emptied", () => {
     const s = snapshot();
+    s.crops = [];
     s.farm.carriedItem = { itemKey: "barley", quantity: 2, expiresAt: null };
     s.farm.production.planting = batch();
     expect(isometricTilePopup(s, first, 1000)).toMatchObject({ drop: true, dropDisabled: "Farmer busy" });

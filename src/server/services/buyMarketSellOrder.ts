@@ -51,6 +51,7 @@ export const buyMarketSellOrder = (database: Database, input: PurchaseInput) =>
         if (ledgerConflict) return fail("idempotency_conflict", "This purchase identifier was already used");
         const [order] = await tx.select().from(marketOrders).where(eq(marketOrders.id, input.orderId)).for("update");
         if (!order || order.side !== "sell" || order.status !== "open") return fail("order_unavailable", "This listing is no longer available");
+        if (order.itemKey === "dates" && buyerFarm.level < 9) return fail("order_unavailable", "Dates trading unlocks at level 9");
         if (order.remainingQuantity < input.quantity) return fail("insufficient_quantity", `Only ${order.remainingQuantity} remain in this listing`);
         if (order.unitPrice !== input.expectedUnitPrice) return fail("price_changed", "The price changed; review the listing again");
         const currentBuyerFarm = await advanceFarmLifecycle(tx, buyerFarm, now);

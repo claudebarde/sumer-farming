@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { readFileSync } from "node:fs";
-import { neighbourhoodPlots, neighbourhoodPlotTiles, neighbourhoodRoads, neighbourhoodRoadMask, neighbourhoodScenery, neighbourhoodBounds } from "../../src/client/game/phaser/neighbourhoodLayout";
+import { neighbourhoodPlots, neighbourhoodPlotTiles, neighbourhoodRoads, neighbourhoodRoadMask, neighbourhoodScenery, neighbourhoodBounds, neighbourhoodMarketRoadLoop, neighbourhoodMarketDepth, neighbourhoodMarketCharacterDepth } from "../../src/client/game/phaser/neighbourhoodLayout";
 
 it("maps only saved members to their assigned slots, leaving other lots empty", () => {
   const plots = neighbourhoodPlots([{ slot: 4, name: "Lugalzagesi", level: 7, isYou: true }, { slot: 9, name: "Gudea", level: 3, isYou: false }]);
@@ -61,7 +61,7 @@ it("keeps the map read-only with a level-seven entry and return navigation", () 
   expect(neighbourhoodControls.match(/styles.manageIconButton/g)).toHaveLength(2);
   expect(neighbourhoodControls).toContain('<div className={styles.manageButtonRow}>');
   expect(neighbourhoodControls).toContain('<BuildingActionIcon kind="leaderboard" />');
-  expect(neighbourhoodControls).toContain('<BuildingActionIcon kind="neighbourhood" />');
+  expect(neighbourhoodControls).toContain('<BuildingActionIcon kind="farm" />');
   expect(neighbourhoodControls).toContain('View the leaderboard<Tooltip.Arrow');
   expect(neighbourhoodControls).toContain('Back to your farm<Tooltip.Arrow');
   expect(neighbourhoodControls.indexOf('aria-label="Leaderboard"')).toBeLessThan(neighbourhoodControls.indexOf('aria-label="Back to your farm"'));
@@ -80,5 +80,25 @@ it("shares ten bushes and ten rocks on distinct ground tiles, clear of plots, ro
     expect(neighbourhoodPlots([]).some(f => p.column >= f.column && p.column < f.column + 4 &&
       p.row >= f.row && p.row < f.row + 4)).toBe(false);
     expect(p.column >= 2 && p.column <= 3 && p.row >= 3 && p.row <= 4).toBe(false);
+  }
+});
+
+it("keeps the market route closed, on roads and outside the market courtyard", () => {
+  expect(neighbourhoodMarketRoadLoop).toHaveLength(12);
+  for (const [index, tile] of neighbourhoodMarketRoadLoop.entries()) {
+    const next = neighbourhoodMarketRoadLoop[(index + 1) % neighbourhoodMarketRoadLoop.length]!;
+    expect(Math.abs(next.column - tile.column) + Math.abs(next.row - tile.row)).toBe(1);
+    expect(neighbourhoodRoads).toContainEqual(tile);
+    expect(tile.column >= 2 && tile.column <= 3 && tile.row >= 3 && tile.row <= 4).toBe(false);
+  }
+  expect(neighbourhoodRoads.some(tile => tile.column >= 2 && tile.column <= 3 && tile.row >= 3 && tile.row <= 4)).toBe(false);
+});
+
+it("draws characters over the market's front corners but behind its rear roads", () => {
+  for (const position of [{ column: 4, row: 2.5 }, { column: 1.5, row: 5 }, { column: 4, row: 5 }]) {
+    expect(neighbourhoodMarketCharacterDepth(position)).toBeGreaterThan(neighbourhoodMarketDepth);
+  }
+  for (const position of [{ column: 2.5, row: 2 }, { column: 1, row: 3.5 }, { column: 1, row: 2 }]) {
+    expect(neighbourhoodMarketCharacterDepth(position)).toBeLessThan(neighbourhoodMarketDepth);
   }
 });

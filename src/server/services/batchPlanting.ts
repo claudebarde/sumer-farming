@@ -1,3 +1,4 @@
+import { barleyHarvestYield } from "../../game-core/farm/barleyDecay";
 import { eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import type { GameCommand } from "../../schemas/gameCommands";
@@ -79,7 +80,7 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
       if (stored > 0) await removeFromMarketItemStorage(tx, storage, stored, now);
       const excess = farm.carriedItemQuantity - carried;
       harvestUpdate = { carriedItemKey: excess > 0 ? "barley" : null, carriedItemQuantity: excess, carriedItemExpiresAt: excess > 0 ? farm.carriedItemExpiresAt : null };
-      planting = { id: crypto.randomUUID(), total: input.targets.length, remaining: [...orderPlantingFields(input.targets, stored > 0 ? source : input.targets[0]!)], source, stopRequested: false,
+      planting = { decayEligible: farm.level >= 10, id: crypto.randomUUID(), total: input.targets.length, remaining: [...orderPlantingFields(input.targets, stored > 0 ? source : input.targets[0]!)], source, stopRequested: false,
         carriedSeeds: { quantity: carried, expiresAt: farm.carriedItemExpiresAt?.toISOString() ?? null },
         phase: { type: stored > 0 ? "collecting" : "ready" } };
       const collectionTile = granary ? [granary.loadingTile, { column: granary.column, row: granary.row + 2 },
@@ -120,7 +121,7 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
         const target = planting.remaining[0];
         if (!target || !plantableFields(snapshot, now.getTime()).some(p => fieldKey(p) === fieldKey(target))) return fail("The next field is no longer plantable. Stop the batch to return its seeds.");
         const plantedAt = new Date(now.getTime() + CROP_DEFINITIONS.barley.sowingDurationMs);
-        await tx.insert(farmCrops).values({ farmId: farm.id, cropKey: "barley", ...target,
+        await tx.insert(farmCrops).values({ farmId: farm.id, cropKey: "barley", decayEligible: planting.decayEligible ?? false, ...target,
           sowingStartedAt: now, plantedAt, growthCompletesAt: new Date(plantedAt.getTime() + CROP_DEFINITIONS.barley.growthDurationMs) });
         planting = { ...planting, travelMs: planting.travelMs?.slice(1), nextStepAt: planting.nextStepAt ? plantedAt.toISOString() : undefined, carriedSeeds: planting.carriedSeeds ? { ...planting.carriedSeeds, quantity: Math.max(0, planting.carriedSeeds.quantity - 1) } : undefined, remaining: planting.remaining.slice(1), phase: { type: "sowing", target, completesAt: plantedAt.toISOString() } };
       } else if (input.action === "harvest") {
@@ -137,12 +138,13 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
           const target = planting.phase.target;
           const crop = snapshot.crops.find(c => fieldKey(c) === fieldKey(target));
           if (!crop || crop.harvestCompletesAt === null || Date.parse(crop.harvestCompletesAt) > now.getTime()) return fail("This field is still being harvested.");
-          const quantity = farm.carriedItemQuantity + CROP_DEFINITIONS.barley.harvestYield;
+          const yieldQuantity = barleyHarvestYield(crop, now.getTime());
+          const quantity = farm.carriedItemQuantity + yieldQuantity;
           if ((farm.carriedItemKey && farm.carriedItemKey !== "barley") || quantity > lockedHarvestFieldLimit(planting) * CROP_DEFINITIONS.barley.harvestYield) return fail("The farmer cannot carry more barley.");
           await tx.delete(farmCrops).where(eq(farmCrops.id, crop.id));
           harvestUpdate = { carriedItemKey: "barley", carriedItemQuantity: quantity,
             carriedItemExpiresAt: farm.carriedItemExpiresAt ?? new Date(now.getTime() + EXPOSED_BARLEY_LIFETIME_MS),
-            progressionStats: { ...farm.progressionStats, harvestedBarley: farm.progressionStats.harvestedBarley + CROP_DEFINITIONS.barley.harvestYield, harvests: farm.progressionStats.harvests + 1 } };
+            progressionStats: { ...farm.progressionStats, harvestedBarley: farm.progressionStats.harvestedBarley + yieldQuantity, harvests: farm.progressionStats.harvests + 1 } };
         }
         planting = { ...planting, lastHarvested: planting.phase.type === "harvesting" ? planting.phase.target : planting.lastHarvested, phase: { type: "ready" } };
       }

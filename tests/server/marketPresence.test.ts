@@ -22,7 +22,7 @@ beforeAll(async () => {
   for (const id of homes) await db.insert(neighbourhoods).values({ id, city: "lagash", name: "Presence test", private: true });
   for (const [i, id] of ids.entries()) {
     await db.insert(players).values({ id, displayName: "Presence test" });
-    await db.insert(farms).values({ playerId: id, level: i === 3 ? 1 : 3,
+    await db.insert(farms).values({ playerId: id, level: i === 3 ? 9 : 10,
       farmerProfile: i === 4 ? null : { version: 1, identity: { name: "Gudea" } } });
     await db.insert(neighbourhoodMembers).values({ playerId: id, neighbourhoodId: homes[i === 2 ? 1 : 0]!, slot: i + 1 });
   }
@@ -34,11 +34,27 @@ afterAll(async () => {
   await client.end();
 });
 describe.sequential("live market presence", () => {
+  it("enforces level 10 on both the observer and every returned visitor", async () => {
+    await join(0); await join(1);
+    await db.update(farms).set({ level: 9 }).where(eq(farms.playerId, ids[1]!));
+    try {
+      expect(await heartbeat(0)).toEqual({ type: "ok", visitors: [] });
+      expect((await heartbeat(1)).type).toBe("rejected");
+      expect((await join(3)).type).toBe("rejected");
+    } finally { await db.update(farms).set({ level: 10 }).where(eq(farms.playerId, ids[1]!)); }
+  });
+  it("shares fractional positions on the isometric road loop", async () => {
+    await join(0); await join(1);
+    const position = { column: 9, row: 8.5 };
+    await run(1, { type: "heartbeat", sessionId: sessions[1]!, position });
+    expect(await heartbeat(0)).toMatchObject({ visitors: [{ playerId: ids[1], position }] });
+    expect((await run(1, { type: "heartbeat", sessionId: sessions[1]!, position: { column: 5, row: 8.5 } })).type).toBe("rejected");
+  });
   it("shows actual visitors only in the same neighbourhood, excludes self, and preserves farm state", async () => {
     await join(0); await join(1); await join(2);
     expect(await heartbeat(0)).toEqual({ type: "ok", visitors: [{ playerId: ids[1], name: "Gudea", position }] });
     expect(await heartbeat(2)).toEqual({ type: "ok", visitors: [] });
-    expect((await db.select().from(farms).where(eq(farms.playerId, ids[0]!)))[0]).toMatchObject({ version: 1, level: 3 });
+    expect((await db.select().from(farms).where(eq(farms.playerId, ids[0]!)))[0]).toMatchObject({ version: 1, level: 10 });
   });
   it("removes departed visitors and rejects late join or heartbeat resurrection", async () => {
     await join(0); await join(1);
@@ -61,7 +77,7 @@ describe.sequential("live market presence", () => {
   it("deduplicates tabs and an older tab cannot remove a newer visit", async () => {
     await join(0); await join(1);
     const next = randomUUID();
-    const nextPosition = { column: 1, row: 3 };
+    const nextPosition = { column: 1.5, row: 5 };
     await run(1, { type: "join", sessionId: next, position: nextPosition });
     expect(await heartbeat(0)).toEqual({ type: "ok", visitors: [{ playerId: ids[1], name: "Gudea", position: nextPosition }] });
     await run(1, { type: "leave", sessionId: sessions[1]! });
@@ -71,6 +87,6 @@ describe.sequential("live market presence", () => {
     expect((await join(3)).type).toBe("rejected");
     expect((await join(4)).type).toBe("rejected");
     expect((await heartbeat(0)).type).toBe("rejected");
-    expect((await run(0, { type: "join", sessionId: sessions[0]!, position: { column: 1, row: 5 } })).type).toBe("rejected");
+    expect((await run(0, { type: "join", sessionId: sessions[0]!, position: { column: 1, row: 6 } })).type).toBe("rejected");
   });
 });

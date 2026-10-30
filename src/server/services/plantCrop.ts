@@ -94,7 +94,7 @@ export const plantCrop = (
   input: PlantCropInput
 ): Effect.Effect<FarmSnapshot, PlantCropError> =>
   Effect.gen(function* () {
-    if (CROP_DEFINITIONS[input.crop].kind !== "annual") return yield* Effect.fail(new PlantCropRuleError({ rule: { type: "tile_occupied" } }));
+    if (input.crop !== "barley") return yield* Effect.fail(new PlantCropRuleError({ rule: { type: "tile_occupied" } }));
     const currentTimeMillis = yield* Clock.currentTimeMillis;
     const sowingStartedAt = new Date(currentTimeMillis);
     const plantedAt = new Date(
@@ -218,6 +218,7 @@ export const plantCrop = (
             .values({
               farmId: farm.id,
               cropKey: input.crop,
+              decayEligible: input.crop === "barley" && farm.level >= 10,
               column: input.target.column,
               row: input.target.row,
               sowingStartedAt,

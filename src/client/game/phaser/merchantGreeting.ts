@@ -4,6 +4,7 @@ export const merchantGreetings = {
   barley: "Buying or selling barley?",
   baking: "Fresh bread today!",
   beer: "Care for a beer?",
+  produce: "Fresh produce for your farm!",
 } as const;
 export type MerchantKind = keyof typeof merchantGreetings;
 export type GreetingState = Readonly<{

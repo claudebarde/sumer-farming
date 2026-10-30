@@ -1,3 +1,4 @@
+import { barleyHarvestYield, barleyHasExpired } from "../../game-core/farm/barleyDecay";
 import { and, eq, sql } from "drizzle-orm";
 import type { DatabaseTransaction } from "../db/client";
 import { farmCrops, farmBuildings, farmInventory, farms } from "../db/schema";
@@ -92,11 +93,12 @@ export const advanceBatchPlanting = async (tx: DatabaseTransaction, farm: typeof
         (farm.carriedItemKey && farm.carriedItemKey !== "barley") ||
         carriedQuantity + CROP_DEFINITIONS.barley.harvestYield > lockedHarvestFieldLimit(batch) * CROP_DEFINITIONS.barley.harvestYield) break;
       await tx.delete(farmCrops).where(eq(farmCrops.id, crop.id));
-      carriedQuantity += CROP_DEFINITIONS.barley.harvestYield;
+      const yieldQuantity = barleyHarvestYield(crop, deadline);
+      carriedQuantity += yieldQuantity;
       carriedExpiresAt ??= new Date(deadline + EXPOSED_BARLEY_LIFETIME_MS);
       carry = { carriedItemKey: "barley", carriedItemQuantity: carriedQuantity, carriedItemExpiresAt: carriedExpiresAt };
       progressionStats = { ...progressionStats,
-        harvestedBarley: progressionStats.harvestedBarley + CROP_DEFINITIONS.barley.harvestYield,
+        harvestedBarley: progressionStats.harvestedBarley + yieldQuantity,
         harvests: progressionStats.harvests + 1 };
       batch = { ...batch, lastHarvested: target, phase: { type: "ready" }, travelStartedAt: new Date(deadline).toISOString(), nextStepAt: new Date(deadline + (batch.travelMs?.[0] ?? 0)).toISOString() };
     } else if (batch.phase.type === "sowing") {
@@ -106,17 +108,24 @@ export const advanceBatchPlanting = async (tx: DatabaseTransaction, farm: typeof
       if (batch.mode === "harvest") {
         const [crop] = await tx.select().from(farmCrops).where(and(
           eq(farmCrops.farmId, farm.id), eq(farmCrops.column, target.column), eq(farmCrops.row, target.row)));
-        if (!crop || crop.cropKey !== "barley" || crop.growthCompletesAt.getTime() > deadline || crop.harvestStartedAt) break;
-        const completesAt = new Date(deadline + CROP_DEFINITIONS.barley.harvestDurationMs);
-        await tx.update(farmCrops).set({ harvestStartedAt: new Date(deadline), harvestCompletesAt: completesAt }).where(eq(farmCrops.id, crop.id));
-        batch = { ...batch, remaining: batch.remaining.slice(1), travelMs: batch.travelMs?.slice(1), travelPaths: batch.travelPaths?.slice(1),
-          phase: { type: "harvesting", target, completesAt: completesAt.toISOString() }, nextStepAt: completesAt.toISOString() };
+        if (!crop || barleyHasExpired(crop, deadline)) {
+          if (crop) await tx.delete(farmCrops).where(eq(farmCrops.id, crop.id));
+          // A queued field may expire during travel. Skip it without trapping the job.
+          batch = { ...batch, lastHarvested: batch.lastHarvested ? target : undefined, remaining: batch.remaining.slice(1), travelMs: batch.travelMs?.slice(1), travelPaths: batch.travelPaths?.slice(1),
+            travelStartedAt: new Date(deadline).toISOString(), nextStepAt: new Date(deadline + (batch.travelMs?.[1] ?? 0)).toISOString() };
+        } else {
+          if (crop.cropKey !== "barley" || crop.growthCompletesAt.getTime() > deadline || crop.harvestStartedAt) break;
+          const completesAt = new Date(deadline + CROP_DEFINITIONS.barley.harvestDurationMs);
+          await tx.update(farmCrops).set({ harvestStartedAt: new Date(deadline), harvestCompletesAt: completesAt }).where(eq(farmCrops.id, crop.id));
+          batch = { ...batch, remaining: batch.remaining.slice(1), travelMs: batch.travelMs?.slice(1), travelPaths: batch.travelPaths?.slice(1),
+            phase: { type: "harvesting", target, completesAt: completesAt.toISOString() }, nextStepAt: completesAt.toISOString() };
+        }
       } else {
       const plantedAt = new Date(deadline + CROP_DEFINITIONS.barley.sowingDurationMs);
       const existing = await tx.select({ id: farmCrops.id }).from(farmCrops).where(and(
         eq(farmCrops.farmId, farm.id), eq(farmCrops.column, target.column), eq(farmCrops.row, target.row)));
       if (existing.length) break; // Never overwrite another crop or consume its seed.
-      await tx.insert(farmCrops).values({ farmId: farm.id, cropKey: "barley", ...target,
+      await tx.insert(farmCrops).values({ farmId: farm.id, cropKey: "barley", decayEligible: batch.decayEligible ?? false, ...target,
         sowingStartedAt: new Date(deadline), plantedAt,
         growthCompletesAt: new Date(plantedAt.getTime() + CROP_DEFINITIONS.barley.growthDurationMs) });
       cultivationStartedAt ??= new Date(deadline);

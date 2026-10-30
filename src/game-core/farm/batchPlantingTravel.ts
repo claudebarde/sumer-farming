@@ -13,7 +13,7 @@ import { WORKER_MOVE_DURATION_PER_TILE as FARMER_MOVE_DURATION_PER_TILE } from "
 /** Farm-local routing, independent of viewport size and animation frames. */
 export const plantingTravelPath = (snapshot: FarmSnapshot, from: FarmCoordinate, to: FarmCoordinate, now: number): readonly FarmCoordinate[] | null => {
   const { worldBounds: bounds, buildingBounds: home, roadRow, riverRow } = INITIAL_FARM_CONFIG;
-  const local = (p: FarmCoordinate) => ({ column: p.column - bounds.minimumColumn, row: p.row });
+  const local = (p: FarmCoordinate) => ({ column: p.column - bounds.minimumColumn, row: p.row - bounds.minimumRow });
   const key = (p: FarmCoordinate) => `${p.column}:${p.row}`;
   const blocked = [...snapshot.buildings.flatMap(b => getBuildingFootprint(b.type, b)), ...FARM_MARKET_FOOTPRINT];
   for (let row = home.minimumRow; row <= home.maximumRow; row++)
@@ -22,9 +22,9 @@ export const plantingTravelPath = (snapshot: FarmSnapshot, from: FarmCoordinate,
   const roads = snapshot.farm.roads.filter(r => roadIsComplete(r, now)).map(local);
   for (let column = bounds.minimumColumn; column <= bounds.maximumColumn; column++) roads.push(local({ column, row: roadRow }));
   const path = findRoadPreferredPath(local(from), local(to),
-    { columns: bounds.maximumColumn - bounds.minimumColumn + 1, rows: bounds.maximumRow + 1 },
+    { columns: bounds.maximumColumn - bounds.minimumColumn + 1, rows: bounds.maximumRow - bounds.minimumRow + 1 },
     new Set(blocked.map(p => key(local(p)))), new Set(roads.map(key)));
-  return path?.map(p => ({ column: p.column + bounds.minimumColumn, row: p.row })) ?? null;
+  return path?.map(p => ({ column: p.column + bounds.minimumColumn, row: p.row + bounds.minimumRow })) ?? null;
 };
 
 export const plantingTravelMs = (snapshot: FarmSnapshot, from: FarmCoordinate, to: FarmCoordinate, now: number): number => {

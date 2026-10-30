@@ -101,6 +101,7 @@ export const BUILDING_SHADOW_CONTACT_ROWS: Readonly<Record<string, number>> = {
   "market-barley": 0.79,
   "market-beer": 0.79,
   "market-baking": 0.79,
+  "market-produce": 0.79,
   warehouse: 0.83,
   smallShrine: 0.88,
 };

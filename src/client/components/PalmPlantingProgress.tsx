@@ -2,15 +2,16 @@ import type { CropWork } from "../../game-data/cropWork";
 import { palmPlantingPose } from "../game/phaser/palmPlanting";
 import meter from "../styles/HappinessMeter.module.scss";
 import styles from "../styles/IsometricTest.module.scss";
+import sesame from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png";
 import palm from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-empty.webp";
 
 export default function PalmPlantingProgress({ job, now }: { job: CropWork; now: number }) {
   const pose = palmPlantingPose(job, job.outbound.at(-1)!, now);
   const tending = job.action === "tend";
-  const label = tending ? "Tending date palm" : "Planting date palm";
+  const label = job.cropKey === "sesame" ? "Planting sesame" : tending ? "Tending date palm" : "Planting date palm";
   return <div className={styles.sowingProgress}>
-    <img className={styles.barleyWorkIcon} src={palm} alt="" width={48} height={48} />
-    <section><p role="status">{pose.traveling ? `Walking to ${tending ? "tend" : "plant"} date palm…` : `${label}…`}</p>
+    <img className={styles.barleyWorkIcon} src={job.cropKey === "sesame" ? sesame : palm} alt="" width={48} height={48} />
+    <section><p role="status">{pose.traveling ? `Walking to ${tending ? "tend" : "plant"} ${job.cropKey === "sesame" ? "sesame" : "date palm"}…` : `${label}…`}</p>
       <p>{pose.remainingSeconds}s remaining</p></section>
     <div className={meter.meter} data-mood="content" role="progressbar" aria-label={label}
       aria-valuemin={0} aria-valuemax={100} aria-valuenow={pose.percentage}>

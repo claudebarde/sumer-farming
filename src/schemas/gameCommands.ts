@@ -14,6 +14,8 @@ const FarmCoordinateSchema = z.object({
 });
 
 export const GameCommandSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("work_sesame"), crop: z.literal("sesame"), action: z.enum(["plant", "harvest"]),
+    target: FarmCoordinateSchema, farmerPosition: WorkerPositionSchema.optional(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("destroy_building"), buildingId: z.uuid(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("tend_perennial_crop"), action: z.enum(["plant", "harvest", "tend"]), crop: PerennialCropKeySchema,
     target: FarmCoordinateSchema, farmerPosition: WorkerPositionSchema.optional(), expectedFarmVersion: z.int().positive() }),

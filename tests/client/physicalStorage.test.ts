@@ -43,3 +43,16 @@ describe("physical storage", () => {
     expect(changeStorageLocations("beer", { farm: 0, warehouse: 9 }, 1, buildings, 100, undefined, { warehouse: 1 })).toEqual({ farm: 1, warehouse: 9 });
   });
 });
+
+it("stores sesame only in completed warehouses, respects reservations, and allows spending the final basket", () => {
+  expect(changeStorageLocations("sesame", {}, 12, buildings, 100)).toEqual({ warehouse: 12 });
+  expect(() => changeStorageLocations("sesame", {}, 13, buildings, 100)).toThrow("Not enough space");
+  expect(() => changeStorageLocations("sesame", {}, 1, [], 100)).toThrow("Not enough space");
+  expect(() => changeStorageLocations("sesame", {}, 1, [{ ...buildings[0]!, completesAt: 200 }], 100)).toThrow("Not enough space");
+  for (const destination of ["farm", "granary", "missing"]) {
+    expect(() => changeStorageLocations("sesame", {}, 1, buildings, 100, destination)).toThrow("completed warehouse");
+  }
+  expect(() => changeStorageLocations("sesame", { warehouse: 10 }, 2, buildings, 100, undefined, { warehouse: 1 })).toThrow();
+  expect(changeStorageLocations("sesame", { warehouse: 3 }, -3, buildings, 100)).toEqual({ farm: 0, warehouse: 0 });
+  expect(sharedStorageAllocation("sesame", 3, true, { warehouse: 3 }, "warehouse")).toEqual({ farm: { quantity: 0, capacity: 0 }, warehouse: { quantity: 3, capacity: 12 } });
+});

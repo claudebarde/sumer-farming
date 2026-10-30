@@ -1,0 +1,34 @@
+[
+  {
+    "file": "ziggurat-stage-0-worksite-test.png",
+    "status": "awaiting visual approval",
+    "prompt": "Use case: precise-object-edit. Edit target: the attached approved completed ziggurat sprite. Create ONE earlier construction stage for this same game building. Keep EXACT canvas, orthographic camera, warm illustrated brick style, light direction, base footprint, ground contact, and scale of the reference. Do not recenter or enlarge the lower structure when upper floors are removed: leave transparent empty space above it. Match existing base corners and projecting stairs positions. Transparent PNG background, no ground tile, no cast ground shadow, no text, people or surrounding scenery. Do not change orientation or correct perspective; the reference is approved. Stage 0: MARKED EMPTY WORKSITE BEFORE FUNDRAISING. Remove all building mass and all stairs. In exactly the same projected ground footprint, show only a low sparse rectangular outline of ochre bricks marking where the base will be built, a few small wooden survey stakes with thin ropes marking corners, two modest piles of loose matching mud bricks and one small bundle of reeds within the footprint. Interior mostly transparent (game ground will show through), no opaque soil slab, no raised platform yet. Ground contact frontmost point remains near 84% canvas height, not bottom edge. Preserve reference footprint orientation and scale, wide transparent empty area above the worksite. No people, no signs, no modern tools.",
+    "reference": "ziggurat-completed.png",
+    "generator": "built-in image_gen",
+    "source": "exec-5dc6930f-4ab7-4104-a471-8ff63ce4b452.png"
+  },
+  {
+    "file": "ziggurat-stage-1-foundations-test.png",
+    "status": "awaiting visual approval",
+    "prompt": "Use case: precise-object-edit. Edit target: the attached approved completed ziggurat sprite. Create ONE earlier construction stage for this same game building. Keep EXACT canvas, orthographic camera, warm illustrated brick style, light direction, base footprint, ground contact, and scale of the reference. Do not recenter or enlarge the lower structure when upper floors are removed: leave transparent empty space above it. Match existing base corners and projecting stairs positions. Transparent PNG background, no ground tile, no cast ground shadow, no text, people or surrounding scenery. Do not change orientation or correct perspective; the reference is approved. Stage 1: FOUNDATIONS COMPLETE. Reduce the entire building to a broad low solid brick foundation platform, only a few courses high, occupying exactly the ground footprint of the reference base. All raised terraces, shrine, tall retaining walls, gateways and tall stairs are not built yet. Outline the future central projecting staircase with a low brick footing only. A few loose bricks on top. Build the flat platform at ground level, keep its frontmost point at the SAME vertical coordinate as the reference's frontmost ground contact (about 84% of canvas height); retain ample empty transparent space above. Do NOT push the platform toward the bottom of the image or change scale to fill space. This is a newly constructed clean foundation, not a ruined building.",
+    "reference": "ziggurat-completed.png",
+    "generator": "built-in image_gen",
+    "source": "exec-2da97b48-0ebe-4a07-899f-57cdae42e5ad.png"
+  },
+  {
+    "file": "ziggurat-stage-2-lower-terrace-test.png",
+    "status": "awaiting visual approval",
+    "prompt": "Use case: precise-object-edit. Edit target: the attached approved completed ziggurat sprite. Create ONE earlier construction stage for this same game building. Keep EXACT canvas, orthographic camera, warm illustrated brick style, light direction, base footprint, ground contact, and scale of the reference. Do not recenter or enlarge the lower structure when upper floors are removed: leave transparent empty space above it. Match existing base corners and projecting stairs positions. Transparent PNG background, no ground tile, no cast ground shadow, no text, people or surrounding scenery. Do not change orientation or correct perspective; the reference is approved. Stage 2: LOWER TERRACE COMPLETE. Retain the broad lowest raised terrace/base and its front stairs and first landing, in exactly their reference positions. Remove the upper stepped terrace and the summit shrine completely. The top of the first raised level is a large flat brick work platform awaiting later tiers, with a few small neatly stacked loose bricks. Preserve the lower facade/buttresses and the three lower stair flights, no stairs floating into empty air. No tall upper building, no scaffolding. This should look clearly much lower than the finished ziggurat.",
+    "reference": "ziggurat-completed.png",
+    "generator": "built-in image_gen",
+    "source": "exec-58e49362-51a4-4f8f-89b3-f8f30a259995.png"
+  },
+  {
+    "file": "ziggurat-stage-3-upper-terraces-test.png",
+    "status": "awaiting visual approval",
+    "prompt": "Use case: precise-object-edit. Edit target: the attached approved completed ziggurat sprite. Create ONE earlier construction stage for this same game building. Keep EXACT canvas, orthographic camera, warm illustrated brick style, light direction, base footprint, ground contact, and scale of the reference. Do not recenter or enlarge the lower structure when upper floors are removed: leave transparent empty space above it. Match existing base corners and projecting stairs positions. Transparent PNG background, no ground tile, no cast ground shadow, no text, people or surrounding scenery. Do not change orientation or correct perspective; the reference is approved. Stage 3: UPPER TERRACES COMPLETE, SUMMIT SANCTUARY NOT BUILT. Preserve all lower terraces, buttresses, all existing stairs and landing/gateway exactly as reference. Remove ONLY the small summit shrine on the very top; replace its occupied area with a flat brick platform, with a few neatly arranged loose bricks indicating next work. No scaffolding. This is nearly complete but clearly has no summit building.",
+    "reference": "ziggurat-completed.png",
+    "generator": "built-in image_gen",
+    "source": "exec-483ab67e-4fe0-4dc0-b97d-a4b214ac363c.png"
+  }
+]

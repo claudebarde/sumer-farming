@@ -12,7 +12,7 @@ import { marketIncludesItem } from "../../src/client/stores/marketUiStore";
 import { merchantTextures } from "../../src/client/game/phaser/scenes/IsometricMarketScene";
 
 it("uses both dedicated merchant sprites instead of the player's farmer texture", () => {
-  expect(merchantTextures).toEqual({ barley: "market-merchant-01", beer: "market-merchant-02", baking: "market-merchant-01" });
+  expect(merchantTextures).toEqual({ barley: "market-merchant-01", beer: "market-merchant-02", baking: "market-merchant-01", produce: "market-merchant-02" });
 });
 
 it("opens the shared bread scope for baking with existing stand and item unlocks", () => {
@@ -363,4 +363,12 @@ it("does not open a merchant popup if no road route can reach the entrance", () 
   state.position = { column: 4, row: 8 };
   state.approachMerchant(stands[0]); scene.update(0, 80);
   expect(arrivals()).toHaveLength(0);
+});
+
+it("opens the produce stand at level nine and keeps its merchant on a reachable road",()=>{
+ expect(isometricTradeScope("produceMarket")).toBe("produce");
+ const stand=stands.find(s=>s.scope==="produce")!;
+ expect(isMarketRoad({column:stand.merchant.column,row:Math.ceil(stand.merchant.row)})).toBe(true);
+ expect(marketIncludesItem("produce","dates",{market:"npc",action:"sell"})).toBe(true);
+ expect(marketIncludesItem("produce","bread")).toBe(false);
 });

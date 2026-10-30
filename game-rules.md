@@ -2,6 +2,11 @@
 
 This is the living, player-facing reference for the game's implemented rules. Use it when explaining the game, preparing help text, or answering players' questions. Planned features are listed separately and are not promises of currently available gameplay.
 
+Topic-specific player guides live in [game-rules/](game-rules/README.md).
+The [ziggurat guide](game-rules/ziggurat.md) records its agreed design and separates
+unconfirmed proposals. Ziggurat interest, material donations and all four construction stages are playable; rewards and festivals remain planned. It is an optional
+neighbourhood bonus project and must never gate farm levelling or individual progression.
+
 Building production and construction progress bars appear above the building,
 in front of trees and other world sprites. They stay inside the visible map view
 near screen edges and disappear when their building is fully offscreen.
@@ -199,7 +204,7 @@ their position for everyone. Names and farm levels refresh from the server each
 time you open the map; unoccupied slots remain empty, with no sample farms.
 Each plot has a one-tile arable border around a 2×2 centre. The overview uses the
 farm's ground and connected-road tiles, building/character scale and local-time
-shadows. It opens focused on your farm at the farm view's initial magnification.
+shadows. A connected road loop runs directly beside the market footprint, keeping traffic outside the building. It opens focused on your farm at the farm view's initial magnification.
 Drag to pan, use zoom or Fit to see the whole neighbourhood, and choose
 **Back to your farm** to return. Production continues on saved
 server timers. Loading failures leave you on the farm with a retry message.
@@ -301,8 +306,8 @@ Leveling up is **manual**, not automatic. Meet every listed requirement, then pr
 | 6 — Brewer or Baker? | Complete a Mill; harvest 50 crop plantings during level 5; process 4 barley into either output; hold 2 processed goods in any combination | 2 Flour or Brewer's Groats, combined (Flour used first) | Brewery, Bread Oven, brewing supplies, bread making, beer and bread trading |
 | 7 — Trusted supplier | During level 6, produce at least 15 bread or beer combined and sell at least 10 bread or beer combined; have 5 stored bread/beer combined | 5 bread/beer in any combination (bread used first) | Merchant requests, 20-barley capacity per granary, and the mill donkey (30 shekels) |
 | 8 — Growing estate | Fulfil at least 3 merchant requests; have 20 barley stored in a completed granary; purchase a mill donkey; retain spare seed or an already-planted barley field | 20 granary barley | Warehouse and Small shrine |
-| 9 — Established producer | Complete a warehouse; during level 8, harvest 100 barley and produce 30 beer/bread combined; store 10 bread or 10 beer | 10 bread, otherwise 10 beer (not mixed) | Date palms, dates treats, and bread oven and brewery upgrades to building level 2 |
-| 10 — Community member | Have 2 mature palms; during level 9, harvest and store 4 baskets of dates and produce 40 bread/beer combined; complete either a bread oven or brewery upgrade to level 2; hold the offering | 2 stored baskets of dates and 10 bread/beer combined (bread used first) | Mill upgrade to building level 3 |
+| 9 — Established producer | Complete a warehouse; during level 8, harvest 100 barley and produce 30 beer/bread combined; store 10 bread or 10 beer | 10 bread, otherwise 10 beer (not mixed) | Date palms, dates treats, the fruit and vegetables market, and bread oven and brewery upgrades to building level 2 |
+| 10 — Community member | Have 2 mature palms; during level 9, harvest and store 4 baskets of dates and produce 40 bread/beer combined; complete either a bread oven or brewery upgrade to level 2; hold the offering | 2 stored baskets of dates and 10 bread/beer combined (bread used first) | Mill upgrade to building level 3; barley withering; live market neighbours |
 
 Unlocking a building gives permission to construct it; the level claim does not build it or pay its construction materials.
 
@@ -353,9 +358,15 @@ A barley offering is blocked if it would leave you with no usable barley **and**
 
 ### Level 10 feature direction and later levels
 
+See [Features and economy by estate level](game-progression.md) for the separate
+planning reference. Its proposed level 11–20 features are not playable unlocks.
+Sesame cultivation for oil production is approved for level 10 but not implemented;
+the oil workshop’s unlock level remains undecided. Sheep and wool production are
+being considered for level 11 or 12, and flax is retained as a later idea.
+
 Level 10 is currently the highest claimable level.
 
-- Level 10 is the intended milestone for access to most game systems, including the full core farm and social experience. Existing neighbourhood features remain available from level 7. Cooperative/social expansion and crop decay are planned, not unlocked playable features yet. Their implementation and acceptance remain separate work; claiming level 10 does not activate unimplemented systems. Selected buildings, upgrades and additional features may unlock above level 10.
+- Level 10 is the intended milestone for access to most game systems, including the full core farm and social experience. Existing neighbourhood features remain available from level 7. Cooperative/social expansion remains planned. Barley withering applies to new planting jobs started at level 10; claiming level 10 does not activate unimplemented systems. Selected buildings, upgrades and additional features may unlock above level 10.
 - Level 11's final progression requirements are not implemented.
 
 These future levels cannot be claimed yet, even if their previewed milestones have been met.
@@ -375,7 +386,7 @@ harvestable barley fields. For example, capacity 6 with 4 ripe fields shows
 `1 / 4 fields` after selecting one. Once harvesting starts, progress uses the
 accepted batch's total instead; the server's happiness limits are unchanged.
 
-- Planting consumes 1 barley seed. Sowing takes 10 seconds, growth takes 30 minutes, and harvesting takes 10 seconds. A completed harvest yields 2 barley.
+- Planting consumes 1 barley seed. Sowing takes 10 seconds, growth takes 30 minutes, and harvesting takes 10 seconds. A completed harvest normally yields 2 barley; eligible level-10 barley yields less if left ripe (see below).
 - **Plant barley** opens field selection, including when only one empty irrigated field is available. It replaces the separate single-field planting button and is hidden on unirrigated tiles, even if other fields can be planted. Select one or more eligible fields (they need not touch), then confirm. Yellow stripes mark available fields; selected fields are green. Once all available carried and stored seeds are assigned, remaining fields turn red and cannot be selected until another is deselected.
 - Each selected field reserves 1 barley, using carried barley first and stored barley only for the shortfall. With no other task underway and either empty hands or carried barley, the farmer collects any additional seeds from a stocked granary or otherwise the farm. If carried barley is sufficient, he goes directly to the fields. Each field takes 10 seconds plus travel and starts growing independently. The carry chip includes unused seeds and any excess carried barley. Other farmer actions and market visits are blocked during the job.
 - Batch planting and reserved seeds survive reloads. The full planting queue continues while the tab is hidden or closed: server deadlines account for seed collection, travel and 10 seconds of sowing per field. On return, completed fields have already grown for the elapsed time since their individual planting deadlines; unfinished work resumes with only its remaining time. New batches save road-preferred routes from the farmer's current position to seed storage and then between fields, at his speed when the batch starts. The animation follows these same routes and deadlines rather than restarting a separate walk after each sync. **Stop after this field** finishes any active sowing and returns unused carried seeds to the farmer (with their original expiry), and unused stored seeds to storage; stopping before sowing returns all unused seeds immediately.
@@ -391,11 +402,18 @@ accepted batch's total instead; the server's happiness limits are unchanged.
 - Exposed barley on the ground or carried by the farmer perishes after **3 days**. Store it to protect it.
 - The farm popup has no manual barley-withdrawal button. It shows a storage action when carrying barley, disabled if the farm is full; task-driven collection from farm storage remains available.
 - Ordinary pickups allow up to 2 barley at once. **Harvest multiple fields** allows **4 ripe fields at happiness 50% or below, 6 above 50% through 90%, and 8 above 90%**, not necessarily adjacent. The compact selection panel shows the selected count/limit and time estimate; its **Info** button opens a dialog with current happiness, capacity tiers, selection instructions, and harvesting details. Yellow stripes mark candidates and green stripes mark selected fields. At the limit, remaining ripe fields turn red; deselecting below the limit turns those candidates yellow again.
-- Multi-field harvesting starts with empty hands. The farmer visits each field and harvests for **10 seconds per field plus travel**, accumulating **2 barley per field** in his hands (up to **8, 12, or 16 barley**, according to the batch's limit). The carried-item chip updates after each harvest. After the final field, he automatically delivers to completed, reachable storage: granary, then warehouse, then farm. Each stop deposits only what fits; surplus stays in his hands when all storage is full. Capacity is checked again on each arrival. Before any granary or warehouse exists, harvested barley remains carried for manual storage. Delivery legs are saved on the server and continue while away; animation callbacks cannot deposit early or twice. Stopping during a field finishes that field and delivers the barley already harvested.
+- Multi-field harvesting starts with empty hands. The farmer visits each field and harvests for **10 seconds per field plus travel**, accumulating **2 barley per fresh field, or 1 per withering field** in his hands (up to **8, 12, or 16 barley**, according to the batch's limit). The carried-item chip updates after each harvest. After the final field, he automatically delivers to completed, reachable storage: granary, then warehouse, then farm. Each stop deposits only what fits; surplus stays in his hands when all storage is full. Capacity is checked again on each arrival. Before any granary or warehouse exists, harvested barley remains carried for manual storage. Delivery legs are saved on the server and continue while away; animation callbacks cannot deposit early or twice. Stopping during a field finishes that field and delivers the barley already harvested.
 - The whole harvest queue continues while the tab is hidden or closed, using server deadlines for travel and each field. Returning catches up completed harvests and resumes unfinished work with its remaining time. Harvested barley and achievement counts are credited once; its expiry starts at the first completed harvest, not when the player returns. **Stop after this field** also remains effective while away.
 - The server locks the harvest limit using current happiness when the batch starts. Later happiness changes, including while offline, do not shrink or expand that accepted batch or discard carried barley. Existing saved batches keep their original four-field limit. Harvest batches survive reloads and continue offline. **Stop after this field** finishes the active harvest and keeps its barley carried, leaving the remaining fields untouched. Other farmer tasks are blocked during the batch.
 - The farm stores 5 barley. The completed granary stores 15 barley before level 7, then automatically increases to 20 at level 7, with no rebuilding or extra cost. The warehouse adds another 20 barley, for 45 total storage at level 8 once constructed. Only one granary and one warehouse can be built.
 - The brewery's barley supply is separate from general storage and cannot be used as a substitute granary.
+
+### Barley withering (level 10)
+
+- Only barley from planting jobs started at estate level 10 or above can wither. Existing crops and planting queues remain protected, including older saves with no eligibility marker. Date palms and stored inventory are unaffected.
+- For the first **24 hours after ripening**, a field yields **2 barley**. At exactly 24 hours it changes to the approved withering artwork and yields **1 barley**. At exactly **48 hours after ripening**, unharvested barley disappears automatically and the irrigated tile can be sown again; no clearing action or refund is required.
+- The barley popup shows the available yield and time until withering or automatic clearing. Growth and decay continue while away, using saved server timestamps.
+- Yield is fixed when the farmer actually starts harvesting that field, not when the player selects it or when its animation completes. A field that expires during travel is skipped and the accepted queue continues; already harvested barley is still delivered normally. Reloads cannot duplicate the yield. Crops already being harvested are not removed mid-job.
 
 ## Date palms (level 9)
 
@@ -425,7 +443,10 @@ Delivery timing and exactly-once storage remain server-authoritative.
 - Planting, growth, harvest and delivery continue while away. Saved server times, not animation completion, determine progress. Dates are credited once when the delivery arrives. Barley batch planting/harvesting and barley progression totals exclude palms.
 - In **Manage estate → Farmer**, one stored basket of dates gives **+10 happiness**, capped at 100, with an independent **8-hour cooldown** (matching fish). It does not replace the automatic barley meal and does not count as feeding fish.
 - The isometric arable-ground popup offers **Plant date palm** from level 9 when planting is available, after Plant barley. The Farmer tab displays dates alongside the other treats, with a basket icon, happiness benefit, availability and cooldown.
-- Dates trading, sale prices, date recipes, and automatic porter harvesting are **not implemented**. Existing level-9 entry requirements are unchanged.
+- The **Fruit and vegetables** market stand opens at **level 9**. Dates are its first tradable crop: buy one basket for **5 shekels** or sell one stored basket for **2 shekels** to the merchant. The stand also supports player listings using the existing trading rules. Other displayed produce is decorative for now.
+- Purchased dates go directly into completed warehouse storage. Purchases cannot exceed its date capacity or occupy space reserved for a harvest already underway. Sales use stored dates only. Buying dates does not count toward the requirement to harvest and store dates for level 10.
+- The stand sits beside the baking stand with a gap between them. Its merchant greets the farmer when approached, and clicking the stand or merchant opens the usual trading flow. Quantities reset to one whenever the market popup opens.
+- Date recipes and automatic porter harvesting remain **not implemented**. Existing level-9 entry requirements are unchanged.
 
 ## Buildings
 
@@ -722,6 +743,12 @@ While carrying water, an available farmer's popup offers **Discard water** to
 discard the carried water on nearby safe ground. It creates no ground item,
 does not alter brewery supplies, and frees his hands even when the brewery is full.
 
+Collecting water uses the farmer's hands, not estate storage. Porter deliveries
+do not block it, even if they fill storage while the farmer walks to the river.
+The farmer must still be available with empty hands and a completed brewery.
+Goods pickups and deliveries continue to respect current storage capacity and
+space reserved for other deliveries.
+
 The farmer uses the sealed-jar idle and walking poses while carrying collected
 water and while delivering finished beer from the brewery to estate storage.
 Empty-handed approach trips keep the normal walk. This is cosmetic: the two-jar
@@ -887,9 +914,16 @@ or perform other tasks while it brews.
 
 ## Markets and shekels
 
+Neighbourhood and global leaderboards show a **Badges** column between Farmer
+and the selected ranking score (Estate level by default). Reaching estate level
+10 automatically replaces the Beginner Farmer badge with a level-10 badge, which
+remains visible at higher levels. Players at levels 1–9 display the Beginner
+Farmer badge, showing a harvesting hand in a clay-coloured frame. The two badges
+are never displayed together. Badges do not affect rank.
+
 The small signpost on the ground immediately right of the beer stand opens the **Leaderboard** with neighbourhood/global rankings (see Market leaderboard above). Leaving the market closes the dialog. Ranking rewards are not implemented.
 
-The market is a shared neighbourhood social space. Neighbours visiting at the same time appear with their farmer names and walk along the roads as they visit stands. Only visitors from your own neighbourhood appear, including private neighbourhoods; offline players are not simulated. Updates have a small network delay. Returning to the farm or hiding/closing the tab removes the visitor; a lost connection expires within about 15 seconds. Multiple tabs do not create duplicate farmers. Presence does not change inventories, prices or the scope of trading. This currently uses the game's development identities; production authentication remains future work.
+From **estate level 10**, the isometric market is a shared neighbourhood social space. Only players at level 10 or above can see or appear to each other; this is enforced by the server for both the viewer and every visitor. Lower-level players can still use their unlocked market stands normally. Eligible neighbours visiting at the same time appear with their farmer names and walk along the roads as they visit stands, using the current isometric farmer artwork. Movement follows the road loop around stalls; sprites use ground-based depth and a yellow marker if a building obscures them. Only visitors from your own neighbourhood appear, including private neighbourhoods; offline players are not simulated. Updates have a small network delay. Returning to the farm or hiding/closing the tab removes the visitor; a lost connection expires within about 15 seconds. Multiple tabs do not create duplicate farmers. Presence does not change inventories, prices or the scope of trading. This currently uses the game's development identities; production authentication remains future work.
 
 ### Hired porter
 
@@ -1167,3 +1201,114 @@ Canal removal is not yet available in the isometric interface.
 - Keep technical implementation notes in `docs/`; this file is the consolidated player-facing explanation.
 
 Implementation references: [progression](src/game-core/farm/progression.ts), [level unlocks](src/game-data/progression.ts), [happiness](src/game-core/farm/wellbeing.ts), [feeding and decay constants](src/game-data/household.ts), [crops](src/game-data/crops.ts), [buildings](src/game-data/buildings.ts), [storage](src/game-data/storage.ts), [brewing](src/game-data/brewing.ts), [fishing](src/game-data/fishing.ts), [NPC prices](src/game-data/marketItems.ts), and [merchant requests](src/game-data/npcRequests.ts).
+
+The approved initial ziggurat donation site and interest popup are displayed in
+the neighbourhood. The map shows the artwork matching saved construction progress; the construction-stage test selector is removed. Interest is saved on the server, shared with current
+neighbours and counted once per player. Only level-10 neighbours can register
+or withdraw interest; withdrawal is available only before fundraising opens.
+Three interested level-10 neighbours open the fundraising view immediately with no
+48-hour announcement. The counter uses all current level-10 neighbours as its
+denominator. The view shows 30 clay and 15 reeds required for foundations and
+your stored quantities. Level-10 neighbours can now donate stored clay and reeds,
+including mixed donations. Only the quantities still needed are deducted; each
+clay or reed earns two contribution points. Donations cannot be withdrawn, and
+retrying a confirmed donation does not charge again. The farmer remains free.
+Once all 30 clay and 15 reeds are funded, foundations construction starts
+automatically and lasts six hours, including time offline. The map shows the
+worksite with a progress bar, then the completed foundations; the popup shows
+the remaining time. Each completed stage immediately opens fundraising for the next:
+
+| Stage | Materials | Time after funding |
+| --- | --- | --- |
+| Foundations | 30 clay, 15 reeds | 6 hours |
+| Lower terrace | 45 clay, 30 barley, 15 bread | 12 hours |
+| Upper terraces | 60 clay, 24 bread, 18 beer | 18 hours |
+| Summit sanctuary | 30 clay, 12 baskets of dates, 250 shekels | 24 hours |
+
+Costs stay fixed regardless of neighbourhood size. Mixed donations are accepted
+atomically and capped to what the current stage still needs. Barley donations
+leave at least one stored barley across the estate for planting. Carried barley
+and growing fields do not count. Contribution points per unit are clay/reeds 2,
+barley 3, bread 6, beer 8, dates 10 and shekels 1. Points accumulate across stages.
+Construction runs offline; returning never restarts a timer or charges materials
+again. Donations for a previous stage cannot accidentally fund a new one.
+After the final 24-hour timer, the completed ziggurat remains visible.
+Festival benefits remain planned;
+registering interest consumes no resources.
+The popup summarises contribution rewards and festival access; the full tie
+reward rule stays in the [ziggurat rules](game-rules/ziggurat.md).
+
+Accepted ziggurat donations now schedule a shared visual delivery: the neighbour's
+farmer fetches the neighbourhood donkey, loads it at the farm, delivers to the
+site, returns the donkey and walks home. One donkey serves queued trips in turn;
+repeated donations by a player with a pending or active trip share that trip.
+All viewers see the same saved schedule, and returning after time away shows
+its current position rather than replaying completed deliveries. These movements
+never occupy the real farm worker or delay donated materials or construction.
+The neighbourhood's temporary **Preview ziggurat delivery** button runs the same
+sequence locally without donating materials; press **Stop delivery preview** to
+return to the live view.
+
+Neighbourhood donation deliveries use the same walking pace as the farmer and
+following donkey on the farm. Loading and unloading pauses are unchanged.
+
+
+### Ziggurat contribution leaderboard
+
+From level 7, open the neighbourhood leaderboard and choose **Ziggurat contributions**
+under **Rank by**. All current neighbours appear, starting at **0 points** until they donate.
+Their scores add all accepted construction points across the four stages; expressing
+interest gives no points. Equal scores share a rank and are ordered alphabetically by farmer name. Contributions stay recorded
+against the neighbourhood where they were made, even if the contributor later moves.
+The saved totals remain after construction finishes. Refresh or reopen the leaderboard
+to see new donations. This ranking is local to the neighbourhood, not an All Sumer ranking.
+At completion, the highest-scoring contributor receives the permanent **Ziggurat Patron**
+badge and a miniature ziggurat. Tied top contributors each receive both rewards,
+including players who are offline. Rewards are awarded once per construction.
+The badge appears alongside the player's level badge in both leaderboards, with a tooltip.
+Find the miniature under **Manage estate → Buildings → Decorations**. Place it on
+one free ground tile; use its popup or the drawer to return it to storage and
+place it again. It costs nothing, needs no farmer work and cannot be lost by storing it.
+These rewards are decorative and give no production or happiness bonus.
+Festival access and benefits remain planned.
+
+### Bread delivery appearance
+
+The farmer uses the approved bread-basket carrying poses while delivering bread
+from the oven to the warehouse or farm, including split deliveries and waiting
+with a saved load after reload. The same poses are used when carrying a bread
+shrine offering. Empty approach trips use the normal walking farmer. The temporary
+bread-carrying preview has been removed. Storage rules and quantities are unchanged.
+
+### Northern building space
+
+The farm includes three additional rows of non-arable ground along its northern
+edge. Use them for buildings, connected roads and decorations. Existing buildings,
+the main road, river and cultivated fields keep their positions. The expansion
+adds no crop plots and does not change building limits, unlocks or costs.
+
+### Sesame cultivation and storage (level 10)
+
+Sesame has a separate warehouse inventory entry, shown from level 10 in the
+warehouse popup and Manage estate resources, using the sesame basket icon.
+Only completed warehouses accept it; farmhouse and granary capacity for sesame
+is zero. Its capacity is **12 baskets**, independent of
+dates and other goods. Stored quantities persist per warehouse and are included
+in the estate total. A warehouse containing sesame cannot be demolished.
+There is no minimum sesame reserve: its entire stock can be spent.
+
+At level 10, buy sesame at the fruit and vegetable stand for 3 shekels per basket.
+Choose **Plant sesame** on empty irrigated arable ground. Planting consumes one
+stored basket immediately; the farmer walks to the tile and sows for ten seconds.
+Growth takes 60 minutes after sowing: seedlings for minutes 0–15, leafy plants
+for 15–35, and flowering plants with developing pods for 35–60.
+
+Ripe sesame yields three baskets. Choose **Harvest sesame** when the farmer is
+free and the warehouse has room for all three. Those slots are reserved immediately;
+market purchases cannot occupy them. The farmer cuts the crop for ten seconds,
+then carries the harvest to the warehouse. The field is cleared for replanting.
+Saved work and growth continue offline; seeds are consumed and harvests stored
+only once. Sesame does not use the barley decay rule.
+
+Sesame selling and oil production are not yet available. The planned oil recipe
+uses three baskets of sesame for one jar of oil.

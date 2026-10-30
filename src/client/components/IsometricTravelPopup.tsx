@@ -12,9 +12,9 @@ export default function IsometricTravelPopup({ anchor, available, onClose, onTra
   anchor: IsometricTileAnchor; available: boolean; onClose: () => void; onTravel: () => void;
 }) {
   const returning = anchor.kind === "farmReturn";
-  const stand = anchor.kind === "barleyMarket" || anchor.kind === "beerMarket" || anchor.kind === "bakingMarket";
+  const stand = anchor.kind === "barleyMarket" || anchor.kind === "beerMarket" || anchor.kind === "bakingMarket" || anchor.kind === "produceMarket";
   const scope = isometricTradeScope(anchor.kind);
-  const title = anchor.kind === "bakingMarket" ? "Baking market" : anchor.kind === "beerMarket" ? "Beer market" : anchor.kind === "barleyMarket" ? "Barley market" : returning ? "Farm" : "Market";
+  const title = anchor.kind === "produceMarket" ? "Fruit and vegetables" : anchor.kind === "bakingMarket" ? "Baking market" : anchor.kind === "beerMarket" ? "Beer market" : anchor.kind === "barleyMarket" ? "Barley market" : returning ? "Farm" : "Market";
   return <Popover.Root open onOpenChange={open => { if (!open) onClose(); }}>
     <Popover.Anchor asChild><span className={styles.popupAnchor} style={{ left: anchor.x, top: anchor.y + 90 }} /></Popover.Anchor>
     <Popover.Portal><Popover.Content key={anchor.kind} className={styles.tilePopup} side="top" sideOffset={8} collisionPadding={12}

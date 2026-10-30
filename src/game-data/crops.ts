@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { InventoryItemKey } from "./inventoryItems";
 
-export const cropKeys = ["barley", "datePalm"] as const;
+export const cropKeys = ["barley", "datePalm", "sesame"] as const;
 
 export const CropKeySchema = z.enum(cropKeys);
 
@@ -20,6 +20,13 @@ export const CROP_DEFINITIONS = {
     growthDurationMs: 30 * 60_000,
     harvestDurationMs: 10_000,
     harvestYield: 2
+  },
+  sesame: {
+    kind: "annual", label: "Sesame", unlockLevel: 10,
+    sprites: { young: "sesameYoung", growing: "sesameGrowing", ready: "sesameRipe" },
+    seedItemKey: "sesame", harvestItemKey: "sesame",
+    sowingDurationMs: 10_000, growthDurationMs: 60 * 60_000,
+    harvestDurationMs: 10_000, harvestYield: 3
   },
   datePalm: {
     kind: "perennial", label: "Date palm", unlockLevel: 9,

@@ -8,12 +8,14 @@ import { advanceFarmLifecycle } from "./farmLifecycle";
 import { readFarmSnapshot } from "./farmSnapshot";
 import { farmCrops, farms, players, shekelTransactions } from "../db/schema";
 import type { Database } from "../db/client";
+import { sesameActionReason } from "../../game-core/farm/sesame";
+import { setStoredQuantity } from "./physicalStorage";
 import { tendedPalmDeadline } from "../../game-data/datePalmCycle";
 
 export class PerennialCropRuleError extends Data.TaggedError("PerennialCropRuleError")<{ readonly message: string }> {}
 export class PerennialCropPersistenceError extends Data.TaggedError("PerennialCropPersistenceError")<{ readonly cause: unknown }> {}
 
-export const tendPerennialCrop = (db: Database, input: Extract<GameCommand, { type: "tend_perennial_crop" }> & { playerId: string }) => Effect.gen(function* () {
+export const tendPerennialCrop = (db: Database, input: Extract<GameCommand, { type: "tend_perennial_crop" | "work_sesame" }> & { playerId: string }) => Effect.gen(function* () {
   const now = new Date(yield* Clock.currentTimeMillis);
   const result = yield* Effect.tryPromise({ try: () => db.transaction(async tx => {
     const [record] = await tx.select().from(farms).where(eq(farms.playerId, input.playerId)).for("update");
@@ -25,21 +27,29 @@ export const tendPerennialCrop = (db: Database, input: Extract<GameCommand, { ty
     if (farm.gatheringItemKey || snapshot.crops.some(c => c.harvestStartedAt || Date.parse(c.plantedAt) > now.getTime()) ||
         snapshot.buildings.some(b => Date.parse(b.completesAt) > now.getTime()) ||
         snapshot.improvements.some(i => Date.parse(i.completesAt) > now.getTime() || i.destroyStartedAt)) return new PerennialCropRuleError({ message: "The farmer is busy." });
-    const reason = perennialActionReason(snapshot, input.crop, input.target, input.action, now.getTime());
+    const reason = input.type === "work_sesame"
+      ? sesameActionReason(snapshot, input.target, input.action, now.getTime())
+      : perennialActionReason(snapshot, input.crop, input.target, input.action, now.getTime());
     if (reason) return new PerennialCropRuleError({ message: reason });
     const plan = planCropWork(snapshot, input.target, input.crop, input.action, now.getTime(), input.farmerPosition);
-    if (!plan) return new PerennialCropRuleError({ message: "No accessible route to the palm or storage." });
+    if (!plan) return new PerennialCropRuleError({ message: "No accessible route to the crop or storage." });
     const definition = CROP_DEFINITIONS[input.crop];
     const id = crypto.randomUUID();
     let cropId: string;
     let quantity = 0;
     let palmCycles = farm.production.palmCycles;
     if (input.action === "plant") {
-      const [player] = await tx.select().from(players).where(eq(players.id, input.playerId)).for("update");
-      if (!player || player.shekelBalance < definition.saplingCost) return new PerennialCropRuleError({ message: "Not enough shekels." });
-      const balanceAfter = player.shekelBalance - definition.saplingCost;
-      await tx.update(players).set({ shekelBalance: balanceAfter }).where(eq(players.id, player.id));
-      await tx.insert(shekelTransactions).values({ playerId: player.id, idempotencyKey: id, type: "crop_planting", delta: -definition.saplingCost, balanceAfter });
+      if (input.crop === "sesame") {
+        const stored = snapshot.inventory.find(item => item.itemKey === "sesame")?.quantity ?? 0;
+        await setStoredQuantity(tx, farm.id, "sesame", stored - 1, now);
+      } else {
+        const definition = CROP_DEFINITIONS.datePalm;
+        const [player] = await tx.select().from(players).where(eq(players.id, input.playerId)).for("update");
+        if (!player || player.shekelBalance < definition.saplingCost) return new PerennialCropRuleError({ message: "Not enough shekels." });
+        const balanceAfter = player.shekelBalance - definition.saplingCost;
+        await tx.update(players).set({ shekelBalance: balanceAfter }).where(eq(players.id, player.id));
+        await tx.insert(shekelTransactions).values({ playerId: player.id, idempotencyKey: id, type: "crop_planting", delta: -definition.saplingCost, balanceAfter });
+      }
       const [crop] = await tx.insert(farmCrops).values({ farmId: farm.id, cropKey: input.crop, ...input.target,
         sowingStartedAt: new Date(plan.workStartsAt), plantedAt: new Date(plan.workEndsAt), growthCompletesAt: new Date(plan.workEndsAt + definition.growthDurationMs) }).returning();
       cropId = crop!.id;

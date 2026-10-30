@@ -144,9 +144,15 @@ describe.sequential("development HTTP identity and trading", () => {
   });
 
   it("scopes live visitors to the resolved identity and validates market roads", async () => {
+    const saved = await db.select({ id: farms.id, level: farms.level }).from(farms)
+      .where(inArray(farms.playerId, identities.slice(0, 2).map(p => p.id)));
+    await db.update(farms).set({ level: 9 }).where(eq(farms.playerId, identities[0]!.id));
     const visit = { type: "join", sessionId: crypto.randomUUID(), position: { column: 0, row: 5 } };
     expect((await request("/api/market/presence", "intruder", visit)).status).toBe(400);
-    expect((await request("/api/market/presence", "primary", { ...visit, position: { column: 1, row: 5 } })).status).toBe(400);
+    expect((await request("/api/market/presence", "primary", { ...visit, position: { column: 1, row: 6 } })).status).toBe(400);
+    expect((await request("/api/market/presence", "primary", visit)).status).toBe(409);
+    await db.update(farms).set({ level: 10 }).where(inArray(farms.id, saved.map(f => f.id)));
+    try {
     const other = { ...visit, sessionId: crypto.randomUUID() };
     expect((await request("/api/market/presence", "second", other)).status).toBe(200);
     const response = await request("/api/market/presence", "primary", { ...visit, playerId: identities[1]!.id, neighbourhoodId: crypto.randomUUID() });
@@ -154,6 +160,9 @@ describe.sequential("development HTTP identity and trading", () => {
     expect(await response.json()).toMatchObject({ visitors: [{ playerId: identities[1]!.id, name: "Geme-Bau" }] });
     expect((await request("/api/market/presence", "second", { type: "leave", sessionId: other.sessionId })).status).toBe(200);
     expect(await (await request("/api/market/presence", "primary", { ...visit, type: "heartbeat" })).json()).toEqual({ visitors: [] });
+    } finally {
+      for (const farm of saved) await db.update(farms).set({ level: farm.level }).where(eq(farms.id, farm.id));
+    }
   });
 
   it("validates leaderboard queries and uses the resolved viewer identity", async () => {

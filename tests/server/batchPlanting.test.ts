@@ -50,6 +50,22 @@ const catchUp = (farmId: string, now: number) => db.transaction(async tx => {
 });
 
 describe("batch barley planting", () => {
+  it.each([9, 10])("records decay eligibility at level %i and consumes seeds once", async level => {
+    const f = await fixture(3);
+    await db.update(farms).set({ level }).where(eq(farms.id, f.farmId));
+    const started = await Effect.runPromise(f.start());
+    expect(started.farm.production.planting?.decayEligible).toBe(level >= 10);
+    expect(started.inventory.find(i => i.itemKey === "barley")?.quantity).toBe(1);
+    // A subsequent level change must not retroactively change the booked fields.
+    await db.update(farms).set({ level: 10 }).where(eq(farms.id, f.farmId));
+    const now = Date.now() + 60000;
+    await catchUp(f.farmId, now);
+    await catchUp(f.farmId, now);
+    const crops = await db.select().from(farmCrops).where(eq(farmCrops.farmId, f.farmId));
+    expect(crops).toHaveLength(2);
+    expect(crops.every(c => c.decayEligible === (level >= 10))).toBe(true);
+    expect((await db.select().from(farmInventory).where(eq(farmInventory.farmId, f.farmId)))[0]?.quantity).toBe(1);
+  });
   it("starts directly at the farmer when he already carries all required seeds", async () => {
     const f = await fixture(0);
     await db.update(farms).set({ carriedItemKey: "barley", carriedItemQuantity: 2,

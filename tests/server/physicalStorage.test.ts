@@ -72,3 +72,19 @@ it("keeps porter destination slots reserved during purchases, then settles the s
   for (let i = 0; i < 2; i++) expect((await f.refresh()).inventory.find(i => i.itemKey === "beer"))
     .toMatchObject({ quantity: 11, locations: { farm: 1, [f.warehouse.id]: 10 } });
 });
+
+it("persists sesame in the warehouse, rejects overflow atomically and permits zero stock", async () => {
+  const f = await fixture();
+  const save = (quantity: number, destination?: string) => db.transaction(async tx => {
+    await tx.select().from(farms).where(eq(farms.id, f.farm.id)).for("update");
+    await setStoredQuantity(tx, f.farm.id, "sesame", quantity, new Date(), destination);
+  });
+  await save(12);
+  expect((await f.refresh()).inventory.find(i => i.itemKey === "sesame")).toMatchObject({ quantity: 12, locations: { [f.warehouse.id]: 12 } });
+  await expect(save(13)).rejects.toThrow("Not enough space");
+  expect((await f.refresh()).inventory.find(i => i.itemKey === "sesame")?.quantity).toBe(12);
+  expect(buildingDemolitionReason(await f.refresh(), f.warehouse.id, Date.now())).toContain("stored in this warehouse");
+  await save(0);
+  expect((await f.refresh()).inventory.find(i => i.itemKey === "sesame")?.quantity).toBe(0);
+  await expect(save(1, "farm")).rejects.toThrow("completed warehouse");
+});

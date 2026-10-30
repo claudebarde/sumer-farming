@@ -34,7 +34,7 @@ export function LeaderboardContent({ localOnly = false }: { readonly localOnly?:
   const [query, setQuery] = useState<LeaderboardQuery>({ scope: "local", metric: "level" });
   const [refresh, setRefresh] = useState(0);
   return <Tabs.Root value={query.scope} onValueChange={scope => {
-    if (scope === "local" || (!localOnly && scope === "global")) setQuery(current => ({ ...current, scope }));
+    if (scope === "local" || (!localOnly && scope === "global")) setQuery(current => ({ ...current, scope, metric: scope === "global" && current.metric === "ziggurat" ? "level" : current.metric }));
   }}>
     {!localOnly && <Tabs.List className={styles["manage-tabs-list"]} aria-label="Leaderboard scope">
       <Tabs.Trigger className={styles["manage-tabs-trigger"]} value="local">Your neighbourhood</Tabs.Trigger>
@@ -43,7 +43,7 @@ export function LeaderboardContent({ localOnly = false }: { readonly localOnly?:
     {(localOnly ? ["local"] as const : ["local", "global"] as const).map(scope => <Tabs.Content key={scope} value={scope} className={styles["market-tab-content"]}>
     <div className={boardStyles.controls}>
       <label>Rank by<select value={query.metric} onChange={event => setQuery({ ...query, metric: event.target.value as LeaderboardQuery["metric"] })}>
-        {Object.entries(LEADERBOARD_METRICS).map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}
+        {Object.entries(LEADERBOARD_METRICS).filter(([key]) => key !== "ziggurat" || query.scope === "local").map(([key, value]) => <option key={key} value={key}>{value.label}</option>)}
       </select></label>
       <button className={actionStyles.button} onClick={() => setRefresh(value => value + 1)}><BuildingActionIcon kind="refresh" /><span>Refresh</span></button>
     </div>

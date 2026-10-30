@@ -176,7 +176,7 @@ const executeStorageTrade = (
               ? marketDefinition.canBuy
               : marketDefinition.canSell;
 
-          if (!tradeIsAvailable || (input.itemKey === "donkey" && farm.level < 7)) {
+          if (!tradeIsAvailable || (input.itemKey === "donkey" && farm.level < 7) || (input.itemKey === "dates" && farm.level < 9)) {
             return {
               type: "rule_error",
               rule: {
@@ -335,7 +335,7 @@ const executeTrade = (
 ): Effect.Effect<FarmSnapshot, MarketTradeError> =>
   match(trade.input.itemKey)
     .returnType<Effect.Effect<FarmSnapshot, MarketTradeError>>()
-    .with("barley", "brewingVessels", "bakingTools", "emptyBeerJar", "beer", "bread", "flour", "brewersGroats", "donkey", () => executeStorageTrade(database, trade))
+    .with("barley", "brewingVessels", "bakingTools", "emptyBeerJar", "beer", "bread", "flour", "brewersGroats", "donkey", "dates", "sesame", () => executeStorageTrade(database, trade))
     .exhaustive();
 
 export const buyFromNpcMarket = (

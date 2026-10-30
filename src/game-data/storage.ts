@@ -6,6 +6,7 @@ export const ESTATE_STORAGE_LIMITS = {
 } as const;
 export const WAREHOUSE_RESOURCE_BONUS = 10;
 export const WAREHOUSE_DATE_BASKET_CAPACITY = 5;
+export const WAREHOUSE_SESAME_BASKET_CAPACITY = 12;
 export const estateResourceCapacity = (
   item: InventoryItemKey,
   buildings: readonly { readonly type: FarmBuildingType; readonly completesAt: string | Date }[],
@@ -15,6 +16,7 @@ export const estateResourceCapacity = (
   if (item === "bakingTools") return FARM_BUILDING_DEFINITIONS.breadOven.materials.bakingTools;
   if (item === "donkey") return 1;
   if (item === "fish") return 5;
+  if (item === "sesame") return buildings.some(b => b.type === "warehouse" && new Date(b.completesAt).getTime() <= now) ? WAREHOUSE_SESAME_BASKET_CAPACITY : 0;
   if (item === "dates") return buildings.some(b => b.type === "warehouse" && new Date(b.completesAt).getTime() <= now) ? WAREHOUSE_DATE_BASKET_CAPACITY : 0;
   if (!(item in ESTATE_STORAGE_LIMITS)) return 2147483647;
   const base = ESTATE_STORAGE_LIMITS[item as keyof typeof ESTATE_STORAGE_LIMITS];

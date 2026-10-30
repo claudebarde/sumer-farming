@@ -7,6 +7,7 @@ import { createDatabase } from "../../src/server/db/client";
 import { farmBuildings, farmImprovements, farmInventory, farms, players } from "../../src/server/db/schema";
 import { dropCarriedItem, depositCarriedItem, withdrawInventoryItem } from "../../src/server/services/farmItemActions";
 import { supplyBrewery } from "../../src/server/services/brewerySupplies";
+import { advanceFarmLifecycle } from "../../src/server/services/farmLifecycle";
 import { productionAction } from "../../src/server/services/production";
 import { readFarmSnapshot } from "../../src/server/services/farmSnapshot";
 import { loadMarketItemStorage } from "../../src/server/services/marketItemStorage";
@@ -48,6 +49,51 @@ const refresh = (farmId: string) => db.transaction(async tx => {
 });
 
 describe("persistent brewery supplies", () => {
+  it.each([false, true])("collects water when the porter fills the last bread slots (delivery already settled: %s)", async settled => {
+    const { farm, command } = await fixture();
+    const [oven] = await db.insert(farmBuildings).values({ farmId: farm.id, type: "breadOven", column: 0, row: 1,
+      loadingTile: { column: -1, row: 1 }, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+    await db.insert(farmInventory).values({ farmId: farm.id, itemKey: "bread", quantity: 8 });
+    const now = Date.now();
+    const home = { column: 10, row: 5 };
+    await db.update(farms).set({ roads: [1, 2, 3, 4].map(row => ({ column: -1, row })), production: {
+      ...farm.production, pending: { [oven!.id]: { itemKey: "bread", quantity: 3 } },
+      porter: { hiredAt: now - 120000, checkedAt: now - 120000, expiresAt: now + 3600000,
+        position: home, home, job: null, returnTrip: null }
+    } }).where(eq(farms.id, farm.id));
+    if (settled) await db.transaction(async tx => {
+      const [record] = await tx.select().from(farms).where(eq(farms.id, farm.id)).for("update");
+      await advanceFarmLifecycle(tx, record!, new Date());
+    });
+    // The client still has version 1, whether settlement happens before or in this request.
+    const result = await Effect.runPromise(supplyBrewery(db, command("collect_water")));
+    expect(result.farm.carriedItem?.itemKey).toBe("water");
+    expect(result.inventory.find(i => i.itemKey === "bread")?.quantity).toBe(10);
+    expect(result.farm.production.pending[oven!.id]?.quantity).toBe(1);
+    expect((await refresh(farm.id)).inventory.find(i => i.itemKey === "bread")?.quantity).toBe(10);
+    const poured = await Effect.runPromise(supplyBrewery(db, command("pour_water", result.farm.version)));
+    const pickup = await Effect.runPromise(Effect.flip(productionAction(db, {
+      type: "production_delivery", action: "pickup", buildingId: oven!.id,
+      playerId: farm.playerId, expectedFarmVersion: poured.farm.version
+    })));
+    expect(pickup.message).toContain("Not enough storage");
+    expect((await refresh(farm.id)).farm.production.pending[oven!.id]?.quantity).toBe(1);
+  });
+
+  it("revalidates occupied hands and active farmer work despite a stale water request", async () => {
+    const { farm, command } = await fixture();
+    await db.update(farms).set({ version: 2, carriedItemKey: "barley", carriedItemQuantity: 1 }).where(eq(farms.id, farm.id));
+    await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("collect_water")))))
+      .resolves.toMatchObject({ type: "hands_not_empty" });
+    await db.update(farms).set({ carriedItemKey: null, carriedItemQuantity: 0,
+      gatheringItemKey: "clay", gatheringColumn: 0, gatheringRow: 9,
+      gatheringStartedAt: new Date(), gatheringCompletesAt: new Date(Date.now() + 60000) }).where(eq(farms.id, farm.id));
+    await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("collect_water")))))
+      .resolves.toMatchObject({ type: "farmer_busy" });
+    const [saved] = await db.select().from(farms).where(eq(farms.id, farm.id));
+    expect(saved?.carriedItemKey).toBeNull();
+  });
+
   it.each([4, 5, 6, 8])("checks space for an entire beer batch with %i waiting", async quantity => {
     const { farm, building, command } = await fixture();
     await db.insert(farmInventory).values({ farmId: farm.id, itemKey: "brewersGroats", quantity: 2 });
@@ -424,7 +470,7 @@ describe("persistent brewery supplies", () => {
     const { farm, command } = await fixture();
     const first = await Effect.runPromise(supplyBrewery(db, command("collect_water")));
     expect(first.farm.carriedItem).toEqual({ itemKey: "water", quantity: 1, expiresAt: null });
-    await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("collect_water"))))).resolves.toMatchObject({ type: "farm_version_conflict" });
+    await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("collect_water"))))).resolves.toMatchObject({ type: "hands_not_empty" });
     const loaded = await db.transaction(async tx => {
       const [record] = await tx.select().from(farms).where(eq(farms.id, farm.id));
       return readFarmSnapshot(tx, record!, false);

@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { eq, inArray } from "drizzle-orm";
 import { beforeAll, afterAll, describe, expect, it } from "vitest";
 import { createDatabase } from "../../src/server/db/client";
-import { players, farms, neighbourhoods, neighbourhoodMembers } from "../../src/server/db/schema";
+import { players, farms, neighbourhoods, neighbourhoodMembers, zigguratDonations } from "../../src/server/db/schema";
 import { readLeaderboard } from "../../src/server/services/leaderboard";
 import { INITIAL_PROGRESSION_STATS } from "../../src/game-data/progression";
 import type { LeaderboardQuery } from "../../src/schemas/leaderboard";
@@ -66,4 +66,30 @@ describe.sequential("leaderboard", () => {
     expect((await run(12)).type).toBe("rejected");
     expect((await Effect.runPromise(readLeaderboard(db, randomUUID(), { scope: "global", metric: "level" }))).type).toBe("rejected");
   });
+});
+
+it("ranks saved ziggurat donations across stages, preserves departed contributors and isolates neighbourhoods", async () => {
+  await db.update(farms).set({level:7}).where(eq(farms.playerId,ids[0]!));
+  const empty = await run(0,{scope:"local",metric:"ziggurat"});
+  if(empty.type!=="ok")throw new Error("Expected neighbours");
+  expect(empty.leaderboard.entries).toHaveLength(10);
+  expect(empty.leaderboard.entries.every(entry=>entry.score===0)).toBe(true);
+  for (const [index,stage,clay] of [[1,0,3],[1,1,2],[2,0,5],[3,0,1],[10,0,20]] as const) {
+    await db.insert(zigguratDonations).values({neighbourhoodId:homes[index===10?1:0]!,playerId:ids[index]!,idempotencyKey:randomUUID(),stage,requestedClay:clay,requestedReed:0,clay,reed:0,points:clay*2});
+  }
+  await db.update(farms).set({farmerProfile:{version:1,identity:{name:"Zababa"}}}).where(eq(farms.playerId,ids[1]!));
+  await db.update(farms).set({farmerProfile:{version:1,identity:{name:"Abala"}}}).where(eq(farms.playerId,ids[2]!));
+  const query = {scope:"local",metric:"ziggurat"} as const;
+  const result = await run(0,query);
+  if(result.type!=="ok")throw new Error("Expected ranking");
+  expect(result.leaderboard.entries.slice(0,2).map(entry=>entry.name)).toEqual(["Abala","Zababa"]);
+  expect(result.leaderboard.total).toBe(10);
+  expect(result.leaderboard.self).toMatchObject({playerId:ids[0],score:0});
+  expect(result.leaderboard.entries.filter(e=>e.score>0).map(e=>[e.rank,e.score])).toEqual([[1,10],[1,10],[3,2]]);
+  expect(result.leaderboard.entries.some(e=>e.playerId===ids[10])).toBe(false);
+  await db.update(neighbourhoodMembers).set({neighbourhoodId:homes[1],slot:10}).where(eq(neighbourhoodMembers.playerId,ids[1]!));
+  expect(await run(0,query)).toMatchObject({type:"ok",leaderboard:{entries:result.leaderboard.entries}});
+  expect((await run(0,{scope:"global",metric:"ziggurat"})).type).toBe("rejected");
+  await db.update(farms).set({level:6}).where(eq(farms.playerId,ids[0]!));
+  expect((await run(0,query)).type).toBe("rejected");
 });

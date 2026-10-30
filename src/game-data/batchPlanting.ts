@@ -5,6 +5,7 @@ export const MAX_BATCH_HARVEST_FIELDS = 8;
 export const LEGACY_BATCH_HARVEST_FIELDS = 4;
 // Kept in the original planting JSON slot for backwards-compatible saved jobs.
 export const BatchPlantingSchema = z.object({
+  decayEligible: z.boolean().optional(),
   mode: z.enum(["plant", "harvest"]).optional(),
   id: z.uuid(),
   total: z.int().positive(),

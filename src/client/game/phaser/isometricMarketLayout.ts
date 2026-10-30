@@ -1,15 +1,10 @@
-import { INITIAL_FARM_CONFIG as config } from "../../../game-data/initialFarm";
+import { isMarketRoad, marketLoop } from "../../../game-data/marketLayout";
+export { isMarketRoad, marketLoop, marketLastRow } from "../../../game-data/marketLayout";
 import type { IsoCell } from "./isometricProjection";
 import { ROAD_CONNECTIONS } from "./isometricRoads";
 
-export const marketLoop = { left: 0, right: 9, top: config.roadRow, bottom: 11 } as const;
-export const marketLastRow = 13;
-// The interior is 8×5 tiles: two 2×2 stands, spacing and front-facing merchants.
+// Reserved footprints within the shared road loop.
 export const futureMarketStandOrigins = [{ column: 2, row: 8 }, { column: 5, row: 8 }] as const;
-export const isMarketRoad = ({ column, row }: IsoCell): boolean =>
-  (row === marketLoop.top && column >= config.worldBounds.minimumColumn && column <= config.worldBounds.maximumColumn) ||
-  (row === marketLoop.bottom && column >= marketLoop.left && column <= marketLoop.right) ||
-  ((column === marketLoop.left || column === marketLoop.right) && row >= marketLoop.top && row <= marketLoop.bottom);
 
 export const marketRoadMask = (cell: IsoCell): number => ROAD_CONNECTIONS.reduce((mask, offset) => {
   const next = { column: cell.column + offset.column, row: cell.row + offset.row };

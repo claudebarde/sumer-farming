@@ -5,7 +5,7 @@ export const INITIAL_FARM_CONFIG = {
   worldBounds: {
     minimumColumn: -4,
     maximumColumn: 11,
-    minimumRow: 0,
+    minimumRow: -3,
     maximumRow: 15
   },
   plotBounds: {

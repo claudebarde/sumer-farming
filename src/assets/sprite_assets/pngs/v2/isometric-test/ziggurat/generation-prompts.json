@@ -1,0 +1,91 @@
+{
+  "tool": "built-in image_gen",
+  "status": "Generated artwork; animation preview approval pending",
+  "frames": [
+    {
+      "file": "donkey-loaded-walk-front-01.png",
+      "prompt": "Precise object edit for one transparent game animation frame. Image 1 is the POSE AND REGISTRATION MASTER: preserve its exact left-facing front three-quarter direction, body position, face, ears, tail, proportions, canvas framing and especially all four leg and hoof positions. Image 2 is EQUIPMENT DESIGN ONLY, never copy its pose or rightward direction. Add its padded saddle, natural rope straps and two large closed bulging jute bags one on each side of the donkey, with correct near/far occlusion. Keep the existing donkey style and warm shading. No rider, ground, shadow, text or sheet. Output one 1024x1024 transparent PNG. Stable body scale and placement are critical for matching the existing four-frame walk. Frame front 01.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-47fda24e-54a6-4fd9-8f34-360d17781f68.png"
+    },
+    {
+      "file": "donkey-loaded-walk-front-02.png",
+      "prompt": "Precise object edit, game sprite walking animation frame front 02. Image1 is exact POSE master: preserve its donkey facing lower-left, all leg/hoof positions, head, body scale, camera and relative canvas placement. Image2 is the matching loaded animation design: reproduce its identical padded pack saddle, ropes and two large CLOSED bulging jute sacks, one on either flank. Do not copy Image2's leg pose: use Image1's distinct walking phase exactly. No change to character face or style. Crisp warm illustrated art. Only add equipment over the torso. Keep head, feet and tail unobstructed. Single full body on transparent background, square PNG, no ground/shadow/text. Match reference canvas registration and size.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-b2df25f7-d47a-4c3a-b751-1a548101cbb0.png"
+    },
+    {
+      "file": "donkey-loaded-walk-front-03.png",
+      "prompt": "Precise object edit, game sprite walking animation frame front 03. Image1 is exact POSE master: preserve its donkey facing lower-left, all leg/hoof positions, head, body scale, camera and relative canvas placement. Image2 is the matching loaded animation design: reproduce its identical padded pack saddle, ropes and two large CLOSED bulging jute sacks, one on either flank. Do not copy Image2's leg pose: use Image1's distinct walking phase exactly. No change to character face or style. Crisp warm illustrated art. Only add equipment over the torso. Keep head, feet and tail unobstructed. Single full body on transparent background, square PNG, no ground/shadow/text. Match reference canvas registration and size.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-dfc9ad58-93e2-4b3c-842a-5ce87bed73df.png"
+    },
+    {
+      "file": "donkey-loaded-walk-front-04.png",
+      "prompt": "Precise object edit, game sprite walking animation frame front 04. Image1 is exact POSE master: preserve its donkey facing lower-left, all leg/hoof positions, head, body scale, camera and relative canvas placement. Image2 is the matching loaded animation design: reproduce its identical padded pack saddle, ropes and two large CLOSED bulging jute sacks, one on either flank. Do not copy Image2's leg pose: use Image1's distinct walking phase exactly. No change to character face or style. Crisp warm illustrated art. Only add equipment over the torso. Keep head, feet and tail unobstructed. Single full body on transparent background, square PNG, no ground/shadow/text. Match reference canvas registration and size.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-0caec71c-3986-4073-94ff-b18a456ab0c8.png"
+    },
+    {
+      "file": "donkey-loaded-walk-back-01.png",
+      "prompt": "Precise-object-edit game animation sprite back 01. Image1 is EXACT POSE master, a donkey viewed from BEHIND facing upper-left. Preserve that rear view, leg stride, hoof placement, neck, ears, tail, scale and canvas registration. Never turn it to face viewer. Image2 supplies EQUIPMENT design only: padded pack saddle, rope harness, two tied closed bulging tan jute sacks, one on each flank. Adapt these bags to the REAR VIEW with correct occlusion and same pack size relative to donkey. Do not copy image2 pose. Preserve original donkey style, cream socks, warm grey coat. Single sprite, transparent background, square PNG, no text ground shadow rider. Feet stay fully visible.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-273d471f-83a6-4bce-8f4d-73e5b42e2c8f.png"
+    },
+    {
+      "file": "donkey-loaded-walk-back-02.png",
+      "prompt": "Precise-object-edit game animation sprite back 02. Image1 is EXACT POSE master, a donkey viewed from BEHIND facing upper-left. Preserve that rear view, leg stride, hoof placement, neck, ears, tail, scale and canvas registration. Never turn it to face viewer. Image2 supplies EQUIPMENT design only: padded pack saddle, rope harness, two tied closed bulging tan jute sacks, one on each flank. Adapt these bags to the REAR VIEW with correct occlusion and same pack size relative to donkey. Do not copy image2 pose. Preserve original donkey style, cream socks, warm grey coat. Single sprite, transparent background, square PNG, no text ground shadow rider. Feet stay fully visible.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-a844e7b6-36e4-440f-a08f-7e1d98a7087e.png"
+    },
+    {
+      "file": "donkey-loaded-walk-back-03.png",
+      "prompt": "Precise-object-edit game animation sprite back 03. Image1 is EXACT POSE master, a donkey viewed from BEHIND facing upper-left. Preserve that rear view, leg stride, hoof placement, neck, ears, tail, scale and canvas registration. Never turn it to face viewer. Image2 supplies EQUIPMENT design only: padded pack saddle, rope harness, two tied closed bulging tan jute sacks, one on each flank. Adapt these bags to the REAR VIEW with correct occlusion and same pack size relative to donkey. Do not copy image2 pose. Preserve original donkey style, cream socks, warm grey coat. Single sprite, transparent background, square PNG, no text ground shadow rider. Feet stay fully visible.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-a0a16580-76fd-4f4b-b24b-c0ada9b73220.png"
+    },
+    {
+      "file": "donkey-loaded-walk-back-04.png",
+      "prompt": "Precise-object-edit game animation sprite back 04. Image1 is EXACT POSE master, a donkey viewed from BEHIND facing upper-left. Preserve that rear view, leg stride, hoof placement, neck, ears, tail, scale and canvas registration. Never turn it to face viewer. Image2 supplies EQUIPMENT design only: padded pack saddle, rope harness, two tied closed bulging tan jute sacks, one on each flank. Adapt these bags to the REAR VIEW with correct occlusion and same pack size relative to donkey. Do not copy image2 pose. Preserve original donkey style, cream socks, warm grey coat. Single sprite, transparent background, square PNG, no text ground shadow rider. Feet stay fully visible.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-668fa7f5-944a-4536-9ae3-9be330ec8d4b.png"
+    },
+    {
+      "file": "donkey-empty-idle.png",
+      "prompt": "Precise object edit: this loaded pack donkey is the sole edit target. Change ONLY the two sacks: empty them so they hang visibly flat and softly folded against both flanks, still attached to exactly the same padded saddle and rope harness. No bulging cargo, no contents. Keep identical friendly donkey face, coat, four planted leg pose, head, ears, tail, orientation, scale, camera, outlines, lighting and canvas placement. This is the unloaded idle version of the SAME donkey for a game delivery animation. Transparent background, single full body square PNG, no text ground shadow or new props.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-cafe04c7-f16b-4f63-bbe8-7c87a4cc3461.png"
+    },
+    {
+      "file": "donkey-empty-walk-front-01.png",
+      "prompt": "Precise object edit. Make unloaded walking frame front 01. IMAGE1 is the exact loaded walking frame to EDIT: preserve its entire donkey pose, leftward front three-quarter direction, all four feet positions, head, ears, tail, camera, shading, scale and canvas placement. Change ONLY its two bulging cargo sacks to empty flattened softly folded jute panniers, attached to the SAME saddle and ropes. IMAGE2 is reference for the empty sack appearance ONLY; never use its right-facing pose. No bulging cargo or visible contents. Keep the animal and equipment registration identical to image1 so loaded/unloaded can switch without jumping. Single full-body square transparent PNG, no floor/shadow/text.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-a849b27b-4a0d-47f8-aa0e-adf41e46cd57.png"
+    },
+    {
+      "file": "donkey-empty-walk-front-02.png",
+      "prompt": "Precise object edit. Make unloaded walking frame front 02. IMAGE1 is the exact loaded walking frame to EDIT: preserve its entire donkey pose, leftward front three-quarter direction, all four feet positions, head, ears, tail, camera, shading, scale and canvas placement. Change ONLY its two bulging cargo sacks to empty flattened softly folded jute panniers, attached to the SAME saddle and ropes. IMAGE2 is reference for the empty sack appearance ONLY; never use its right-facing pose. No bulging cargo or visible contents. Keep the animal and equipment registration identical to image1 so loaded/unloaded can switch without jumping. Single full-body square transparent PNG, no floor/shadow/text.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-d8051f00-de0a-490a-94e2-c90c59c51c58.png"
+    },
+    {
+      "file": "donkey-empty-walk-front-03.png",
+      "prompt": "Precise object edit. Make unloaded walking frame front 03. IMAGE1 is the exact loaded walking frame to EDIT: preserve its entire donkey pose, leftward front three-quarter direction, all four feet positions, head, ears, tail, camera, shading, scale and canvas placement. Change ONLY its two bulging cargo sacks to empty flattened softly folded jute panniers, attached to the SAME saddle and ropes. IMAGE2 is reference for the empty sack appearance ONLY; never use its right-facing pose. No bulging cargo or visible contents. Keep the animal and equipment registration identical to image1 so loaded/unloaded can switch without jumping. Single full-body square transparent PNG, no floor/shadow/text.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-8c922769-4bec-48ce-a226-cb584c661b73.png"
+    },
+    {
+      "file": "donkey-empty-walk-front-04.png",
+      "prompt": "Precise object edit. Make unloaded walking frame front 04. IMAGE1 is the exact loaded walking frame to EDIT: preserve its entire donkey pose, leftward front three-quarter direction, all four feet positions, head, ears, tail, camera, shading, scale and canvas placement. Change ONLY its two bulging cargo sacks to empty flattened softly folded jute panniers, attached to the SAME saddle and ropes. IMAGE2 is reference for the empty sack appearance ONLY; never use its right-facing pose. No bulging cargo or visible contents. Keep the animal and equipment registration identical to image1 so loaded/unloaded can switch without jumping. Single full-body square transparent PNG, no floor/shadow/text.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-d292b83c-3c4d-47da-966b-5756ab836ac8.png"
+    },
+    {
+      "file": "donkey-empty-walk-back-01.png",
+      "prompt": "Precise object edit, empty-pack donkey animation back 01. IMAGE1 is the EDIT TARGET: preserve EXACT rear three-quarter view facing upper-left, same four-leg stride, hoof coordinates, ears, head, tail, body registration, canvas and scale. Modify ONLY the sacks to visibly EMPTY FLAT softly folded jute panniers; keep saddle, ropes and harness unchanged. Image2 gives the appearance of empty cloth bags only, not a pose reference. Do not turn the donkey around or copy image2 leg pose. Match warm illustrated style, clean edges. One square full-body transparent PNG, no ground, shadow, labels, extra characters. Retain clear feet and exact walking phase.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-829261a8-5d64-4d45-82a3-83d4b7f13e1d.png"
+    },
+    {
+      "file": "donkey-empty-walk-back-02.png",
+      "prompt": "Precise object edit, empty-pack donkey animation back 02. IMAGE1 is the EDIT TARGET: preserve EXACT rear three-quarter view facing upper-left, same four-leg stride, hoof coordinates, ears, head, tail, body registration, canvas and scale. Modify ONLY the sacks to visibly EMPTY FLAT softly folded jute panniers; keep saddle, ropes and harness unchanged. Image2 gives the appearance of empty cloth bags only, not a pose reference. Do not turn the donkey around or copy image2 leg pose. Match warm illustrated style, clean edges. One square full-body transparent PNG, no ground, shadow, labels, extra characters. Retain clear feet and exact walking phase.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-1cfa5b19-f890-464e-b1f8-f22fc29b6c18.png"
+    },
+    {
+      "file": "donkey-empty-walk-back-03.png",
+      "prompt": "Precise object edit, empty-pack donkey animation back 03. IMAGE1 is the EDIT TARGET: preserve EXACT rear three-quarter view facing upper-left, same four-leg stride, hoof coordinates, ears, head, tail, body registration, canvas and scale. Modify ONLY the sacks to visibly EMPTY FLAT softly folded jute panniers; keep saddle, ropes and harness unchanged. Image2 gives the appearance of empty cloth bags only, not a pose reference. Do not turn the donkey around or copy image2 leg pose. Match warm illustrated style, clean edges. One square full-body transparent PNG, no ground, shadow, labels, extra characters. Retain clear feet and exact walking phase.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-6fd8123e-77da-4259-9f80-09bbc495b411.png"
+    },
+    {
+      "file": "donkey-empty-walk-back-04.png",
+      "prompt": "Precise object edit, empty-pack donkey animation back 04. IMAGE1 is the EDIT TARGET: preserve EXACT rear three-quarter view facing upper-left, same four-leg stride, hoof coordinates, ears, head, tail, body registration, canvas and scale. Modify ONLY the sacks to visibly EMPTY FLAT softly folded jute panniers; keep saddle, ropes and harness unchanged. Image2 gives the appearance of empty cloth bags only, not a pose reference. Do not turn the donkey around or copy image2 leg pose. Match warm illustrated style, clean edges. One square full-body transparent PNG, no ground, shadow, labels, extra characters. Retain clear feet and exact walking phase.",
+      "source": "/Users/claudebarde/.codex/generated_images/01a01115-3c1a-7a93-8e22-2fc5e94ef3bb/exec-7ee16736-40ad-4a2e-9301-14bf7cf41b68.png"
+    }
+  ]
+}

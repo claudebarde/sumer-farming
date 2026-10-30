@@ -1,4 +1,5 @@
-import { and, asc, eq, lte, sql, inArray } from "drizzle-orm";
+import { BARLEY_CLEARING_MS } from "../../game-core/farm/barleyDecay";
+import { and, asc, eq, lte, sql, inArray, isNull } from "drizzle-orm";
 import { getRiverConnectedCanals } from "../../game-core/farm/irrigation";
 import { migrateFarmLand } from "./farmLandMigration";
 import { initializePhysicalStorage } from "./physicalStorage";
@@ -153,6 +154,16 @@ export const advanceFarmLifecycle = async (
     farm = { ...farm, progressionStats };
   }
   farm = await advanceBatchPlanting(transaction, farm, now);
+  // Reconcile queued harvests at their saved deadlines before clearing expired crops.
+  const expired = await transaction.delete(farmCrops).where(and(
+    eq(farmCrops.farmId, farm.id), eq(farmCrops.cropKey, "barley"), eq(farmCrops.decayEligible, true),
+    isNull(farmCrops.harvestStartedAt), lte(farmCrops.growthCompletesAt, new Date(now.getTime() - BARLEY_CLEARING_MS))
+  )).returning({ id: farmCrops.id });
+  if (expired.length) {
+    const [updated] = await transaction.update(farms).set({ version: sql`${farms.version} + 1`, updatedAt: now })
+      .where(eq(farms.id, farm.id)).returning();
+    farm = updated!;
+  }
   farm = await advancePerennialCropWork(transaction, farm, now);
   if (!farm.progressionStats.builtFirstCanal || !farm.progressionStats.plantedFirstBarley) {
     const planted = await transaction.select({ id: farmCrops.id }).from(farmCrops)

@@ -83,3 +83,13 @@ describe("building storage displays", () => {
     expect(warehouse).not.toContain(">Fish</th>");
   });
 });
+
+it("shows sesame only in its unlocked warehouse card", () => {
+  const base = { inventory: [{ itemKey: "sesame" as const, quantity: 3, locations: { warehouse: 3 } }], warehouseId: "warehouse", barley: 0, warehouseComplete: true, visual: true };
+  const warehouse = renderToStaticMarkup(createElement(BuildingStorageTables, { ...base, location: "warehouse", showSesame: true }));
+  expect(warehouse).toContain("sesame-basket-isometric.png");
+  expect(warehouse).toContain("3/12");
+  for (const props of [{ location: "farm" as const, showSesame: true }, { location: "warehouse" as const, showSesame: false }]) {
+    expect(renderToStaticMarkup(createElement(BuildingStorageTables, { ...base, ...props }))).not.toContain("Sesame");
+  }
+});

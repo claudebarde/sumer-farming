@@ -6,7 +6,7 @@ import { LeaderboardContent } from "../../src/client/components/LeaderboardDialo
 import { LeaderboardQuerySchema, type LeaderboardResponse } from "../../src/schemas/leaderboard";
 import { requestLeaderboard } from "../../src/client/api/leaderboard";
 
-const row = { playerId: "00000000-0000-4000-8000-000000000001", name: "Meskalamdug", city: "lagash", neighbourhood: "Reed quarter", rank: 1, score: 9, isYou: true };
+const row = { playerId: "00000000-0000-4000-8000-000000000001", name: "Meskalamdug", city: "lagash", neighbourhood: "Reed quarter", rank: 1, score: 9, isYou: true, zigguratPatron: false };
 const board: LeaderboardResponse = { scope: "local", metric: "level", entries: [row], self: row, total: 1, updatedAt: new Date().toISOString() };
 afterEach(() => vi.unstubAllGlobals());
 describe("leaderboard presentation", () => {

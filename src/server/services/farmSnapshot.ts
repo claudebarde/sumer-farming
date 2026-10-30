@@ -1,3 +1,5 @@
+import { settleZigguratRewards } from "./zigguratRewards";
+import { zigguratRewards } from "../db/schema";
 import { asc, eq, sql } from "drizzle-orm";
 
 import type { FarmSnapshot } from "../../schemas/farm";
@@ -80,6 +82,7 @@ export const readFarmSnapshot = async (
     .select({
       id: farmCrops.id,
       cropKey: farmCrops.cropKey,
+      decayEligible: farmCrops.decayEligible,
       column: farmCrops.column,
       row: farmCrops.row,
       sowingStartedAt: farmCrops.sowingStartedAt,
@@ -141,7 +144,10 @@ export const readFarmSnapshot = async (
     beerSold: sql<number>`coalesce(sum(case when ${shekelTransactions.type} = 'market_sale' and ${shekelTransactions.itemKey} = 'beer' then ${shekelTransactions.itemQuantity} else 0 end), 0)::int`,
     requestsDelivered: sql<number>`count(*) filter (where ${shekelTransactions.type} = 'request_reward')::int`
   }).from(shekelTransactions).where(eq(shekelTransactions.playerId, currentFarm.playerId));
+  await settleZigguratRewards(transaction, { type: "player", playerId: currentFarm.playerId });
+  const rewards = await transaction.select().from(zigguratRewards).where(eq(zigguratRewards.playerId, currentFarm.playerId));
   return {
+    rewards: rewards.map(r => ({ id: r.id, objectId: r.objectId, awardedAt: r.awardedAt.toISOString() })),
     created,
     player,
     farm: {

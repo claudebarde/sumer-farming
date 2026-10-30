@@ -172,7 +172,7 @@ export const createMarketSellOrder = (
 
           if (
             !MARKET_ITEM_DEFINITIONS[input.itemKey].playerMarket
-              .canCreateSellOrder
+              .canCreateSellOrder || (input.itemKey === "dates" && farm.level < 9)
           ) {
             return {
               type: "rule_error",

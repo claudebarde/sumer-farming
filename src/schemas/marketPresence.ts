@@ -1,13 +1,13 @@
+import { isMarketRoad } from "../game-data/marketLayout";
 import { z } from "zod";
 
 export const MARKET_PRESENCE_TTL_MS = 15_000;
 export const MARKET_PRESENCE_POLL_MS = 500;
-// Coordinates relative to the market square's left edge. The approach road is
-// normalized to three tiles so phone and desktop visitors share one space.
+export const MARKET_PRESENCE_UNLOCK_LEVEL = 10;
+// Absolute isometric road coordinates, including positions between tile centres.
 export const MarketPositionSchema = z.object({
-  column: z.number().int().min(-3).max(4), row: z.number().int().min(3).max(7)
-}).refine(({ column, row }) => column < 0 ? row === 5
-  : column === 0 || column === 4 || row === 3 || row === 7, "Stay on a market road");
+  column: z.number().min(-4).max(11), row: z.number().min(5).max(11)
+}).refine(isMarketRoad, "Stay on a market road");
 export type MarketPosition = z.infer<typeof MarketPositionSchema>;
 const visit = { sessionId: z.uuid() };
 export const MarketPresenceCommandSchema = z.discriminatedUnion("type", [
