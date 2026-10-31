@@ -59,6 +59,7 @@ export const players = pgTable(
     id: uuid("id").defaultRandom().primaryKey(),
     displayName: varchar("display_name", { length: 50 }).notNull(),
     shekelBalance: integer("shekel_balance").default(0).notNull(),
+    pointsStartedAt: timestamp("points_started_at", { withTimezone: true }).defaultNow().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -70,6 +71,17 @@ export const players = pgTable(
     check("players_shekel_balance_nonnegative", sql`${table.shekelBalance} >= 0`)
   ]
 );
+
+/** Source identity survives retries, demolition and job cleanup. */
+export const pointAwards = pgTable("point_awards", {
+  playerId: uuid("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  source: varchar("source", { length: 200 }).notNull(),
+  action: varchar("action", { length: 40 }).$type<import("../../game-data/points").PointAction>().notNull(),
+  points: integer("points").notNull(),
+  ruleVersion: integer("rule_version").notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }).notNull()
+}, table => [primaryKey({ columns: [table.playerId, table.source] }),
+  check("point_awards_nonnegative", sql`${table.points} >= 0`)]);
 
 export const marketPresence = pgTable("market_presence", {
   playerId: uuid("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),

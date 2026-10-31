@@ -72,7 +72,7 @@ planned level-10 feature is already implemented.
 | Ziggurat interest and cooperative construction | Implemented | Three interested level-10 neighbours open fundraising; four material-funded construction stages. Lower-level neighbours can observe. |
 | Construction contribution ranking and Patron rewards | Implemented | Points, tied-winner rewards, badge and placeable miniature; visual reward acceptance testing remains separate. |
 | Ziggurat festivals | Approved, planned | Completed ziggurat required; begin with a crop-growth festival. Funding, duration and exact benefits still need agreement. |
-| Sesame crop | Implemented | Buy a basket for 3 shekels at level 10; plant one to harvest three. Growth takes 60 minutes (15 seedlings, 20 leafy, 25 flowering). Saved planting, harvesting and warehouse delivery continue offline. Warehouse capacity is 12 baskets, with no mandatory seed reserve. Selling and oil production remain unavailable. |
+| Sesame crop | Implemented | Buy a basket for 3 shekels at level 10; plant one to harvest three. Growth takes 60 minutes (15 seedlings, 20 leafy, 25 flowering). Saved planting, harvesting and warehouse delivery continue offline. Warehouse capacity is 12 baskets, with no mandatory seed reserve. Sell stored sesame at the produce stand for 1 shekel per basket. Oil production remains unavailable. |
 | Oil workshop: sesame → oil | Approved direction; unlock level undecided | Level 10 is recommended, but has not been approved. The approved recipe uses three sesame baskets per jar; packaging, costs, timings and oil uses remain undecided. |
 
 Ziggurat construction and festivals are optional bonuses. They must never block

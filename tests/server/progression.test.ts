@@ -67,9 +67,12 @@ describe("manual farm levels", () => {
     const input = { ...f.input, expectedLevel: 9, expectedFarmVersion: snapshot.farm.version };
     if (ready) {
       const result = await Effect.runPromise(claimFarmLevel(db, input));
+      expect(result.player.points).toBe(100);
       expect(result.farm.progression!.level).toBe(10);
       expect(evaluateProgression(result, Date.now())).toMatchObject({ upcoming: true, canClaim: false });
-      expect((await Effect.runPromise(claimFarmLevel(db, input))).farm.progression!.level).toBe(10);
+      const retry = await Effect.runPromise(claimFarmLevel(db, input));
+      expect(retry.farm.progression!.level).toBe(10);
+      expect(retry.player.points).toBe(100);
     } else expect(await Effect.runPromise(Effect.flip(claimFarmLevel(db, input)))).toMatchObject({ _tag: "LevelClaimRuleError" });
     const after = await f.snapshot();
     const quantity = (key: string) => after.inventory.find(i => i.itemKey === key)?.quantity ?? 0;

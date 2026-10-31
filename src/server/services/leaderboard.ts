@@ -1,3 +1,4 @@
+import { reconcileZigguratPoints } from "./playerPoints";
 import { settleZigguratRewards } from "./zigguratRewards";
 import { eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
@@ -23,7 +24,9 @@ export const readLeaderboard = (db: Database, playerId: string, query: Leaderboa
     await settleZigguratRewards(tx, query.scope === "local"
       ? { type: "neighbourhood", neighbourhoodId: viewer.neighbourhoodId }
       : { type: "global" });
+    if (query.metric === "points") await reconcileZigguratPoints(tx);
     const score = match(query.metric)
+      .with("points", () => sql`(SELECT coalesce(sum(a.points), 0)::double precision FROM point_awards a WHERE a.player_id=p.id)`)
       .with("ziggurat", () => sql`0`)
       .with("level", () => sql`f.level`)
       .with("shekels", () => sql`p.shekel_balance`)
@@ -57,7 +60,7 @@ export const readLeaderboard = (db: Database, playerId: string, query: Leaderboa
         `}
       ), ranked AS (
         SELECT *, rank() OVER (ORDER BY score DESC)::integer AS rank,
-          row_number() OVER (ORDER BY score DESC, ${query.metric === "ziggurat" ? sql`lower(name), name,` : sql``} "playerId")::integer AS position,
+          row_number() OVER (ORDER BY score DESC, ${query.metric === "ziggurat" || query.metric === "points" ? sql`lower(name), name,` : sql``} "playerId")::integer AS position,
           count(*) OVER ()::integer AS total FROM scores
       ) SELECT *, EXISTS(SELECT 1 FROM ziggurat_rewards reward WHERE reward.player_id = ranked."playerId") AS "zigguratPatron" FROM ranked WHERE position <= 10 OR "playerId" = ${playerId} ORDER BY position
     `);

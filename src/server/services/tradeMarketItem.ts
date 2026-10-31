@@ -176,7 +176,7 @@ const executeStorageTrade = (
               ? marketDefinition.canBuy
               : marketDefinition.canSell;
 
-          if (!tradeIsAvailable || (input.itemKey === "donkey" && farm.level < 7) || (input.itemKey === "dates" && farm.level < 9)) {
+          if (!tradeIsAvailable || (input.itemKey === "donkey" && farm.level < 7) || (input.itemKey === "dates" && farm.level < 9) || (input.itemKey === "sesame" && farm.level < 10)) {
             return {
               type: "rule_error",
               rule: {

@@ -23,6 +23,16 @@ feature discussions reveal new needs.
 - **Acceptance:** Which normal and boundary scenarios should be tested? Which
   results require the player's visual approval?
 
+## Player points and repeatable rewards
+
+- **Meaning:** Lifetime score, spendable currency, experience, or a periodic competition? Does it affect existing progression?
+- **Award unit and timing:** Per field, output item, production batch, trade or milestone? At completion, collection or delivery?
+- **Automation and repetition:** Do helpers earn the same points? Which reversible actions or trade loops must not generate repeatable rewards?
+- **Existing players:** Start fresh or backfill only verifiable history? How are missing historical events treated?
+- **Reliability:** How are retries, offline completion, partial outcomes and concurrent awards deduplicated? Can scoring changes be audited?
+- **Rankings and rewards:** Lifetime versus periodic standings, ties, reset rules, qualification and relation to other point systems.
+- **Presentation:** Counter placement, naming, icons and whether extra reward animations are needed.
+
 ## Animation
 
 - **Trigger:** Manual action, gameplay event, inactivity, proximity or random
@@ -56,6 +66,19 @@ feature discussions reveal new needs.
   gaps, held props, audio and particles. Can existing assets produce the result?
 - **Visual checks:** Loop continuity, entry/exit transitions, speed, scale/anchor
   consistency, obstructions, interruption and repeated activation.
+
+### Resource gain effects
+
+- **Meaning:** Icon only or actual quantity gained? Account for reduced yields,
+  skipped targets and zero-output actions rather than displaying a fixed reward.
+- **Storage deliveries:** Which workers and goods qualify? Show the confirmed
+  quantity per destination for split loads; distinguish server deposit success
+  from visual arrival when storage is committed before its animation. Exclude
+  purchases, ground drops and unrelated inventory increases.
+- **Per-target timing:** Trigger once for each completed target in a batch; decide
+  whether the effect continues while the worker moves to the next target.
+- **Replay policy:** Avoid duplicate effects after refreshes or state updates and
+  avoid replaying gains accumulated while the scene was not visible.
 
 ### Autonomous wandering and companion animations
 

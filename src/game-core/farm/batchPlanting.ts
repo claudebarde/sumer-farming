@@ -1,3 +1,6 @@
+import { calculateFarmStorageCapacity, estateResourceCapacity } from "../../game-data/storage";
+import { cropWorkReserved } from "../../game-data/cropWork";
+import { CROP_DEFINITIONS } from "../../game-data/crops";
 import { barleyHasExpired } from "./barleyDecay";
 import type { FarmSnapshot } from "../../schemas/farm";
 import { improvementIsPresent } from "../../game-data/farmImprovements";
@@ -8,13 +11,15 @@ import type { FarmCoordinate } from "./irrigation";
 import { harvestFieldLimit } from "./harvestCapacity";
 
 export const plantingFieldLimit = harvestFieldLimit;
-export const plantingSelectionLimit = (snapshot: FarmSnapshot, now: number): number =>
-  Math.min(plantingFieldLimit(snapshot.farm.household.happiness), availablePlantingBarley(snapshot, now));
+export const availablePlantingSeeds = (snapshot: FarmSnapshot, now: number, crop: "barley" | "sesame" = "barley"): number =>
+  crop === "sesame" ? snapshot.inventory.find(i => i.itemKey === "sesame")?.quantity ?? 0 : availablePlantingBarley(snapshot, now);
+export const plantingSelectionLimit = (snapshot: FarmSnapshot, now: number, crop: "barley" | "sesame" = "barley"): number =>
+  Math.min(plantingFieldLimit(snapshot.farm.household.happiness), availablePlantingSeeds(snapshot, now, crop));
 
 export const fieldKey = (p: FarmCoordinate) => `${p.column}:${p.row}`;
 
-export const harvestableFields = (snapshot: FarmSnapshot, now: number): readonly FarmCoordinate[] =>
-  snapshot.crops.filter(c => c.cropKey === "barley" && Date.parse(c.growthCompletesAt) <= now && c.harvestStartedAt === null && !barleyHasExpired(c, now))
+export const harvestableFields = (snapshot: FarmSnapshot, now: number, crop: "barley" | "sesame" = "barley"): readonly FarmCoordinate[] =>
+  snapshot.crops.filter(c => c.cropKey === crop && Date.parse(c.growthCompletesAt) <= now && c.harvestStartedAt === null && !barleyHasExpired(c, now))
     .map(({ column, row }) => ({ column, row }));
 
 export const plantableFields = (snapshot: FarmSnapshot, now: number): readonly FarmCoordinate[] => {
@@ -47,7 +52,7 @@ export const availablePlantingBarley = (snapshot: FarmSnapshot, now: number): nu
 
 export const batchPlantingCarriedBarley = (snapshot: FarmSnapshot, now: number): number => {
   const batch = snapshot.farm.production.planting;
-  return carriedPlantingBarley(snapshot, now) + (batch && batch.mode !== "harvest"
+  return carriedPlantingBarley(snapshot, now) + (batch && batch.cropKey !== "sesame" && batch.mode !== "harvest"
     ? batch.phase.type === "collecting" ? batch.carriedSeeds?.quantity ?? 0 : batch.remaining.length
     : 0);
 };
@@ -72,4 +77,18 @@ export const orderPlantingFields = (fields: readonly FarmCoordinate[], start: Fa
     result.push(current);
   }
   return result;
+};
+
+export const availableSesameHarvestStorage = (snapshot: FarmSnapshot, now: number): number => {
+  const stored = snapshot.inventory.find(item => item.itemKey === "sesame")?.quantity ?? 0;
+  return Math.max(0, estateResourceCapacity("sesame", snapshot.buildings, now) - stored - cropWorkReserved(snapshot.farm.production, "sesame"));
+};
+
+export const availableBarleyHarvestStorage = (snapshot: FarmSnapshot, now: number): number =>
+  Math.max(0, calculateFarmStorageCapacity(snapshot.buildings, now, snapshot.farm.progression?.level ?? 1) - storedPlantingBarley(snapshot, now));
+
+export const harvestingSelectionLimit = (snapshot: FarmSnapshot, now: number, crop: "barley" | "sesame" = "barley"): number => {
+  const limit = harvestFieldLimit(snapshot.farm.household.happiness);
+  if (crop === "barley") return limit;
+  return Math.min(limit, Math.floor(availableSesameHarvestStorage(snapshot, now) / CROP_DEFINITIONS.sesame.harvestYield));
 };

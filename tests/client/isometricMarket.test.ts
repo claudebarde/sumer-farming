@@ -88,6 +88,7 @@ it("routes to the road entrance, never through the market footprint", () => {
 const harness = () => {
   const entered = vi.fn(), switched = vi.fn();
   const scene = new IsometricFarmScene(snapshot(), () => {}, () => {}, entered);
+  Reflect.set(scene, "sys", { isActive: () => true });
   const state = scene as unknown as {
     ready: boolean; drawnAt: number; farmerCell: { column: number; row: number };
     draw: () => void; renderFarmer: () => void; renderRiverWaves: () => void;

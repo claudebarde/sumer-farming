@@ -3,6 +3,21 @@ import type { FarmSnapshot } from "../../../schemas/farm";
 import { CROP_DEFINITIONS } from "../../../game-data/crops";
 
 type Crop = FarmSnapshot["crops"][number];
+export const cropStageLabel = (crop: Crop, now: number): string | null => {
+  if (crop.cropKey === "datePalm") {
+    if (now < Date.parse(crop.plantedAt) + CROP_DEFINITIONS.datePalm.growthDurationMs / 2) return "Sapling";
+    const harvested = crop.harvestCompletesAt && now >= Date.parse(crop.harvestCompletesAt);
+    return now >= Date.parse(crop.growthCompletesAt) && !harvested ? "Ripe" : "Growing";
+  }
+  if (barleyHasExpired(crop, now)) return null;
+  if (crop.harvestCompletesAt && now >= Date.parse(crop.harvestCompletesAt)) return null;
+  if (now < Date.parse(crop.plantedAt)) return "Seeds";
+  const sprite = cropSprite(crop, now);
+  if (sprite === "barleyWithering") return "Withering";
+  if (sprite === "barleySeeded") return "Seeds";
+  return now >= Date.parse(crop.growthCompletesAt) ? "Ripe" : "Growing";
+};
+
 export const cropSprite = (crop: Crop, now: number) => {
   const planted = Date.parse(crop.plantedAt);
   const ready = Date.parse(crop.growthCompletesAt);

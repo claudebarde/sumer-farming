@@ -71,7 +71,7 @@
 
 
 .farmer-popup-metrics {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   min-width: 0;
 }
@@ -776,4 +776,23 @@
   .manage-dialog-content {
     animation-duration: 1ms !important;
   }
+}
+
+.farmer-score-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+}
+
+.farmer-points-value {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  img { width: 44px; height: 44px; object-fit: contain; }
+  strong { font-size: 1.35em; line-height: 1; font-variant-numeric: tabular-nums; }
+}
+
+@media (max-width: 480px) {
+  .farmer-popup-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

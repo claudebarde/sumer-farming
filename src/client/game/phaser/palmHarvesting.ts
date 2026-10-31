@@ -1,5 +1,6 @@
 import type { CropWork } from "../../../game-data/cropWork";
 import { isoPoint, type IsoCell } from "./isometricProjection";
+import { farmerSesameCarryTexture } from "./farmerSesameCarry";
 import { farmerDateCarryTexture } from "./farmerDateCarry";
 import { palmPlantingPosition } from "./palmPlanting";
 import { positionAlongPorterPath } from "./porterPresentation";
@@ -28,7 +29,7 @@ export const palmHarvestCarrier = (job: CropWork, target: IsoCell, now: number, 
   const point = isoPoint(pose.position);
   const previous = isoPoint(palmHarvestPose(job, target, Math.max(job.workEndsAt, now - 1)).position);
   const next = isoPoint(palmHarvestPose(job, target, Math.min(job.completesAt, now + 1)).position);
-  return { texture: farmerDateCarryTexture(now - job.workEndsAt, !reducedMotion),
+  return { texture: (job.cropKey === "sesame" ? farmerSesameCarryTexture : farmerDateCarryTexture)(now - job.workEndsAt, !reducedMotion),
     // Artwork faces left; mirror only when moving right, including the first frame.
     flipX: next.x > previous.x || (next.x === previous.x && point.x > previous.x) };
 };

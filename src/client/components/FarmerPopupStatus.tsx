@@ -1,9 +1,11 @@
+import FarmerPointsCounter from "./FarmerPointsCounter";
 import type { FarmSnapshot } from "../../schemas/farm";
 import HappinessMeter from "./HappinessMeter";
 import RationMeter from "./RationMeter";
 import styles from "../styles/GameCanvas.module.scss";
 import { farmerActivity } from "../game/phaser/farmerActivity";
 import { FARM_SPRITES } from "../../assets/farmSprites";
+import sesame from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png";
 import datesIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 import flour from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.webp";
 import brewersGroats from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.webp";
@@ -12,7 +14,7 @@ import canal from "../../assets/sprite_assets/pngs/v2/isometric-test/canals/cana
 import stool from "../../assets/sprite_assets/pngs/v2/isometric-test/farmer-idle-stool.png";
 import pickaxe from "../../assets/sprite_assets/pngs/v2/isometric-test/farmer-building-pickaxe.png";
 
-const activityImages = { barley: FARM_SPRITES.harvestedBarley, flour, brewersGroats, road, canal, stool, pickaxe,
+const activityImages = { sesame, barley: FARM_SPRITES.harvestedBarley, flour, brewersGroats, road, canal, stool, pickaxe,
   reed: FARM_SPRITES.reedBundle, clay: FARM_SPRITES.brickPile, fish: FARM_SPRITES.fish,
   bread: FARM_SPRITES.breadBasket, beer: FARM_SPRITES.beerJars, dates: datesIcon, water: FARM_SPRITES.water };
 
@@ -25,6 +27,7 @@ export default function FarmerPopupStatus({ snapshot, now, walking = false }: { 
       {activity.quantity !== undefined && <span className={styles["farmer-activity-count"]}>{activity.quantity}</span>}
     </div><span>{activity.label}</span></div>
     <div><HappinessMeter value={household.happiness} /><span>Happiness</span></div>
+    <FarmerPointsCounter points={snapshot.player.points ?? 0} />
     <div><RationMeter nextRationAt={household.nextBarleyConsumptionAt} hungry={household.hungrySince !== null} now={now} /><span>Next meal</span></div>
   </div>;
 }

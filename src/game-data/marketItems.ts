@@ -15,7 +15,7 @@ const PROCESSED_FOOD_PRICE = 5;
 export const MARKET_ITEM_DEFINITIONS = {
   sesame: {
     label: "Sesame", storage: { type: "estate_inventory" },
-    npcMarket: { canBuy: true, canSell: false, buyPrice: 3, sellPrice: 1 },
+    npcMarket: { canBuy: true, canSell: true, buyPrice: 3, sellPrice: 1 },
     playerMarket: { canCreateSellOrder: false }
   },
   dates: {

@@ -1,3 +1,4 @@
+import { reconcilePlayerPoints } from "./playerPoints";
 import { BARLEY_CLEARING_MS } from "../../game-core/farm/barleyDecay";
 import { and, asc, eq, lte, sql, inArray, isNull } from "drizzle-orm";
 import { getRiverConnectedCanals } from "../../game-core/farm/irrigation";
@@ -67,6 +68,7 @@ export const advanceFarmLifecycle = async (
 ): Promise<FarmRecord> => {
   farm = await migrateFarmLand(transaction, farm, now);
   await initializePhysicalStorage(transaction, farm.id, now);
+  await reconcilePlayerPoints(transaction, farm, now);
   // Return legacy overstock to free inventory; preserve the estate's total jars.
   const jarStores = await transaction.select().from(farmBuildings)
     .where(and(eq(farmBuildings.farmId, farm.id), eq(farmBuildings.type, "brewery"))).for("update");

@@ -37,11 +37,12 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
   const details: string[] = [];
   if (crop && crop.cropKey === "barley") {
     const end = crop.harvestCompletesAt ?? (Date.parse(crop.plantedAt) > now ? crop.plantedAt : crop.growthCompletesAt);
-    details.push(crop.harvestCompletesAt ? "Harvesting…" : Date.parse(crop.plantedAt) > now ? "Sowing…" : Date.parse(end) > now ? `Ready in ${Math.max(1, Math.ceil((Date.parse(end) - now) / 60_000))}m` : "Ready to harvest");
+    if (crop.harvestCompletesAt) details.push("Harvesting…");
+    else if (Date.parse(crop.plantedAt) > now) details.push("Sowing…");
+    else if (Date.parse(end) > now) details.push(`Ready in ${Math.max(1, Math.ceil((Date.parse(end) - now) / 60_000))}m`);
     if (crop.decayEligible && !crop.harvestStartedAt && now >= Date.parse(crop.growthCompletesAt)) {
       const quantity = barleyHarvestYield(crop, now);
       const deadline = Date.parse(crop.growthCompletesAt) + (quantity === 2 ? BARLEY_WITHERING_MS : BARLEY_CLEARING_MS);
-      details.push(`${quantity} barley available`);
       details.push(`${quantity === 2 ? "Withers" : "Clears automatically"} in ${countdownLabel(deadline - now)}`);
     }
   } else if (building) {

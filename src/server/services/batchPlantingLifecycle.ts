@@ -1,3 +1,4 @@
+import { awardPoints } from "./playerPoints";
 import { barleyHarvestYield, barleyHasExpired } from "../../game-core/farm/barleyDecay";
 import { and, eq, sql } from "drizzle-orm";
 import type { DatabaseTransaction } from "../db/client";
@@ -92,6 +93,7 @@ export const advanceBatchPlanting = async (tx: DatabaseTransaction, farm: typeof
         crop.harvestCompletesAt.getTime() > deadline ||
         (farm.carriedItemKey && farm.carriedItemKey !== "barley") ||
         carriedQuantity + CROP_DEFINITIONS.barley.harvestYield > lockedHarvestFieldLimit(batch) * CROP_DEFINITIONS.barley.harvestYield) break;
+      await awardPoints(tx, farm.playerId, { action: "harvestBarley", source: `harvest:${crop.id}`, completedAt: new Date(deadline) }, now);
       await tx.delete(farmCrops).where(eq(farmCrops.id, crop.id));
       const yieldQuantity = barleyHarvestYield(crop, deadline);
       carriedQuantity += yieldQuantity;
@@ -102,6 +104,10 @@ export const advanceBatchPlanting = async (tx: DatabaseTransaction, farm: typeof
         harvests: progressionStats.harvests + 1 };
       batch = { ...batch, lastHarvested: target, phase: { type: "ready" }, travelStartedAt: new Date(deadline).toISOString(), nextStepAt: new Date(deadline + (batch.travelMs?.[0] ?? 0)).toISOString() };
     } else if (batch.phase.type === "sowing") {
+      const [sown] = await tx.select().from(farmCrops).where(and(eq(farmCrops.farmId, farm.id),
+        eq(farmCrops.column, batch.phase.target.column), eq(farmCrops.row, batch.phase.target.row)));
+      if (sown) await awardPoints(tx, farm.playerId, { action: sown.cropKey === "sesame" ? "sowSesame" : "sowBarley",
+        source: `sow:${sown.id}`, completedAt: sown.plantedAt }, now);
       batch = { ...batch, phase: { type: "ready" }, travelStartedAt: new Date(deadline).toISOString(), nextStepAt: new Date(deadline + (batch.travelMs?.[0] ?? 0)).toISOString() };
     } else if (batch.phase.type === "ready" && !batch.stopRequested && batch.remaining.length) {
       const target: FarmCoordinate = batch.remaining[0]!;
@@ -121,15 +127,17 @@ export const advanceBatchPlanting = async (tx: DatabaseTransaction, farm: typeof
             phase: { type: "harvesting", target, completesAt: completesAt.toISOString() }, nextStepAt: completesAt.toISOString() };
         }
       } else {
-      const plantedAt = new Date(deadline + CROP_DEFINITIONS.barley.sowingDurationMs);
+      const plantedAt: Date = new Date(deadline + CROP_DEFINITIONS[batch.cropKey ?? "barley"].sowingDurationMs);
       const existing = await tx.select({ id: farmCrops.id }).from(farmCrops).where(and(
         eq(farmCrops.farmId, farm.id), eq(farmCrops.column, target.column), eq(farmCrops.row, target.row)));
       if (existing.length) break; // Never overwrite another crop or consume its seed.
-      await tx.insert(farmCrops).values({ farmId: farm.id, cropKey: "barley", decayEligible: batch.decayEligible ?? false, ...target,
+      await tx.insert(farmCrops).values({ farmId: farm.id, cropKey: batch.cropKey ?? "barley", decayEligible: batch.decayEligible ?? false, ...target,
         sowingStartedAt: new Date(deadline), plantedAt,
-        growthCompletesAt: new Date(plantedAt.getTime() + CROP_DEFINITIONS.barley.growthDurationMs) });
-      cultivationStartedAt ??= new Date(deadline);
-      nextBarleyConsumptionAt ??= new Date(deadline + BARLEY_CONSUMPTION_INTERVAL_MS);
+        growthCompletesAt: new Date(plantedAt.getTime() + CROP_DEFINITIONS[batch.cropKey ?? "barley"].growthDurationMs) });
+      if (batch.cropKey !== "sesame") {
+        cultivationStartedAt ??= new Date(deadline);
+        nextBarleyConsumptionAt ??= new Date(deadline + BARLEY_CONSUMPTION_INTERVAL_MS);
+      }
       batch = { ...batch, remaining: batch.remaining.slice(1), travelMs: batch.travelMs?.slice(1), travelPaths: batch.travelPaths?.slice(1),
         carriedSeeds: batch.carriedSeeds ? { ...batch.carriedSeeds, quantity: Math.max(0, batch.carriedSeeds.quantity - 1) } : undefined,
         phase: { type: "sowing", target, completesAt: plantedAt.toISOString() }, nextStepAt: plantedAt.toISOString() };
@@ -141,7 +149,7 @@ export const advanceBatchPlanting = async (tx: DatabaseTransaction, farm: typeof
       const carried = batch.carriedSeeds?.quantity ?? 0;
       const stored = batch.remaining.length - carried;
       if (stored > 0) {
-        const storage = await loadMarketItemStorage(tx, farm.id, "barley", now);
+        const storage = await loadMarketItemStorage(tx, farm.id, batch.cropKey ?? "barley", now);
         if (storage.availableCapacity < stored) break;
         await addToMarketItemStorage(tx, storage, stored, now);
       }

@@ -1,3 +1,4 @@
+import { awardPoints } from "../../src/server/services/playerPoints";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { Effect } from "effect";
@@ -60,6 +61,19 @@ describe.sequential("leaderboard", () => {
     expect(level.leaderboard.entries.every(row => row.rank === 1 && row.score === 3)).toBe(true);
     expect(harvest.leaderboard.entries[0]).toMatchObject({ playerId: ids[0], score: 100, rank: 1 });
     expect((await db.select().from(farms).where(eq(farms.playerId, ids[0]!)))[0]).toEqual(before);
+  });
+  it("ranks lifetime points descending and tied names alphabetically, independently of shekels and ziggurat points", async () => {
+    await db.update(farms).set({ farmerProfile: { version: 1, identity: { name: "Zaba" } } }).where(eq(farms.playerId, ids[0]!));
+    await db.update(farms).set({ farmerProfile: { version: 1, identity: { name: "Abu" } } }).where(eq(farms.playerId, ids[1]!));
+    for (const index of [0, 1]) await db.transaction(tx => awardPoints(tx, ids[index]!, {
+      action: "harvestSesame", source: "leaderboard-harvest", completedAt: new Date()
+    }));
+    await db.transaction(tx => awardPoints(tx, ids[2]!, { action: "bakeBread", source: "leaderboard-bake", completedAt: new Date() }));
+    const result = await run(0, { scope: "local", metric: "points" });
+    if (result.type !== "ok") throw new Error("Expected leaderboard");
+    expect(result.leaderboard.entries.slice(0, 3).map(r => [r.playerId, r.score, r.rank])).toEqual([
+      [ids[2], 40, 1], [ids[1], 20, 2], [ids[0], 20, 2]
+    ]);
   });
   it("rejects unnamed, locked and unknown viewers", async () => {
     expect((await run(11)).type).toBe("rejected");

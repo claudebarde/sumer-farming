@@ -1,3 +1,7 @@
+import type { CropWork } from "../../game-data/cropWork";
+import { harvestFieldLimit } from "../../game-core/farm/harvestCapacity";
+import { fieldKey, orderPlantingFields } from "../../game-core/farm/batchPlanting";
+import { loadMarketItemStorage } from "./marketItemStorage";
 import { and, eq, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import type { GameCommand } from "../../schemas/gameCommands";
@@ -74,4 +78,49 @@ export const tendPerennialCrop = (db: Database, input: Extract<GameCommand, { ty
     return readFarmSnapshot(tx, updated!, false);
   }), catch: cause => cause instanceof PerennialCropRuleError || cause instanceof FarmerUnavailableError ? cause : new PerennialCropPersistenceError({ cause }) });
   return result instanceof PerennialCropRuleError ? yield* Effect.fail(result) : result;
+});
+
+/** Reserve the entire selection and schedule every journey under the farm lock. */
+export const startSesameHarvest = (db: Database, input: Extract<GameCommand, { type: "start_batch_harvesting" }> & { playerId: string }) => Effect.tryPromise({
+  try: () => db.transaction(async tx => {
+    const fail = (message: string): never => { throw new PerennialCropRuleError({ message }); };
+    const now = new Date();
+    const [record] = await tx.select().from(farms).where(eq(farms.playerId, input.playerId)).for("update");
+    if (!record) return fail("Farm not found.");
+    const farm = await advanceFarmLifecycle(tx, record, now);
+    if (farm.version !== input.expectedFarmVersion) return fail("The farm changed. Please try again.");
+    assertFarmerAvailable(farm);
+    const snapshot = await readFarmSnapshot(tx, farm, false);
+    const limit = harvestFieldLimit(farm.happiness);
+    if (input.targets.length < 1 || input.targets.length > limit) return fail(`Select up to ${limit} fields.`);
+    if (new Set(input.targets.map(fieldKey)).size !== input.targets.length) return fail("Select distinct ripe sesame fields.");
+    if (farm.gatheringItemKey || snapshot.crops.some(c => c.harvestStartedAt || Date.parse(c.plantedAt) > now.getTime()) ||
+      snapshot.buildings.some(b => Date.parse(b.completesAt) > now.getTime()) ||
+      snapshot.improvements.some(i => Date.parse(i.completesAt) > now.getTime() || i.destroyStartedAt)) return fail("The farmer is busy.");
+    for (const target of input.targets) {
+      const reason = sesameActionReason(snapshot, target, "harvest", now.getTime());
+      if (reason) return fail(reason);
+    }
+    const storage = await loadMarketItemStorage(tx, farm.id, "sesame", now);
+    const quantity = CROP_DEFINITIONS.sesame.harvestYield;
+    if (storage.availableCapacity < input.targets.length * quantity) return fail("Not enough warehouse space for these fields.");
+    const batchId = crypto.randomUUID();
+    const jobs: CropWork[] = [];
+    let at = now.getTime(), position = input.farmerPosition;
+    for (const target of orderPlantingFields(input.targets, input.targets[0]!)) {
+      const plan = planCropWork(snapshot, target, "sesame", "harvest", at, position);
+      if (!plan) return fail("No accessible route to the field or warehouse.");
+      const crop = snapshot.crops.find(c => fieldKey(c) === fieldKey(target))!;
+      jobs.push({ ...plan, id: crypto.randomUUID(), cropId: crop.id, cropKey: "sesame", action: "harvest", quantity, settled: false,
+        batch: { id: batchId, index: jobs.length, total: input.targets.length } });
+      at = plan.completesAt;
+      position = plan.inbound.at(-1);
+    }
+    for (const job of jobs) await tx.update(farmCrops).set({ harvestStartedAt: new Date(job.workStartsAt), harvestCompletesAt: new Date(job.workEndsAt) })
+      .where(and(eq(farmCrops.id, job.cropId), eq(farmCrops.farmId, farm.id)));
+    const [updated] = await tx.update(farms).set({ production: { ...farm.production, cropWork: jobs[0], cropWorkQueue: jobs.slice(1) },
+      version: sql`${farms.version} + 1`, updatedAt: now }).where(eq(farms.id, farm.id)).returning();
+    return readFarmSnapshot(tx, updated!, false);
+  }),
+  catch: cause => cause instanceof PerennialCropRuleError || cause instanceof FarmerUnavailableError ? cause : new PerennialCropPersistenceError({ cause })
 });

@@ -1,3 +1,4 @@
+import { awardPoints } from "./playerPoints";
 import { and, eq, lte, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { MERCHANT_TRAVEL_MS, NPC_REQUESTS } from "../../game-data/npcRequests";
@@ -99,6 +100,7 @@ export const deliverNpcRequest = (database: Database, input: DeliveryInput) => E
       await tx.insert(shekelTransactions).values({ playerId: player.id, idempotencyKey: input.idempotencyKey,
         type: "request_reward", requestCustomer: request.customer, delta: request.reward, balanceAfter: balance, createdAt: now });
       await tx.update(npcRequestBoards).set({ completed: [...board.completed, input.slot] }).where(eq(npcRequestBoards.farmId, farm.id));
+      await awardPoints(tx, farm.playerId, { action: "merchantRequest", source: `request:${farm.id}:${input.cycle}:${input.slot}`, completedAt: now });
       const [updated] = await tx.update(farms).set({ version: sql`${farms.version} + 1`, updatedAt: now }).where(eq(farms.id, farm.id)).returning();
       return { snapshot: await readFarmSnapshot(tx, updated!, false) };
     }),

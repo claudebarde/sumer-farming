@@ -42,6 +42,8 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
     if (input.type !== "advance_batch_planting") {
       assertFarmerAvailable(farm);
       const harvesting = input.type === "start_batch_harvesting";
+      const cropKey = input.type === "start_batch_planting" ? input.crop ?? "barley" : "barley";
+      if (farm.level < CROP_DEFINITIONS[cropKey].unlockLevel) return fail(`Unlocks at level ${CROP_DEFINITIONS[cropKey].unlockLevel}`);
       const origin = input.farmerPosition && plantingTravelPath(snapshot, INITIAL_FARM_CONFIG.farmerSpawn, input.farmerPosition, now.getTime())
         ? input.farmerPosition : INITIAL_FARM_CONFIG.farmerSpawn;
       const pathTo = (from: typeof origin, to: typeof origin) => {
@@ -49,7 +51,7 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
         if (!path) return fail("The selected field or seed storage cannot be reached.");
         return [...path];
       };
-      if (planting || (farm.carriedItemKey && (harvesting || farm.carriedItemKey !== "barley")) || farm.gatheringItemKey ||
+      if (planting || (farm.carriedItemKey && (harvesting || cropKey === "sesame" || farm.carriedItemKey !== "barley")) || farm.gatheringItemKey ||
         snapshot.crops.some(c => Date.parse(c.plantedAt) > now.getTime() || c.harvestStartedAt !== null) ||
         snapshot.buildings.some(b => Date.parse(b.completesAt) > now.getTime()) ||
         snapshot.improvements.some(i => Date.parse(i.completesAt) > now.getTime() || i.destroyStartedAt !== null)) return fail("Finish the current task and empty your hands first.");
@@ -70,17 +72,19 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
         });
         planting = { ...planting, travelMs, travelPaths, travelStartedAt: now.toISOString(), nextStepAt: new Date(now.getTime() + (travelMs[0] ?? 0)).toISOString() };
       } else {
-      const storage = await loadMarketItemStorage(tx, farm.id, "barley", now);
-      const carried = Math.min(farm.carriedItemQuantity, input.targets.length);
+      const storage = await loadMarketItemStorage(tx, farm.id, cropKey, now);
+      const carried = cropKey === "barley" ? Math.min(farm.carriedItemQuantity, input.targets.length) : 0;
       const stored = input.targets.length - carried;
-      if (storage.storedQuantity < stored) return fail("Not enough carried or stored barley for these fields.");
-      const granary = snapshot.buildings.find(b => (b.type === "granary" || b.type === "warehouse") && b.storedBarley > 0 && Date.parse(b.completesAt) <= now.getTime());
+      if (storage.storedQuantity < stored) return fail(`Not enough ${cropKey} for these fields.`);
+      const granary = snapshot.buildings.find(b => Date.parse(b.completesAt) <= now.getTime() && (cropKey === "sesame"
+        ? b.type === "warehouse" : (b.type === "granary" || b.type === "warehouse") && b.storedBarley > 0));
+      if (cropKey === "sesame" && !granary) return fail("Build a warehouse to store sesame.");
       const source = granary ? { type: "granary" as const, column: granary.column, row: granary.row }
         : { type: "farm" as const, column: INITIAL_FARM_CONFIG.buildingBounds.minimumColumn, row: INITIAL_FARM_CONFIG.buildingBounds.minimumRow };
       if (stored > 0) await removeFromMarketItemStorage(tx, storage, stored, now);
       const excess = farm.carriedItemQuantity - carried;
       harvestUpdate = { carriedItemKey: excess > 0 ? "barley" : null, carriedItemQuantity: excess, carriedItemExpiresAt: excess > 0 ? farm.carriedItemExpiresAt : null };
-      planting = { decayEligible: farm.level >= 10, id: crypto.randomUUID(), total: input.targets.length, remaining: [...orderPlantingFields(input.targets, stored > 0 ? source : input.targets[0]!)], source, stopRequested: false,
+      planting = { cropKey, decayEligible: cropKey === "barley" && farm.level >= 10, id: crypto.randomUUID(), total: input.targets.length, remaining: [...orderPlantingFields(input.targets, stored > 0 ? source : input.targets[0]!)], source, stopRequested: false,
         carriedSeeds: { quantity: carried, expiresAt: farm.carriedItemExpiresAt?.toISOString() ?? null },
         phase: { type: stored > 0 ? "collecting" : "ready" } };
       const collectionTile = granary ? [granary.loadingTile, { column: granary.column, row: granary.row + 2 },
@@ -120,9 +124,9 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
         if (planting.mode === "harvest" || planting.phase.type !== "ready" || planting.stopRequested) return fail("Finish the current planting step first.");
         const target = planting.remaining[0];
         if (!target || !plantableFields(snapshot, now.getTime()).some(p => fieldKey(p) === fieldKey(target))) return fail("The next field is no longer plantable. Stop the batch to return its seeds.");
-        const plantedAt = new Date(now.getTime() + CROP_DEFINITIONS.barley.sowingDurationMs);
-        await tx.insert(farmCrops).values({ farmId: farm.id, cropKey: "barley", decayEligible: planting.decayEligible ?? false, ...target,
-          sowingStartedAt: now, plantedAt, growthCompletesAt: new Date(plantedAt.getTime() + CROP_DEFINITIONS.barley.growthDurationMs) });
+        const plantedAt = new Date(now.getTime() + CROP_DEFINITIONS[planting.cropKey ?? "barley"].sowingDurationMs);
+        await tx.insert(farmCrops).values({ farmId: farm.id, cropKey: planting.cropKey ?? "barley", decayEligible: planting.decayEligible ?? false, ...target,
+          sowingStartedAt: now, plantedAt, growthCompletesAt: new Date(plantedAt.getTime() + CROP_DEFINITIONS[planting.cropKey ?? "barley"].growthDurationMs) });
         planting = { ...planting, travelMs: planting.travelMs?.slice(1), nextStepAt: planting.nextStepAt ? plantedAt.toISOString() : undefined, carriedSeeds: planting.carriedSeeds ? { ...planting.carriedSeeds, quantity: Math.max(0, planting.carriedSeeds.quantity - 1) } : undefined, remaining: planting.remaining.slice(1), phase: { type: "sowing", target, completesAt: plantedAt.toISOString() } };
       } else if (input.action === "harvest") {
         if (planting.mode !== "harvest" || planting.phase.type !== "ready" || planting.stopRequested) return fail("Finish the current harvesting step first.");
@@ -150,7 +154,7 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
       }
       if (planting.phase.type !== "sowing" && planting.phase.type !== "harvesting" && (planting.stopRequested || planting.remaining.length === 0)) {
         if (planting.mode !== "harvest" && planting.remaining.length) {
-          const storage = await loadMarketItemStorage(tx, farm.id, "barley", now);
+          const storage = await loadMarketItemStorage(tx, farm.id, planting.cropKey ?? "barley", now);
           const carried = planting.carriedSeeds?.quantity ?? 0;
           const stored = planting.remaining.length - carried;
           if (storage.availableCapacity < stored) return fail("Make storage space before returning unused seeds.");
@@ -165,7 +169,7 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
     const [updated] = await tx.update(farms).set({
       ...harvestUpdate,
       production: { ...farm.production, planting },
-      ...(input.type === "advance_batch_planting" && input.action === "plant" ? {
+      ...(input.type === "advance_batch_planting" && input.action === "plant" && planting?.cropKey !== "sesame" ? {
         cultivationStartedAt: farm.cultivationStartedAt ?? now,
         nextBarleyConsumptionAt: farm.nextBarleyConsumptionAt ?? new Date(now.getTime() + BARLEY_CONSUMPTION_INTERVAL_MS)
       } : {}),

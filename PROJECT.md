@@ -44,6 +44,10 @@ rules and saved-job compatibility remain in use.
 
 ## Interface styling
 
+Keep popup text to a minimum. Show only information needed to make the current
+decision or understand a blocker; avoid routine explanatory sentences beneath
+action buttons. Keep detailed rules in the game rules documentation.
+
 The game owns its base layout styles in `src/client/styles/_base.scss` and shared
 controls in `index.scss`. NES.css has been removed; use the existing parchment
 panels, sand buttons, disabled states and custom farmer-hand cursors rather than

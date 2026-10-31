@@ -3,6 +3,15 @@
 This is the living, player-facing reference for the game's implemented rules. Use it when explaining the game, preparing help text, or answering players' questions. Planned features are listed separately and are not promises of currently available gameplay.
 
 Topic-specific player guides live in [game-rules/](game-rules/README.md).
+[Player points](game-rules/points.md) are earned for completed work from level 1
+and accumulate permanently. The Farmer tab and farmer’s map popup show the total
+between Happiness and Next meal. Points are the default leaderboard ranking; equal totals share a rank,
+with names ordered alphabetically. Each field or production batch earns one award,
+including completed work reconciled after time away. Moving/storing goods, trading,
+roads, canals, reeds, clay and water give no points. Ziggurat material contribution
+points remain a separate score. Existing development progress starts at zero without
+historical awards. The full action table and one-time construction limits are in
+the points guide. Weekly competitions, seasonal rankings and login rewards remain planned.
 The [ziggurat guide](game-rules/ziggurat.md) records its agreed design and separates
 unconfirmed proposals. Ziggurat interest, material donations and all four construction stages are playable; rewards and festivals remain planned. It is an optional
 neighbourhood bonus project and must never gate farm levelling or individual progression.
@@ -10,6 +19,10 @@ neighbourhood bonus project and must never gate farm levelling or individual pro
 Building production and construction progress bars appear above the building,
 in front of trees and other world sprites. They stay inside the visible map view
 near screen edges and disappear when their building is fully offscreen.
+
+Each map remembers your chosen zoom in this browser across reloads: farm, market
+and neighbourhood are saved separately. **Fit** remembers fitting the full map to
+the screen. Clearing browser storage resets these preferences.
 
 ## Starting your farm
 
@@ -408,11 +421,23 @@ accepted batch's total instead; the server's happiness limits are unchanged.
 - The farm stores 5 barley. The completed granary stores 15 barley before level 7, then automatically increases to 20 at level 7, with no rebuilding or extra cost. The warehouse adds another 20 barley, for 45 total storage at level 8 once constructed. Only one granary and one warehouse can be built.
 - The brewery's barley supply is separate from general storage and cannot be used as a substitute granary.
 
+Barley popup titles show a stage tag: Seeds, Growing, Ripe, or Withering.
+Sesame uses the same tags, showing Growing once its seedlings emerge.
+Date palms show Sapling, Growing, or Ripe beside their popup title, using the same tag style.
+
+Floating numbers show **points earned**, not quantities of goods. Each barley
+harvest shows **+10**, including reduced-yield withered barley; sesame shows **+20**.
+The number rises from the harvested tile and fades over 1.5 seconds without
+delaying the farmer. Keeping a caught fish shows **+5** at the storage destination,
+after the confirmed deposit and visual arrival. Other farmer and porter deliveries,
+including split deliveries, earn no points and show no floating number. Purchases
+and ground drops do not trigger it. Effects do not replay work completed while away.
+
 ### Barley withering (level 10)
 
 - Only barley from planting jobs started at estate level 10 or above can wither. Existing crops and planting queues remain protected, including older saves with no eligibility marker. Date palms and stored inventory are unaffected.
 - For the first **24 hours after ripening**, a field yields **2 barley**. At exactly 24 hours it changes to the approved withering artwork and yields **1 barley**. At exactly **48 hours after ripening**, unharvested barley disappears automatically and the irrigated tile can be sown again; no clearing action or refund is required.
-- The barley popup shows the available yield and time until withering or automatic clearing. Growth and decay continue while away, using saved server timestamps.
+- The barley popup shows its crop stage and time until withering or automatic clearing. Both countdowns include progress bars that fill from left to right: “Withers in” covers the first 24 hours after ripening, then “Clears automatically in” covers the following 24 hours. Growth and decay continue while away, using saved server timestamps.
 - Yield is fixed when the farmer actually starts harvesting that field, not when the player selects it or when its animation completes. A field that expires during travel is skipped and the accepted queue continues; already harvested barley is still delivered normally. Reloads cannot duplicate the yield. Crops already being harvested are not removed mid-job.
 
 ## Date palms (level 9)
@@ -1297,18 +1322,34 @@ dates and other goods. Stored quantities persist per warehouse and are included
 in the estate total. A warehouse containing sesame cannot be demolished.
 There is no minimum sesame reserve: its entire stock can be spent.
 
-At level 10, buy sesame at the fruit and vegetable stand for 3 shekels per basket.
-Choose **Plant sesame** on empty irrigated arable ground. Planting consumes one
-stored basket immediately; the farmer walks to the tile and sows for ten seconds.
+At level 10, buy sesame at the fruit and vegetable stand for 3 shekels per basket,
+or sell stored sesame for 1 shekel per basket. All stored sesame may be sold; no
+seed reserve is required. Purchases require available warehouse capacity.
+The **Plant sesame** action appears only when the estate has stored sesame.
+Choose it on empty irrigated arable ground, select multiple fields, then confirm.
+The selection limit matches barley's happiness-based field limit and cannot exceed
+stored sesame. Each field costs one basket; all selected seeds are deducted once
+when the queue is confirmed. No sesame reserve is required. The farmer collects
+seeds from the warehouse and sows each field for ten seconds in sequence.
+The saved queue continues while away or after reloading.
 Growth takes 60 minutes after sowing: seedlings for minutes 0–15, leafy plants
 for 15–35, and flowering plants with developing pods for 35–60.
 
-Ripe sesame yields three baskets. Choose **Harvest sesame** when the farmer is
-free and the warehouse has room for all three. Those slots are reserved immediately;
-market purchases cannot occupy them. The farmer cuts the crop for ten seconds,
-then carries the harvest to the warehouse. The field is cleared for replanting.
+### Harvesting multiple sesame fields
+
+Choose **Harvest sesame** on a ripe field, select other ripe sesame fields, and
+confirm in the lower panel. The happiness limit is the same as for barley:
+up to 4, 6 or 8 fields. The selection is also limited by warehouse space for
+three baskets per field. Barley and sesame cannot be mixed in one selection.
+The full selection reserves its storage space on confirmation. The farmer
+harvests and delivers each field's three baskets to the warehouse before going
+to the next field. The saved queue continues while you are away and after reloads.
+During delivery, the farmer carries sesame baskets; the quantity chip shows the full three-basket load.
+The farmer cuts each crop for ten seconds. Each harvested field is cleared for replanting.
+A floating **+20 points** number rises from the harvested tile and fades over 1.5 seconds,
+matching barley's harvest effect. It does not delay delivery or replay after time away.
 Saved work and growth continue offline; seeds are consumed and harvests stored
 only once. Sesame does not use the barley decay rule.
 
-Sesame selling and oil production are not yet available. The planned oil recipe
+Oil production is not yet available. The planned oil recipe
 uses three baskets of sesame for one jar of oil.

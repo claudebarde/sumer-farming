@@ -1,3 +1,4 @@
+import { awardPoints } from "./playerPoints";
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { and, eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
@@ -63,6 +64,7 @@ export const fishingAction = (db: Database, input: Input) => Effect.gen(function
           if (input.action === "store") {
             if (input.target.column < buildingBounds.minimumColumn || input.target.column > buildingBounds.maximumColumn || input.target.row < buildingBounds.minimumRow || input.target.row > buildingBounds.maximumRow) return fail("Store fish only at the farm building.");
             if (quantity >= FISH_CAPACITY) return fail("Fish storage is full. Release the fish at the river.");
+            await awardPoints(tx, farm.playerId, { action: "keepFish", source: `fish-store:${farm.id}:${farm.version}`, completedAt: new Date(now) });
             await tx.insert(farmInventory).values({ farmId: farm.id, itemKey: "fish", quantity: quantity + 1 }).onConflictDoUpdate({ target: [farmInventory.farmId, farmInventory.itemKey], set: { quantity: quantity + 1, updatedAt: new Date(now) } });
           }
           update.carriedItemKey = null; update.carriedItemQuantity = 0; update.carriedItemExpiresAt = null;

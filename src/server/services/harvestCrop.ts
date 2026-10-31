@@ -1,3 +1,4 @@
+import { awardPoints } from "./playerPoints";
 import { barleyHarvestYield } from "../../game-core/farm/barleyDecay";
 import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
@@ -203,6 +204,8 @@ const executeHarvestAction = (
                 return { type: "rule_error", rule: validation };
               }
 
+              await awardPoints(transaction, farm.playerId, { action: "harvestBarley", source: `harvest:${crop.id}`,
+                completedAt: crop.harvestCompletesAt! }, now);
               const cropDefinition = CROP_DEFINITIONS[crop.cropKey];
               const yieldQuantity = crop.cropKey === "barley" ? barleyHarvestYield(crop, currentTimeMillis) : cropDefinition.harvestYield;
 

@@ -2,7 +2,7 @@ import { DecorationCommandSchema } from "../schemas/decorations";
 import { changeDecoration } from "./services/decorations";
 // src/server/index.ts
 import { claimBuildingReadiness } from "./services/buildingReadiness";
-import { tendPerennialCrop, PerennialCropRuleError, PerennialCropPersistenceError } from "./services/perennialCrops";
+import { startSesameHarvest, tendPerennialCrop, PerennialCropRuleError, PerennialCropPersistenceError } from "./services/perennialCrops";
 
 import { Effect, Either } from "effect";
 import { LeaderboardQuerySchema } from "../schemas/leaderboard";
@@ -575,6 +575,7 @@ app.post("/api/game/action", async c => {
       Effect.either(
         match(command)
           .returnType<GameActionEffect>()
+          .with({ type: "start_batch_harvesting", crop: "sesame" }, command => startSesameHarvest(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: P.union("start_batch_planting", "start_batch_harvesting", "advance_batch_planting") }, command => batchPlantingAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "build_road" }, command => buildRoad(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "destroy_road" }, command => buildRoad(database, { ...command, playerId: c.get("developmentPlayer").id }))

@@ -38,7 +38,7 @@ export const isometricPlantingPose = (saved: BatchPlanting, now: number): Planti
     if (batch.phase.type === "sowing") {
       position = batch.phase.target;
       const end = Date.parse(batch.phase.completesAt);
-      if (now < end) return { ...pose("sowing"), elapsed: Math.max(0, now - (end - CROP_DEFINITIONS.barley.sowingDurationMs)) };
+      if (now < end) return { ...pose("sowing"), elapsed: Math.max(0, now - (end - CROP_DEFINITIONS[batch.cropKey ?? "barley"].sowingDurationMs)) };
       if (batch.stopRequested || !batch.remaining.length) return pose("done", 0);
       batch = { ...batch, phase: { type: "ready" }, travelStartedAt: new Date(end).toISOString(), nextStepAt: new Date(end + (batch.travelMs?.[0] ?? 0)).toISOString() };
       continue;
@@ -70,7 +70,7 @@ export const isometricPlantingPose = (saved: BatchPlanting, now: number): Planti
       if (batch.stopRequested || !batch.remaining.length) return pose("done", 0);
       const target = batch.remaining[0]!;
       batch = { ...batch, remaining: batch.remaining.slice(1), travelPaths: batch.travelPaths?.slice(1), travelMs: batch.travelMs?.slice(1),
-        phase: { type: "sowing", target, completesAt: new Date(end + CROP_DEFINITIONS.barley.sowingDurationMs).toISOString() } };
+        phase: { type: "sowing", target, completesAt: new Date(end + CROP_DEFINITIONS[batch.cropKey ?? "barley"].sowingDurationMs).toISOString() } };
     }
   }
   return pose("idle", 0);
@@ -80,7 +80,7 @@ export const isometricPlantingPose = (saved: BatchPlanting, now: number): Planti
 export const sowingProgress = (batch: BatchPlanting, now: number) => {
   const pose = isometricPlantingPose(batch, now);
   const completed = pose?.completedFields ?? 0;
-  const perField = CROP_DEFINITIONS.barley.sowingDurationMs;
+  const perField = CROP_DEFINITIONS[batch.cropKey ?? "barley"].sowingDurationMs;
   const totalMs = perField * batch.total;
   const elapsedMs = completed * perField + (pose?.type === "sowing" ? pose.elapsed : 0);
   return { completed, totalMs, percentage: Math.floor(Math.max(0, Math.min(100, elapsedMs / totalMs * 100))) };

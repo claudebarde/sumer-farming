@@ -1,4 +1,8 @@
-import { SESAME_SOURCES, SESAME_LAYOUT } from "../sesameSprites";
+import { currentCropWork } from "../../../../game-data/cropWork";
+import { savedMapZoom, saveMapZoom } from "../zoomPreference";
+import { HarvestGainEffect } from "../harvestGainEffect";
+import { deliveryGains } from "../deliveryGains";
+import { SESAME_SOURCES, SESAME_LAYOUT, SESAME_RIPE_LAYOUT } from "../sesameSprites";
 import { FARMER_BREAD_SOURCES, FARMER_BREAD_WALK_BOUNDS, farmerBreadCarryTexture } from "../farmerBreadCarry";
 import miniatureUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/ziggurat/ziggurat-completed.png";
 import { miniaturePlacementError } from "../../../../game-core/farm/miniaturePlacement";
@@ -8,6 +12,7 @@ import { buildingAudioActive, type BuildingAudioKey } from "../buildingAudio";
 import { DATE_HARVEST_PREVIEW_SOURCES, dateHarvestPreviewFrame, dateHarvestPreviewOrigin, dateHarvestPreviewBasketsVisible } from "../dateHarvestPreview";
 import dateHarvestBaskets from "../../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 import { palmHarvestPose, palmHarvestCarrier } from "../palmHarvesting";
+import { FARMER_SESAME_SOURCES } from "../farmerSesameCarry";
 import { FARMER_DATE_SOURCES, FARMER_DATE_BOUNDS, FARMER_DATE_ORIGIN, FARMER_DATE_DISPLAY_SIZE } from "../farmerDateCarry";
 import { DONKEY_SOURCES, donkeyFrameBounds, donkeyDirectionalPose, donkeyWanderPose } from "../donkeySprites";
 import { scheduledMerchantVisit } from "../merchantVisit";
@@ -101,8 +106,7 @@ import { isometricPlantingPose, plantingBlocker } from "../isometricPlanting";
 import { isometricHarvestPose, harvestingBlocker } from "../isometricHarvesting";
 import { PALM_TENDING_SOURCES, PALM_TENDING_BOUNDS, PALM_TENDING_ORIGIN, palmTendingTexture } from "../palmTending";
 import { FARMER_HARVEST_SOURCES, FARMER_HARVEST_BOUNDS, farmerHarvestTexture } from "../farmerHarvest";
-import { fieldKey, plantableFields, harvestableFields, plantingSelectionLimit } from "../../../../game-core/farm/batchPlanting";
-import { harvestFieldLimit } from "../../../../game-core/farm/harvestCapacity";
+import { harvestingSelectionLimit, fieldKey, plantableFields, harvestableFields, plantingSelectionLimit } from "../../../../game-core/farm/batchPlanting";
 import { pickupDuration, pickupPose, transferGroundItems, type GroundTransfer } from "../isometricPickup";
 import { buildingFacingLeft } from "../buildingFacing";
 import { createFarmerIdle } from "../farmerIdle";
@@ -167,6 +171,10 @@ export class IsometricFarmScene extends Phaser.Scene {
   private ready = false;
   private palmProgress?: Phaser.GameObjects.Graphics;
   private palmPlantingSeen: string | null = null;
+  private harvestPreviewOriginal: FarmSnapshot | null = null;
+  private harvestPreviewFarmer: IsoCell | null = null;
+  private readonly harvestGainEffect = new HarvestGainEffect(this);
+  private suppressDeliveryGains = true;
   private palmHarvestSeen: string | null = null;
   private palmHarvestBaskets?: Phaser.GameObjects.Image;
   private palmRest: { cell: IsoCell; visual: IsoCell } | null = null;
@@ -221,7 +229,7 @@ export class IsometricFarmScene extends Phaser.Scene {
   private cargo!: Phaser.GameObjects.Text;
   private cargoBackground!: Phaser.GameObjects.Graphics;
   private plantingSelection: readonly IsoCell[] | null = null;
-  private selectionMode: "plant" | "harvest" = "plant";
+  private selectionMode: "plant" | "harvest" | "sesame" | "harvestSesame" = "plant";
   private cropImages: { cell: IsoCell; image: Phaser.GameObjects.Image }[] = [];
   private buildingImages: Phaser.GameObjects.Image[] = [];
   private roadPlan: readonly IsoCell[] | null = null;
@@ -377,7 +385,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     FARMER_BUILD_SOURCES.forEach((url, i) => this.load.image(`source-farmer-build-${i}`, url));
     FARMER_PLANT_SOURCES.forEach((url, i) => this.load.image(`source-farmer-plant-${i}`, url));
     FARMER_HARVEST_SOURCES.forEach((url, i) => this.load.image(`source-farmer-harvest-${i}`, url));
-    for (const [key, url] of Object.entries({ ...scenery, ...crops, ...SESAME_SOURCES, ...fallback, ...DATE_HARVEST_PREVIEW_SOURCES, ...PALM_TENDING_SOURCES, ...FARMER_DATE_SOURCES })) this.load.image(`source-${key}`, url);
+    for (const [key, url] of Object.entries({ ...scenery, ...crops, ...SESAME_SOURCES, ...fallback, ...DATE_HARVEST_PREVIEW_SOURCES, ...PALM_TENDING_SOURCES, ...FARMER_DATE_SOURCES, ...FARMER_SESAME_SOURCES })) this.load.image(`source-${key}`, url);
   }
   create() {
     const texturesStarted = performance.now();
@@ -429,6 +437,8 @@ export class IsometricFarmScene extends Phaser.Scene {
     activityEvents.forEach(event => window.addEventListener(event, interruptSweep, true));
     let idleAwaySince: number | null = null;
     const sweepVisibility = () => {
+      this.harvestGainEffect.reset();
+      this.suppressDeliveryGains = true;
       const now = Date.now();
       if (document.visibilityState !== "visible") {
         idleAwaySince = this.sweepEligible(now) ? now : null;
@@ -586,7 +596,7 @@ export class IsometricFarmScene extends Phaser.Scene {
         : prepareFarmerTexture(source, isDatePalm ? DATE_PALM_SHARPEN_AMOUNT : isCrop ? 0.6 : 0.15, bounds,
           isDatePalm ? DATE_PALM_TEXTURE_SIZE : key in DATE_HARVEST_PREVIEW_SOURCES ? 256 : 128))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
-    for (const key of Object.keys(FARMER_DATE_SOURCES)) if (!this.textures.exists(key)) {
+    for (const key of Object.keys({ ...FARMER_DATE_SOURCES, ...FARMER_SESAME_SOURCES })) if (!this.textures.exists(key)) {
       this.textures.addCanvas(key, prepareFarmerTexture(this.textures.get(`source-${key}`).getSourceImage() as HTMLImageElement,
         0.15, FARMER_DATE_BOUNDS, 256))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
@@ -605,10 +615,9 @@ export class IsometricFarmScene extends Phaser.Scene {
     }
     renderDiagnostic("texture-preparation", texturesStarted);
     this.events.once("shutdown", () => { delete this.game.canvas.dataset.fieldCursor; });
-    this.ready = true; this.draw(); this.fit();
-    // Start at the player's preferred framing: two presses of the 1.2× zoom button.
-    // Keep the original fit scale as the zoom-out limit and explicit Fit action.
-    this.zoomBy(1.2 ** 2);
+    this.ready = true; this.draw(); this.fit(false);
+    // Restore the chosen zoom; new browsers retain the approved initial framing.
+    this.cameras.main.setZoom(savedMapZoom("farm", this.baseZoom, this.baseZoom * 1.2 ** 2));
     let last: { x: number; y: number } | null = null;
     let dragged = false;
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => { last = { x: pointer.x, y: pointer.y }; dragged = false; });
@@ -630,7 +639,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.input.on("gameout", () => { this.roadPointer = null; this.renderRoadGhost(); });
     this.input.on("pointerup", (pointer: Phaser.Input.Pointer, objects: Phaser.GameObjects.GameObject[]) => {
       last = null;
-      if (dragged || this.palmConfirmationTarget) return;
+      if (dragged || this.palmConfirmationTarget || this.harvestPreviewOriginal) return;
       const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
       if (this.decorationSelection) {
         this.decorationCell=isoCell(world.x,world.y);this.decorationLocked=true;
@@ -683,7 +692,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       this.selected = this.selectedFarmer ? this.farmerCell : insideWorld(cell) ? cell : null; this.draw();
       this.publishAnchor();
     });
-    this.scale.on("resize", this.fit, this);
+    this.scale.on("resize", this.restoreZoomAfterResize, this);
     const fishingKey = (event: KeyboardEvent) => {
       if (!this.sys.isActive() || !this.snapshot.farm.fishing ||
         (event.target instanceof HTMLElement && ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(event.target.tagName))) return;
@@ -694,7 +703,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     };
     window.addEventListener("keydown", fishingKey);
     this.events.once("shutdown", () => window.removeEventListener("keydown", fishingKey));
-    this.events.once("shutdown", () => { this.stopProcession(); this.ready = false; this.scale.off("resize", this.fit, this); });
+    this.events.once("shutdown", () => { this.stopProcession(); this.harvestGainEffect.reset(); this.ready = false; this.scale.off("resize", this.restoreZoomAfterResize, this); });
   }
   private placementBuilding: PlaceableBuilding = "granary";
   private millPreviewParts: Phaser.GameObjects.Image[] = [];
@@ -755,7 +764,54 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.mockBuilding = this.add.image(p.x, p.y + (granary ? -12 : 0), texture).setOrigin(0.5, shrine ? 840 / 1024 : granary ? 1 : 120 / 128)
       .setDisplaySize(displaySize, displaySize).setDepth(10001).setTint(colour).setAlpha(0.65);
   }
+  previewBarleyHarvest(enabled: boolean) {
+    if (this.harvestPreviewOriginal) {
+      const original = this.harvestPreviewOriginal;
+      this.harvestPreviewOriginal = null;
+      this.harvestGainEffect.reset();
+      this.setSnapshot(original);
+      if (this.harvestPreviewFarmer) this.farmerCell = this.harvestPreviewFarmer;
+    }
+    if (!enabled) { this.draw(); return; }
+    const original = this.snapshot;
+    const target = plantableFields(original, Date.now())[0];
+    if (!target) return;
+    this.harvestPreviewFarmer = this.farmerCell;
+    const now = Date.now(), id = crypto.randomUUID();
+    const preview: FarmSnapshot = { ...original,
+      crops: [...original.crops, { ...target, id, cropKey: "barley", decayEligible: false,
+        sowingStartedAt: new Date(now - 3600000).toISOString(), plantedAt: new Date(now - 3590000).toISOString(),
+        growthCompletesAt: new Date(now - 1000).toISOString(), harvestStartedAt: null, harvestCompletesAt: null }],
+      farm: { ...original.farm, carriedItem: null, production: { ...original.farm.production,
+        planting: { id, mode: "harvest", total: 1, remaining: [], stopRequested: false,
+          source: { type: "farm", ...target }, phase: { type: "harvesting", target, completesAt: new Date(now + 3000).toISOString() } }
+      } }
+    };
+    this.harvestGainEffect.reset();
+    this.setSnapshot(preview);
+    this.harvestPreviewOriginal = original;
+    // Exercise the same crop-removal redraw as a live harvest response.
+    this.time.delayedCall(3100, () => {
+      if (!this.harvestPreviewOriginal || this.snapshot.farm.production.planting?.id !== id) return;
+      this.snapshot = { ...this.snapshot, crops: this.snapshot.crops.filter(crop => crop.id !== id) };
+      this.draw();
+    });
+    const point = isoPoint(target);
+    this.cameras.main.centerOn(point.x, point.y - 60);
+  }
   setSnapshot(snapshot: FarmSnapshot) {
+    if (this.harvestPreviewOriginal) { this.harvestPreviewOriginal = snapshot; return; }
+    const now = Date.now();
+    const visible = this.ready && !document.hidden && this.sys.isActive();
+    if (visible && !this.suppressDeliveryGains) {
+      // Manual storage is already committed before its cosmetic journey starts.
+      // Reveal any earned points only once the worker reaches the deposit.
+      const depositAt = this.pickup?.type === "store"
+        ? this.pickup.startedAt + pickupDuration(this.pickup.path) : now;
+      this.harvestGainEffect.enqueue(deliveryGains(this.snapshot, snapshot, now, depositAt));
+    }
+    this.suppressDeliveryGains = !visible;
+    if (this.ready) this.harvestGainEffect.sample(this.snapshot, Date.now(), !document.hidden && this.sys.isActive());
     if (activeBrewingPreparation(snapshot, Date.now())) { this.walkPath = []; this.walkProgress = 0; }
     for (const [id, job] of Object.entries(this.snapshot.farm.production.baking)) {
       if (!snapshot.farm.production.baking[id]) this.farmerCell = job.preparation?.path.at(-1) ?? this.farmerCell;
@@ -802,7 +858,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     if (farmerProductionJob(snapshot.farm) || snapshot.farm.production.planting || activeConstruction(snapshot, Date.now())) { this.walkPath = []; this.walkProgress = 0; }
     if (this.ready) this.reconcileRender();
   }
-  setPlantingSelection(cells: readonly IsoCell[] | null, pending = false, mode: "plant" | "harvest" = "plant") {
+  setPlantingSelection(cells: readonly IsoCell[] | null, pending = false, mode: "plant" | "harvest" | "sesame" | "harvestSesame" = "plant") {
     if (cells !== null || pending) this.stopSweeping();
     this.plantingSelection = cells; this.commandPending = pending; this.selectionMode = mode;
     if (cells !== null || pending) {
@@ -823,9 +879,10 @@ export class IsometricFarmScene extends Phaser.Scene {
       const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
       const cell = isoCell(world.x, world.y);
       const selected = this.plantingSelection.some(field => sameCell(field, cell));
-      const harvesting = this.selectionMode === "harvest";
-      const eligible = (harvesting ? harvestableFields : plantableFields)(this.snapshot, now).some(field => sameCell(field, cell));
-      const limit = harvesting ? harvestFieldLimit(this.snapshot.farm.household.happiness) : plantingSelectionLimit(this.snapshot, now);
+      const harvesting = this.selectionMode === "harvest" || this.selectionMode === "harvestSesame";
+      const crop = this.selectionMode === "sesame" || this.selectionMode === "harvestSesame" ? "sesame" : "barley";
+      const eligible = (harvesting ? harvestableFields(this.snapshot, now, crop) : plantableFields(this.snapshot, now)).some(field => sameCell(field, cell));
+      const limit = harvesting ? harvestingSelectionLimit(this.snapshot, now, crop) : plantingSelectionLimit(this.snapshot, now, this.selectionMode === "sesame" ? "sesame" : "barley");
       const room = this.plantingSelection.length < limit;
       const blocked = (harvesting ? harvestingBlocker : plantingBlocker)(this.snapshot, now);
       cursor = !this.commandPending && !blocked && eligible && (selected || room)
@@ -1021,6 +1078,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       if (!isIsometricRiverRow(row) && !road && !canal) {
         this.add.image(point.x, point.y, insidePlot(cell) ? "arable-ground" : "non-arable-ground").setOrigin(0.5)
           .setDisplaySize(ISO_WIDTH, ISO_HEIGHT).setDepth(-975);
+
       }
       if (road) {
         this.add.image(point.x, point.y, `road-${roadConnectionMask(cell, snapshot.farm.roads, now)}`).setOrigin(0.5)
@@ -1061,8 +1119,10 @@ export class IsometricFarmScene extends Phaser.Scene {
     const batch = snapshot.farm.production.planting;
     if (this.plantingSelection !== null || batch) {
       const selected = new Set((this.plantingSelection ?? []).map(fieldKey));
-      const limit = this.selectionMode === "harvest" ? harvestFieldLimit(snapshot.farm.household.happiness) : plantingSelectionLimit(snapshot, now);
-      const targets = batch ? [...batch.remaining, ...(batch.phase.type === "sowing" || batch.phase.type === "harvesting" ? [batch.phase.target] : [])] : (this.selectionMode === "harvest" ? harvestableFields : plantableFields)(snapshot, now);
+      const harvesting = this.selectionMode === "harvest" || this.selectionMode === "harvestSesame";
+      const crop = this.selectionMode === "sesame" || this.selectionMode === "harvestSesame" ? "sesame" : "barley";
+      const limit = harvesting ? harvestingSelectionLimit(snapshot, now, crop) : plantingSelectionLimit(snapshot, now, this.selectionMode === "sesame" ? "sesame" : "barley");
+      const targets = batch ? [...batch.remaining, ...(batch.phase.type === "sowing" || batch.phase.type === "harvesting" ? [batch.phase.target] : [])] : (harvesting ? harvestableFields(snapshot, now, crop) : plantableFields(snapshot, now));
       const overlay = this.add.graphics().setDepth(-850);
       for (const cell of targets) this.diamond(overlay, cell, batch || selected.has(fieldKey(cell)) ? 0x42ad62 : selected.size >= limit ? 0xda4545 : 0xffd84d, 0.6);
     }
@@ -1070,8 +1130,9 @@ export class IsometricFarmScene extends Phaser.Scene {
       const p = isoPoint(crop), stage = barleyStage(crop, now);
       if (crop.cropKey === "sesame") {
         const sprite = isometricCropSprite(crop, now);
-        if (sprite) this.add.image(p.x + SESAME_LAYOUT.offsetX, p.y + SESAME_LAYOUT.offsetY, sprite)
-          .setOrigin(SESAME_LAYOUT.originX, SESAME_LAYOUT.originY).setDisplaySize(SESAME_LAYOUT.size, SESAME_LAYOUT.size).setDepth(p.y + SESAME_LAYOUT.depthOffset);
+        const layout = sprite === "sesameRipe" ? SESAME_RIPE_LAYOUT : SESAME_LAYOUT;
+        if (sprite) this.add.image(p.x + layout.offsetX, p.y + layout.offsetY, sprite)
+          .setOrigin(layout.originX, layout.originY).setDisplaySize(layout.size, layout.size).setDepth(p.y + layout.depthOffset);
       } else if (stage) {
         const image = this.add.image(p.x - (stage === "ripe" || stage === "withering" ? 4 : 0), p.y + (stage === "ripe" || stage === "withering" ? 2 : 0), stage)
           .setOrigin(0.5, 84 / 128).setDisplaySize(stage === "sown" ? 112 : 98, stage === "sown" ? 112 : 98).setDepth(barleyDepth(p.y, stage));
@@ -1338,7 +1399,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.walkingForAudio = false;
     this.renderMills();
     this.actor.setVisible(true); this.actorShadow.setVisible(true);
-    const cropJob = this.snapshot.farm.production.cropWork;
+    const cropJob = currentCropWork(this.snapshot.farm.production, Date.now());
     if (this.palmProgress?.scene) this.palmProgress.clear();
     if (this.palmHarvestBaskets?.scene) this.palmHarvestBaskets.setVisible(false);
     if (cropJob?.action === "harvest") {
@@ -1605,9 +1666,9 @@ export class IsometricFarmScene extends Phaser.Scene {
       this.walkingForAudio = work.type === "walking";
       const point = isoPoint(work.position);
       this.actor.setPosition(point.x, point.y).setDepth(point.y + 1).setFlipX(work.type === "sowing" ? false : work.facingLeft)
-        .setTexture(work.type === "harvesting" ? farmerHarvestTexture(work.elapsed) : work.type === "sowing" ? farmerPlantTexture(work.elapsed) : farmerTravelTexture(work.distance, work.seeds, work.type === "walking")).setDisplaySize(64, 64);
+        .setTexture(work.type === "harvesting" ? farmerHarvestTexture(work.elapsed) : work.type === "sowing" ? farmerPlantTexture(work.elapsed) : farmerTravelTexture(work.distance, batch?.cropKey === "sesame" ? 0 : work.seeds, work.type === "walking")).setDisplaySize(64, 64);
       this.actorShadow.setPosition(point.x, point.y).setDepth(point.y);
-      this.renderCargo(point.x, point.y - 62, work.seeds);
+      this.renderCargo(point.x, point.y - 62, work.seeds, batch?.cropKey ?? "barley");
       return;
     }
     this.cargo.setVisible(false);
@@ -1875,7 +1936,7 @@ export class IsometricFarmScene extends Phaser.Scene {
   }
 
   isHarvestingForAudio(now: number): boolean {
-    const job = this.snapshot.farm.production.cropWork;
+    const job = currentCropWork(this.snapshot.farm.production, now);
     const sesameHarvesting = job?.cropKey === "sesame" && job.action === "harvest" && !job.settled && now >= job.workStartsAt && now < job.workEndsAt;
     return this.ready && !this.graphicsLost && this.sys.isActive() && this.sys.isVisible() &&
       (sesameHarvesting || isometricHarvestPose(this.snapshot, now)?.type === "harvesting");
@@ -1883,6 +1944,7 @@ export class IsometricFarmScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     if (!this.ready || this.graphicsLost) return;
+    this.harvestGainEffect.sample(this.snapshot, Date.now(), !document.hidden);
     this.updateFieldSelectionCursor();
     this.renovations.forEach(r => r.animation.restore());
     if (!document.hidden && !this.reducedMotion?.matches) this.boatBobElapsed += Math.min(80, Math.max(0, delta));
@@ -2016,23 +2078,32 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.fadeRoadPlanBuildings();
     this.daylightShadows.render(this.shadowPreset);
     this.renderRoadGhost();
+    // Render gains after every operation that can rebuild the scene.
+    this.harvestGainEffect.render(delta, this.reducedMotion?.matches ?? false);
     if (this.marketTrip && !this.walkPath.length && sameCell(this.farmerCell, marketEntrance)) {
       this.marketTrip = false;
       this.enterMarket();
       this.scene.switch("isometric-market");
     }
   }
-  fit() {
+  private restoreZoomAfterResize() {
+    const previous = this.cameras.main.zoom;
+    this.fit(false);
+    this.cameras.main.setZoom(savedMapZoom("farm", this.baseZoom, previous));
+  }
+  fit(persist = true) {
     if (!this.ready) return;
     const b = config.worldBounds;
     const span = b.maximumColumn - b.minimumColumn + 1 + b.maximumRow - b.minimumRow + 1;
     const center = isoPoint({ column: (b.minimumColumn + b.maximumColumn) / 2, row: (b.minimumRow + b.maximumRow) / 2 });
     this.baseZoom = Math.min(this.scale.width / (span * ISO_WIDTH / 2 + 44), this.scale.height / (span * ISO_HEIGHT / 2 + 112));
     this.cameras.main.setZoom(this.baseZoom).centerOn(center.x, center.y - 24);
+    if (persist) saveMapZoom("farm", "fit");
   }
   zoomBy(factor: number) {
     if (!this.ready) return;
     const camera = this.cameras.main;
     camera.setZoom(Phaser.Math.Clamp(camera.zoom * factor, this.baseZoom, Math.max(2, this.baseZoom)));
+    saveMapZoom("farm", camera.zoom);
   }
 }

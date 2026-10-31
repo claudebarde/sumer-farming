@@ -2,10 +2,11 @@ import { z } from "zod";
 
 export const LeaderboardQuerySchema = z.object({
   scope: z.enum(["local", "global"]).default("local"),
-  metric: z.enum(["level", "shekels", "harvestedBarley", "ziggurat"]).default("level")
+  metric: z.enum(["points", "level", "shekels", "harvestedBarley", "ziggurat"]).default("points")
 });
 export type LeaderboardQuery = z.infer<typeof LeaderboardQuerySchema>;
 export const LEADERBOARD_METRICS = {
+  points: { label: "Points", description: "Lifetime points earned by completing work." },
   ziggurat: { label: "Ziggurat contributions", description: "Construction contribution points across all stages." },
   level: { label: "Estate level", description: "Your current estate level." },
   shekels: { label: "Shekels", description: "Available shekels, excluding money reserved in market orders." },

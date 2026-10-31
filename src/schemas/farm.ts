@@ -15,7 +15,8 @@ export const FarmSnapshotSchema = z.object({
   rewards: z.array(z.object({id:z.uuid(), objectId:z.uuid().nullable(), awardedAt:z.iso.datetime()})).default([]),
   created: z.boolean(),
   player: z.object({
-    shekelBalance: z.int().nonnegative()
+    shekelBalance: z.int().nonnegative(),
+    points: z.int().nonnegative().optional()
   }),
   farm: z.object({
     farmerProfile: FarmerProfileSchema.nullish(),

@@ -1,3 +1,4 @@
+import { awardPoints } from "./playerPoints";
 import { eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { evaluateProgression } from "../../game-core/farm/progression";
@@ -93,6 +94,7 @@ export const claimFarmLevel = (database: Database, input: {
         } } : {}),
         ...(farm.level + 1 === HAPPINESS_MANAGEMENT_LEVEL ? { happinessCheckedAt: new Date(now) } : {}),
         version: sql`${farms.version} + 1`, updatedAt: new Date() }).where(eq(farms.id, farm.id)).returning();
+      await awardPoints(tx, farm.playerId, { action: "farmLevel", source: `level:${farm.level + 1}`, completedAt: new Date(now) });
       return readFarmSnapshot(tx, updated!, false);
     }), catch: cause => new LevelClaimPersistenceError({ cause })
   });

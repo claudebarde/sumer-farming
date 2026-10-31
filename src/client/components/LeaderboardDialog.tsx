@@ -31,10 +31,10 @@ function Results({ query, compact = false }: { readonly query: LeaderboardQuery;
 }
 
 export function LeaderboardContent({ localOnly = false }: { readonly localOnly?: boolean }) {
-  const [query, setQuery] = useState<LeaderboardQuery>({ scope: "local", metric: "level" });
+  const [query, setQuery] = useState<LeaderboardQuery>({ scope: "local", metric: "points" });
   const [refresh, setRefresh] = useState(0);
   return <Tabs.Root value={query.scope} onValueChange={scope => {
-    if (scope === "local" || (!localOnly && scope === "global")) setQuery(current => ({ ...current, scope, metric: scope === "global" && current.metric === "ziggurat" ? "level" : current.metric }));
+    if (scope === "local" || (!localOnly && scope === "global")) setQuery(current => ({ ...current, scope, metric: scope === "global" && current.metric === "ziggurat" ? "points" : current.metric }));
   }}>
     {!localOnly && <Tabs.List className={styles["manage-tabs-list"]} aria-label="Leaderboard scope">
       <Tabs.Trigger className={styles["manage-tabs-trigger"]} value="local">Your neighbourhood</Tabs.Trigger>

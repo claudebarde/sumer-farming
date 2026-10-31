@@ -45,17 +45,26 @@ export default function BuildingStorageTables({ location, inventory, barley, war
       shared("reed", "Reed"), shared("clay", "Clay")
     ] }
   ];
-  if (visual) return <ul className={gridStyles.grid} aria-label={`${location} inventory`}>
-    {groups.flatMap(group => group.items).map(item => <li className={gridStyles.card} key={item.label}>
-      <img src={storageImages[item.label]} alt="" width={36} height={36} draggable={false} />
-      <div className={gridStyles.itemHeading}>
-        <span className={gridStyles.name}>{item.label}</span>
-        <span className={gridStyles.quantity}>{item.quantity}/{item.capacity}</span>
-      </div>
-      <progress value={Math.min(item.quantity, item.capacity)} max={Math.max(1, item.capacity)}
-        aria-label={`${item.label} storage`} aria-valuetext={`${item.quantity} of ${item.capacity}`} />
-    </li>)}
-  </ul>;
+  if (visual) {
+    const items = groups.flatMap(group => group.items);
+    const foodLabels = new Set(["Bread", "Beer", "Flour", "Groats", "Date baskets", "Fish"]);
+    const tables = [
+      { label: "Food and drink", items: items.filter(item => foodLabels.has(item.label)) },
+      { label: "Crops and materials", items: items.filter(item => !foodLabels.has(item.label)) }
+    ];
+    return <div className={gridStyles.tableColumns} aria-label={`${location} inventory`}>
+      {tables.map(group => <table key={group.label} className={gridStyles.inventoryTable} aria-label={group.label}>
+        <colgroup><col className={gridStyles.iconColumn} /><col className={gridStyles.nameColumn} /><col /><col className={gridStyles.countColumn} /></colgroup>
+        <tbody>{group.items.map(item => <tr key={item.label}>
+          <td className={gridStyles.tableIcon}><img src={storageImages[item.label]} alt="" width={36} height={36} draggable={false} /></td>
+          <th scope="row" className={gridStyles.tableName}>{item.label === "Date baskets" ? "Dates" : item.label}</th>
+          <td className={gridStyles.tableCapacity}><progress value={Math.min(item.quantity, item.capacity)} max={Math.max(1, item.capacity)}
+            aria-label={`${item.label} storage`} aria-valuetext={`${item.quantity} of ${item.capacity}`} /></td>
+          <td className={gridStyles.tableQuantity}>{item.quantity}/{item.capacity}</td>
+        </tr>)}</tbody>
+      </table>)}
+    </div>;
+  }
   return <>{groups.map(group => (
     <table key={group.label} className={styles["warehouse-storage-table"]} aria-label={`${location} ${group.label}`}>
       <thead><tr>{group.items.map(item => <th key={item.label} scope="col">{item.label}</th>)}</tr></thead>

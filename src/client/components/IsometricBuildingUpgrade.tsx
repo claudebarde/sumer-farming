@@ -24,11 +24,11 @@ export default function IsometricBuildingUpgrade({ snapshot, buildingId, now, on
   const building = snapshot.buildings.find(building => building.id === buildingId);
   const supported = building?.type === "mill" || building?.type === "breadOven" || building?.type === "brewery";
   const next = supported ? BUILDING_UPGRADES[building.type]?.[level + 1] : undefined;
-  const { name, activity } = match(building?.type)
-    .with("mill", () => ({ name: "Mill", activity: "milling" }))
-    .with("breadOven", () => ({ name: "Bread oven", activity: "baking" }))
-    .with("brewery", () => ({ name: "Brewery", activity: "brewing" }))
-    .otherwise(() => ({ name: "", activity: "" }));
+  const name = match(building?.type)
+    .with("mill", () => "Mill")
+    .with("breadOven", () => "Bread oven")
+    .with("brewery", () => "Brewery")
+    .otherwise(() => "");
   const reason = buildingUpgradeUnavailableReason(snapshot, buildingId, now);
   const upgrade = async () => {
     if (submitting.current || reason || !next) return;
@@ -52,9 +52,11 @@ export default function IsometricBuildingUpgrade({ snapshot, buildingId, now, on
     <ProductionProgress job={active} now={now} label={`${name} upgrade progress`} />
   </div>;
   if (!next || (snapshot.farm.progression?.level ?? 1) < next.estateLevel) return null;
+  if (building.type === "mill" && snapshot.farm.milling?.buildingId === buildingId) return null;
+  if (building.type === "breadOven" && snapshot.farm.production.baking[buildingId]) return null;
+  if (building.type === "brewery" && building.beerReadyAt && Date.parse(building.beerReadyAt) > now) return null;
   return <>
     {error && <p role="alert">{error}</p>}
-    <small>Upgrade for {Math.round((1 - next.productionTimeMultiplier) * 100)}% shorter {activity} times than level 1. Takes {Math.round(next.durationMs / 60_000)} minutes.</small>
     <button className={styles.button} disabled={pending || reason !== null} onClick={() => void upgrade()}>
       <BuildingActionIcon kind="upgrade" />
       <span>{pending ? "Starting upgrade…" : reason ?? `Upgrade to level ${level + 1} · ${next?.cost} shekels`}</span>

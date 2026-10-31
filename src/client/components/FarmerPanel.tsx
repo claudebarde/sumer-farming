@@ -1,3 +1,4 @@
+import FarmerPointsCounter from "./FarmerPointsCounter";
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { cropWorkActive } from "../../game-core/farm/perennialCrops";
 import { datesTreatErrors, validateDatesTreat } from "../../game-core/farm/wellbeing";
@@ -121,11 +122,12 @@ export default function FarmerPanel({
       <FarmerPortrait
         name={snapshot.farm.farmerProfile?.identity.name ?? "Farmer"}
       />
-      <div className={styles["farmer-metrics"]}>
+      <div className={`${styles["farmer-metrics"]} ${styles["farmer-score-metrics"]}`}>
         <div>
           <HappinessMeter value={household.happiness} />
           <span>Happiness</span>
         </div>
+        <FarmerPointsCounter points={snapshot.player.points ?? 0} />
         <div>
           <RationMeter
             nextRationAt={household.nextBarleyConsumptionAt}

@@ -4,6 +4,7 @@ const labels: Readonly<Record<string, string>> = {
   Ground: "𒅖",
   "Arable ground": "𒄒",
   Barley: "𒊺",
+  Sesame: "𒄑𒉌",
   Farm: "𒂍",
   Granary: "𒉌𒁾",
   Warehouse: "𒂍𒍑𒁍𒁕",

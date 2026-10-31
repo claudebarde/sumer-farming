@@ -1,8 +1,10 @@
+import sesameIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png";
 import meter from "../styles/HappinessMeter.module.scss";
 import styles from "../styles/IsometricTest.module.scss";
 import { FARM_SPRITES } from "../../assets/farmSprites";
 
-export default function BarleyWorkProgress({ action, total, progress, delivering = false }: {
+export default function BarleyWorkProgress({ action, total, progress, delivering = false, crop = "barley" }: {
+  readonly crop?: "barley" | "sesame";
   readonly action: "Sowing" | "Harvesting";
   readonly total: number;
   readonly progress: { readonly completed: number; readonly totalMs: number; readonly percentage: number };
@@ -10,15 +12,15 @@ export default function BarleyWorkProgress({ action, total, progress, delivering
 }) {
   const { completed, totalMs, percentage } = progress;
   return <div className={styles.sowingProgress}>
-    <img className={styles.barleyWorkIcon} src={FARM_SPRITES.harvestedBarley} alt="" width={48} height={48} draggable={false} />
+    <img className={styles.barleyWorkIcon} src={crop === "sesame" ? sesameIcon : FARM_SPRITES.harvestedBarley} alt="" width={48} height={48} draggable={false} />
     <section>
-      <p role="status">{delivering ? "Storing barley..." : `${action} barley...`}</p>
+      <p role="status">{delivering ? `Storing ${crop}...` : `${action} ${crop}...`}</p>
       <p>{completed}/{total} fields</p>
     </section>
-    <div className={meter.meter} data-mood="content" role="progressbar" aria-label={`${action} barley`}
+    <div className={meter.meter} data-mood="content" role="progressbar" aria-label={`${action} ${crop}`}
       aria-valuemin={0} aria-valuemax={100} aria-valuenow={percentage}
       aria-valuetext={`${percentage}% · ${completed}/${total} fields`}
-      title={`${totalMs / 1000}s ${action.toLowerCase()} time, excluding travel`}>
+      aria-description={`${totalMs / 1000}s ${action.toLowerCase()} time, excluding travel`}>
       <svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">
         <circle className={meter.track} cx="50" cy="50" r="43" />
         <circle className={meter.fill} cx="50" cy="50" r="43" pathLength={100}

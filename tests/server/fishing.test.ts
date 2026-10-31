@@ -84,9 +84,11 @@ describe("fishing", () => {
     const stored = await Effect.runPromise(fishingAction(db, { ...f, action: "store", target: { column: 1, row: 3 }, expectedFarmVersion: version }));
     expect(stored.inventory.find(item => item.itemKey === "fish")?.quantity).toBe(1);
     expect(stored.farm.carriedItem).toBeNull();
+    expect(stored.player.points).toBe(5);
     await db.update(farms).set({ carriedItemKey: "fish", carriedItemQuantity: 1 }).where(eq(farms.id, f.farmId));
     const released = await Effect.runPromise(fishingAction(db, { ...f, action: "release", expectedFarmVersion: stored.farm.version }));
     expect(released.farm.carriedItem).toBeNull();
+    expect(released.player.points).toBe(5);
     expect(released.inventory.find(item => item.itemKey === "fish")?.quantity).toBe(1);
   });
   it("does not lose a carried fish when farm storage is full and still allows release", async () => {

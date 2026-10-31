@@ -7,6 +7,8 @@ import { setStoredQuantity } from "./physicalStorage";
 
 /** Called under the farm lock; one receipt prevents duplicate offline harvests. */
 export const advancePerennialCropWork = async (tx: DatabaseTransaction, farm: FarmRecord, now: Date): Promise<FarmRecord> => {
+  // At most eight fields; advance every due delivery, including offline catch-up.
+  for (let step = 0; step < 8; step++) {
   const job = farm.production.cropWork;
   if (!job || job.settled || now.getTime() < job.completesAt) return farm;
   const definition = CROP_DEFINITIONS[job.cropKey];
@@ -32,7 +34,9 @@ export const advancePerennialCropWork = async (tx: DatabaseTransaction, farm: Fa
   }
   const [updated] = await tx.update(farms).set({
     ...(job.action === "harvest" && job.cropKey === "datePalm" ? { progressionStats: { ...farm.progressionStats, datesStored: (farm.progressionStats.datesStored ?? 0) + job.quantity } } : {}),
-    production: { ...farm.production, cropYields, palmCycles, cropWork: { ...job, settled: true } },
+    production: { ...farm.production, cropYields, palmCycles, cropWork: farm.production.cropWorkQueue?.[0] ?? { ...job, settled: true }, cropWorkQueue: farm.production.cropWorkQueue?.slice(1) },
     version: sql`${farms.version} + 1`, updatedAt: now }).where(eq(farms.id, farm.id)).returning();
-  return updated!;
+  farm = updated!;
+  }
+  return farm;
 };

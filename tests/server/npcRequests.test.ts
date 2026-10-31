@@ -65,9 +65,11 @@ describe("NPC requests", () => {
     const command = f.command();
     const result = await Effect.runPromise(deliverNpcRequest(db, command));
     expect(result.player.shekelBalance).toBe(5);
+    expect(result.player.points).toBe(50);
     expect(result.inventory.find(i => i.itemKey === "barley")?.quantity).toBe(2);
     const retry = await Effect.runPromise(deliverNpcRequest(db, f.command()));
     expect(retry.player.shekelBalance).toBe(5);
+    expect(retry.player.points).toBe(50);
     expect((await Effect.runPromise(getNpcRequests(db, f.playerId))).requests[0]?.completed).toBe(true);
     const history = TradeHistorySchema.parse(await Effect.runPromise(getTradeHistory(db, f.playerId, { limit: 5 })));
     expect(history.trades).toHaveLength(1);

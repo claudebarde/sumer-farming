@@ -1,3 +1,4 @@
+import { currentCropWork } from "../../game-data/cropWork";
 import DecorationsPanel from "./DecorationsPanel";
 import { sendDecoration } from "../api/decorations";
 import { miniaturePlacementError } from "../../game-core/farm/miniaturePlacement";
@@ -11,8 +12,8 @@ import { roadRemovalReason } from "../../game-core/farm/roads";
 import type { FarmSnapshot } from "../../schemas/farm";
 import { fetchDevelopmentFarm } from "../api/developmentPlayer";
 import { executeGameCommand } from "../api/gameActions";
-import { availablePlantingBarley, plantableFields, harvestableFields, plantingSelectionLimit, togglePlantingField, fieldKey } from "../../game-core/farm/batchPlanting";
-import { harvestFieldLimit, lockedHarvestFieldLimit } from "../../game-core/farm/harvestCapacity";
+import { availableBarleyHarvestStorage, availableSesameHarvestStorage, availablePlantingSeeds, harvestingSelectionLimit, plantableFields, harvestableFields, plantingSelectionLimit, togglePlantingField, fieldKey } from "../../game-core/farm/batchPlanting";
+import { lockedHarvestFieldLimit } from "../../game-core/farm/harvestCapacity";
 import type { IsoCell } from "../game/phaser/isometricProjection";
 import { plantingBlocker } from "../game/phaser/isometricPlanting";
 import { harvestingBlocker, harvestSelectionMaximum } from "../game/phaser/isometricHarvesting";
@@ -95,6 +96,7 @@ export default function IsometricFarm() {
   const neighbourhoodScene = useRef<NeighbourhoodScene | null>(null);
   const updateZiggurat = useCallback((data: Ziggurat) => neighbourhoodScene.current?.setZigguratState(data), []);
   const [neighbourhoodOpen, setNeighbourhoodOpen] = useState(false);
+  const [harvestPreview, setHarvestPreview] = useState(false);
   const [deliveryPreview, setDeliveryPreview] = useState(false);
   const [zigguratOpen, setZigguratOpen] = useState(false);
   const [neighbourhoodLoad, setNeighbourhoodLoad] = useState<"idle" | "loading" | "error">("idle");
@@ -118,8 +120,8 @@ export default function IsometricFarm() {
   const accept = useRef<(snapshot: FarmSnapshot) => void>(() => {});
   const current = useRef<FarmSnapshot | null>(null);
   const selecting = useRef<readonly IsoCell[] | null>(null);
-  const selectionMode = useRef<"plant" | "harvest">("plant");
-  const [mode, setMode] = useState<"plant" | "harvest">("plant");
+  const selectionMode = useRef<"plant" | "harvest" | "sesame" | "harvestSesame">("plant");
+  const [mode, setMode] = useState<"plant" | "harvest" | "sesame" | "harvestSesame">("plant");
   const submitting = useRef(false);
   const mounted = useRef(false);
   const [snapshot, setSnapshot] = useState<FarmSnapshot | null>(null);
@@ -464,7 +466,7 @@ export default function IsometricFarm() {
   const updateSelection = (cells: readonly IsoCell[] | null) => {
     selecting.current = cells; setSelection(cells); scene.current?.setPlantingSelection(cells, submitting.current, selectionMode.current);
   };
-  const beginSelection = (nextMode: "plant" | "harvest", initial?: IsoCell) => {
+  const beginSelection = (nextMode: "plant" | "harvest" | "sesame" | "harvestSesame", initial?: IsoCell) => {
     if (submitting.current) return;
     selectionMode.current = nextMode; setMode(nextMode); setError(null); scene.current?.clearSelection();
     updateSelection(initial ? [initial] : []);
@@ -493,8 +495,9 @@ export default function IsometricFarm() {
         const renderer = new IsometricFarmScene(next, setInformation, cell => {
           const farm = current.current;
           if (!farm || selecting.current === null || submitting.current) return;
-          const harvesting = selectionMode.current === "harvest";
-          const selected = togglePlantingField(selecting.current, cell, (harvesting ? harvestableFields : plantableFields)(farm, Date.now()), harvesting ? harvestFieldLimit(farm.farm.household.happiness) : plantingSelectionLimit(farm, Date.now()));
+          const harvesting = selectionMode.current === "harvest" || selectionMode.current === "harvestSesame";
+          const crop = selectionMode.current === "sesame" || selectionMode.current === "harvestSesame" ? "sesame" : "barley";
+          const selected = togglePlantingField(selecting.current, cell, (harvesting ? harvestableFields(farm, Date.now(), crop) : plantableFields(farm, Date.now())), harvesting ? harvestingSelectionLimit(farm, Date.now(), crop) : plantingSelectionLimit(farm, Date.now(), selectionMode.current === "sesame" ? "sesame" : "barley"));
           selecting.current = selected; setSelection(selected); scene.current?.setPlantingSelection(selected, false, selectionMode.current);
         }, () => {
           activeScene.current = marketScene.current; setInformation(null); setLocation("market"); });
@@ -530,6 +533,7 @@ export default function IsometricFarm() {
         .filter((value): value is string => !!value).map(Date.parse), ...next.farm.roads.map(r => r.completesAt ?? 0),
         next.farm.production.porter?.job?.pickupAt ?? 0, next.farm.production.porter?.job?.completesAt ?? 0,
         next.farm.production.porter?.returnTrip?.completesAt ?? 0,
+        ...(next.farm.production.cropWorkQueue ?? []).flatMap(job => [job.workStartsAt, job.workEndsAt, job.completesAt]),
         next.farm.production.cropWork?.workStartsAt ?? 0, next.farm.production.cropWork?.workEndsAt ?? 0, next.farm.production.cropWork?.completesAt ?? 0].filter(time => time > now);
       if (due.length) deadline = setTimeout(() => refresh.current(), Math.max(100, Math.min(...due) - now + 25));
     };
@@ -574,10 +578,12 @@ export default function IsometricFarm() {
   const batch = snapshot?.farm.production.planting;
   const preparingBread = Object.values(snapshot?.farm.production.baking ?? {}).some(job => Date.parse(job.startedAt) > clock);
   const fishingActive = location === "farm" && !!snapshot?.farm.fishing;
-  const harvesting = batch ? batch.mode === "harvest" : mode === "harvest";
+  const cropWork = snapshot ? currentCropWork(snapshot.farm.production, clock) : null;
+  const harvesting = batch ? batch.mode === "harvest" : mode === "harvest" || mode === "harvestSesame";
+  const plantingCrop = batch ? batch.cropKey ?? "barley" : mode === "sesame" || mode === "harvestSesame" ? "sesame" : "barley";
   const blocker = snapshot ? (harvesting ? harvestingBlocker : plantingBlocker)(snapshot, clock) : "Loading…";
-  const limit = snapshot ? harvesting ? batch ? lockedHarvestFieldLimit(batch) : harvestFieldLimit(snapshot.farm.household.happiness) : plantingSelectionLimit(snapshot, clock) : 0;
-  const eligible = snapshot ? (harvesting ? harvestableFields : plantableFields)(snapshot, clock) : [];
+  const limit = snapshot ? harvesting ? batch ? lockedHarvestFieldLimit(batch) : harvestingSelectionLimit(snapshot, clock, plantingCrop) : plantingSelectionLimit(snapshot, clock, plantingCrop) : 0;
+  const eligible = snapshot ? (harvesting ? harvestableFields(snapshot, clock, plantingCrop) : plantableFields(snapshot, clock)) : [];
   const selectionMaximum = harvesting ? harvestSelectionMaximum(limit, eligible.length) : limit;
   const valid = !!selection?.length && selection.length <= limit && selection.every(cell => eligible.some(p => fieldKey(p) === fieldKey(cell)));
   const submit = async () => {
@@ -588,7 +594,7 @@ export default function IsometricFarm() {
     submitting.current = true; setPending(true); setError(null);
     scene.current?.setPlantingSelection(selecting.current, true, selectionMode.current);
     try {
-      const next = await executeGameCommand({ type: harvesting ? "start_batch_harvesting" : "start_batch_planting", targets: [...selecting.current!], farmerPosition: scene.current?.farmerPosition(), expectedFarmVersion: farm.farm.version });
+      const next = await executeGameCommand({ ...(harvesting ? { type: "start_batch_harvesting" as const, crop: plantingCrop } : { type: "start_batch_planting" as const, crop: plantingCrop }), targets: [...selecting.current!], farmerPosition: scene.current?.farmerPosition(), expectedFarmVersion: farm.farm.version });
       if (!mounted.current) return;
       accept.current(next); updateSelection(null); setInformation(null);
     } catch (cause) {
@@ -867,6 +873,10 @@ export default function IsometricFarm() {
       <button onClick={() => activeScene.current?.zoomBy(1 / 1.2)} aria-label="Zoom out">−</button>
       <button onClick={() => activeScene.current?.fit()}>Fit</button>
 
+      {!neighbourhoodOpen && location === "farm" && <>
+        <button onClick={() => { scene.current?.previewBarleyHarvest(true); setHarvestPreview(true); }}>Preview barley harvest</button>
+        {harvestPreview && <button onClick={() => { scene.current?.previewBarleyHarvest(false); setHarvestPreview(false); }}>Stop harvest preview</button>}
+      </>}
       {neighbourhoodOpen && <button aria-pressed={deliveryPreview} onClick={()=>{
         const next=!deliveryPreview;setDeliveryPreview(next);neighbourhoodScene.current?.previewDelivery(next);
       }}>{deliveryPreview ? "Stop delivery preview" : "Preview ziggurat delivery"}</button>}
@@ -903,10 +913,10 @@ export default function IsometricFarm() {
         getFarmerPosition={() => { const p = scene.current?.farmerPosition(); return p && { column: Math.round(p.column), row: Math.round(p.row) }; }}
         onCancel={() => setPalmTarget(null)}
         onStarted={next => { accept.current(next); setPalmTarget(null); scene.current?.clearSelection(); setInformation(null); }} />}
-    {!neighbourhoodOpen && location === "farm" && snapshot?.farm.production.cropWork?.action === "harvest" &&
-      !snapshot.farm.production.cropWork.settled && clock < snapshot.farm.production.cropWork.completesAt &&
-      <aside className={styles.planting} aria-label={snapshot.farm.production.cropWork.cropKey === "sesame" ? "Sesame harvesting" : "Date harvesting"}>
-        <PalmHarvestProgress job={snapshot.farm.production.cropWork} now={clock} />
+    {!neighbourhoodOpen && location === "farm" && cropWork?.action === "harvest" &&
+      !cropWork.settled && clock < cropWork.completesAt &&
+      <aside className={styles.planting} aria-label={cropWork.cropKey === "sesame" ? "Sesame harvesting" : "Date harvesting"}>
+        <PalmHarvestProgress job={cropWork} now={clock} />
       </aside>}
     {!neighbourhoodOpen && location === "farm" && snapshot?.farm.production.cropWork &&
       (snapshot.farm.production.cropWork.action === "plant" || snapshot.farm.production.cropWork.action === "tend") &&
@@ -914,16 +924,16 @@ export default function IsometricFarm() {
       <aside className={styles.planting} aria-label={snapshot.farm.production.cropWork.cropKey === "sesame" ? "Sesame planting" : snapshot.farm.production.cropWork.action === "tend" ? "Date palm tending" : "Date palm planting"}>
         <PalmPlantingProgress job={snapshot.farm.production.cropWork} now={clock} />
       </aside>}
-    {!neighbourhoodOpen && (selection !== null || batch || error || fishingActive || preparingBread) && <aside className={styles.planting} aria-label={preparingBread ? "Preparing bread" : fishingActive ? "Fishing" : harvesting ? "Barley harvesting" : "Barley planting"}>
+    {!neighbourhoodOpen && (selection !== null || batch || error || fishingActive || preparingBread) && <aside className={styles.planting} aria-label={preparingBread ? "Preparing bread" : fishingActive ? "Fishing" : harvesting ? `${plantingCrop === "sesame" ? "Sesame" : "Barley"} harvesting` : `${plantingCrop === "sesame" ? "Sesame" : "Barley"} planting`}>
       {preparingBread ? <p role="status">Collecting flour for baking…</p> : fishingActive ? <p role="status">{fishingMessage && `${fishingMessage} `}{fishingStatus}</p>
-        : batch && snapshot ? <BarleyWorkProgress action={harvesting ? "Harvesting" : "Sowing"} total={batch.total}
+        : batch && snapshot ? <BarleyWorkProgress crop={plantingCrop} action={harvesting ? "Harvesting" : "Sowing"} total={batch.total}
         progress={harvesting ? harvestingProgress(snapshot, clock) : sowingProgress(batch, clock)} delivering={batch.phase.type === "delivering"} />
-        : <p role="status">{selection !== null ? `${selection.length} / ${selectionMaximum} fields${harvesting ? "" : ` · ${snapshot ? availablePlantingBarley(snapshot, clock) : 0} barley available`}` : ""}</p>}
+        : <p role="status">{selection !== null ? `${selection.length} / ${selectionMaximum} fields${harvesting ? snapshot ? plantingCrop === "sesame" ? ` · Space for ${availableSesameHarvestStorage(snapshot, clock)} sesame baskets` : ` · Space for ${availableBarleyHarvestStorage(snapshot, clock)} barley` : "" : ` · ${snapshot ? availablePlantingSeeds(snapshot, clock, plantingCrop) : 0} ${plantingCrop} available`}` : ""}</p>}
       {error && <p role="alert">{error}</p>}
       {fishingActive ? <button disabled={pending} onClick={() => void fish(true)}>Stop fishing</button>
         : !batch && !preparingBread && <div>
         {selection !== null && <button disabled={pending || !valid || !!blocker} onClick={() => void submit()}>
-          {pending ? "Please wait…" : harvesting ? "Harvest barley" : "Plant barley"}
+          {pending ? "Please wait…" : harvesting ? `Harvest ${plantingCrop}` : `Plant ${plantingCrop}`}
         </button>}
         <button disabled={pending} onClick={() => { updateSelection(null); setError(null); }}>Cancel</button>
       </div>}

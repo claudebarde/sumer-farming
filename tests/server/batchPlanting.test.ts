@@ -292,3 +292,52 @@ describe("batch barley planting", () => {
     expect(complete.buildings[0]!.storedBarley).toBe(0);
   });
 });
+
+describe("batch sesame planting", () => {
+  const sesameFixture = async (quantity = 2, level = 10) => {
+    const f = await fixture(3);
+    await db.update(farms).set({ level }).where(eq(farms.id, f.farmId));
+    await db.insert(farmBuildings).values({ farmId: f.farmId, type: "warehouse", column: 5, row: 3,
+      loadingTile: { column: 5, row: 5 }, startedAt: new Date(0), completesAt: new Date(1) });
+    await db.insert(farmInventory).values({ farmId: f.farmId, itemKey: "sesame", quantity });
+    return { ...f, sow: () => Effect.runPromise(batchPlantingAction(db, { type: "start_batch_planting", crop: "sesame",
+      playerId: f.playerId, targets, expectedFarmVersion: 1 })) };
+  };
+  it("reserves one basket per field, catches up offline and never consumes seeds or plants twice", async () => {
+    const f = await sesameFixture();
+    const started = await f.sow();
+    expect(started.farm.production.planting?.cropKey).toBe("sesame");
+    expect(started.farm.production.planting?.source.type).toBe("granary");
+    expect(started.inventory.find(i => i.itemKey === "sesame")?.quantity ?? 0).toBe(0);
+    expect(started.inventory.find(i => i.itemKey === "barley")?.quantity).toBe(3);
+    await catchUp(f.farmId, Date.now() + 120000);
+    await catchUp(f.farmId, Date.now() + 120000);
+    const crops = await db.select().from(farmCrops).where(eq(farmCrops.farmId, f.farmId));
+    expect(crops).toHaveLength(2);
+    for (const crop of crops) {
+      expect(crop.cropKey).toBe("sesame");
+      expect(crop.decayEligible).toBe(false);
+      expect(crop.growthCompletesAt.getTime() - crop.plantedAt.getTime()).toBe(3600000);
+      expect(crop.plantedAt.getTime() - crop.sowingStartedAt.getTime()).toBe(10000);
+    }
+    const [farm] = await db.select().from(farms).where(eq(farms.id, f.farmId));
+    expect(farm!.production.planting).toBeNull();
+    expect(farm!.cultivationStartedAt).toBeNull();
+    const stock = await db.select().from(farmInventory).where(eq(farmInventory.farmId, f.farmId));
+    expect(stock.find(i => i.itemKey === "sesame")?.quantity ?? 0).toBe(0);
+  });
+  it.each([[1, 10], [2, 9]])("rejects insufficient seeds or a locked level (%i seeds, level %i)", async (quantity, level) => {
+    const f = await sesameFixture(quantity, level);
+    await expect(f.sow()).rejects.toBeDefined();
+    const stock = await db.select().from(farmInventory).where(eq(farmInventory.farmId, f.farmId));
+    expect(stock.find(i => i.itemKey === "sesame")?.quantity).toBe(quantity);
+    expect(await db.select().from(farmCrops).where(eq(farmCrops.farmId, f.farmId))).toHaveLength(0);
+  });
+  it("rejects a duplicate start without spending seeds again", async () => {
+    const f = await sesameFixture(4);
+    await f.sow();
+    await expect(f.sow()).rejects.toBeDefined();
+    const stock = await db.select().from(farmInventory).where(eq(farmInventory.farmId, f.farmId));
+    expect(stock.find(i => i.itemKey === "sesame")?.quantity).toBe(2);
+  });
+});

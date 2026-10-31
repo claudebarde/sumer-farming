@@ -8,6 +8,7 @@ for onboarding, contextual help and an in-game rules library.
 | Guide | Availability |
 | --- | --- |
 | [Ziggurat](ziggurat.md) | Planned; not playable yet |
+| [Player points](points.md) | Playable; lifetime scores and points leaderboard |
 
 ## Editing convention
 

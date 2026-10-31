@@ -1,3 +1,4 @@
+import { readPlayerPoints } from "./playerPoints";
 import { settleZigguratRewards } from "./zigguratRewards";
 import { zigguratRewards } from "../db/schema";
 import { asc, eq, sql } from "drizzle-orm";
@@ -149,7 +150,7 @@ export const readFarmSnapshot = async (
   return {
     rewards: rewards.map(r => ({ id: r.id, objectId: r.objectId, awardedAt: r.awardedAt.toISOString() })),
     created,
-    player,
+    player: { ...player, points: await readPlayerPoints(transaction, currentFarm.playerId) },
     farm: {
       farmerProfile: currentFarm.farmerProfile,
       roads: currentFarm.roads.map(road => ({ ...road, approachPath: road.approachPath ? [...road.approachPath] : undefined })),

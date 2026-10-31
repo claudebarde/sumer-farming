@@ -84,7 +84,6 @@ export default function PerennialCropContent({ snapshot, target, now, isometric 
     const blocked = plantingBlocker(snapshot, now) ?? perennialActionReason(snapshot, "datePalm", target, action, now);
     return <>
       {working ? (job.action === "harvest" ? <PalmHarvestProgress job={job} now={now} /> : <PalmPlantingProgress job={job} now={now} />) : <>
-        <p>{ready ? `${definition.harvestYield} baskets of dates ready to harvest.` : young ? "This sapling is growing into a date palm." : "The next dates are ripening."}</p>
         {!ready && <CropGrowthProgress percentage={progress * 100} remainingMs={deadline - now} label="Dates ripening" />}
         {!ready && !young && !blocked && cycle && <p>
           <strong>Tend within {tendingCountdown(cycle.startedAt + PALM_TENDING_WINDOW_MS - now)}</strong><br />

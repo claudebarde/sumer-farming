@@ -21,17 +21,16 @@ const fixture = () => FarmSnapshotSchema.parse({ created: false, player: { sheke
 const render = (snapshot = fixture(), now = 1000) => renderToStaticMarkup(createElement(TileActionsBusy.Provider, { value: true },
   createElement(IsometricBuildingUpgrade, { snapshot, buildingId: id, now, onStarted: () => {} })));
 
-it("offers the oven upgrade at level 9 with baking benefits, independently of farmer activity", () => {
+it("offers the oven upgrade at level 9 independently of farmer activity", () => {
   const s = fixture(); s.buildings[0]!.type = "breadOven";
   expect(render(s)).toBe("");
   s.farm.progression!.level = 9;
   s.farm.carriedItem = { itemKey: "water", quantity: 1, expiresAt: null };
   expect(render(s)).toContain("Upgrade to level 2 · 100 shekels");
-  expect(render(s)).toContain("15% shorter baking times than level 1. Takes 5 minutes.");
+  expect(render(s)).not.toContain("Upgrade for");
   expect(render(s)).not.toContain('disabled=""');
   s.farm.production.baking[id] = { startedAt: date(1000), completesAt: date(301000), flour: 2, output: 2 };
-  expect(render(s)).toContain("Finish baking before upgrading.");
-  expect(render(s)).toContain('disabled=""');
+  expect(render(s)).toBe("");
 });
 
 it("shows oven upgrade progress, blocks baking and hides the locked next tier on completion", () => {
@@ -54,7 +53,7 @@ it("offers the paid upgrade independently of farmer busy state and carried goods
   expect(render(s)).toContain('<span>Upgrade to level 2 · 100 shekels</span>');
   expect(render(s)).toContain('upgrade-building-icon.png');
   expect(render(s)).not.toContain('disabled=""');
-  expect(render(s)).toContain("Upgrade for 15% shorter milling times than level 1. Takes 5 minutes.");
+  expect(render(s)).not.toContain("Upgrade for");
 });
 it("explains missing funds but hides upgrades locked by estate level", () => {
   const s = fixture(); s.player.shekelBalance = 99;
@@ -79,8 +78,7 @@ it("shows saved progress and updates the mill badge at the deadline without new 
 it("blocks the upgrade for active milling or another building upgrade", () => {
   const s = fixture();
   s.farm.milling = { buildingId: id, recipe: "flour", startedAt: date(1000), completesAt: date(301000), barley: 2, output: 1 };
-  expect(render(s)).toContain('disabled=""');
-  expect(render(s)).toContain('<span>Finish milling before upgrading.</span>');
+  expect(render(s)).toBe("");
   s.farm.milling = null;
   s.farm.production.buildingUpgrades = { other: [{ level: 2, startedAt: date(1000), completesAt: date(301000), idempotencyKey: id }] };
   expect(render(s)).toContain('disabled=""');
@@ -93,11 +91,10 @@ it("offers brewery upgrades at level 9 independently of farmer activity, but wai
   s.farm.progression!.level = 9;
   s.farm.carriedItem = { itemKey: "water", quantity: 1, expiresAt: null };
   expect(render(s)).toContain("Upgrade to level 2 · 100 shekels");
-  expect(render(s)).toContain("15% shorter brewing times than level 1. Takes 5 minutes.");
+  expect(render(s)).not.toContain("Upgrade for");
   expect(render(s)).not.toContain('disabled=""');
   s.buildings[0]!.beerReadyAt = date(901000);
-  expect(render(s)).toContain("Finish brewing before upgrading.");
-  expect(render(s)).toContain('disabled=""');
+  expect(render(s)).toBe("");
 });
 
 it("shows saved brewery progress and updates its badge after time away, hiding the next locked tier", () => {

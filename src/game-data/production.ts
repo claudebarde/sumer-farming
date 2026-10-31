@@ -10,6 +10,7 @@ export const ProductionStackSchema = z.object({ itemKey: z.enum(["beer", "bread"
 export const ProductionStateSchema = z.object({
   brewing: z.record(z.string(), z.object({ preparation: ProductionJourneySchema, arrivedAt: z.iso.datetime(), startedAt: z.iso.datetime(), completesAt: z.iso.datetime() })).optional(),
   cropWork: CropWorkSchema.nullable().optional(),
+  cropWorkQueue: z.array(CropWorkSchema).max(7).optional(),
   palmCycles: z.record(z.string(), z.object({ startedAt: z.number(), originalReadyAt: z.number(), tendedAt: z.number().optional() })).optional(),
   cropYields: z.record(z.string(), z.int().nonnegative()).optional(),
   lastDatesAt: z.iso.datetime().nullable().optional(),

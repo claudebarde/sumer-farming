@@ -1,3 +1,4 @@
+import { savedMapZoom, saveMapZoom } from "../zoomPreference";
 import { deliveryPlan } from "../../../../game-data/zigguratDelivery";
 import { preloadZigguratDonkey } from "../zigguratDonkeyPreview";
 import { createZigguratDeliveryAnimation } from "../zigguratDeliveryAnimation";
@@ -49,7 +50,7 @@ export class NeighbourhoodScene extends Phaser.Scene {
     this.drawMap();
     this.focusHome();
     this.events.on("wake", this.redraw, this);
-    this.scale.on("resize", this.fit, this);
+    this.scale.on("resize", this.restoreZoomAfterResize, this);
     let last: { x: number; y: number } | null = null;
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => { last = { x: p.x, y: p.y }; });
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
@@ -65,7 +66,7 @@ export class NeighbourhoodScene extends Phaser.Scene {
       this.zigguratProgress = undefined;
       this.clouds?.destroy(); this.clouds = undefined;
       this.shadows?.destroy(); this.shadows = undefined;
-      this.scale.off("resize", this.fit, this);
+      this.scale.off("resize", this.restoreZoomAfterResize, this);
       this.events.off("wake", this.redraw, this);
     });
   }
@@ -76,12 +77,12 @@ export class NeighbourhoodScene extends Phaser.Scene {
     this.clouds?.destroy(); this.shadows?.destroy(); this.children.removeAll(true); this.drawMap(); this.focusHome();
   }
   private focusHome() {
-    this.fit();
+    this.fit(false);
     const home = neighbourhoodPlots(this.members).find(plot => plot.type === "self");
     if (!home) return;
     // Same initial magnification as the farm, independent of this larger map's extent.
     const zoom = Math.min(this.scale.width / 1580, this.scale.height / 880) * 1.2 ** 2;
-    this.cameras.main.setZoom(Math.max(this.baseZoom, zoom)).centerOn(home.x, home.y);
+    this.cameras.main.setZoom(savedMapZoom("neighbourhood", this.baseZoom, zoom)).centerOn(home.x, home.y);
   }
   private drawMap() {
     const plots = neighbourhoodPlots(this.members);
@@ -158,10 +159,16 @@ export class NeighbourhoodScene extends Phaser.Scene {
     if(this.latestZiggurat) this.delivery.receive(this.latestZiggurat);
     this.clouds = createAmbientCloudLayer(this);
   }
-  fit() {
+  private restoreZoomAfterResize() {
+    const previous = this.cameras.main.zoom;
+    this.fit(false);
+    this.cameras.main.setZoom(savedMapZoom("neighbourhood", this.baseZoom, previous));
+  }
+  fit(persist = true) {
     if (!this.cameras?.main) return;
     this.baseZoom = Math.min(this.scale.width / 2700, this.scale.height / 1450);
     this.cameras.main.setZoom(this.baseZoom).centerOn(-120, 60);
+    if (persist) saveMapZoom("neighbourhood", "fit");
   }
   update(_time: number, delta: number) {
     this.delivery?.update(delta);

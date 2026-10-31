@@ -35,11 +35,21 @@ describe("isometric harvest presentation", () => {
     s.crops = s.crops.map((c, i) => ({ ...c, decayEligible: true,
       growthCompletesAt: date(i === 0 ? -day : -2 * day) }));
     expect(isometricHarvestPose(s, 2000)?.type).toBe("harvesting");
-    expect(isometricHarvestPose(s, 11540)).toMatchObject({ type: "done", seeds: 1 });
+    expect(isometricHarvestPose(s, 11540)).toMatchObject({ type: "done", seeds: 1,
+      gains: [{ cell: first, at: 11360, quantity: 1 }] });
     const popup = isometricTilePopup(s, first, 1000);
-    expect(popup.details).toContain("1 barley available");
+    expect(popup.details).not.toContain("1 barley available");
     expect(popup.details.some(d => d.startsWith("Clears automatically in "))).toBe(true);
     expect(isometricTilePopup(s, second, 1000).actions.harvest).toBe(false);
+  });
+  it("emits tile-anchored gains at each completion while continuing the journey", () => {
+    const s = snapshot(); s.farm.production.planting = batch();
+    expect(isometricHarvestPose(s, 11359)?.gains).toEqual([]);
+    expect(isometricHarvestPose(s, 11360)).toMatchObject({ type: "walking",
+      gains: [{ cell: first, at: 11360, quantity: 2 }] });
+    expect(isometricHarvestPose(s, 21540)?.gains).toEqual([
+      { cell: first, at: 11360, quantity: 2 }, { cell: second, at: 21540, quantity: 2 }
+    ]);
   });
   it("gates the sound at exact field arrivals and endings, including after reload", () => {
     const s = snapshot();
@@ -149,7 +159,7 @@ describe("isometric harvest presentation", () => {
     refreshed.farm.production.planting = { ...batch(), remaining: [], travelMs: [], travelPaths: [], phase: { type: "harvesting", target: second, completesAt: date(21540) } };
     for (const now of [12000, 21540, 21700]) {
       const a = isometricHarvestPose(old, now)!, b = isometricHarvestPose(refreshed, now)!;
-      expect({ ...a, harvested: [] }).toEqual({ ...b, harvested: [] });
+      expect({ ...a, harvested: [], gains: [] }).toEqual({ ...b, harvested: [], gains: [] });
     }
     refreshed.farm.carriedItem.quantity = 4;
     refreshed.farm.production.planting.phase = delivery();

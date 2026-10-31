@@ -6,7 +6,7 @@ import { sharedStorageAllocation } from "../../src/game-core/farm/storageDisplay
 import { ESTATE_STORAGE_LIMITS } from "../../src/game-data/storage";
 
 describe("building storage displays", () => {
-  it("uses the same visual cards for warehouse-local stock, including unlocked dates", () => {
+  it("shows warehouse-local stock in visual rows, including unlocked dates", () => {
     const html = renderToStaticMarkup(createElement(BuildingStorageTables, {
       location: "warehouse", visual: true, showDates: true, barley: 7, warehouseComplete: true,
       inventory: [{ itemKey: "bread", quantity: 14 }, { itemKey: "dates", quantity: 4 }]
@@ -19,7 +19,7 @@ describe("building storage displays", () => {
     expect(html).toContain('width="36" height="36"');
     expect(html).not.toContain("14/20");
     expect(html).not.toContain("Fish storage");
-    expect(html).not.toContain("<table");
+    expect(html).toContain("<table");
   });
   it("renders the farm visual inventory with eight icons, names, capacity bars and counts", () => {
     const html = renderToStaticMarkup(createElement(BuildingStorageTables, {
@@ -33,7 +33,7 @@ describe("building storage displays", () => {
     expect(html).toContain("mill-flour-bags-isometric.webp");
     for (const count of ["6/10", "5/10", "0/10", "3/5", "1/5", "0/6"]) expect(html).toContain(count);
     expect(html).toContain('aria-label="Bread storage" aria-valuetext="6 of 10"');
-    expect(html).not.toContain("<table");
+    expect(html.match(/<table /g)).toHaveLength(2);
   });
   it("clamps a full visual bar without hiding legacy excess stock", () => {
     const html = renderToStaticMarkup(createElement(BuildingStorageTables, {
@@ -84,7 +84,7 @@ describe("building storage displays", () => {
   });
 });
 
-it("shows sesame only in its unlocked warehouse card", () => {
+it("shows sesame only in its unlocked warehouse inventory", () => {
   const base = { inventory: [{ itemKey: "sesame" as const, quantity: 3, locations: { warehouse: 3 } }], warehouseId: "warehouse", barley: 0, warehouseComplete: true, visual: true };
   const warehouse = renderToStaticMarkup(createElement(BuildingStorageTables, { ...base, location: "warehouse", showSesame: true }));
   expect(warehouse).toContain("sesame-basket-isometric.png");

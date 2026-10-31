@@ -11,7 +11,7 @@ export default function PalmHarvestProgress({ job, now }: { job: CropWork; now: 
   const label = pose.phase === "approaching" ? `Walking to harvest ${resource}…` : pose.phase === "harvesting" ? `Harvesting ${resource}…` : `Delivering ${resource} to warehouse…`;
   return <div className={styles.sowingProgress}>
     <img className={styles.barleyWorkIcon} src={job.cropKey === "sesame" ? sesame : baskets} alt="" width={48} height={48} />
-    <section><p role="status">{label}</p><p>{pose.remainingSeconds}s remaining</p></section>
+    <section><p role="status">{label}</p>{job.batch && <p>{job.batch.index + 1}/{job.batch.total} fields</p>}<p>{pose.remainingSeconds}s remaining</p></section>
     <div className={meter.meter} data-mood="content" role="progressbar" aria-label={label}
       aria-valuemin={0} aria-valuemax={100} aria-valuenow={pose.percentage}>
       <svg viewBox="0 0 100 100" aria-hidden="true"><circle className={meter.track} cx="50" cy="50" r="43" />

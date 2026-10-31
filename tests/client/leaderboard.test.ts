@@ -16,8 +16,8 @@ describe("leaderboard presentation", () => {
     expect(html).not.toContain("Your current estate level.");
     expect(html).not.toContain("Latest saved progress.");
     expect(html).not.toContain('role="tab"');
-    for (const value of ["level", "shekels", "harvestedBarley"]) expect(html).toContain(`value="${value}"`);
-    expect(html).toContain('value="level" selected');
+    for (const value of ["points", "level", "shekels", "harvestedBarley"]) expect(html).toContain(`value="${value}"`);
+    expect(html).toContain('value="points" selected');
   });
   it("shows farm level alongside the selected score in the compact table", () => {
     const html = renderToStaticMarkup(createElement(LeaderboardTable, {
@@ -53,7 +53,7 @@ describe("leaderboard presentation", () => {
   });
   it("handles empty rankings and invalid options", () => {
     expect(renderToStaticMarkup(createElement(LeaderboardTable, { board: { ...board, entries: [], self: null, total: 0 } }))).toContain("No farmers are ranked yet");
-    expect(LeaderboardQuerySchema.parse({})).toEqual({ scope: "local", metric: "level" });
+    expect(LeaderboardQuerySchema.parse({})).toEqual({ scope: "local", metric: "points" });
     expect(LeaderboardQuerySchema.safeParse({ metric: "password" }).success).toBe(false);
     expect(LeaderboardQuerySchema.safeParse({ scope: "another-neighbourhood" }).success).toBe(false);
   });

@@ -1,26 +1,27 @@
+import { currentCropWork } from "../../../game-data/cropWork";
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { farmerProductionJob } from "../../../game-core/farm/farmerProduction";
 import { isometricPlantingPose } from "./isometricPlanting";
 import type { InventoryItemKey } from "../../../game-data/inventoryItems";
-export type FarmerActivityItem = "barley" | "flour" | "brewersGroats" | "reed" | "clay" | "fish" | "road" | "canal" | "bread" | "beer" | "dates" | "stool" | "pickaxe" | "water";
+export type FarmerActivityItem = "barley" | "sesame" | "flour" | "brewersGroats" | "reed" | "clay" | "fish" | "road" | "canal" | "bread" | "beer" | "dates" | "stool" | "pickaxe" | "water";
 export type FarmerActivity = { readonly label: string; readonly item?: FarmerActivityItem; readonly quantity?: number };
 const activity = (label: string, item?: FarmerActivityItem, quantity?: number): FarmerActivity => ({ label, item, quantity });
 const carriedIcons: Partial<Record<InventoryItemKey, FarmerActivityItem>> = {
   barley: "barley", flour: "flour", brewersGroats: "brewersGroats", reed: "reed", clay: "clay",
-  fish: "fish", bread: "bread", beer: "beer", dates: "dates", water: "water",
+  fish: "fish", bread: "bread", beer: "beer", dates: "dates", sesame: "sesame", water: "water",
 };
 
 export const farmerActivity = (snapshot: FarmSnapshot, now: number, walking = false): FarmerActivity => {
   const farm = snapshot.farm;
   const batch = farm.production.planting;
-  const cropWork = farm.production.cropWork;
+  const cropWork = currentCropWork(farm.production, now);
   if (cropWork && !cropWork.settled) return activity(now < cropWork.workStartsAt ? "Walking"
-    : now < cropWork.workEndsAt ? cropWork.action === "plant" ? "Planting" : cropWork.action === "tend" ? "Tending" : "Harvesting" : "Storing", "dates");
+    : now < cropWork.workEndsAt ? cropWork.action === "plant" ? "Planting" : cropWork.action === "tend" ? "Tending" : "Harvesting" : "Storing", cropWork.cropKey === "sesame" ? "sesame" : "dates");
   if (batch) {
     if (batch.phase.type === "delivering") return activity("Storing", "barley");
     if (batch.mode === "harvest") return activity(batch.phase.type === "harvesting" ? "Harvesting" : "Walking", "barley");
     const pose = isometricPlantingPose(batch, now);
-    return activity(pose?.type === "sowing" ? "Sowing" : batch.phase.type === "collecting" ? "Collecting" : "Walking", "barley");
+    return activity(pose?.type === "sowing" ? "Sowing" : batch.phase.type === "collecting" ? "Collecting" : "Walking", batch.cropKey ?? "barley");
   }
   if (farm.millGoods.delivery) return activity("Storing", "flour");
   if (farm.production.delivery) return activity("Storing", farm.production.delivery.itemKey);

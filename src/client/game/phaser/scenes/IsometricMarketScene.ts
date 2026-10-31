@@ -1,3 +1,4 @@
+import { savedMapZoom, saveMapZoom } from "../zoomPreference";
 import produceStandUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/fruit-vegetable-market-stand-isometric.png";
 import { createMarketPresenceSession } from "../../marketPresenceSession";
 import { createMarketVisitors } from "../marketVisitors";
@@ -141,7 +142,9 @@ export class IsometricMarketScene extends Phaser.Scene {
     this.events.on("sleep", this.stopPresence);
     this.events.on("pause", this.stopPresence);
     this.events.on("resume", this.syncPresence);
-    this.ready = true; this.fit(); this.zoomBy(1.2 ** 2); this.renderFarmer(false);
+    this.ready = true; this.fit(false);
+    this.cameras.main.setZoom(savedMapZoom("market", this.baseZoom, this.baseZoom * 1.2 ** 2));
+    this.renderFarmer(false);
     let last: { x: number; y: number } | null = null, dragged = false;
     this.input.on("pointerdown", (p: Phaser.Input.Pointer) => { last = { x: p.x, y: p.y }; dragged = false; });
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
@@ -162,7 +165,7 @@ export class IsometricMarketScene extends Phaser.Scene {
       else if (isMarketRoad(cell)) this.walkTo(cell);
       this.publishAnchor();
     });
-    this.scale.on("resize", this.fit, this);
+    this.scale.on("resize", this.restoreZoomAfterResize, this);
     this.events.on("wake", () => {
       this.returnFarm.setTexture(farmAppearance(this.farmLevel()).texture).setDisplaySize(232, 232);
       this.greeting = initialGreetingState(); this.speech?.setVisible(false);
@@ -185,7 +188,7 @@ export class IsometricMarketScene extends Phaser.Scene {
       this.ready = false; this.approaching = null; this.merchants = []; this.speech = undefined;
       this.donkeyFollow = null; this.donkeyArrival = null; this.donkey = undefined;
       this.speechText = undefined; this.speechBackground = undefined;
-      this.scale.off("resize", this.fit, this);
+      this.scale.off("resize", this.restoreZoomAfterResize, this);
     });
   }
   private drawStand(stand: typeof stands[number]) {
@@ -323,12 +326,20 @@ export class IsometricMarketScene extends Phaser.Scene {
       this.returning = false; this.returned(arrival); this.scene.switch("isometric-farm");
     }
   }
-  fit() {
+  private restoreZoomAfterResize() {
+    const previous = this.cameras.main.zoom;
+    this.fit(false);
+    this.cameras.main.setZoom(savedMapZoom("market", this.baseZoom, previous));
+  }
+  fit(persist = true) {
     if (!this.ready) return;
     this.baseZoom = Math.min(this.scale.width / 1580, this.scale.height / 940);
     this.cameras.main.setZoom(this.baseZoom).centerOn(-144, 195);
+    if (persist) saveMapZoom("market", "fit");
   }
   zoomBy(factor: number) {
-    if (this.ready) this.cameras.main.setZoom(Phaser.Math.Clamp(this.cameras.main.zoom * factor, this.baseZoom, Math.max(2, this.baseZoom)));
+    if (!this.ready) return;
+    this.cameras.main.setZoom(Phaser.Math.Clamp(this.cameras.main.zoom * factor, this.baseZoom, Math.max(2, this.baseZoom)));
+    saveMapZoom("market", this.cameras.main.zoom);
   }
 }

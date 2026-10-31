@@ -1,4 +1,6 @@
+import { BARLEY_WITHERING_MS, BARLEY_CLEARING_MS } from "../../game-core/farm/barleyDecay";
 import SesameCropContent, { SesameAction } from "./SesameCropContent";
+import { cropStageLabel } from "../game/phaser/cropPresentation";
 import miniature from "../../assets/sprite_assets/pngs/v2/isometric-test/ziggurat/ziggurat-completed.png";
 import PorterHireProgress from "./PorterHireProgress";
 import { Popover } from "radix-ui";
@@ -46,7 +48,7 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
   getFarmerPosition?: () => IsometricTileAnchor["cell"] | undefined;
   onRequestPalm?: () => void;
   onStoreDecoration?: (id: string) => void;
-  onSelect: (mode: "plant" | "harvest", initial?: IsometricTileAnchor["cell"]) => void; onWalk: () => void; onDrop: () => void; onPickup: () => void; onBuildIrrigation: () => void;
+  onSelect: (mode: "plant" | "harvest" | "sesame" | "harvestSesame", initial?: IsometricTileAnchor["cell"]) => void; onWalk: () => void; onDrop: () => void; onPickup: () => void; onBuildIrrigation: () => void;
   onStore: (granaryId?: string) => void;
   onGather: (itemKey: "reed" | "clay") => void;
   onFish?: () => void;
@@ -68,6 +70,14 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
   const decoration = anchor.kind === "tile" && snapshot.rewards.find(r => r.objectId === decorationObject?.id);
   const farmer = anchor.kind === "farmer";
   const porter = anchor.kind === "porter";
+  const stageCrop = anchor.kind === "tile" ? snapshot.crops.find(c => c.column === anchor.cell.column && c.row === anchor.cell.row) : undefined;
+  const ripeAt = stageCrop ? Date.parse(stageCrop.growthCompletesAt) : 0;
+  const clearing = now >= ripeAt + BARLEY_WITHERING_MS;
+  const decayProgress = stageCrop?.cropKey === "barley" && stageCrop.decayEligible && !stageCrop.harvestStartedAt &&
+    now >= ripeAt && now < ripeAt + BARLEY_CLEARING_MS
+    ? { startedAt: new Date(ripeAt + (clearing ? BARLEY_WITHERING_MS : 0)).toISOString(),
+      completesAt: new Date(ripeAt + (clearing ? BARLEY_CLEARING_MS : BARLEY_WITHERING_MS)).toISOString() } : null;
+  const cropStage = stageCrop ? cropStageLabel(stageCrop, now) : null;
   const growingBarley = !farmer ? snapshot.crops.find(c => c.cropKey === "barley" && c.column === anchor.cell.column && c.row === anchor.cell.row &&
     !c.harvestCompletesAt && now >= Date.parse(c.plantedAt) && now < Date.parse(c.growthCompletesAt)) : undefined;
   const bakingJob = !farmer && anchor.kind !== "breadBasket" && content.building?.type === "breadOven"
@@ -101,24 +111,29 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
   return <Popover.Root open onOpenChange={open => { if (!open) onClose(); }}>
     <Popover.Anchor asChild><span className={styles.popupAnchor} style={{ left: anchor.x, top: anchor.y + 90 }} /></Popover.Anchor>
     <Popover.Portal><Popover.Content key={`${anchor.kind}:${anchor.cell.column}:${anchor.cell.row}`} className={styles.tilePopup} side="top" sideOffset={8} collisionPadding={12}
-      style={{ width: inventoryPopup ? 560 : undefined, maxWidth: `min(${inventoryPopup ? 560 : TILE_SIZE * 6}px, calc(100vw - 24px))` }} aria-label={title}
+      style={{ width: inventoryPopup ? 560 : farmer ? 440 : undefined, maxWidth: `min(${inventoryPopup ? 560 : farmer ? 440 : TILE_SIZE * 6}px, calc(100vw - 24px))` }} aria-label={title}
       onCloseAutoFocus={event => event.preventDefault()}>
       <div className={`${styles.popupBody} ${inventoryPopup ? styles.inventoryBody : ""}`}>
       <div className={`${styles.popupHeader} ${farmer ? styles.farmerHeader : ""}`}>
         {farmer && <FarmerPortrait name={title} variant="headshot" />}
         <h2>{!farmer && !porter && <MapCuneiformLabel element={title} />}<span>{title}{outputQuantity !== null && ` (${outputQuantity})`}</span>{nameCuneiform && <span className="cuneiforms">{nameCuneiform}</span>}</h2>
         {!porter && !farmer && !bread && !bags && content.level !== null && <span className={styles.levelBadge} aria-label={`${content.title} level ${content.level}`}>Lvl {content.level}</span>}
+        {cropStage && <span className={styles.levelBadge} aria-label={`${content.title} stage: ${cropStage}`}>{cropStage}</span>}
       </div>
       <Popover.Close className={styles.popupClose} aria-label="Close tile popup"><span aria-hidden="true">×</span></Popover.Close>
       {decoration ? <button className={buildingActionStyles.button} onClick={() => onStoreDecoration?.(decoration.id)}><img src={miniature} width={48} height={48} alt="" /><span>Return to storage</span></button> : porter ? <PorterHireProgress porter={snapshot.farm.production.porter} now={now} /> : <>
       {farmer ? <>
         <FarmerPopupStatus snapshot={snapshot} now={now} walking={anchor.walking} />
       </> : content.details
+        .filter(detail => !decayProgress || (!detail.startsWith("Withers in ") && !detail.startsWith("Clears automatically in ")))
         .filter(detail => !growingBarley || !detail.startsWith("Ready in "))
         .filter(detail => !granaryInventory || !detail.endsWith(" barley stored"))
         .filter(detail => outputQuantity === null || !/^\d+ (?:bread|beer|flour bags?|groats bags?) ready$/.test(detail)).map(detail => <p key={detail}>{detail}</p>)}
       {granaryInventory && <GranaryStorageCard quantity={granaryInventory.storedBarley} farmLevel={snapshot.farm.progression?.level ?? 1} />}
-      {!farmer && <SesameCropContent snapshot={snapshot} target={anchor.cell} now={now} getFarmerPosition={getFarmerPosition} onStarted={onClose} />}
+      {!farmer && <SesameCropContent onSelectHarvest={() => onSelect("harvestSesame", anchor.cell)} snapshot={snapshot} target={anchor.cell} now={now} getFarmerPosition={getFarmerPosition} onStarted={onClose} />}
+      {decayProgress && <ProductionProgress job={decayProgress} now={now}
+        label={clearing ? "Time until barley clears automatically" : "Time until barley withers"}
+        countdownPrefix={clearing ? "Clears automatically in" : "Withers in"} />}
       {growingBarley && <BarleyGrowthProgress crop={growingBarley} now={now} />}
       {!farmer && snapshot.crops.some(c => c.cropKey === "datePalm" && c.column === anchor.cell.column && c.row === anchor.cell.row) &&
         <PerennialCropContent snapshot={snapshot} target={anchor.cell} now={now} isometric getFarmerPosition={getFarmerPosition} onStarted={onClose} />}
@@ -200,7 +215,7 @@ export default function IsometricTilePopup({ snapshot, anchor, now, onClose, onS
         {content.title === "Arable ground" && (snapshot.farm.progression?.level ?? 1) >= 9 &&
           <PerennialCropAction snapshot={snapshot} cropKey="datePalm" target={anchor.cell} now={now} action="plant" isometric getFarmerPosition={getFarmerPosition} onRequestPlant={onRequestPalm} />}
         {content.title === "Arable ground" && (snapshot.farm.progression?.level ?? 1) >= 10 &&
-          <SesameAction snapshot={snapshot} target={anchor.cell} now={now} action="plant" getFarmerPosition={getFarmerPosition} onStarted={onClose} />}
+          <SesameAction snapshot={snapshot} target={anchor.cell} now={now} action="plant" getFarmerPosition={getFarmerPosition} onStarted={onClose} onSelectPlant={() => onSelect("sesame", anchor.cell)} />}
         {content.actions.irrigation && <button className={buildingActionStyles.button} onClick={onBuildIrrigation}><BuildingActionIcon kind="irrigation" /><span>Build irrigation canal</span></button>}
         {content.actions.destroyIrrigation && <button className={buildingActionStyles.button} onClick={onDestroyIrrigation}><BuildingActionIcon kind="destroy" /><span>Destroy</span></button>}
         {content.actions.destroyRoad && <button className={buildingActionStyles.button} onClick={onDestroyRoad}><BuildingActionIcon kind="destroy" /><span>Destroy</span></button>}

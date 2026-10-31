@@ -30,11 +30,14 @@ export const harvestingProgress = (snapshot: FarmSnapshot, now: number) => {
   return { completed, totalMs, percentage: Math.floor(Math.max(0, Math.min(100, elapsedMs / totalMs * 100))) };
 };
 
+export type HarvestGain = { readonly cell: IsoCell; readonly at: number; readonly quantity: number };
+
 export type HarvestPose = {
   readonly type: "walking" | "harvesting" | "idle" | "done";
   readonly position: IsoCell; readonly seeds: number; readonly elapsed: number;
   readonly distance: number; readonly facingLeft: boolean;
   readonly harvested: readonly IsoCell[];
+  readonly gains: readonly HarvestGain[];
 };
 
 /** Read-only projection of a saved harvest, including the final granary journey. */
@@ -45,7 +48,8 @@ export const isometricHarvestPose = (snapshot: FarmSnapshot, now: number): Harve
   let quantity = snapshot.farm.carriedItem?.itemKey === "barley" ? snapshot.farm.carriedItem.quantity : 0;
   let buildings = snapshot.buildings.map(b => ({ ...b, completesAt: Date.parse(b.completesAt) }));
   const harvested: IsoCell[] = [];
-  const pose = (type: HarvestPose["type"]): HarvestPose => ({ type, position, seeds: quantity, elapsed: 0, distance: 0, facingLeft: false, harvested });
+  const gains: HarvestGain[] = [];
+  const pose = (type: HarvestPose["type"]): HarvestPose => ({ type, position, seeds: quantity, elapsed: 0, distance: 0, facingLeft: false, harvested, gains });
   const travel = (path: readonly IsoCell[], start: number, end: number): HarvestPose => {
     const fraction = end <= start ? 1 : Math.max(0, Math.min(1, (now - start) / (end - start)));
     position = positionAlongPorterPath(path, fraction);
@@ -85,7 +89,9 @@ export const isometricHarvestPose = (snapshot: FarmSnapshot, now: number): Harve
       if (now < at) return { ...pose("harvesting"), elapsed: Math.max(0, now - at + CROP_DEFINITIONS.barley.harvestDurationMs) };
       const crop = snapshot.crops.find(c => c.column === position.column && c.row === position.row);
       harvested.push(position);
-      quantity += crop ? barleyHarvestYield(crop, at - CROP_DEFINITIONS.barley.harvestDurationMs) : 0;
+      const gained = crop ? barleyHarvestYield(crop, at - CROP_DEFINITIONS.barley.harvestDurationMs) : 0;
+      if (gained > 0) gains.push({ cell: position, at, quantity: gained });
+      quantity += gained;
       batch = { ...batch, lastHarvested: position, phase: { type: "ready" }, travelStartedAt: new Date(at).toISOString(), nextStepAt: new Date(at + (batch.travelMs?.[0] ?? 0)).toISOString() };
     } else if (batch.phase.type === "ready") {
       const path = batch.travelPaths?.[0];

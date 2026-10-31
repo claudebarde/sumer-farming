@@ -38,4 +38,36 @@
   progress { display: block; height: 10px; }
 }
 .storageInformation { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.tableColumns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 12px; }
+.inventoryTable {
+  width: 100%; table-layout: fixed; border-collapse: separate; border-spacing: 0;
+  margin: 0; border: 1px solid #d8b77e; border-radius: 10px; overflow: hidden;
+  background: #f6e9cf;
+  th, td { padding: 5px 4px; vertical-align: middle; border: 0; }
+  tr + tr > * { border-top: 1px solid #dcc08c80; }
+  .iconColumn { width: 38px; }
+  .nameColumn { width: 68px; }
+  .countColumn { width: 48px; }
+  .tableIcon img { display: block; width: 28px; height: 28px; object-fit: contain; }
+  .tableName { text-align: left; font-size: .75rem; font-weight: bold; overflow-wrap: anywhere; }
+  .tableQuantity { text-align: right; font-size: .75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  progress {
+    display: block; width: 100%; height: 8px; appearance: none;
+    border: 0; border-radius: 5px; overflow: hidden; background: #e0d2b5; color: #7d8d48;
+    &::-webkit-progress-bar { background: #e0d2b5; border-radius: 5px; }
+    &::-webkit-progress-value { background: #7d8d48; border-radius: 5px; }
+    &::-moz-progress-bar { background: #7d8d48; border-radius: 5px; }
+  }
+}
+@media (max-width: 520px) {
+  .tableColumns { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .inventoryTable {
+    th, td { padding: 5px 4px; }
+    .iconColumn { width: 40px; }
+    .nameColumn { width: 88px; }
+    .countColumn { width: 56px; }
+    .tableName, .tableQuantity { font-size: .75rem; }
+    .tableIcon img { width: 32px; height: 32px; }
+  }
+}
 @media (max-width: 420px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

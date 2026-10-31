@@ -1,3 +1,4 @@
+import { currentCropWork } from "../../game-data/cropWork";
 import { useRef, useState } from "react";
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { FarmCoordinate } from "../../game-core/farm/irrigation";
@@ -14,15 +15,18 @@ import CropGrowthProgress from "./CropGrowthProgress";
 import PalmPlantingProgress from "./PalmPlantingProgress";
 import PalmHarvestProgress from "./PalmHarvestProgress";
 
-type Props = { snapshot: FarmSnapshot; target: FarmCoordinate; now: number; getFarmerPosition?: () => FarmCoordinate | undefined; onStarted?: () => void };
+type Props = { snapshot: FarmSnapshot; target: FarmCoordinate; now: number; getFarmerPosition?: () => FarmCoordinate | undefined; onStarted?: () => void; onSelectPlant?: () => void; onSelectHarvest?: () => void };
 
-export function SesameAction({ snapshot, target, now, getFarmerPosition, onStarted, action }: Props & { action: "plant" | "harvest" }) {
+export function SesameAction({ snapshot, target, now, getFarmerPosition, onStarted, onSelectPlant, onSelectHarvest, action }: Props & { action: "plant" | "harvest" }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inFlight = useRef(false);
+  if (action === "plant" && !snapshot.inventory.some(item => item.itemKey === "sesame" && item.quantity > 0)) return null;
   const reason = plantingBlocker(snapshot, now) ?? sesameActionReason(snapshot, target, action, now);
   const submit = async () => {
     if (reason || inFlight.current) return;
+    if (action === "plant" && onSelectPlant) { onSelectPlant(); return; }
+    if (action === "harvest" && onSelectHarvest) { onSelectHarvest(); return; }
     inFlight.current = true; setPending(true); setError(null);
     try {
       farmStore.getState().setReady(await executeGameCommand({ type: "work_sesame", crop: "sesame", action, target,
@@ -38,7 +42,6 @@ export function SesameAction({ snapshot, target, now, getFarmerPosition, onStart
       <span className={actionStyles.icon} aria-hidden="true"><img src={basket} alt="" draggable={false} /></span>
       <span>{pending ? "Starting…" : action === "plant" ? "Plant sesame" : "Harvest sesame"}</span>
     </button>
-    {action === "plant" && !reason && <p>Uses 1 basket of sesame.</p>}
   </>;
 }
 
@@ -46,10 +49,10 @@ export default function SesameCropContent(props: Props) {
   const { snapshot, target, now } = props;
   const crop = snapshot.crops.find(c => c.cropKey === "sesame" && c.column === target.column && c.row === target.row);
   if (!crop) return null;
-  const job = snapshot.farm.production.cropWork;
+  const job = currentCropWork(snapshot.farm.production, now);
   if (job?.cropId === crop.id && !job.settled) return job.action === "harvest"
     ? <PalmHarvestProgress job={job} now={now} /> : <PalmPlantingProgress job={job} now={now} />;
   const start = Date.parse(crop.plantedAt), end = Date.parse(crop.growthCompletesAt);
   return now < end ? <CropGrowthProgress percentage={(now - start) / (end - start) * 100} remainingMs={end - now} label="Sesame growing" />
-    : <><p>3 baskets of sesame ready to harvest.</p><div className={popupStyles.popupActions}><SesameAction {...props} action="harvest" /></div></>;
+    : <div className={popupStyles.popupActions}><SesameAction {...props} action="harvest" /></div>;
 }
