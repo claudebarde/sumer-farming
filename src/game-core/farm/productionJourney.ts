@@ -46,10 +46,10 @@ export const planProductionJourney = (
   }
   const carried = snapshot.farm.carriedItem?.itemKey === "barley" ? snapshot.farm.carriedItem.quantity : 0;
   const supplyStops: NonNullable<ProductionJourney["supplyStops"]> = [];
-  if (kind === "baking" || kind === "brewing") {
-    const item = kind === "baking" ? "flour" : "brewersGroats";
+  if (target.type === "oilMill" || kind === "baking" || kind === "brewing") {
+    const item = target.type === "oilMill" ? "sesame" : kind === "baking" ? "flour" : "brewersGroats";
     const locations = storedLocations(snapshot.inventory.find(i => i.itemKey === item), snapshot.buildings, now);
-    let remaining = 2;
+    let remaining = target.type === "oilMill" ? (kind === "donkeyMilling" ? 9 : 3) : 2;
     for (const id of ["farm", ...Object.keys(locations).filter(id => id !== "farm").sort()]) {
       const quantity = Math.min(remaining, locations[id] ?? 0);
       if (!quantity) continue;

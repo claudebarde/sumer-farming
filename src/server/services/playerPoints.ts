@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { ACTION_POINTS, POINTS_RULE_VERSION, type PointAction } from "../../game-data/points";
 import type { DatabaseTransaction } from "../db/client";
 import { farmBuildings, farmCrops, pointAwards, farms } from "../db/schema";
@@ -86,4 +86,11 @@ export const reconcileZigguratPoints = async (tx: DatabaseTransaction, playerId?
     WHERE stage.completed_at <= ${now} AND stage.completed_at >= p.points_started_at
     ON CONFLICT (player_id, source) DO NOTHING
   `);
+};
+
+/** Construction receipts let the client show actual awards, never inferred score changes. */
+export const readConstructionAwards = async (tx: DatabaseTransaction, playerId: string) => {
+  const rows = await tx.select({ source: pointAwards.source, points: pointAwards.points, completedAt: pointAwards.completedAt })
+    .from(pointAwards).where(and(eq(pointAwards.playerId, playerId), eq(pointAwards.action, "firstBuilding")));
+  return rows.map(row => ({ ...row, completedAt: row.completedAt.toISOString() }));
 };

@@ -35,15 +35,15 @@ describe("market entry progression", () => {
 describe("stand-specific markets", () => {
   const items = ["barley", "beer", "bread", "brewingVessels", "emptyBeerJar"];
 
-  it("offers empty jars only in the beer stand's NPC Buy tab", () => {
-    expect(marketIncludesItem("beer", "emptyBeerJar", { market: "npc", action: "buy" })).toBe(true);
-    expect(marketIncludesItem("beer", "emptyBeerJar", { market: "npc", action: "sell" })).toBe(false);
+  it("offers empty jars only in the supplies stand's NPC Buy tab", () => {
+    expect(marketIncludesItem("supplies", "emptyBeerJar", { market: "npc", action: "buy" })).toBe(true);
+    expect(marketIncludesItem("supplies", "emptyBeerJar", { market: "npc", action: "sell" })).toBe(false);
     for (const action of ["buy", "sell"] as const) {
-      expect(marketIncludesItem("beer", "emptyBeerJar", { market: "player", action })).toBe(false);
+      expect(marketIncludesItem("supplies", "emptyBeerJar", { market: "player", action })).toBe(false);
     }
     expect(marketIncludesItem("barley", "emptyBeerJar", { market: "npc", action: "buy" })).toBe(false);
-    expect(marketIncludesItem("beer", "brewingVessels", { market: "npc", action: "buy" })).toBe(true);
-    expect(marketIncludesItem("beer", "brewingVessels", { market: "player", action: "buy" })).toBe(false);
+    expect(marketIncludesItem("supplies", "brewingVessels", { market: "npc", action: "buy" })).toBe(true);
+    expect(marketIncludesItem("supplies", "brewingVessels", { market: "player", action: "buy" })).toBe(false);
   });
 
   it.each(["barley", "beer", "bread"] as const)("restricts %s market to its product", scope => {
@@ -60,9 +60,9 @@ describe("stand-specific markets", () => {
     expect(marketUiStore.getState().scope).toBe("beer");
   });
 
-  it("keeps brewing supplies accessible in the beer NPC market", () => {
-    expect(items.filter(item => marketIncludesItem("beer", item, { market: "npc", action: "buy" })))
-      .toEqual(["beer", "brewingVessels", "emptyBeerJar"]);
+  it("keeps brewing supplies separate from beer", () => {
+    expect(items.filter(item => marketIncludesItem("supplies", item, { market: "npc", action: "buy" })))
+      .toEqual(["brewingVessels", "emptyBeerJar"]);
   });
 
   it("does not restrict farm purchase shortcuts to the last visited stand", () => {
@@ -72,4 +72,16 @@ describe("stand-specific markets", () => {
     marketUiStore.getState().openMarket("beer");
     expect(marketUiStore.getState().scope).toBe("beer");
   });
+});
+
+it("moves all equipment exclusively to supplies without changing food stands", () => {
+  for (const item of ["emptyBeerJar", "bakingTools", "brewingVessels", "donkey"]) {
+    expect(marketIncludesItem("supplies", item, { market: "npc", action: "buy" })).toBe(true);
+    expect(marketIncludesItem("supplies", item, { market: "npc", action: "sell" })).toBe(false);
+    for (const scope of ["beer", "bread", "produce", "barley"] as const)
+      expect(marketIncludesItem(scope, item, { market: "npc", action: "buy" })).toBe(false);
+  }
+  expect(canOpenMarketStand("supplies", 4)).toBe(false);
+  expect(canOpenMarketStand("supplies", 5)).toBe(false);
+  expect(canOpenMarketStand("supplies", 6)).toBe(true);
 });

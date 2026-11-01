@@ -100,10 +100,10 @@ export const marketUnlockLevel = (item: string) =>
         : item === "bread" || item === "bakingTools"
           ? BREAD_OVEN_UNLOCK_LEVEL
           : BREWERY_UNLOCK_LEVEL;
-export const marketStandUnlockLevel = (scope: "barley" | "beer" | "bread" | "produce") =>
-  scope === "produce" ? 9 : scope === "barley" ? MARKET_UNLOCK_LEVEL : 5;
+export const marketStandUnlockLevel = (scope: "barley" | "beer" | "bread" | "produce" | "supplies") =>
+  scope === "supplies" ? 6 : scope === "produce" ? 9 : scope === "barley" ? MARKET_UNLOCK_LEVEL : 5;
 export const canOpenMarketStand = (
-  scope: "barley" | "beer" | "bread" | "produce",
+  scope: "barley" | "beer" | "bread" | "produce" | "supplies",
   level: number = 1
 ) => level >= marketStandUnlockLevel(scope);
 export const granaryLimitForLevel = (level: number) =>

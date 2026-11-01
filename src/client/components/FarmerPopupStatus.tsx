@@ -5,6 +5,7 @@ import RationMeter from "./RationMeter";
 import styles from "../styles/GameCanvas.module.scss";
 import { farmerActivity } from "../game/phaser/farmerActivity";
 import { FARM_SPRITES } from "../../assets/farmSprites";
+import oil from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-oil-single.png";
 import sesame from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png";
 import datesIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 import flour from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.webp";
@@ -14,7 +15,7 @@ import canal from "../../assets/sprite_assets/pngs/v2/isometric-test/canals/cana
 import stool from "../../assets/sprite_assets/pngs/v2/isometric-test/farmer-idle-stool.png";
 import pickaxe from "../../assets/sprite_assets/pngs/v2/isometric-test/farmer-building-pickaxe.png";
 
-const activityImages = { sesame, barley: FARM_SPRITES.harvestedBarley, flour, brewersGroats, road, canal, stool, pickaxe,
+const activityImages = { oil, sesame, barley: FARM_SPRITES.harvestedBarley, flour, brewersGroats, road, canal, stool, pickaxe,
   reed: FARM_SPRITES.reedBundle, clay: FARM_SPRITES.brickPile, fish: FARM_SPRITES.fish,
   bread: FARM_SPRITES.breadBasket, beer: FARM_SPRITES.beerJars, dates: datesIcon, water: FARM_SPRITES.water };
 

@@ -1,12 +1,12 @@
 import { awardPoints } from "./playerPoints";
-import { and, eq, lte, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
-import { MERCHANT_TRAVEL_MS, NPC_REQUESTS } from "../../game-data/npcRequests";
-import { canDeliverRequest, getRequestWindow } from "../../game-core/market/npcRequests";
+import { MERCHANT_TRAVEL_MS, MERCHANT_PRODUCTS, NPC_REQUESTS } from "../../game-data/npcRequests";
+import { getRequestWindow, selectMerchantRequests } from "../../game-core/market/npcRequests";
 import type { NpcRequests } from "../../schemas/npcRequests";
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { Database, DatabaseTransaction } from "../db/client";
-import { farms, farmBuildings, npcRequestBoards, players, shekelTransactions } from "../db/schema";
+import { farms, npcRequestBoards, players, shekelTransactions } from "../db/schema";
 import { advanceFarmLifecycle } from "./farmLifecycle";
 import { readFarmSnapshot } from "./farmSnapshot";
 import { loadMarketItemStorage, removeFromMarketItemStorage } from "./marketItemStorage";
@@ -17,20 +17,18 @@ export class NpcRequestRuleError extends Data.TaggedError("NpcRequestRuleError")
 export class NpcRequestPersistenceError extends Data.TaggedError("NpcRequestPersistenceError")<{ readonly cause: unknown }> {}
 
 // Call only while holding the owning farm row lock. One stable schedule per farm.
-const loadBoard = async (tx: DatabaseTransaction, farmId: string, now: Date) => {
+const loadBoard = async (tx: DatabaseTransaction, farmId: string, level: number, now: Date) => {
   const [existing] = await tx.select().from(npcRequestBoards).where(eq(npcRequestBoards.farmId, farmId));
   // New visits enter first, then offer a full 24 hours of requests at rest.
   const anchor = existing?.anchor ?? new Date(now.getTime() + MERCHANT_TRAVEL_MS);
   const window = getRequestWindow(anchor.getTime(), now.getTime());
   if (existing && existing.cycle === window.cycle) return { board: existing, window };
-  const [brewery] = await tx.select({ id: farmBuildings.id }).from(farmBuildings).where(and(
-    eq(farmBuildings.farmId, farmId), eq(farmBuildings.type, "brewery"),
-    lte(farmBuildings.completesAt, new Date(window.opensAt))
-  )).limit(1);
+  const requests = selectMerchantRequests(farmId, window.cycle, level,
+    existing ? existing.requests ?? NPC_REQUESTS[existing.brewer ? "brewer" : "starter"] : []);
   const [board] = await tx.insert(npcRequestBoards).values({
-    farmId, anchor, cycle: window.cycle, brewer: brewery !== undefined, completed: []
+    farmId, anchor, cycle: window.cycle, brewer: false, requests, completed: []
   }).onConflictDoUpdate({ target: npcRequestBoards.farmId,
-    set: { cycle: window.cycle, brewer: brewery !== undefined, completed: [] }
+    set: { cycle: window.cycle, brewer: false, requests, completed: [] }
   }).returning();
   return { board: board!, window };
 };
@@ -43,14 +41,16 @@ export const getNpcRequests = (database: Database, playerId: string) => Effect.g
       if (loaded.level < 7) return "locked" as const;
       const now = new Date();
       const farm = await advanceFarmLifecycle(tx, loaded, now);
-      const { board, window } = await loadBoard(tx, farm.id, now);
-      const barley = await loadMarketItemStorage(tx, farm.id, "barley", now);
-      const beer = await loadMarketItemStorage(tx, farm.id, "beer", now);
+      const { board, window } = await loadBoard(tx, farm.id, farm.level, now);
+      const stock = { barley: 0, beer: 0, flour: 0, brewersGroats: 0, bread: 0, dates: 0, sesame: 0, oil: 0 };
+      for (const product of MERCHANT_PRODUCTS) {
+        stock[product] = (await loadMarketItemStorage(tx, farm.id, product, now)).storedQuantity;
+      }
       return {
         serverNow: now.toISOString(), cycle: window.cycle, open: window.open,
         closesAt: new Date(window.closesAt).toISOString(), nextOpensAt: new Date(window.nextOpensAt).toISOString(),
-        stock: { barley: barley.storedQuantity, beer: beer.storedQuantity },
-        requests: window.open ? NPC_REQUESTS[board.brewer ? "brewer" : "starter"].map((request, slot) => ({
+        stock,
+        requests: window.open ? (board.requests ?? NPC_REQUESTS[board.brewer ? "brewer" : "starter"]).map((request, slot) => ({
           ...request, slot, completed: board.completed.includes(slot)
         })) : []
       } satisfies NpcRequests;
@@ -75,9 +75,9 @@ export const deliverNpcRequest = (database: Database, input: DeliveryInput) => E
       // Read time after acquiring the lock, so a queued delivery cannot beat expiry.
       const now = new Date();
       const farm = await advanceFarmLifecycle(tx, loaded, now);
-      const { board, window } = await loadBoard(tx, farm.id, now);
+      const { board, window } = await loadBoard(tx, farm.id, farm.level, now);
       if (!window.open || input.cycle !== window.cycle) return { reason: "expired" };
-      const request = NPC_REQUESTS[board.brewer ? "brewer" : "starter"][input.slot];
+      const request = (board.requests ?? NPC_REQUESTS[board.brewer ? "brewer" : "starter"])[input.slot];
       if (!request) return { reason: "expired" };
       if (board.completed.includes(input.slot)) return { snapshot: await readFarmSnapshot(tx, farm, false) };
       // A fixed visit/slot identifies the exact agreed offer. Unrelated harvest
@@ -87,15 +87,19 @@ export const deliverNpcRequest = (database: Database, input: DeliveryInput) => E
         eq(shekelTransactions.playerId, input.playerId), eq(shekelTransactions.idempotencyKey, input.idempotencyKey)
       ));
       if (duplicate) return { reason: "idempotency_conflict" };
-      const barley = await loadMarketItemStorage(tx, farm.id, "barley", now);
-      const beer = await loadMarketItemStorage(tx, farm.id, "beer", now);
-      if (!canDeliverRequest(request, { barley: barley.storedQuantity, beer: beer.storedQuantity })) return { reason: "insufficient_goods" };
+      const deliveries = [];
+      for (const product of MERCHANT_PRODUCTS) {
+        const quantity = request[product] ?? 0;
+        if (quantity === 0) continue;
+        const storage = await loadMarketItemStorage(tx, farm.id, product, now);
+        if (storage.storedQuantity < quantity) return { reason: "insufficient_goods" };
+        deliveries.push({ storage, quantity });
+      }
       const [player] = await tx.select().from(players).where(eq(players.id, input.playerId)).for("update");
       if (!player) return { reason: "missing_farm" };
       const balance = player.shekelBalance + request.reward;
       if (balance > 2_147_483_647) return { reason: "balance_limit" };
-      if (request.barley > 0) await removeFromMarketItemStorage(tx, barley, request.barley, now);
-      if (request.beer > 0) await removeFromMarketItemStorage(tx, beer, request.beer, now);
+      for (const { storage, quantity } of deliveries) await removeFromMarketItemStorage(tx, storage, quantity, now);
       await tx.update(players).set({ shekelBalance: balance, updatedAt: now }).where(eq(players.id, player.id));
       await tx.insert(shekelTransactions).values({ playerId: player.id, idempotencyKey: input.idempotencyKey,
         type: "request_reward", requestCustomer: request.customer, delta: request.reward, balanceAfter: balance, createdAt: now });

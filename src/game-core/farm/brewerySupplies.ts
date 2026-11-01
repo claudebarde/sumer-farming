@@ -6,7 +6,7 @@ import type { FarmBuildingType } from "../../game-data/buildings";
 export type BrewerySupplyAction = "collect_water" | "pour_water" | "deliver" | "stock_jars" | "start_brewing" | "collect_beer" | "give_beer";
 export const brewerySupplyErrors = {
   brewery_unavailable: "A completed brewery is required.",
-  no_empty_jars: "Buy empty beer jars from the NPC market first.",
+  no_empty_jars: "Buy empty jars from the NPC market first.",
   jar_transfer_hands_full: "Empty your hands before transferring jars.",
   hands_not_empty: "Empty your hands before collecting water.",
   not_at_river: "Collect water from the river.",
@@ -52,12 +52,12 @@ export const validateBrewerySupply = (context: {
         [...context.crops, ...context.groundItems, ...context.objects].some(same)) return "invalid_pour_target";
     return null;
   }
-  const brewery = buildings.find(building => building.type === "brewery" && same(building));
+  const brewery = buildings.find(building => (building.type === "brewery" || (building.type === "oilMill" && context.action === "stock_jars")) && same(building));
   if (brewery === undefined || Date.parse(brewery.completesAt) > now) return "brewery_unavailable";
   if (context.action === "start_brewing" || context.action === "collect_beer" || context.action === "give_beer") return null;
   if (context.action === "stock_jars") {
     if (carriedItem !== null) return "jar_transfer_hands_full";
-    if (brewery.emptyBeerJars >= BREWERY_EMPTY_JAR_CAPACITY) return "brewery_full";
+    if (brewery.emptyBeerJars >= (brewery.type === "oilMill" ? 3 : BREWERY_EMPTY_JAR_CAPACITY)) return "brewery_full";
     return (context.inventory?.find(item => item.itemKey === "emptyBeerJar")?.quantity ?? 0) > 0 ? null : "no_empty_jars";
   }
   if (carriedItem === null || carriedItem.itemKey !== "water") return "wrong_supply";

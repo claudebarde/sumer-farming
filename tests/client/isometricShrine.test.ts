@@ -23,7 +23,7 @@ it("offers bread and beer with their approved icons", () => {
   expect(html).toContain("Offer 2 bread");
   expect(html).toContain("Offer 2 beer");
   expect(html).toContain("bread-basket-isometric.webp");
-  expect(html).toContain("beer-jars-full-isometric.webp");
+  expect(html).toContain("jar-beer-single.png");
   expect(html).not.toContain('disabled=""');
 });
 

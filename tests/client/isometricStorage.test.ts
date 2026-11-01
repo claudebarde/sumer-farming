@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
-import { barleyStoragePlan } from "../../src/client/game/phaser/isometricStorage";
+import { barleyStoragePlan, materialStoragePlan } from "../../src/client/game/phaser/isometricStorage";
 import { granaryCapacityForLevel } from "../../src/game-data/storage";
 import { pickupPose, transferGroundItems } from "../../src/client/game/phaser/isometricPickup";
 
@@ -76,4 +76,16 @@ describe("manual isometric barley storage", () => {
     expect(pickupPose(plan.path, 1000, 1090).walking).toBe(true);
     expect(pickupPose(plan.path, 1000, 100000)).toMatchObject({ done: true, position: plan.path.at(-1) });
   });
+});
+
+it("routes manual materials to the selected store without falling back when full", () => {
+  const s = snapshot(); s.farm.carriedItem = { itemKey: "reed", quantity: 2, expiresAt: null };
+  s.buildings[0]!.type = "warehouse";
+  s.inventory = [{ itemKey: "reed", quantity: 5, locations: { farm: 5, [id]: 0 } }];
+  expect(materialStoragePlan(s, from, 1000)?.storageId).toBe(id);
+  expect(materialStoragePlan(s, from, 1000, "farm")?.storageId).toBe("farm");
+  expect(materialStoragePlan(s, from, 1000, id)?.path.at(-1)).toEqual({ column: 5, row: 5 });
+  s.inventory[0]!.locations = { farm: 6, [id]: 0 }; s.inventory[0]!.quantity = 6;
+  expect(materialStoragePlan(s, from, 1000, "farm")).toBeNull();
+  expect(materialStoragePlan(s, from, 1000, "missing")).toBeNull();
 });

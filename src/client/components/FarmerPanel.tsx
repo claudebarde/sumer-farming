@@ -30,7 +30,7 @@ import treatStyles from "../styles/FarmerTreats.module.scss";
 import { FARM_SPRITES } from "../../assets/farmSprites";
 import datesIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 import breadIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.webp";
-import beerIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.webp";
+import beerIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-beer-single.png";
 import {
   breadTreatErrors,
   validateBreadTreat

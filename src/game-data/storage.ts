@@ -16,6 +16,7 @@ export const estateResourceCapacity = (
   if (item === "bakingTools") return FARM_BUILDING_DEFINITIONS.breadOven.materials.bakingTools;
   if (item === "donkey") return 1;
   if (item === "fish") return 5;
+  if (item === "oil") return buildings.some(b => b.type === "warehouse" && new Date(b.completesAt).getTime() <= now) ? 10 : 0;
   if (item === "sesame") return buildings.some(b => b.type === "warehouse" && new Date(b.completesAt).getTime() <= now) ? WAREHOUSE_SESAME_BASKET_CAPACITY : 0;
   if (item === "dates") return buildings.some(b => b.type === "warehouse" && new Date(b.completesAt).getTime() <= now) ? WAREHOUSE_DATE_BASKET_CAPACITY : 0;
   if (!(item in ESTATE_STORAGE_LIMITS)) return 2147483647;

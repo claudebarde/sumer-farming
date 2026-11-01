@@ -1,3 +1,4 @@
+import { MERCHANT_OFFERS, merchantOfferRequest } from "../../src/game-data/npcRequests";
 import { eq, inArray } from "drizzle-orm";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -186,7 +187,7 @@ describe.sequential("development HTTP identity and trading", () => {
     await db.insert(farmCrops).values({ farmId, column: 0, row: 8, cropKey: "barley",
       sowingStartedAt: new Date(0), plantedAt: new Date(10000), growthCompletesAt: new Date(1810000) });
     await request("/api/market/requests", player);
-    await db.update(npcRequestBoards).set({ anchor: new Date(Date.now() - 1000) }).where(eq(npcRequestBoards.farmId, farmId));
+    await db.update(npcRequestBoards).set({ anchor: new Date(Date.now() - 1000), requests: [merchantOfferRequest(MERCHANT_OFFERS[4])] }).where(eq(npcRequestBoards.farmId, farmId));
     const board = await (await request("/api/market/requests", player)).json();
     const before = await (await request("/api/development/farm", player)).json();
     const start = await request("/api/game/action", player, { type: "start_batch_harvesting",
@@ -194,13 +195,13 @@ describe.sequential("development HTTP identity and trading", () => {
     expect(start.status).toBe(200);
     const working = await start.json();
     expect(working.farm.production.planting).not.toBeNull();
-    const command = { type: "deliver_npc_request", cycle: board.cycle, slot: 1,
+    const command = { type: "deliver_npc_request", cycle: board.cycle, slot: 0,
       expectedFarmVersion: before.farm.version, idempotencyKey: crypto.randomUUID() };
     const response = await request("/api/game/action", player, command);
     const delivered = await response.json();
     expect(delivered).not.toHaveProperty("error");
     expect(response.status).toBe(200);
-    expect(delivered.player.shekelBalance).toBe(before.player.shekelBalance + 12);
+    expect(delivered.player.shekelBalance).toBe(before.player.shekelBalance + 18);
     expect(delivered.farm.production.planting.id).toBe(working.farm.production.planting.id);
     expect(delivered.inventory.some((item: { itemKey: string }) => item.itemKey === "beer")).toBe(false);
     const retry = await request("/api/game/action", player, command);

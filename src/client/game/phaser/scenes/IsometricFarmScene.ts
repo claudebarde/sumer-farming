@@ -1,3 +1,5 @@
+import { constructionGains } from "../constructionGains";
+import { OIL_MILL_SOURCE, renderOilMillAnimation } from "../oilMillAnimation";
 import { currentCropWork } from "../../../../game-data/cropWork";
 import { savedMapZoom, saveMapZoom } from "../zoomPreference";
 import { HarvestGainEffect } from "../harvestGainEffect";
@@ -12,7 +14,7 @@ import { buildingAudioActive, type BuildingAudioKey } from "../buildingAudio";
 import { DATE_HARVEST_PREVIEW_SOURCES, dateHarvestPreviewFrame, dateHarvestPreviewOrigin, dateHarvestPreviewBasketsVisible } from "../dateHarvestPreview";
 import dateHarvestBaskets from "../../../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 import { palmHarvestPose, palmHarvestCarrier } from "../palmHarvesting";
-import { FARMER_SESAME_SOURCES } from "../farmerSesameCarry";
+import { farmerSesameCarryTexture, FARMER_SESAME_SOURCES } from "../farmerSesameCarry";
 import { FARMER_DATE_SOURCES, FARMER_DATE_BOUNDS, FARMER_DATE_ORIGIN, FARMER_DATE_DISPLAY_SIZE } from "../farmerDateCarry";
 import { DONKEY_SOURCES, donkeyFrameBounds, donkeyDirectionalPose, donkeyWanderPose } from "../donkeySprites";
 import { scheduledMerchantVisit } from "../merchantVisit";
@@ -56,6 +58,8 @@ import { activeBrewingPreparation, breweryOutputPlacement } from "../isometricBr
 import { MILL_ANIMATION_SOURCES, prepareMillAnimation, renderMillAnimation, millShadowCasters, millWorkerForegroundDepths, type MillAnimationImages } from "../millAnimation";
 import { millingJourneyPose, millingProgress } from "../isometricMilling";
 import { roadsideOutputPlacement, isometricOutputPosition } from "../buildingOutputPlacement";
+import oilMillIdleUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/sesame/oil-mill-isometric-idle.png";
+import oilJarUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-oil-single.png";
 import millOutputBagsUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.webp";
 import { mockGranaryPlacement, buildingPlacement, buildingBuildBlocker, type PlaceableBuilding } from "../isometricBuildingPlacement";
 import marketUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/market-isometric-test.webp";
@@ -122,13 +126,13 @@ import { farmerObscured, hiddenFarmerBounce, walkingCharacterDepth, type Occlusi
 import { canVisitIsometricMarket, isMarketTile, marketOrigin, marketEntrance } from "../isometricMarket";
 import { gatheringOffsetY, gatheringPose, materialCarry, materialLabel, transferBlocker } from "../isometricGathering";
 
-export type IsometricTileAnchor = { cell: IsoCell; x: number; y: number; walking?: boolean; kind?: "porter" | "farmer" | "tile" | "millBags" | "breadBasket" | "beerJars" | "market" | "farmReturn" | "barleyMarket" | "beerMarket" | "bakingMarket" | "produceMarket" };
+export type IsometricTileAnchor = { cell: IsoCell; x: number; y: number; walking?: boolean; kind?: "porter" | "farmer" | "tile" | "millBags" | "breadBasket" | "beerJars" | "market" | "farmReturn" | "barleyMarket" | "beerMarket" | "bakingMarket" | "produceMarket" | "suppliesMarket" };
 
 const scenery = { bush01, bush02, rocks01, rocks02 };
 const crops = { sown, growing, ripe, withering };
-const fallback = { beer: FARM_SPRITES.beerJars, water: FARM_SPRITES.water, reeds: FARM_SPRITES.reeds, barley: FARM_SPRITES.harvestedBarley, reed: FARM_SPRITES.reedBundle, clay: FARM_SPRITES.brickPile,
+const fallback = { oil: oilJarUrl, beer: FARM_SPRITES.beerJars, water: FARM_SPRITES.water, reeds: FARM_SPRITES.reeds, barley: FARM_SPRITES.harvestedBarley, reed: FARM_SPRITES.reedBundle, clay: FARM_SPRITES.brickPile,
   ...DATE_PALM_SOURCES, dateHarvestBaskets,
-  mill: FARM_SPRITES.mill, brewery: breweryUrl, breadOven: breadOvenUrl, warehouse: warehouseUrl, smallShrine: smallShrineUrl };
+  oilMill: oilMillIdleUrl, mill: FARM_SPRITES.mill, brewery: breweryUrl, breadOven: breadOvenUrl, warehouse: warehouseUrl, smallShrine: smallShrineUrl };
 
 /** Saved-world presentation and selection. Economic commands stay in React/server. */
 export class IsometricFarmScene extends Phaser.Scene {
@@ -276,8 +280,14 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.renderRoadGhost();
   }
 
-  private fadeRoadPlanBuildings() {
-    if (this.roadPlan === null) return;
+  private farmTransparent = false;
+  setFarmTransparent(transparent: boolean) {
+    this.farmTransparent = transparent;
+    this.clearSelection();
+  }
+
+  private fadePlacementBuildings() {
+    if (this.roadPlan === null && !this.realPlacement) return;
     for (const object of this.roadPlanObjects) {
       if (object instanceof Phaser.GameObjects.Image || object instanceof Phaser.GameObjects.Text || object instanceof Phaser.GameObjects.Graphics)
         object.setAlpha(Math.min(object.alpha, 0.25));
@@ -310,6 +320,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       }).setOrigin(0.5).setDepth(9991));
     });
   }
+
   private mills: { building: FarmSnapshot["buildings"][number]; images: MillAnimationImages; progress: Phaser.GameObjects.Graphics }[] = [];
   private farmerMarker!: Phaser.GameObjects.Graphics;
   private markerAlpha = 0;
@@ -364,6 +375,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     for (const [key, url] of Object.entries(FARM_EVOLUTION_SOURCES)) this.load.image(`source-${key}`, url);
     this.load.image("source-granary", granaryUrl);
     this.load.image("source-mill-output-bags", millOutputBagsUrl);
+    this.load.image(`source-${OIL_MILL_SOURCE.key}`, OIL_MILL_SOURCE.url);
     for (const { key, url } of MILL_ANIMATION_SOURCES) this.load.image(`source-${key}`, url);
     BAKING_SOURCES.forEach((url, i) => this.load.image(`source-baking-${i}`, url));
     for (const [key, url] of Object.entries(DOG_SOURCES)) this.load.image(`source-dog-${key}`, url);
@@ -571,6 +583,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.textures.addCanvas("market-preview", prepareBuildingTexture(this.textures.get("source-market-preview").getSourceImage() as HTMLImageElement))
       ?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     prepareMillAnimation(this);
+    this.textures.addCanvas(OIL_MILL_SOURCE.key, prepareBuildingTexture(this.textures.get(`source-${OIL_MILL_SOURCE.key}`).getSourceImage() as HTMLImageElement))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     prepareBakingAnimation(this);
     prepareRenovationBuilder(this);
     prepareBrewingAnimation(this);
@@ -592,7 +605,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       const isDatePalm = key in DATE_PALM_SOURCES;
       const bounds = key in DATE_HARVEST_PREVIEW_SOURCES ? { left: 0, top: 0, right: source.naturalWidth - 1, bottom: source.naturalHeight - 1 }
         : key in DATE_PALM_SOURCES ? DATE_PALM_BOUNDS : isCrop ? farmerPlantBounds(source.naturalWidth) : key in scenery ? { left: 0, top: 0, right: 511, bottom: 511 } : undefined;
-      this.textures.addCanvas(key, key === "breadOven" || key === "smallShrine" || key === "warehouse" ? prepareBuildingTexture(source)
+      this.textures.addCanvas(key, key === "oilMill" || key === "breadOven" || key === "smallShrine" || key === "warehouse" ? prepareBuildingTexture(source)
         : prepareFarmerTexture(source, isDatePalm ? DATE_PALM_SHARPEN_AMOUNT : isCrop ? 0.6 : 0.15, bounds,
           isDatePalm ? DATE_PALM_TEXTURE_SIZE : key in DATE_HARVEST_PREVIEW_SOURCES ? 256 : 128))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
@@ -713,7 +726,9 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.setMockGranaryPlacement(true);
   }
   endBuildingPlacement() {
-    this.setMockGranaryPlacement(false); this.realPlacement = false; this.placementLocked = false;
+    // Clear the placement mode before redrawing so normal opacity is restored.
+    this.realPlacement = false; this.placementLocked = false;
+    this.setMockGranaryPlacement(false);
     this.placementSelected = () => {};
   }
   setMockGranaryPlacement(enabled: boolean) {
@@ -750,8 +765,9 @@ export class IsometricFarmScene extends Phaser.Scene {
     const p = shrine ? isoPoint(this.mockPlacement) : footprintFront(this.mockPlacement, size.columns, size.rows);
     const granary = this.placementBuilding === "granary";
     const displaySize = granary ? 240 : this.placementBuilding === "warehouse" ? 200 : 150;
-    if (this.placementBuilding === "mill") {
+    if (this.placementBuilding === "mill" || this.placementBuilding === "oilMill") {
       const mill = renderMillAnimation(this, null, this.mockPlacement, null);
+      if (this.placementBuilding === "oilMill") renderOilMillAnimation(this, mill, { ...this.mockPlacement, loadingTile: preview.loading }, null, true);
       mill.farmer.destroy(); mill.donkey.destroy(); mill.flour.destroy();
       this.mockBuilding = mill.base;
       this.millPreviewParts = [mill.bowl, mill.bags, mill.lever];
@@ -809,6 +825,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       const depositAt = this.pickup?.type === "store"
         ? this.pickup.startedAt + pickupDuration(this.pickup.path) : now;
       this.harvestGainEffect.enqueue(deliveryGains(this.snapshot, snapshot, now, depositAt));
+      this.harvestGainEffect.enqueue(constructionGains(this.snapshot, snapshot, now));
     }
     this.suppressDeliveryGains = !visible;
     if (this.ready) this.harvestGainEffect.sample(this.snapshot, Date.now(), !document.hidden && this.sys.isActive());
@@ -1156,7 +1173,31 @@ export class IsometricFarmScene extends Phaser.Scene {
     const buildingStart = this.children.list.length;
     const front = footprintFront(farmOrigin, 2, 2);
     const appearance = farmAppearance(snapshot.farm.progression?.level);
-    this.buildingImages.push(this.add.image(front.x, front.y + 19, appearance.texture).setOrigin(0.5, 1).setDisplaySize(232, 232).setDepth(front.y - 24).setData("tile", farmOrigin).setInteractive({ pixelPerfect: true }));
+    const farmImage = this.add.image(front.x, front.y + 19, appearance.texture)
+      .setOrigin(0.5, 1).setDisplaySize(232, 232).setDepth(front.y - 24).setData("tile", farmOrigin);
+    this.buildingImages.push(farmImage);
+    if (this.farmTransparent) {
+      // The faded artwork has no input handler. Only the four ground tiles
+      // reopen its popup; upper walls/roof must not intercept objects behind it.
+      farmImage.setAlpha(0.25);
+      const centre = isoPoint({ column: farmOrigin.column + 0.5, row: farmOrigin.row + 0.5 });
+      const footprint = new Phaser.Geom.Polygon([
+        ISO_WIDTH, 0, ISO_WIDTH * 2, ISO_HEIGHT,
+        ISO_WIDTH, ISO_HEIGHT * 2, 0, ISO_HEIGHT,
+      ]);
+      const marker = this.add.graphics({ x: centre.x - ISO_WIDTH, y: centre.y - ISO_HEIGHT }).setDepth(-810);
+      const paintFootprint = (hovered: boolean) => {
+        marker.clear().fillStyle(0xffdc57, hovered ? 0.32 : 0.16)
+          .fillPoints(footprint.points, true)
+          .lineStyle(1.5, 0xffdc57, hovered ? 1 : 0.65).strokePoints(footprint.points, true);
+      };
+      paintFootprint(false);
+      this.add.zone(centre.x, centre.y, ISO_WIDTH * 2, ISO_HEIGHT * 2)
+        .setDepth(farmImage.depth).setData("tile", farmOrigin)
+        .setInteractive(footprint, Phaser.Geom.Polygon.Contains)
+        .on("pointerover", () => paintFootprint(true))
+        .on("pointerout", () => paintFootprint(false));
+    } else farmImage.setInteractive({ pixelPerfect: true });
     this.daylightShadows.addBuilding(this.buildingImages[this.buildingImages.length - 1]!);
     // Anchor on the visible roof, not the transparent top of the source frame.
     const storageSnapshot = this.pickup?.type === "store" ? this.pickup.before : snapshot;
@@ -1169,8 +1210,9 @@ export class IsometricFarmScene extends Phaser.Scene {
       const displaySize = granary ? 240 : building.type === "warehouse" ? 200 : 150;
       // Inset the granary's rounded decorative base inside its diamond footprint.
       // Retain uniform scale and allow the towers to rise naturally above it.
-      if (building.type === "mill") {
+      if (building.type === "mill" || building.type === "oilMill") {
         const mill = renderMillAnimation(this, null, building, null);
+        if (building.type === "oilMill") renderOilMillAnimation(this, mill, building, null, true);
         this.mills.push({ building, images: mill, progress: this.add.graphics().setDepth(p.y + 10) });
         mill.farmer.setData("farmer", true).setInteractive({ pixelPerfect: true });
         for (const image of [mill.base, mill.bowl, mill.bags, mill.lever]) {
@@ -1182,8 +1224,8 @@ export class IsometricFarmScene extends Phaser.Scene {
         const quantity = (bags ? bags.flour + bags.brewersGroats : 0) + porterAwaitingPickup(snapshot.farm.production.porter, building.id, now);
         const outputTile = roadsideOutputPlacement(building, snapshot.farm.roads, now).tile;
         const output = isometricOutputPosition(outputTile);
-        this.drawStorageChip(`mill-output:${building.id}`, output.x, output.y - 42, quantity, quantity === 1 ? "bag" : "bags");
-        if (quantity > 0) {
+        if (building.type === "mill") this.drawStorageChip(`mill-output:${building.id}`, output.x, output.y - 42, quantity, quantity === 1 ? "bag" : "bags");
+        if (quantity > 0 && building.type === "mill") {
           const sprite = this.add.image(output.x, output.y, "mill-output-bags").setOrigin(GROUND_ITEM_ORIGIN.x, GROUND_ITEM_ORIGIN.y)
             // The flour frame has transparent margins; 74px gives roughly the
             // same visible 43×39px size as the tightly cropped idle bags.
@@ -1195,7 +1237,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       } else this.buildingImages.push(this.add.image(p.x, p.y + (granary ? -12 : 0), building.type === "brewery" ? breweryVesselTexture(breweryOrientationTexture(building, snapshot.farm.roads, now) === "brewery-right-top", breweryVesselCount(snapshot.inventory)) : building.type).setOrigin(0.5, shrine ? 840 / 1024 : granary ? 1 : 120 / 128)
         .setDisplaySize(displaySize, displaySize).setDepth(p.y - 24)
         .setAlpha(Date.parse(building.completesAt) > now ? 0.5 : 1).setData("tile", { column: building.column, row: building.row }).setInteractive({ pixelPerfect: true }));
-      if (building.type !== "mill") this.daylightShadows.addBuilding(this.buildingImages[this.buildingImages.length - 1]!);
+      if (building.type !== "mill" && building.type !== "oilMill") this.daylightShadows.addBuilding(this.buildingImages[this.buildingImages.length - 1]!);
       const blessing = snapshot.farm.production.shrineBlessing;
       if (shrine && blessing?.buildingId === building.id && Date.parse(blessing.startedAt) <= now && Date.parse(blessing.expiresAt) > now) {
         // Saved offering is decorative, not a collectable output pile.
@@ -1207,15 +1249,21 @@ export class IsometricFarmScene extends Phaser.Scene {
         const animation = createBrewingTest(this, this.buildingImages[this.buildingImages.length - 1]!, breweryOrientationTexture(building, snapshot.farm.roads, now) === "brewery-right-top", breweryVesselCount(snapshot.inventory));
         this.breweries.push({ id: building.id, animation });
         this.daylightShadows.add(animation.shadowAnchor, 23, 48);
-        const placement = breweryOutputPlacement(building);
+      }
+      if ((building.type === "brewery" || building.type === "oilMill") && Date.parse(building.completesAt) <= now) {
+        const placement = building.type === "brewery" ? breweryOutputPlacement(building) : roadsideOutputPlacement(building, snapshot.farm.roads, now);
         const output = isometricOutputPosition(placement.tile);
         const quantity = (snapshot.farm.production.pending[building.id]?.quantity ?? 0) + porterAwaitingPickup(snapshot.farm.production.porter, building.id, now);
-        this.drawStorageChip(`beer-output:${building.id}`, output.x, output.y - 35, quantity, "beer");
+        this.drawStorageChip(`beer-output:${building.id}`, output.x, output.y - 54, quantity, building.type === "oilMill" ? "oil" : "beer");
         if (quantity > 0) {
-          const jars = this.add.image(output.x, output.y, "beer").setOrigin(GROUND_ITEM_ORIGIN.x, GROUND_ITEM_ORIGIN.y)
-            .setDisplaySize(64, 64).setDepth(p.y + 5).setData("tile", placement.tile).setData("beerJars", true).setInteractive({ pixelPerfect: true });
-          this.millOutputSprites.push(jars);
-          if (this.selectedBeer && this.selected && sameCell(this.selected, placement.tile)) this.outlineItem(jars);
+          // Keep the pile compact; the chip records larger accumulated batches.
+          const offsets = quantity === 1 ? [{ x: 0, y: 0 }] : [{ x: -12, y: -4 }, { x: 12, y: 0 }];
+          offsets.forEach((offset, index) => {
+            const jar = this.add.image(output.x + offset.x, output.y + offset.y, building.type === "oilMill" ? "oil" : "beer").setOrigin(GROUND_ITEM_ORIGIN.x, GROUND_ITEM_ORIGIN.y)
+              .setDisplaySize(52, 52).setDepth(p.y + 5 + index * 0.01).setData("tile", placement.tile).setData("beerJars", true).setInteractive({ pixelPerfect: true });
+            this.millOutputSprites.push(jar);
+            if (this.selectedBeer && this.selected && sameCell(this.selected, placement.tile)) this.outlineItem(jar);
+          });
         }
       }
       if (building.type === "breadOven" && Date.parse(building.completesAt) <= now) {
@@ -1239,7 +1287,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       }
       if (Date.parse(building.completesAt) > now) {
         const progress = Math.max(0, Math.min(1, (now - Date.parse(building.startedAt)) / (Date.parse(building.completesAt) - Date.parse(building.startedAt))));
-        const image = building.type === "mill" ? this.mills.find(mill => mill.building.id === building.id)!.images.base : this.buildingImages[this.buildingImages.length - 1]!;
+        const image = (building.type === "mill" || building.type === "oilMill") ? this.mills.find(mill => mill.building.id === building.id)!.images.base : this.buildingImages[this.buildingImages.length - 1]!;
         drawBuildingProgress(this.add.graphics(), image, progress);
       }
       // Register every completed building, not just currently unlocked upgrade
@@ -1262,7 +1310,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.daylightShadows.addBuilding(this.buildingImages[this.buildingImages.length - 1]!);
     const groundItems = transferGroundItems(snapshot.groundItems, this.pickup);
     this.roadPlanObjects = this.children.list.slice(buildingStart);
-    this.fadeRoadPlanBuildings();
+    this.fadePlacementBuildings();
     this.drawRoadPlan();
     let outlinedGroundItem = false;
     for (const item of groundItems) {
@@ -1539,11 +1587,15 @@ export class IsometricFarmScene extends Phaser.Scene {
       this.farmerCell = milling!.preparation!.path[Math.max(0, Math.min(milling!.preparation!.path.length - 1,
         Math.round((Date.now() - milling!.preparation!.departedAt) / milling!.preparation!.stepDurationMs)))]!;
       const p = isoPoint(journey.position);
-      this.actor.setOrigin(0.5, 120 / 128).setPosition(p.x, p.y).setDepth(p.y + 1).setFlipX(journey.facingLeft)
-        .setTexture(farmerTravelTexture(journey.distance, journey.carried, true)).setDisplaySize(64, 64);
+      const carryingSesame = milling?.recipe === "oil" && journey.carried > 0;
+      const origin = carryingSesame ? FARMER_DATE_ORIGIN : { x: 0.5, y: 120 / 128 };
+      const size = carryingSesame ? FARMER_DATE_DISPLAY_SIZE : 64;
+      this.actor.setOrigin(origin.x, origin.y).setPosition(p.x, p.y).setDepth(walkingCharacterDepth(p.y)).setFlipX(journey.facingLeft)
+        .setTexture(carryingSesame ? farmerSesameCarryTexture(Date.now()) : farmerTravelTexture(journey.distance, journey.carried, true))
+        .setDisplaySize(size, size);
       this.actorShadow.setPosition(p.x, p.y).setDepth(p.y);
       this.heldMaterial.setVisible(false);
-      this.renderCargo(p.x, p.y - 62, journey.carried);
+      this.renderCargo(p.x, p.y - 62, journey.carried, milling?.recipe === "oil" ? "sesame" : "barley");
       return;
     }
     if (milling && this.millingJourneyId === milling.startedAt) {
@@ -1764,7 +1816,8 @@ export class IsometricFarmScene extends Phaser.Scene {
       const outputOnC = ((bags ? bags.flour + bags.brewersGroats : 0) + porterAwaitingPickup(this.snapshot.farm.production.porter, building.id, Date.now())) > 0 &&
         roadsideOutputPlacement(building, this.snapshot.farm.roads, Date.now()).tile.column === building.column + 1;
       const elapsed = state?.elapsed ?? null;
-      renderMillAnimation(this, images, building, elapsed === null ? null : this.reducedMotion?.matches ? 0 : elapsed,
+      if (building.type === "oilMill") renderOilMillAnimation(this, images, building, elapsed === null ? null : this.reducedMotion?.matches ? 0 : elapsed, state?.farmer ?? true);
+      else renderMillAnimation(this, images, building, elapsed === null ? null : this.reducedMotion?.matches ? 0 : elapsed,
         outputOnC, state?.farmer ?? true);
       progress.clear();
       if (state) {
@@ -2075,7 +2128,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     }
     // Resolve active building artwork first, including immediately after draw()
     // recreates idle sprites. Otherwise shadows flash the idle silhouette for a frame.
-    this.fadeRoadPlanBuildings();
+    this.fadePlacementBuildings();
     this.daylightShadows.render(this.shadowPreset);
     this.renderRoadGhost();
     // Render gains after every operation that can rebuild the scene.

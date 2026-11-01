@@ -31,7 +31,7 @@ export default function PorterPanel({ snapshot, now, marketRoad }: { snapshot: F
     <div className={styles["resource-sections"]}><section className={`${cardStyles.card} ${cardStyles.serviceCard}`} data-locked={!unlocked ? "true" : undefined} aria-label="Porter service">
     <div className={cardStyles.serviceDescription}>
       <img src={porterIcon} alt="" width={64} height={80} draggable={false} />
-      <div><h3>Porter</h3><p>Stores finished flour, groats, bread and beer, even while you’re away. Takes what fits and leaves the rest when storage is full.</p></div>
+      <div><h3>Porter</h3><p>Stores finished flour, groats, bread, beer and oil, even while you’re away. Takes what fits and leaves the rest when storage is full.</p></div>
     </div>
     <div className={cardStyles.action}>
     <strong>{PORTER_COST} shekels</strong>

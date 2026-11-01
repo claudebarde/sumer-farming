@@ -45,7 +45,7 @@ it("opens Already built when no buildings are available, even before the first u
   const html = render(snapshot());
   expect(html).toContain("Available (0)");
   expect(html).toContain("Already built (0)");
-  expect(html).toContain("Future unlocks (6)");
+  expect(html).toContain("Future unlocks (7)");
   expect(html.match(/aria-expanded="true"/g)).toHaveLength(1);
   expect(html.match(/aria-expanded="false"/g)).toHaveLength(2);
   expect(html).toContain("No buildings built yet.");
@@ -84,7 +84,7 @@ it("opens Already built after all currently unlocked buildings have been built",
 it("keeps unlocked buildings available when materials are missing", () => {
   const html = render(atLevel(6));
   expect(html).toContain("Available (4)");
-  expect(html).toContain("Future unlocks (2)");
+  expect(html).toContain("Future unlocks (3)");
   expect(html).toContain("brewery-isometric.webp");
   expect(html).toContain("bread-oven-isometric.webp");
   expect(html).toContain('aria-label="Brewing jars"');
@@ -125,7 +125,7 @@ it("groups existing buildings, including construction sites, outside Available",
 it("shows all unlocked building cards with their original artwork and descriptions", () => {
   const html = render(atLevel(8));
   expect(html).toContain("Available (6)");
-  expect(html).toContain("Future unlocks (0)");
+  expect(html).toContain("Future unlocks (1)");
   expect(html.match(/width="160" height="160"/g)).toHaveLength(6);
   expect(html).toContain("The farmer is occupied during milling.");
   expect(html).toContain("Turn Flour into bread.");

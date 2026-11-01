@@ -18,7 +18,7 @@ export const porterPose = (porter: Porter | null | undefined, now: number, reduc
   const position = { column: from.column + (to.column - from.column) * fraction, row: from.row + (to.row - from.row) * fraction };
   const moving = !!trip && now >= trip.startedAt && step < path.length - 1;
   const carrying = porter.job && now >= porter.job.pickupAt && now < porter.job.completesAt;
-  const cargo = carrying ? porter.job!.itemKey === "beer" || porter.job!.itemKey === "emptyBeerJar" ? "jars" : "bags" : "empty";
+  const cargo = carrying ? porter.job!.itemKey === "oil" || porter.job!.itemKey === "beer" || porter.job!.itemKey === "emptyBeerJar" ? "jars" : "bags" : "empty";
   const distance = step * Math.hypot(48, 24);
   const home = porter.home ?? PORTER_MARKET;
   const waitingAtMarket = !moving && !carrying && position.column === home.column && position.row === home.row;

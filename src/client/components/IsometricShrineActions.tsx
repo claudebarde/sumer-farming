@@ -5,7 +5,7 @@ import { plantingBlocker } from "../game/phaser/isometricPlanting";
 import BuildingActionIcon from "./BuildingActionIcon";
 import styles from "../styles/BuildingActionButton.module.scss";
 import InfoAlert from "./InfoAlert";
-import beer from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.webp";
+import beer from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-beer-single.png";
 import progressStyles from "../styles/ProductionProgress.module.scss";
 import { countdownLabel } from "./countdownLabel";
 
@@ -34,7 +34,7 @@ export default function IsometricShrineActions({ snapshot, buildingId, now, onOf
           {item === "bread" ? <BuildingActionIcon kind="bread" /> : <span className={styles.icon} aria-hidden="true"><img src={beer} alt="" /></span>}
           <span>Offer 2 {item}</span>
         </button>
-        {reason && <p>{reason}</p>}
+        {reason && reason !== `Store 2 ${item} first.` && <p>{reason}</p>}
       </div>;
     })}
   </>;

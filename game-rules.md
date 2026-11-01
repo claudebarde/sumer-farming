@@ -373,8 +373,7 @@ A barley offering is blocked if it would leave you with no usable barley **and**
 
 See [Features and economy by estate level](game-progression.md) for the separate
 planning reference. Its proposed level 11–20 features are not playable unlocks.
-Sesame cultivation for oil production is approved for level 10 but not implemented;
-the oil workshop’s unlock level remains undecided. Sheep and wool production are
+Sesame cultivation and oil milling are available at level 10. Sheep and wool production are
 being considered for level 11 or 12, and flax is retained as a later idea.
 
 Level 10 is currently the highest claimable level.
@@ -483,7 +482,7 @@ Delivery timing and exactly-once storage remain server-authoritative.
 - Warehouse removal requires its own inventory to be empty, including dates, even if the farm has free space. Removal must not strand reserved production or deliveries. No stored inventory is silently discarded or moved to another building by demolition.
 - Unused supplies inside an idle brewery are lost with it, as stated in the confirmation dialog. A shrine cannot be destroyed while its blessing is active.
 - The server checks ownership, the latest farm version, storage and work state again on confirmation. The initial farm and other players' buildings cannot be removed through the API.
-- Granaries, mills, bread ovens and breweries can be built through Manage → Build in the isometric farm, paying the full construction cost. The mill unlocks at level 5, occupies 2×2 tiles and costs 2 reed and 4 clay; construction takes 2 minutes. The brewery unlocks at level 6, occupies 2×2 non-arable tiles and costs 4 reed, 6 clay and 2 stored brewing jars (not empty beer jars); construction takes 3 minutes. Its button checks materials, farmer availability and existing ownership like the bread oven. Choose a green placement beside a completed connected road, then confirm. Cancelling placement spends nothing. The farmer walks to the loading tile and works with his pickaxe; the saved construction timer continues after reloading. Brewery production controls and active artwork in the isometric view remain a separate migration step; other building placement remains planned.
+- Granaries, mills, bread ovens and breweries can be built through Manage → Build in the isometric farm, paying the full construction cost. The mill unlocks at level 5, occupies 2×2 tiles and costs 2 reed and 4 clay; construction takes 2 minutes. The brewery unlocks at level 6, occupies 2×2 non-arable tiles and costs 4 reed, 6 clay and 2 stored brewing jars (not empty jars); construction takes 3 minutes. Its button checks materials, farmer availability and existing ownership like the bread oven. Choose a green placement beside a completed connected road, then confirm. Cancelling placement spends nothing. The farmer walks to the loading tile and works with his pickaxe; the saved construction timer continues after reloading. Brewery production controls and active artwork in the isometric view remain a separate migration step; other building placement remains planned.
 
 Buildings occupy a 2 × 2 footprint, except the Small shrine (1 × 1). All require suitable free space.
 
@@ -800,16 +799,16 @@ loading connection for orientation and finished beer placement.
 
 Brewing unlocks at level 6 and consumes Brewer's Groats rather than raw barley.
 
-**Recipe:** 2 stored Brewer's Groats + 2 water loads + 2 empty beer jars → 2 filled beer jars in **15 minutes**, plus travel and eight seconds of preparation (upgrades retain their fermentation-time reduction). All ingredients are reserved immediately when **Brew beer** is accepted.
+**Recipe:** 2 stored Brewer's Groats + 2 water loads + 2 empty jars → 2 filled beer jars in **15 minutes**, plus travel and eight seconds of preparation (upgrades retain their fermentation-time reduction). All ingredients are reserved immediately when **Brew beer** is accepted.
 
 - Deliver water, stock jars, and start the batch through the brewery popup. Groats come directly from estate inventory.
-- Click the river to **Collect water**, then the brewery to **Deliver water**; repeat for two loads. Buy empty beer jars at the beer market and use **Stock empty jars** at the brewery.
+- Click the river to **Collect water**, then the brewery to **Deliver water**; repeat for two loads. Buy empty jars at the Supplies and equipment stand and use **Stock empty jars** at the brewery.
 - With an available, empty-handed farmer and all ingredients supplied, **Brew beer** sends him to the farm for groats, then to the brewery. He stirs for eight seconds, including short pauses, and becomes available while fermentation continues with foam and a progress bar.
 - Timers persist immediately and progress while the tab is hidden or closed. Returning does not restart preparation or consume ingredients again.
 - Finished jars appear with a quantity chip on B for the original shell or C for the opposite shell. Click them and choose **Store** to carry them to the farm (or warehouse when appropriate). Interrupted deliveries can be resumed from the farmer/farm popup. Goods enter usable inventory only upon delivery; full storage prevents pickup.
-- Each brewery can hold at most 2 water loads and 2 empty beer jars. Stocking transfers only enough jars to fill those two slots; extras stay at the farm. Resources shows the estate-wide total of unused empty jars, including jars stocked in breweries. Brewing consumes two from that total. Legacy brewery overstock is returned to free inventory without losing or duplicating jars.
+- Each brewery can hold at most 2 water loads and 2 empty jars. Stocking transfers only enough jars to fill those two slots; extras stay at the farm. Resources shows the estate-wide total of unused empty jars, including jars stocked in breweries. Brewing consumes two from that total. Legacy brewery overstock is returned to free inventory without losing or duplicating jars.
 - Brewing jars and baking tools are permanent equipment: each estate can buy and own at most two of each, regardless of warehouses. Construction requires them but never consumes them. Neither can be sold to NPCs or listed on the player market. Existing breweries and ovens restore equipment consumed by older construction on the next farm refresh, without duplicating equipment already owned. Brewing jars are distinct from the empty packaging jars consumed for every batch.
-- NPC beer Buy cards start with **Brewing jars** (6 shekels, large brewery-vessel artwork), **Empty beer jars** (2 shekels, empty isometric jars), then **Beer** (8 shekels, full isometric jars). Brewer's Groats remain available after them. Brewing jars remain visible after brewery construction; purchases fill the current inventory up to two, with the card disabled when both are owned. Packaging jars are consumed by the recipe. Inventory keys and prices are unchanged.
+- NPC beer Buy cards start with **Brewing jars** (6 shekels, large brewery-vessel artwork), **Empty jars** (2 shekels, empty isometric jars), then **Beer** (8 shekels, full isometric jars). Brewer's Groats remain available after them. Brewing jars remain visible after brewery construction; purchases fill the current inventory up to two, with the card disabled when both are owned. Packaging jars are consumed by the recipe. Empty jars use the single open-jar artwork; beer uses the sealed jar with a long drinking straw. Brewery output displays one jar when one remains, or two individual jars for larger piles; its chip shows the exact quantity. Inventory keys and prices are unchanged. The same empty jars also package sesame oil.
 - Further brewing batches can start while beer waits outside, provided the whole next batch fits within the six-item cap and ingredients are supplied.
 - The brewing timer disappearing is the visual cue that the batch is ready; there is no floating “Beer ready” label.
 - Filled beer in estate inventory can be given to the farmer, sold once beer trading unlocks, or used in merchant requests once those unlock.
@@ -903,7 +902,7 @@ lever resting on the upper back. Directional wandering and milling animations
 are player-approved. The temporary donkey preview controls have been removed;
 normal wandering retains the 30-second pauses between strolls.
 
-- Buy one donkey for **30 shekels** in the baking stand's **NPC Buy** tab. Ownership is permanent; donkeys cannot be sold or listed in the player market. Each farm can own at most one.
+- Buy one donkey for **30 shekels** at the Supplies and equipment stand. Ownership is permanent; donkeys cannot be sold or listed in the player market. Each farm can own at most one.
 - After purchase the donkey waits beside the farmer in the market and follows him along the road when returning home. On the farm it grazes between free non-arable tiles, avoiding the river, buildings, objects, and goods. It rests for 30 seconds before its first grazing move and after each move finishes.
 - Manual milling remains available. **Use donkey · Flour** and **Use donkey · Brewer's Groats** each process **6 barley into 3 bags in 15 minutes**. This triples batch size and duration, not output per minute or yield per barley.
 - The farmer fetches the donkey, leads it to the mill, then collects barley from storage and delivers it. The donkey disappears inside the mill and the donkey-powered mill sprite shows production in progress.
@@ -1006,7 +1005,7 @@ while carrying goods keeps the farmer on the farm and shows “Unload your items
 going to the market.” in the bottom message bubble. Stored inventory does not block entry.
 
 - Market entry unlocks at **level 3**. Before then, clicking the building keeps you on the farm and shows the unlock message. The ground-barley Sell button is also disabled before level 3.
-- The barley stand handles barley. The beer stand handles beer and NPC brewing supplies. The baking stand handles bread, using `market-bread-stand.png`.
+- The barley stand trades barley; beer trades beer and groats; baking trades bread and flour; produce trades dates and sesame. Supplies and equipment sells empty jars, baking tools, brewing vessels and the donkey.
 - Click an unlocked stand to walk along the market roads to its stopping point; the trade dialog opens on arrival. Clicking another stand while walking changes the destination after the current step. Returning to the farm also follows the roads. Locked stands show their unlock message without starting a trip.
 - Buying or selling filled beer and bread in either NPC or player markets unlocks at **level 6**, matching Brewery and Bread Oven construction. This includes buying player listings and creating sell listings. Reaching the level is sufficient; owning the building is not required. The API enforces the same item-level restriction as the interface.
 
@@ -1028,74 +1027,59 @@ Prices below are from the player's perspective.
 | --- | --- | --- |
 | Barley | 2 shekels each | 1 shekel each |
 | Brewing jar | 6 shekels each | Not available |
-| Empty beer jar | 2 shekels each | Not available |
+| Empty jar | 2 shekels each | Not available |
 | Filled beer jar | 8 shekels each | 8 shekels each |
 | Flour / Brewer's Groats | 4 shekels each | 3 shekels each |
 | Bread | 5 shekels each | 5 shekels each |
 | Mill donkey (level 7, one per farm) | 30 shekels | Not available |
 
-The brewing-jar purchase section is hidden when the player already has the two required jars; buying extras beyond the current requirement is not allowed. Empty beer jars and filled beer jars are bought from the beer stand's NPC Buy tab. Filled beer purchases unlock at level 6 and go directly into estate inventory, without using barley storage or counting as beer produced.
+The brewing-jar purchase section is hidden when the player already has the two required jars; buying extras beyond the current requirement is not allowed. Empty jars are bought at Supplies and equipment; filled beer jars are bought at the beer stand. Filled beer purchases unlock at level 6 and go directly into estate inventory, without using barley storage or counting as beer produced.
 
 Players can also list barley, filled beer and bread for other players to buy. Listings are not completed sales until someone purchases them. Bread and beer share a five-shekel initial suggested listing price; players choose their own asking prices and market suggestions respond to listings. Only bread already delivered to estate inventory can be sold or listed, not baskets waiting at the oven or in transit. Bread does not use barley storage. Brewing equipment and empty jars are not available for player listings in this version.
 
 The ground-barley Sell button is currently a placeholder, not a working shortcut. Use the barley market for actual sales after unlocking it.
 
-Market stand dialogs cannot open before their unlock level. The barley stand opens at level 3; the beer and baking stands open at level 5 for groats and flour trading. Finished beer, bread, and their production supplies remain unavailable until level 6 in all Buy/Sell tabs. Each stand has NPC and player-market Buy/Sell tabs scoped to its goods. Clicking a locked stand shows its unlock level in the white communication bubble at the bottom of the canvas instead of opening its dialog. The stand's label stays unchanged.
+Market stand dialogs cannot open before their unlock level. The barley stand opens at level 3; the beer and baking stands open at level 5 for groats and flour trading. Finished beer, bread, and their production supplies remain unavailable until level 6 in all Buy/Sell tabs. Food stands have NPC and player-market Buy/Sell tabs scoped to their goods. Supplies and equipment has NPC purchases only and opens at level 6. Clicking a locked stand shows its unlock level in the white communication bubble at the bottom of the canvas instead of opening its dialog. The stand's label stays unchanged.
 
 Market goods show their unit price, your available stock and shekels, and a live preview of balances after the selected transaction. Stored tradable stock excludes goods already reserved or carried. NPC purchases add stock and spend shekels; sales subtract stock and earn shekels. Player listings reserve stock immediately but earn nothing until sold, so their preview distinguishes listing creation from potential proceeds. Player purchases preview each listing's actual price. Previews do not bypass stock, storage, funds or unlock validation.
 
 Clicking the estate's market building makes the farmer walk to the road tile beside it before entering the market scene. Clicking the farm building in the market likewise waits for arrival at its adjacent road entrance before returning home. Scene changes are based on arrival, not a fixed timer; a blocked route does not transport the farmer.
 
-In the isometric preview, click the market building and choose **Go to the market**.
-The farmer walks there before the scene changes. The market currently contains
-a main road that splits into a walkable rectangular loop, a farm building at its left end and decorative barley,
-beer and baking stands, each with a stationary placeholder merchant in front beside the road.
-The baking stand sits inside the loop beside the lower road, with space for one more future stand.
-Merchants stay beside their stands and turn left or right towards a nearby farmer
-after a short pause. They hold their direction when he is directly in front of
-them or far away; this is visual only and does not affect trading.
-Approaching a merchant within three tiles reveals a short greeting above the nearest
-merchant for four seconds. Only one bubble appears at a time; each merchant has an
-independent eight-second cooldown and requires leaving and approaching again to repeat.
-Approaching a different merchant replaces the previous bubble without waiting for
-the previous merchant's cooldown.
-Opening a trading dialog dismisses the greeting. These greetings do not change
-stand unlock levels or interrupt walking.
-Click the barley, baking or beer stand, or its merchant, to walk along the road
-to the tile in front of that merchant. The farmer stops and faces him before the
-same NPC/player Buy/Sell dialog used in the flat market opens. Clicking another
-stand redirects the walk; clicking a road tile cancels the pending interaction.
-Existing prices, storage limits, listing
-rules and the one-barley reserve still apply. Baking opens at level 5 for flour;
-bread and baking tools unlock at level 6, and the donkey at level 7, as in the flat
-market. The beer stand opens at level 5 for brewer's groats, with beer and brewing
-supplies available at level 6. Below level 5, baking and beer popups show their
-unlock level instead. Click the farm building
-and choose **Go back to the farm** to return after walking to its entrance.
-Market entry still requires level 3, an available farmer and empty hands. Farm
-timers continue while visiting. Isometric neighbour visibility is not implemented
-yet; use the flat market for that feature.
+Click the market building and choose **Go to the market**. The farmer walks there
+before the scene changes. The market has a main road and a walkable rectangular
+loop, a return-farm building, and five stands spaced apart: barley, beer, baking,
+produce, and supplies and equipment. Each has a merchant beside the road.
+Merchants face nearby farmers and show a brief greeting when approached.
+Click a stand or merchant to walk to its entrance and open trading. Clicking
+another stand redirects the walk; clicking a road cancels the pending interaction.
+Existing item unlocks, prices, storage limits and the one-barley reserve apply.
+Choose **Go back to the farm** at the return-farm building to walk home. Entry
+requires level 3, an available farmer and empty hands. Farm timers continue while
+visiting. Level-10 neighbours visiting the market can see one another.
 
 ## Traveling merchant requests
 
-- Merchant requests unlock at level 7 and are accessed through the chariot on the estate road, not through the market stands.
-- The chariot takes 15 seconds to arrive and offers three requests during a **24-hour window**. In the isometric farm it waits just inside the left-hand entrance of the main road, keeping the market and idle porter clear. The legacy flat view retains its stop beyond the arable plot's right edge. There is then a **48-hour break** before the next request window.
-- Clicking a moving chariot only shows its name. Click while it is stopped to open requests.
-- Each request can be fulfilled once per visit. The required goods are consumed and the shekel reward is granted together.
-- In the isometric merchant dialog, fulfilled requests disappear from the list. Once all three are delivered, it shows “All requests fulfilled.” Automatic refresh keeps stock and delivery status current; there is no manual refresh button and refreshing never creates extra requests.
-- Completing every request early does not bring the next visit forward. Missing a visit has no penalty, and missed requests do not accumulate.
-- Deliveries use barley stored in the farm or completed granaries and beer collected into estate inventory. Ground goods, carried goods, brewing ingredients, uncollected beer, and goods committed to player listings do not count.
-- The merchant currently offers requests only, not ordinary buying or selling.
+- Merchant requests unlock at level 7. Click the stopped merchant boat on the river to open its requests.
+- The boat takes 15 seconds to arrive and offers three requests for **24 hours**, followed by a **48-hour break**. Completing them early does not bring the next visit forward. Missing a visit has no penalty.
+- Each visit selects three different products unlocked at your farm level, regardless of your buildings, production or stock. Products absent from the previous visit are preferred where possible.
+- Offers and rewards stay fixed throughout the visit, including after reloading or levelling up. Visits already underway when this catalogue was introduced retain their original offers until the next visit.
+- Deliveries consume stored estate goods and grant the reward atomically, once per request. Carried, uncollected and reserved goods do not count. The farmer can continue unrelated work.
+- Fulfilled requests disappear. Once all three are delivered, the popup shows “All requests fulfilled.” Refreshing does not create extra requests.
 
-With a completed brewery at the start of the window, the requests are:
+| Product | Available from farm level | Quantity requested | Total reward |
+| --- | --- | --- | --- |
+| Barley | 7 | 4 | 5 shekels |
+| Flour | 7 | 3 | 10 shekels |
+| Groats | 7 | 3 | 10 shekels |
+| Bread | 7 | 3 | 17 shekels |
+| Beer | 7 | 2 | 18 shekels |
+| Dates | 9 | 4 baskets | 9 shekels |
+| Sesame | 10 | 4 baskets | 5 shekels |
+| Oil | 10 | 2 jars | 18 shekels |
 
-| Customer | Delivery | Reward |
-| --- | --- | --- |
-| Neighbouring household | 3 barley | 5 shekels |
-| Tavern keeper | 2 beer | 12 shekels |
-| Feast organiser | 4 barley + 2 beer | 18 shekels |
-
-A no-brewery fallback offers 3, 2, and 4 barley for 5, 3, and 6 shekels respectively. The request set is fixed for that visit. Normal level progression already requires a completed brewery before merchant requests unlock.
+Rewards are fixed per bundle and exceed the corresponding NPC selling prices
+(oil uses the planned 8-shekel selling price). Player-market prices are set by
+players; merchant rewards do not currently track or cap themselves to live listings.
 
 ## Small shrine (level 8)
 
@@ -1351,5 +1335,43 @@ matching barley's harvest effect. It does not delay delivery or replay after tim
 Saved work and growth continue offline; seeds are consumed and harvests stored
 only once. Sesame does not use the barley decay rule.
 
-Oil production is not yet available. The planned oil recipe
-uses three baskets of sesame for one jar of oil.
+### Oil mill (level 10)
+
+- Build an oil mill on a road-accessible 2×2 ground footprint for **2 reeds and 4 clay**. Construction takes **2 minutes**, using the normal farmer construction flow.
+- Stock up to **3 empty jars** in the oil mill. Stocking transfers available estate jars; it never buys jars automatically. The porter tops up this stock after reachable finished-goods deliveries, just as for the brewery.
+- **Farmer:** 3 sesame baskets and 1 empty jar produce **1 jar of oil in 5 minutes**.
+- **Donkey:** 9 sesame baskets and 3 empty jars produce **3 jars of oil in 15 minutes**. The farmer fetches the donkey and ingredients, then becomes available while the donkey works.
+- Sesame and stocked jars are consumed once when the server accepts the job. Saved travel and completion times continue while the tab is hidden or closed. Reopening the game shows the current phase rather than restarting it.
+- The oil mill uses the approved lever/operator animation with a short flowing-oil effect. A progress bar above the building and a popup countdown show production progress.
+- Finished jars wait at the oil mill for the farmer or porter. The warehouse holds **10 oil jars**; the farmhouse cannot store oil. Production needs room for its batch, and pickup/delivery recheck available storage. As with other producers, the output pile is capped at six finished items.
+- Oil milling awards the existing milling batch points: **30 with the farmer or 35 with the donkey**. Construction uses the existing first-construction scoring rule.
+- The mill cannot be destroyed during its production or while finished oil remains. No oil-mill upgrades are available yet.
+- **Planned:** oil trading at 8 shekels to buy or sell per jar, matching beer. This production update does not yet add oil to a market stand.
+
+When carrying reeds or clay, Store in the farm or warehouse popup deposits into that selected building only, up to its available capacity. Any remainder stays carried. Store from the farmer popup uses the automatic warehouse-first priority. The farm holds 6 reeds and 6 clay; the warehouse holds 10 of each.
+
+While positioning any new building, existing farm buildings become translucent, just as during road planning, so roads behind them remain visible. Normal opacity returns when placement is confirmed or dismissed. This applies at every farm level, including existing saves.
+
+When a first construction awards points while the farm is visible, its earned points rise above the completed building using the same 1.5-second animation as harvesting. Rebuilding an already rewarded building type does not show another reward. Offline rewards remain credited without replaying old animations.
+
+The farmhouse popup has an eye toggle beside Close. It makes the farmhouse translucent so you can select tiles behind its upper artwork. Click a tile in the farmhouse footprint to reopen its popup and restore it. This visual setting is available from level 1, survives farm updates, and resets when leaving the farm view or reloading. Other buildings do not yet have this individual toggle.
+
+### Seeing behind the farmhouse
+
+The eye button in the farm popup makes the farmhouse transparent. While it is
+transparent, a faint yellow tint and thin outline mark its clickable 2 × 2 ground
+footprint. The marker brightens on hover; click it to reopen the popup. Its upper
+artwork does not intercept clicks, so roads, items and buildings behind it remain
+selectable. Use the eye button again to restore the normal appearance and sprite
+selection. This temporary view resets when leaving the farm or reloading.
+
+### Supplies and equipment stand
+
+The market has a dedicated **Supplies and equipment** stand, accessible from
+level 6. It sells empty jars, baking tools, brewing vessels and the mill donkey.
+Each item keeps its existing price, unlock level, capacity and ownership limits.
+These supplies are NPC purchases only; they cannot be resold or listed by players.
+The beer stand trades beer and groats; the baking stand trades bread and flour.
+The produce stand continues trading dates and sesame. The market roads and map
+have been widened to leave space between stands. Click the stand or its merchant
+to approach and open its usual trading controls.

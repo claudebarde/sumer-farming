@@ -5,6 +5,7 @@ import BuildingRequirements from "./BuildingRequirements";
 import { granaryCapacityForLevel } from "../../game-data/storage";
 import { granaryLimitForLevel } from "../../game-data/progression";
 import granaryImage from "../../assets/sprite_assets/pngs/v2/isometric-test/granary-isometric-test.webp";
+import oilMillImage from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/oil-mill-isometric-idle.png";
 import millImage from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-isometric.webp";
 import breweryImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery-isometric.webp";
 import breadOvenImage from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-isometric.webp";
@@ -18,6 +19,7 @@ import { buildingAvailabilityBlocker, buildingBuildBlocker, type PlaceableBuildi
 export default function IsometricBuildingCatalogue({ snapshot, now, onBuild }: { readonly snapshot: FarmSnapshot; readonly now: number; readonly onBuild?: (type: PlaceableBuilding) => void }) {
   const level = snapshot.farm.progression?.level ?? 1;
   const catalogue = [
+    { type: "oilMill", name: "Oil mill", image: oilMillImage, unlockLevel: 10, button: "Build oil mill", description: "Press sesame into oil with the farmer or donkey." },
     { type: "granary", name: "Granary", image: granaryImage, unlockLevel: 2, button: "Build granary",
       description: `Store and protect up to ${granaryCapacityForLevel(level)} additional barley.` },
     { type: "mill", name: "Mill", image: millImage, unlockLevel: 5, button: "Build Mill",

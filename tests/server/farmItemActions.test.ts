@@ -121,6 +121,19 @@ describe.sequential("farm item storage actions", () => {
     await client.end();
   });
 
+  it.each(["reed", "clay"] as const)("honours the chosen farm for %s and keeps overflow carried", async itemKey => {
+    const fixture = await createFixture({ carriedItem: { itemKey, quantity: 2 } });
+    const [warehouse] = await database.insert(farmBuildings).values({ farmId: fixture.farmId, type: "warehouse", column: 5, row: 3, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+    await database.insert(farmInventory).values({ farmId: fixture.farmId, itemKey, quantity: 5, locations: { farm: 5, [warehouse!.id]: 0 } });
+    const result = await Effect.runPromise(depositCarriedItem(database, { playerId: fixture.playerId, expectedFarmVersion: 1, storageId: "farm" }));
+    expect(result.inventory.find(i => i.itemKey === itemKey)?.locations).toMatchObject({ farm: 6, [warehouse!.id]: 0 });
+    expect(result.farm.carriedItem?.quantity).toBe(1);
+    await expect(Effect.runPromise(depositCarriedItem(database, { playerId: fixture.playerId, expectedFarmVersion: result.farm.version, storageId: "farm" }))).rejects.toThrow();
+    const delivered = await Effect.runPromise(depositCarriedItem(database, { playerId: fixture.playerId, expectedFarmVersion: result.farm.version, storageId: warehouse!.id }));
+    expect(delivered.inventory.find(i => i.itemKey === itemKey)?.locations).toMatchObject({ farm: 6, [warehouse!.id]: 1 });
+    expect(delivered.farm.carriedItem).toBeNull();
+  });
+
   it("deposits carried barley into the farm building", async () => {
     const fixture = await createFixture({
       carriedItem: { itemKey: "barley", quantity: 2 }

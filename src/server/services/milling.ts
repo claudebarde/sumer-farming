@@ -77,17 +77,22 @@ export const startMilling = (database: Database, input: Extract<GameCommand, { t
       const snapshot = await readFarmSnapshot(tx, farm, false);
       if (snapshot.farm.version !== input.expectedFarmVersion) return new MillingRuleError({ message: "The farm changed. Please try again." });
       const now = Date.now();
-      const selectedMill = snapshot.buildings.find(b => b.type === "mill" && b.column === input.target.column && b.row === input.target.row);
+      const selectedMill = snapshot.buildings.find(b => b.type === (input.recipe === "oil" ? "oilMill" : "mill") && b.column === input.target.column && b.row === input.target.row);
       const reason = millingUnavailableReason(snapshot, input.recipe, now, input.worker, selectedMill?.id);
       if (snapshot.farm.roads.some(r => (r.completesAt ?? 0) > now)) return new MillingRuleError({ message: "Finish building the road first." });
       if (reason) return new MillingRuleError({ message: reason });
-      const mill = snapshot.buildings.find(b => b.type === "mill" && b.column === input.target.column && b.row === input.target.row && Date.parse(b.completesAt) <= now);
+      const mill = snapshot.buildings.find(b => b.type === (input.recipe === "oil" ? "oilMill" : "mill") && b.column === input.target.column && b.row === input.target.row && Date.parse(b.completesAt) <= now);
       if (!mill) return new MillingRuleError({ message: "Choose a completed Mill." });
       if (activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, mill.id, now)) return new MillingRuleError({ message: "The Mill is upgrading. Wait for the upgrade to finish." });
       const recipe = millRecipe(input.recipe, input.worker, buildingLevel(snapshot.farm.production.buildingUpgrades, mill.id, now));
       const preparation = planProductionJourney(snapshot, mill.id, now, input, input.worker === "donkey" ? "donkeyMilling" : "milling");
       if (!preparation) return new MillingRuleError({ message: "The Mill needs an accessible loading tile." });
       const startsAt = productionArrivalAt(preparation);
+      if (input.recipe === "oil") {
+        await tx.update(farmBuildings).set({ emptyBeerJars: mill.emptyBeerJars - recipe.output }).where(eq(farmBuildings.id, mill.id));
+        const sesame = snapshot.inventory.find(i => i.itemKey === "sesame")?.quantity ?? 0;
+        await setStoredQuantity(tx, farm.id, "sesame", sesame - recipe.output * 3, new Date(now));
+      }
       let remaining = recipe.barley;
       const carried = snapshot.farm.carriedItem;
       const fromHands = carried?.itemKey === "barley" ? Math.min(remaining, carried.quantity) : 0;

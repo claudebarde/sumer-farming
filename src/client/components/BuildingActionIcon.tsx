@@ -1,3 +1,4 @@
+import oil from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-oil-single.png";
 import dates from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 import { CheckIcon, Cross2Icon, ReloadIcon, ArrowLeftIcon, ArrowRightIcon } from "@radix-ui/react-icons";
 import shekels from "../../assets/sprite_assets/pngs/shekels.webp";
@@ -5,7 +6,7 @@ import flour from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active
 import groats from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.webp";
 import brewBeer from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewing-beer-icon.webp";
 import pickaxe from "../../assets/sprite_assets/pngs/v2/isometric-test/farmer-building-pickaxe.png";
-import emptyJars from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-empty-isometric.webp";
+import emptyJars from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-empty-single.png";
 import bread from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.webp";
 import donkey from "../../assets/sprite_assets/pngs/v2/isometric-test/donkey/donkey-idle-isometric.webp";
 import styles from "../styles/BuildingActionButton.module.scss";
@@ -22,7 +23,7 @@ import irrigation from "../../assets/sprite_assets/pngs/v2/isometric-test/canals
 import road from "../../assets/sprite_assets/pngs/v2/isometric-test/roads/road-ne-sw.png";
 import { FARM_SPRITES } from "../../assets/farmSprites";
 
-const actionImages = { dates, farm, shekels, settings, upgrade, water: FARM_SPRITES.water, beer: FARM_SPRITES.beerJars, barley: FARM_SPRITES.harvestedBarley, leaderboard, neighbourhood, manage, flour, groats, brewBeer, emptyJars, bread, donkey, destroy: pickaxe, plantBarley, harvestBarley, walk, irrigation, road, fish: FARM_SPRITES.fish, reed: FARM_SPRITES.reedBundle, clay: FARM_SPRITES.brickPile } as const;
+const actionImages = { oil, dates, farm, shekels, settings, upgrade, water: FARM_SPRITES.water, beer: FARM_SPRITES.beerJars, barley: FARM_SPRITES.harvestedBarley, leaderboard, neighbourhood, manage, flour, groats, brewBeer, emptyJars, bread, donkey, destroy: pickaxe, plantBarley, harvestBarley, walk, irrigation, road, fish: FARM_SPRITES.fish, reed: FARM_SPRITES.reedBundle, clay: FARM_SPRITES.brickPile } as const;
 
 const actionSymbols = { confirm: CheckIcon, cancel: Cross2Icon, refresh: ReloadIcon, previous: ArrowLeftIcon, next: ArrowRightIcon } as const;
 type ActionIconKind = keyof typeof actionImages | keyof typeof actionSymbols;

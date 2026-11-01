@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { NpcRequestsSchema, type NpcRequests as RequestBoard } from "../../schemas/npcRequests";
+import { MERCHANT_PRODUCTS } from "../../game-data/npcRequests";
 import { canDeliverRequest } from "../../game-core/market/npcRequests";
 import { developmentPlayerHeaders } from "../api/developmentPlayer";
 import { executeGameCommand } from "../api/gameActions";
@@ -74,7 +75,7 @@ export default function NpcRequests({ onDelivered, visual = false }: { readonly 
     ) : <>
       {!visual && <>
         <p>Requests close in {timeLeft(Date.parse(board.closesAt) - now)}.</p>
-        <p>Deliveries use barley stored in the farm or granaries and beer in estate inventory.</p>
+        <p>Deliveries use stored estate goods.</p>
       </>}
       {visual && board.requests.every(request => request.completed) && <p role="status">All requests fulfilled.</p>}
       {board.requests.filter(request => !visual || !request.completed).map(request => {
@@ -84,8 +85,8 @@ export default function NpcRequests({ onDelivered, visual = false }: { readonly 
         return <section key={request.slot} className={styles["market-item"]}>
           <h3>{request.customer}</h3>
           <p>{request.description}</p>
-          {request.barley > 0 && <p>Deliver {request.barley} barley (you have {board.stock.barley})</p>}
-          {request.beer > 0 && <p>Deliver {request.beer} {request.beer === 1 ? "beer jar" : "beer jars"} (you have {board.stock.beer})</p>}
+          {MERCHANT_PRODUCTS.filter(product => (request[product] ?? 0) > 0).map(product =>
+            <p key={product}>Deliver {request[product]} {product === "brewersGroats" ? "groats" : product} (you have {board.stock[product] ?? 0})</p>)}
           <p>Reward: {request.reward} shekels</p>
           {request.completed ? <p>Delivered ✓</p> : <>
             {enough && request.barley > 0 && board.stock.barley - request.barley < 1 && <p role="note">This delivery would leave no barley for the farmer’s next ration.</p>}

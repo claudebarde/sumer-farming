@@ -12,7 +12,7 @@ import { productionOutputFits } from "../../../game-core/farm/productionOutputCa
 
 export type BakingJob = ProductionState["baking"][string];
 export const breadStorageBlocker = (snapshot: FarmSnapshot, id: string, now: number): string | null => {
-  const oven = snapshot.buildings.find(b => b.id === id && (b.type === "breadOven" || b.type === "brewery"));
+  const oven = snapshot.buildings.find(b => b.id === id && (b.type === "oilMill" || b.type === "breadOven" || b.type === "brewery"));
   const pending = snapshot.farm.production.pending[id];
   if (!oven || !pending?.quantity) return "No finished goods to store";
   if (!(oven.type === "brewery" ? breweryOutputPlacement(oven) : roadsideOutputPlacement(oven, snapshot.farm.roads, now)).pickup) return "No connected road for pickup";

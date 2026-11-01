@@ -601,9 +601,9 @@ app.post("/api/game/action", async c => {
           .with({ type: "upgrade_building" }, command => upgradeBuilding(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "destroy_building" }, command => destroyBuilding(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: P.union("start_baking", "production_delivery", "shrine_offering") }, command => productionAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
-          .with({ type: P.union("build_granary", "build_brewery", "build_mill", "build_bread_oven", "build_small_shrine", "build_warehouse") }, command =>
+          .with({ type: P.union("build_oil_mill", "build_granary", "build_brewery", "build_mill", "build_bread_oven", "build_small_shrine", "build_warehouse") }, command =>
             buildFarmBuilding(database, {
-              building: command.type === "build_warehouse" ? "warehouse" : command.type === "build_small_shrine" ? "smallShrine" : command.type === "build_bread_oven" ? "breadOven" : command.type === "build_mill" ? "mill" : command.type === "build_brewery" ? "brewery" : "granary",
+              building: command.type === "build_oil_mill" ? "oilMill" : command.type === "build_warehouse" ? "warehouse" : command.type === "build_small_shrine" ? "smallShrine" : command.type === "build_bread_oven" ? "breadOven" : command.type === "build_mill" ? "mill" : command.type === "build_brewery" ? "brewery" : "granary",
               playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
@@ -671,6 +671,7 @@ app.post("/api/game/action", async c => {
           )
           .with({ type: "deposit_carried_item" }, command =>
             depositCarriedItem(database, {
+              storageId: command.storageId,
               playerId: c.get("developmentPlayer").id,
               expectedFarmVersion: command.expectedFarmVersion
             })

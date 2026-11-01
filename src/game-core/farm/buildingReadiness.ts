@@ -10,7 +10,7 @@ export const readyBuildings = (snapshot: {
   groundItems: readonly { itemKey: string; quantity: number }[];
   buildings: readonly { type: FarmBuildingType }[];
 }, level: number): readonly FarmBuildingType[] => {
-  const unlocks = { granary: 2, mill: 5, brewery: 6, breadOven: 6, warehouse: 8, smallShrine: 8 } as const;
+  const unlocks = { oilMill: 10, granary: 2, mill: 5, brewery: 6, breadOven: 6, warehouse: 8, smallShrine: 8 } as const;
   const available = [...snapshot.inventory, ...snapshot.groundItems];
   return (Object.keys(unlocks) as FarmBuildingType[]).filter(building => level >= unlocks[building] &&
     !snapshot.buildings.some(b => b.type === building) &&
@@ -24,7 +24,7 @@ export const readyProgressionBuilding = (snapshot: FarmSnapshot): FarmBuildingTy
     .find(building => !snapshot.farm.progression?.stats.buildingReadyAnnounced?.includes(building)) ?? null;
 
 export const buildingReadinessText = (building: FarmBuildingType) => ({
-  title: `Ready to build a ${building === "breadOven" ? "bread oven" : building === "smallShrine" ? "small shrine" : building}!`,
+  title: `Ready to build ${building === "oilMill" ? "an" : "a"} ${building === "oilMill" ? "oil mill" : building === "breadOven" ? "bread oven" : building === "smallShrine" ? "small shrine" : building}!`,
   description: `You have ${Object.entries(FARM_BUILDING_DEFINITIONS[building].materials)
     .map(([item, quantity]) => `${quantity} ${{ reed: "reeds", brewingVessels: "brewing jars", bakingTools: "baking tools" }[item] ?? item}`).join(" and ")}.`
 });

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { InventoryItemKey } from "./inventoryItems";
 
-export const farmBuildingTypes = ["granary", "brewery", "mill", "breadOven", "smallShrine", "warehouse"] as const;
+export const farmBuildingTypes = ["granary", "brewery", "mill", "oilMill", "breadOven", "smallShrine", "warehouse"] as const;
 
 export const FarmBuildingTypeSchema = z.enum(farmBuildingTypes);
 
@@ -38,6 +38,7 @@ export const FARM_BUILDING_DEFINITIONS = {
     materials: { reed: 2, clay: 4 }
   },
   breadOven: BREAD_OVEN_DEFINITION,
+  oilMill: { footprint: { columns: 2, rows: 2 }, constructionDurationMs: 2 * 60_000, barleyStorageBonus: 0, materials: { reed: 2, clay: 4 } },
   mill: {
     footprint: { columns: 2, rows: 2 },
     constructionDurationMs: 2 * 60 * 1_000,

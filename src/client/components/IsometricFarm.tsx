@@ -96,7 +96,6 @@ export default function IsometricFarm() {
   const neighbourhoodScene = useRef<NeighbourhoodScene | null>(null);
   const updateZiggurat = useCallback((data: Ziggurat) => neighbourhoodScene.current?.setZigguratState(data), []);
   const [neighbourhoodOpen, setNeighbourhoodOpen] = useState(false);
-  const [harvestPreview, setHarvestPreview] = useState(false);
   const [deliveryPreview, setDeliveryPreview] = useState(false);
   const [zigguratOpen, setZigguratOpen] = useState(false);
   const [neighbourhoodLoad, setNeighbourhoodLoad] = useState<"idle" | "loading" | "error">("idle");
@@ -133,6 +132,7 @@ export default function IsometricFarm() {
   const [decorationId,setDecorationId]=useState<string|null>(null);
   const [decorationTarget,setDecorationTarget]=useState<IsoCell|null>(null);
   const [decorationError,setDecorationError]=useState<string|null>(null);
+  const [farmTransparent, setFarmTransparent] = useState(false);
   const [information, setInformation] = useState<IsometricTileAnchor | null>(null);
   const [palmTarget, setPalmTarget] = useState<IsoCell | null>(null);
   useEffect(() => {
@@ -243,13 +243,13 @@ export default function IsometricFarm() {
     if (!farm.farm.production.delivery && !canStoreBread(farm, id, Date.now())) return;
     const oven = farm.buildings.find(b => b.id === id);
     if (!oven) return;
-    const itemKey = oven.type === "brewery" ? "beer" : "bread";
+    const itemKey = oven.type === "oilMill" ? "oil" : oven.type === "brewery" ? "beer" : "bread";
     submitting.current = true; setPending(true); setError(null);
     renderer.setPlantingSelection(null, true); renderer.clearSelection();
     const travel = async (target: IsoCell, building: IsoCell, carrying: boolean) => {
       const path = pickupPath(current.current!, renderer.farmerPosition(), target, Date.now());
       if (!path) throw new Error("No clear path to the loading tile.");
-      await new Promise<void>(resolve => window.setTimeout(resolve, renderer.presentMillDeliveryLeg(path, building, carrying)));
+      await new Promise<void>(resolve => window.setTimeout(resolve, renderer.presentMillDeliveryLeg(path, building, carrying, carrying && itemKey !== "bread", carrying && itemKey === "bread")));
       if (mounted.current) renderer.finishMillDeliveryLeg();
     };
     try {
@@ -500,6 +500,7 @@ export default function IsometricFarm() {
           const selected = togglePlantingField(selecting.current, cell, (harvesting ? harvestableFields(farm, Date.now(), crop) : plantableFields(farm, Date.now())), harvesting ? harvestingSelectionLimit(farm, Date.now(), crop) : plantingSelectionLimit(farm, Date.now(), selectionMode.current === "sesame" ? "sesame" : "barley"));
           selecting.current = selected; setSelection(selected); scene.current?.setPlantingSelection(selected, false, selectionMode.current);
         }, () => {
+          scene.current?.setFarmTransparent(false); setFarmTransparent(false);
           activeScene.current = marketScene.current; setInformation(null); setLocation("market"); });
         const market = new IsometricMarketScene(anchor => {
           const scope = isometricTradeScope(anchor?.kind);
@@ -604,7 +605,7 @@ export default function IsometricFarm() {
       if (mounted.current) { setPending(false); scene.current?.setPlantingSelection(selecting.current, false, selectionMode.current); refresh.current(); }
     }
   };
-  const storeBarley = async () => {
+  const storeBarley = async (storageId?: string) => {
     let farm = current.current;
     if (!farm || !information || submitting.current || transferBlocker(farm, Date.now())) return;
     submitting.current = true; setPending(true); setError(null);
@@ -612,16 +613,17 @@ export default function IsometricFarm() {
     try {
       for (let stop = 0; stop < 3 && farm.farm.carriedItem; stop++) {
         const from = scene.current?.farmerPosition() ?? information.cell;
-        const material = materialStoragePlan(farm, from, Date.now());
+        const material = materialStoragePlan(farm, from, Date.now(), storageId);
         const { plan } = barleyStoragePlan(farm, from, Date.now());
         if (material) {
-          const next = await executeGameCommand({ type: "deposit_carried_item", expectedFarmVersion: farm.farm.version });
+          const next = await executeGameCommand({ type: "deposit_carried_item", storageId: material.storageId, expectedFarmVersion: farm.farm.version });
           if (!mounted.current) return;
           const duration = scene.current?.presentStorageDelivery(material.path, farm, material.building) ?? 0;
           accept.current(next); scene.current?.clearSelection();
           if (duration) await new Promise<void>(resolve => window.setTimeout(resolve, duration));
           if (!mounted.current) return;
           farm = current.current!;
+          if (storageId) break;
           continue;
         }
         if (stop > 0 && !plan) break;
@@ -772,6 +774,7 @@ export default function IsometricFarm() {
       neighbourhoodScene.current?.setMembers(data.members);
       setZigguratOpen(false);
       scene.current?.scene.switch("neighbourhood");
+      scene.current?.setFarmTransparent(false); setFarmTransparent(false);
       activeScene.current = neighbourhoodScene.current; setNeighbourhoodOpen(true); setNeighbourhoodLoad("idle");
     } catch {
       if (!controller.signal.aborted && mounted.current && current.current?.farm.id === farmId) setNeighbourhoodLoad("error");
@@ -873,10 +876,7 @@ export default function IsometricFarm() {
       <button onClick={() => activeScene.current?.zoomBy(1 / 1.2)} aria-label="Zoom out">−</button>
       <button onClick={() => activeScene.current?.fit()}>Fit</button>
 
-      {!neighbourhoodOpen && location === "farm" && <>
-        <button onClick={() => { scene.current?.previewBarleyHarvest(true); setHarvestPreview(true); }}>Preview barley harvest</button>
-        {harvestPreview && <button onClick={() => { scene.current?.previewBarleyHarvest(false); setHarvestPreview(false); }}>Stop harvest preview</button>}
-      </>}
+
       {neighbourhoodOpen && <button aria-pressed={deliveryPreview} onClick={()=>{
         const next=!deliveryPreview;setDeliveryPreview(next);neighbourhoodScene.current?.previewDelivery(next);
       }}>{deliveryPreview ? "Stop delivery preview" : "Preview ziggurat delivery"}</button>}
@@ -938,13 +938,15 @@ export default function IsometricFarm() {
         <button disabled={pending} onClick={() => { updateSelection(null); setError(null); }}>Cancel</button>
       </div>}
     </aside>}
-    {!decorationId && !neighbourhoodOpen && information && snapshot && selection === null && !error && !pending && (information.kind === "market" || information.kind === "farmReturn" || information.kind === "barleyMarket" || information.kind === "beerMarket" || information.kind === "bakingMarket" || information.kind === "produceMarket"
+    {!decorationId && !neighbourhoodOpen && information && snapshot && selection === null && !error && !pending && (information.kind === "market" || information.kind === "farmReturn" || information.kind === "barleyMarket" || information.kind === "beerMarket" || information.kind === "bakingMarket" || information.kind === "produceMarket" || information.kind === "suppliesMarket"
       ? <IsometricTravelPopup anchor={information} available={information.kind === "farmReturn" || canVisitIsometricMarket(snapshot, clock)}
         onClose={() => activeScene.current?.clearSelection()} onTravel={() => {
           if (information.kind === "farmReturn") marketScene.current?.goBackToFarm();
           else if (!scene.current?.goToMarket()) setError("Cannot reach the market right now.");
         }} />
-      : <IsometricTilePopup onStoreDecoration={id => void changeDecoration(id)} snapshot={snapshot} anchor={information} now={clock}
+      : <IsometricTilePopup farmTransparent={farmTransparent} onToggleFarmTransparency={() => {
+        const next = !farmTransparent; setFarmTransparent(next); scene.current?.setFarmTransparent(next); setInformation(null);
+      }} onStoreDecoration={id => void changeDecoration(id)} snapshot={snapshot} anchor={information} now={clock}
         onRequestPalm={() => { setPalmTarget(information.cell); scene.current?.clearSelection(); setInformation(null); setError(null); }}
         getFarmerPosition={() => { const position = scene.current?.farmerPosition(); return position && { column: Math.round(position.column), row: Math.round(position.row) }; }}
       onClaimLevel={() => {
@@ -958,7 +960,7 @@ export default function IsometricFarm() {
         }).finally(() => { if (mounted.current) setPending(false); });
       }}
       onDestroyBuilding={id => { scene.current?.clearSelection(); setInformation(null); setDemolitionId(id); }}
-      onStore={() => void storeBarley()}
+      onStore={storageId => void storeBarley(storageId)}
       onGather={itemKey => void gather(itemKey)}
       onMill={(recipe, worker) => void startMill(recipe, worker)}
       onBake={() => void startBaking()}

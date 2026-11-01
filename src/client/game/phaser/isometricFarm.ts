@@ -34,7 +34,7 @@ export const barleyDepth = (groundY: number, stage: "sown" | "growing" | "ripe" 
  * poses (+2), without overriding depth ordering on neighbouring tiles. */
 export const groundItemDepth = (groundY: number, itemKey: string) =>
   groundY + (itemKey === "reed" || itemKey === "clay" ? 3 : 1);
-export const buildingNames = { granary: "Granary", warehouse: "Warehouse", brewery: "Brewery", breadOven: "Bread oven", smallShrine: "Small shrine", mill: "Mill" } as const;
+export const buildingNames = { oilMill: "Oil mill", granary: "Granary", warehouse: "Warehouse", brewery: "Brewery", breadOven: "Bread oven", smallShrine: "Small shrine", mill: "Mill" } as const;
 export const tileInformation = (snapshot: FarmSnapshot, cell: IsoCell, now: number): string => {
   if (isIsometricRiverRow(cell.row)) return "River";
   const building = buildingAt(snapshot, cell);

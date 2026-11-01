@@ -12,7 +12,7 @@ import { marketIncludesItem } from "../../src/client/stores/marketUiStore";
 import { merchantTextures } from "../../src/client/game/phaser/scenes/IsometricMarketScene";
 
 it("uses both dedicated merchant sprites instead of the player's farmer texture", () => {
-  expect(merchantTextures).toEqual({ barley: "market-merchant-01", beer: "market-merchant-02", baking: "market-merchant-01", produce: "market-merchant-02" });
+  expect(merchantTextures).toEqual({ barley: "market-merchant-01", beer: "market-merchant-02", baking: "market-merchant-01", produce: "market-merchant-02", supplies: "market-merchant-01" });
 });
 
 it("opens the shared bread scope for baking with existing stand and item unlocks", () => {
@@ -24,7 +24,7 @@ it("opens the shared bread scope for baking with existing stand and item unlocks
   expect(marketUnlockLevel("bread")).toBe(6);
   expect(marketIncludesItem(scope, "flour", { market: "npc", action: "sell" })).toBe(true);
   expect(marketIncludesItem(scope, "bread", { market: "player", action: "buy" })).toBe(true);
-  expect(marketIncludesItem(scope, "bakingTools", { market: "npc", action: "buy" })).toBe(true);
+  expect(marketIncludesItem(scope, "bakingTools", { market: "npc", action: "buy" })).toBe(false);
   expect(marketIncludesItem(scope, "barley")).toBe(false);
   expect(isometricTradeScope("barleyMarket")).toBe("barley");
   expect(isometricTradeScope("beerMarket")).toBe("beer");
@@ -40,7 +40,7 @@ it("opens the shared beer scope with groats at level 5 and beer/supplies at leve
     expect(marketIncludesItem(scope, "beer", { market, action })).toBe(true);
     expect(marketIncludesItem(scope, "brewersGroats", { market, action })).toBe(true);
     for (const item of ["emptyBeerJar", "brewingVessels"]) {
-      expect(marketIncludesItem(scope, item, { market, action })).toBe(market === "npc" && action === "buy");
+      expect(marketIncludesItem(scope, item, { market, action })).toBe(false);
     }
     expect(marketIncludesItem(scope, "bread", { market, action })).toBe(false);
   }
@@ -197,9 +197,9 @@ it("lowers the market donkey artwork onto the road without changing its logical 
 
 it("connects the rectangular road with two T junctions and two lower corners", () => {
   expect(marketRoadMask({ column: 0, row: 5 })).toBe(13);
-  expect(marketRoadMask({ column: 9, row: 5 })).toBe(13);
+  expect(marketRoadMask({ column: 13, row: 5 })).toBe(13);
   expect(marketRoadMask({ column: 0, row: 11 })).toBe(6);
-  expect(marketRoadMask({ column: 9, row: 11 })).toBe(3);
+  expect(marketRoadMask({ column: 13, row: 11 })).toBe(3);
   for (const origin of futureMarketStandOrigins) {
     for (let c = 0; c < 2; c++) for (let r = 0; r < 3; r++) {
       expect(isMarketRoad({ column: origin.column + c, row: origin.row + r })).toBe(false);
@@ -350,7 +350,7 @@ it("cancels pending trading when redirected to an ordinary road tile", () => {
 
 it("opens once without another walk when already standing in front of the merchant", () => {
   const { scene, state, arrivals } = merchantApproachHarness();
-  state.position = { column: 6, row: 5 };
+  state.position = { column: stands[1].merchant.column, row: 5 };
   state.approachMerchant(stands[1]);
   scene.update(0, 16);
   expect(arrivals()).toHaveLength(1);

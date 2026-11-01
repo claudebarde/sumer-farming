@@ -2,7 +2,7 @@ import { ESTATE_STORAGE_LIMITS, WAREHOUSE_SESAME_BASKET_CAPACITY, WAREHOUSE_DATE
 
 export type StorageLocations = Readonly<Record<string, number>>;
 export type StorageBuilding = { id: string; type: string; completesAt: string | Date | number };
-export const physicalStorageItem = (item: string) => item in ESTATE_STORAGE_LIMITS || item === "dates" || item === "sesame";
+export const physicalStorageItem = (item: string) => item in ESTATE_STORAGE_LIMITS || item === "dates" || item === "sesame" || item === "oil";
 export const storageCapacity = (item: string, location: string) => location === "farm"
   ? ESTATE_STORAGE_LIMITS[item as keyof typeof ESTATE_STORAGE_LIMITS] ?? 0
   : item === "sesame" ? WAREHOUSE_SESAME_BASKET_CAPACITY : item === "dates" ? WAREHOUSE_DATE_BASKET_CAPACITY : physicalStorageItem(item) ? WAREHOUSE_RESOURCE_BONUS : 0;
@@ -11,7 +11,7 @@ export const storageWarehouses = (buildings: readonly StorageBuilding[], now: nu
 
 /** One-time legacy allocation. Construction never moves already located stock. */
 export const initialStorageLocations = (item: string, quantity: number, buildings: readonly StorageBuilding[], now: number): StorageLocations => {
-  const farm = (item === "dates" || item === "sesame") ? 0 : Math.min(quantity, storageCapacity(item, "farm"));
+  const farm = (item === "dates" || item === "sesame" || item === "oil") ? 0 : Math.min(quantity, storageCapacity(item, "farm"));
   const warehouse = storageWarehouses(buildings, now)[0];
   return warehouse ? { farm, [warehouse.id]: quantity - farm } : { farm: quantity };
 };
@@ -23,12 +23,12 @@ export const storedLocations = (entry: { itemKey: string; quantity: number; loca
 /** Warehouse first for new deposits; farm first for shared spending. */
 export const changeStorageLocations = (item: string, locations: StorageLocations, delta: number,
   buildings: readonly StorageBuilding[], now: number, destination?: string, reserved: StorageLocations = {}): StorageLocations => {
-  if (delta > 0 && item === "sesame" && destination && !storageWarehouses(buildings, now).some(b => b.id === destination))
-    throw new Error("Sesame needs a completed warehouse.");
+  if (delta > 0 && (item === "sesame" || item === "oil") && destination && !storageWarehouses(buildings, now).some(b => b.id === destination))
+    throw new Error("This resource needs a completed warehouse.");
   const next = { ...locations };
   let remaining = Math.abs(delta);
   const order = delta < 0 ? ["farm", ...Object.keys(next).filter(k => k !== "farm").sort()]
-    : destination ? [destination] : [...storageWarehouses(buildings, now).map(b => b.id), ...((item === "dates" || item === "sesame") ? [] : ["farm"])];
+    : destination ? [destination] : [...storageWarehouses(buildings, now).map(b => b.id), ...((item === "dates" || item === "sesame" || item === "oil") ? [] : ["farm"])];
   for (const location of order) {
     if (!remaining) break;
     const stored = next[location] ?? 0;
@@ -41,11 +41,12 @@ export const changeStorageLocations = (item: string, locations: StorageLocations
 };
 
 export const physicalDeliveryStop = (item: string, entry: { itemKey: string; quantity: number; locations?: StorageLocations | null } | undefined,
-  buildings: readonly StorageBuilding[], now: number, reserved: number | { quantity: number; storageId?: string } = 0) => {
+  buildings: readonly StorageBuilding[], now: number, reserved: number | { quantity: number; storageId?: string } = 0, destination?: string) => {
   const locations = storedLocations(entry, buildings, now);
   const reservedLocation = typeof reserved === "number" ? undefined : reserved.storageId;
   let reservation = typeof reserved === "number" ? reserved : reserved.quantity;
-  for (const location of [...storageWarehouses(buildings, now).map(b => b.id), ...((item === "dates" || item === "sesame") ? [] : ["farm"])]) {
+  const eligible = [...storageWarehouses(buildings, now).map(b => b.id), ...((item === "dates" || item === "sesame" || item === "oil") ? [] : ["farm"])];
+  for (const location of eligible.filter(id => destination === undefined || id === destination)) {
     const free = Math.max(0, storageCapacity(item, location) - (locations[location] ?? 0));
     const room = Math.max(0, free - (reservedLocation && reservedLocation !== location ? 0 : reservation));
     if (!reservedLocation) reservation = Math.max(0, reservation - free);

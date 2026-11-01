@@ -127,8 +127,8 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
             }).where(eq(farmBuildings.id, brewery.id));
         }
         if (input.action === "stock_jars") {
-          const brewery = snapshot.buildings.find(building => building.type === "brewery" && building.column === input.target.column && building.row === input.target.row)!;
-          const quantity = Math.min(BREWERY_EMPTY_JAR_CAPACITY - brewery.emptyBeerJars,
+          const brewery = snapshot.buildings.find(building => (building.type === "brewery" || building.type === "oilMill") && building.column === input.target.column && building.row === input.target.row)!;
+          const quantity = Math.min((brewery.type === "oilMill" ? 3 : BREWERY_EMPTY_JAR_CAPACITY) - brewery.emptyBeerJars,
             snapshot.inventory.find(item => item.itemKey === "emptyBeerJar")!.quantity);
           await transaction.update(farmInventory).set({ quantity: sql`${farmInventory.quantity} - ${quantity}`, updatedAt: now })
             .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "emptyBeerJar")));

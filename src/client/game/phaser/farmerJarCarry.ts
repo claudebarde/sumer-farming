@@ -20,4 +20,4 @@ export const carryingLiquidJars = (
   carried: { itemKey: string; quantity: number } | null,
   delivery: { itemKey: string; quantity: number } | null,
 ) => (carried?.itemKey === "water" && carried.quantity > 0) ||
-  (delivery?.itemKey === "beer" && delivery.quantity > 0);
+  ((delivery?.itemKey === "beer" || delivery?.itemKey === "oil") && delivery.quantity > 0);

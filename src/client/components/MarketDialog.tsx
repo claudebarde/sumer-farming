@@ -8,7 +8,7 @@ import { Dialog, Tabs } from "radix-ui";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { match } from "ts-pattern";
 import { farmStore } from "../stores/farmStore";
-import { MARKET_TITLES, beerMarketBuyOrder, marketIncludesItem, marketUiStore, subscribeMarketOpening } from "../stores/marketUiStore";
+import { MARKET_TITLES, suppliesMarketBuyOrder, marketIncludesItem, marketUiStore, subscribeMarketOpening } from "../stores/marketUiStore";
 import { canOpenMarketStand, marketStandUnlockLevel, marketUnlockLevel } from "../../game-data/progression";
 import { calculateFarmStorageCapacity, FARM_STORAGE_CAPACITY, estateResourceCapacity } from "../../game-data/storage";
 import { millStorageReserved } from "../../game-core/farm/millStorage";
@@ -321,8 +321,7 @@ export default function MarketDialog() {
             </header>
             <div className={styles["market-dialog-body"]}>
               <Dialog.Description>
-                Trade {marketScope === "produce" ? "produce" : marketScope} with the NPC market or buy listings from
-                other players.
+                {marketScope === "supplies" ? "Buy supplies and equipment for your farm." : <>Trade {marketScope === "produce" ? "produce" : marketScope} with the NPC market or buy listings from other players.</>}
               </Dialog.Description>
               {farmLevel < marketStandUnlockLevel(marketScope) && (
                 <p role="note">
@@ -346,7 +345,7 @@ export default function MarketDialog() {
                       </dt>
                       <dd>{farmState.snapshot.player.shekelBalance}</dd>
                     </div>
-                    <div>
+                    {marketScope !== "supplies" && <div>
                       <dt>
                         {marketScope === "produce" ? "Stored dates" : marketScope === "beer"
                           ? "Filled beer jars"
@@ -361,7 +360,7 @@ export default function MarketDialog() {
                             )?.quantity ?? 0)
                           : `${storedHouseholdBarley} / ${householdBarleyCapacity}`}
                       </dd>
-                    </div>
+                    </div>}
                   </dl>
 
                   <Tabs.Root
@@ -379,14 +378,14 @@ export default function MarketDialog() {
                       >
                         NPC market
                       </Tabs.Trigger>
-                      <Tabs.Trigger
+                      {marketScope !== "supplies" && <Tabs.Trigger
                         className={styles["manage-tabs-trigger"]}
                         value="player"
                       >
                         Player market
-                      </Tabs.Trigger>
+                      </Tabs.Trigger>}
                     </Tabs.List>
-                    {(["npc", "player"] as const).map(market => (
+                    {(["npc", "player"] as const).filter(market => marketScope !== "supplies" || market === "npc").map(market => (
                       <Tabs.Content
                         key={market}
                         value={market}
@@ -394,7 +393,7 @@ export default function MarketDialog() {
                       >
                         <p>
                           {market === "npc"
-                            ? "Buy and sell at fixed prices with NPC merchants."
+                            ? marketScope === "supplies" ? "Buy at fixed prices." : "Buy and sell at fixed prices with NPC merchants."
                             : "Buy goods from other players or sell your own stored goods."}
                         </p>
                         <Tabs.Root
@@ -415,14 +414,14 @@ export default function MarketDialog() {
                             >
                               Buy
                             </Tabs.Trigger>
-                            <Tabs.Trigger
+                            {marketScope !== "supplies" && <Tabs.Trigger
                               className={styles["manage-tabs-trigger"]}
                               value="sell"
                             >
                               Sell
-                            </Tabs.Trigger>
+                            </Tabs.Trigger>}
                           </Tabs.List>
-                          {(["buy", "sell"] as const).map(action => (
+                          {(["buy", "sell"] as const).filter(action => marketScope !== "supplies" || action === "buy").map(action => (
                             <Tabs.Content
                               key={action}
                               value={action}
@@ -456,8 +455,8 @@ export default function MarketDialog() {
                                       : item.npcMarket.canSell
                                     : item.playerMarket.canCreateSellOrder
                                 )
-                                .sort((a, b) => marketScope === "beer" && market === "npc" && action === "buy"
-                                  ? beerMarketBuyOrder(a.itemKey) - beerMarketBuyOrder(b.itemKey)
+                                .sort((a, b) => marketScope === "supplies" && market === "npc" && action === "buy"
+                                  ? suppliesMarketBuyOrder(a.itemKey) - suppliesMarketBuyOrder(b.itemKey)
                                   : 0)
                                 .map(item => {
                                   const quantityKey = `${market}:${action}:${item.itemKey}`;

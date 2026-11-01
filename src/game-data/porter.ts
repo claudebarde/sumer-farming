@@ -4,7 +4,7 @@ import { WORKER_MOVE_DURATION_PER_TILE } from "./movement";
 export const PORTER_COST = 20;
 export const PORTER_HIRE_MS = 24 * 60 * 60_000;
 export const PORTER_STEP_MS = WORKER_MOVE_DURATION_PER_TILE;
-export const PorterItemSchema = z.enum(["flour", "brewersGroats", "bread", "beer"]);
+export const PorterItemSchema = z.enum(["flour", "brewersGroats", "bread", "beer", "oil"]);
 const Position = z.object({ column: z.number(), row: z.number() });
 export const PorterSchema = z.object({
   hiredAt: z.number(), expiresAt: z.number(), checkedAt: z.number(), position: Position,

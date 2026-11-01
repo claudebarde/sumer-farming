@@ -5,12 +5,12 @@ import { marketIncludesItem } from "../../src/client/stores/marketUiStore";
 import { marketUnlockLevel } from "../../src/game-data/progression";
 
 describe("shared donkey rules", () => {
-  it("offers the donkey only in the NPC bread buy tab from level seven", () => {
+  it("offers the donkey only in the NPC supplies buy tab from level seven", () => {
     expect(marketUnlockLevel("donkey")).toBe(7);
-    for (const scope of ["bread", "beer", "barley"] as const) {
+    for (const scope of ["supplies", "bread", "beer", "barley"] as const) {
       for (const market of ["npc", "player"] as const) {
         for (const action of ["buy", "sell"] as const) {
-          expect(marketIncludesItem(scope, "donkey", { market, action })).toBe(scope === "bread" && market === "npc" && action === "buy");
+          expect(marketIncludesItem(scope, "donkey", { market, action })).toBe(scope === "supplies" && market === "npc" && action === "buy");
         }
       }
     }

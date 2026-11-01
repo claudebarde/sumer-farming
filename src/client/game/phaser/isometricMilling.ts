@@ -4,12 +4,12 @@ import { millRecipe, type MillRecipe, type MillWorker } from "../../../game-data
 import { isoPoint } from "./isometricProjection";
 
 export const millPopupState = (snapshot: FarmSnapshot, buildingId: string, now: number, recipe: MillRecipe = "flour", worker: MillWorker = "farmer") => {
-  const building = snapshot.buildings.find(b => b.id === buildingId && b.type === "mill");
+  const building = snapshot.buildings.find(b => b.id === buildingId && b.type === (recipe === "oil" ? "oilMill" : "mill"));
   const ready = !!building && Date.parse(building.completesAt) <= now;
   const stored = (snapshot.inventory.find(i => i.itemKey === "barley")?.quantity ?? 0) + snapshot.buildings
     .filter(b => (b.type === "granary" || b.type === "warehouse") && Date.parse(b.completesAt) <= now)
     .reduce((sum, b) => sum + b.storedBarley, 0);
-  const insufficient = ready && stored < millRecipe(recipe, worker).barley;
+  const insufficient = recipe === "oil" ? (snapshot.inventory.find(i => i.itemKey === "sesame")?.quantity ?? 0) < 3 * millRecipe(recipe, worker).output : ready && stored < millRecipe(recipe, worker).barley;
   return { insufficient, canStart: ready && !insufficient && !snapshot.farm.carriedItem &&
     !snapshot.farm.roads.some(r => (r.completesAt ?? 0) > now) &&
     !millingUnavailableReason(snapshot, recipe, now, worker, buildingId) };
@@ -24,7 +24,7 @@ export const millingJourneyPose = (snapshot: FarmSnapshot, now: number) => {
   const from = journey.path[index]!, to = journey.path[index + 1] ?? from;
   const position = { column: from.column + (to.column - from.column) * fraction, row: from.row + (to.row - from.row) * fraction };
   const supplied = journey.supplyStops;
-  const carried = supplied ? job.barley - supplied.reduce((sum, stop) => sum + stop.quantity, 0) + supplied
+  const carried = supplied ? (job.recipe === "oil" ? job.output * 3 : job.barley) - supplied.reduce((sum, stop) => sum + stop.quantity, 0) + supplied
     .filter(stop => step >= stop.index).reduce((sum, stop) => sum + stop.quantity, 0)
     : step >= journey.supplyIndex ? job.barley : 0;
   const a = isoPoint(from), b = isoPoint(to);

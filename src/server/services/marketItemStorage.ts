@@ -17,7 +17,7 @@ type CompletedGranary = {
 
 export type MarketItemStorage = {
   readonly type: "barley_storage" | "estate_inventory";
-  readonly itemKey: MarketItemKey;
+  readonly itemKey: MarketItemKey | "oil";
   readonly farmId: string;
   readonly farmQuantity: number;
   readonly granaries: readonly CompletedGranary[];
@@ -103,13 +103,13 @@ const loadBarleyStorage = async (
 export const loadMarketItemStorage = (
   transaction: DatabaseTransaction,
   farmId: string,
-  itemKey: MarketItemKey,
+  itemKey: MarketItemKey | "oil",
   now: Date
 ): Promise<MarketItemStorage> =>
   match(itemKey)
     .returnType<Promise<MarketItemStorage>>()
     .with("barley", () => loadBarleyStorage(transaction, farmId, now))
-    .with("brewingVessels", "bakingTools", "emptyBeerJar", "beer", "bread", "flour", "brewersGroats", "donkey", "dates", "sesame", async () => {
+    .with("brewingVessels", "bakingTools", "emptyBeerJar", "beer", "bread", "flour", "brewersGroats", "donkey", "dates", "sesame", "oil", async () => {
       const [entry] = await transaction.select().from(farmInventory).where(and(eq(farmInventory.farmId, farmId), eq(farmInventory.itemKey, itemKey))).for("update");
       const quantity = entry?.quantity ?? 0;
       const buildings = await transaction.select().from(farmBuildings).where(eq(farmBuildings.farmId, farmId));

@@ -1,10 +1,10 @@
 import { isMarketRoad, marketLoop } from "../../../game-data/marketLayout";
-export { isMarketRoad, marketLoop, marketLastRow } from "../../../game-data/marketLayout";
+export { isMarketRoad, marketLoop, marketLastRow, marketLastColumn } from "../../../game-data/marketLayout";
 import type { IsoCell } from "./isometricProjection";
 import { ROAD_CONNECTIONS } from "./isometricRoads";
 
 // Reserved footprints within the shared road loop.
-export const futureMarketStandOrigins = [{ column: 2, row: 8 }, { column: 5, row: 8 }] as const;
+export const futureMarketStandOrigins = [{ column: 2, row: 8 }, { column: 6, row: 8 }] as const;
 
 export const marketRoadMask = (cell: IsoCell): number => ROAD_CONNECTIONS.reduce((mask, offset) => {
   const next = { column: cell.column + offset.column, row: cell.row + offset.row };

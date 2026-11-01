@@ -57,7 +57,7 @@ export const MARKET_ITEM_DEFINITIONS = {
     playerMarket: { canCreateSellOrder: true }
   },
   emptyBeerJar: {
-    label: "Empty beer jars",
+    label: "Empty jars",
     storage: { type: "estate_inventory" },
     npcMarket: { canBuy: true, canSell: false, buyPrice: 2, sellPrice: 1 },
     playerMarket: { canCreateSellOrder: false }

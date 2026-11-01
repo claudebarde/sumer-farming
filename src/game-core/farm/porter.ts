@@ -59,7 +59,7 @@ export const advancePorter = (input: {
   const inventory = { ...input.inventory };
   const locations = Object.fromEntries(Object.entries(inventory).filter(([item]) => physicalStorageItem(item))
     .map(([itemKey, quantity]) => [itemKey, input.locations?.[itemKey] ?? storedLocations({ itemKey, quantity }, input.buildings, input.now)]));
-  const breweryJars = Object.fromEntries(input.buildings.filter(b => b.type === "brewery").map(b => [b.id, b.emptyBeerJars ?? 0]));
+  const breweryJars = Object.fromEntries(input.buildings.filter(b => (b.type === "brewery" || b.type === "oilMill")).map(b => [b.id, b.emptyBeerJars ?? 0]));
   let cursor = porter.checkedAt;
   const returnToMarket = () => {
     const path = porterRoadPath(input.buildings, input.roads, porter.position, porter.home ?? PORTER_MARKET, cursor);
@@ -78,7 +78,7 @@ export const advancePorter = (input: {
       if (porter.job.completesAt > input.now) break;
       const job = porter.job;
       if (job.itemKey === "emptyBeerJar") {
-        const room = job.buildingId in breweryJars ? Math.max(0, BREWERY_EMPTY_JAR_CAPACITY - breweryJars[job.buildingId]!) : 0;
+        const room = job.buildingId in breweryJars ? Math.max(0, (input.buildings.find(b => b.id === job.buildingId)?.type === "oilMill" ? 3 : BREWERY_EMPTY_JAR_CAPACITY) - breweryJars[job.buildingId]!) : 0;
         const delivered = Math.min(room, job.quantity);
         if (delivered > 0) breweryJars[job.buildingId] += delivered;
         // A manual delivery can fill the brewery while this trip is underway.
@@ -120,8 +120,8 @@ export const advancePorter = (input: {
       const startedAt = Math.max(cursor, porter.hiredAt);
       if (startedAt >= porter.expiresAt || startedAt > input.now) break;
       const supply = input.buildings.flatMap(building => {
-        if (building.type !== "brewery" || building.completesAt > startedAt || !building.loadingTile) return [];
-        const quantity = Math.min(Math.max(0, BREWERY_EMPTY_JAR_CAPACITY - breweryJars[building.id]!), inventory.emptyBeerJar ?? 0);
+        if ((building.type !== "brewery" && building.type !== "oilMill") || building.completesAt > startedAt || !building.loadingTile) return [];
+        const quantity = Math.min(Math.max(0, (building.type === "oilMill" ? 3 : BREWERY_EMPTY_JAR_CAPACITY) - breweryJars[building.id]!), inventory.emptyBeerJar ?? 0);
         if (quantity <= 0) return [];
         const outbound = porterRoadPath(input.buildings, input.roads, porter.position, INITIAL_FARM_CONFIG.farmerSpawn, startedAt);
         const inbound = porterRoadPath(input.buildings, input.roads, INITIAL_FARM_CONFIG.farmerSpawn, building.loadingTile, startedAt);

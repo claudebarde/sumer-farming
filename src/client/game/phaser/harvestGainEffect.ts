@@ -73,7 +73,7 @@ export class HarvestGainEffect {
       if (!this.scene.children.exists(effect.sprite)) this.scene.children.add(effect.sprite);
       const point = isoPoint(effect.gain.cell);
       const pose = harvestGainPresentation(elapsed, reducedMotion);
-      effect.sprite.setPosition(point.x, point.y + pose.offsetY).setAlpha(pose.alpha);
+      effect.sprite.setPosition(point.x, point.y + pose.offsetY + (effect.gain.offsetY ?? 0)).setAlpha(pose.alpha);
       effect.displayed = true;
       return true;
     });

@@ -72,8 +72,8 @@ planned level-10 feature is already implemented.
 | Ziggurat interest and cooperative construction | Implemented | Three interested level-10 neighbours open fundraising; four material-funded construction stages. Lower-level neighbours can observe. |
 | Construction contribution ranking and Patron rewards | Implemented | Points, tied-winner rewards, badge and placeable miniature; visual reward acceptance testing remains separate. |
 | Ziggurat festivals | Approved, planned | Completed ziggurat required; begin with a crop-growth festival. Funding, duration and exact benefits still need agreement. |
-| Sesame crop | Implemented | Buy a basket for 3 shekels at level 10; plant one to harvest three. Growth takes 60 minutes (15 seedlings, 20 leafy, 25 flowering). Saved planting, harvesting and warehouse delivery continue offline. Warehouse capacity is 12 baskets, with no mandatory seed reserve. Sell stored sesame at the produce stand for 1 shekel per basket. Oil production remains unavailable. |
-| Oil workshop: sesame → oil | Approved direction; unlock level undecided | Level 10 is recommended, but has not been approved. The approved recipe uses three sesame baskets per jar; packaging, costs, timings and oil uses remain undecided. |
+| Sesame crop | Implemented | Buy a basket for 3 shekels at level 10; plant one to harvest three. Growth takes 60 minutes (15 seedlings, 20 leafy, 25 flowering). Saved planting, harvesting and warehouse delivery continue offline. Warehouse capacity is 12 baskets, with no mandatory seed reserve. Sell stored sesame at the produce stand for 1 shekel per basket. Oil production is available in the oil mill. |
+| Oil mill: sesame → oil | Implemented; visual testing pending | Unlocks at level 10. Costs 2 reeds and 4 clay; 2-minute construction. Farmer: 3 sesame + 1 empty jar → 1 oil in 5 minutes. Donkey: triple batch in 15 minutes. Three-jar supply capacity; porter restocking. Warehouse stores 10 oil. Market trading is a later integration. |
 
 Ziggurat construction and festivals are optional bonuses. They must never block
 estate levelling or individual progression. There is no permanent ziggurat
@@ -138,8 +138,8 @@ Design principles for reviewing these branches:
 
 ## Next decisions
 
-1. Confirm the oil workshop's unlock level: level 10 or later.
-2. Define the sesame cycle and oil's initial uses, storage and market outlet.
+1. Verify the level-10 oil mill construction and production in the interface.
+2. Connect the agreed oil trading prices to a market outlet and decide later oil uses.
 3. Choose level 11 or 12 for sheep, and agree their care and wool collection flow.
 4. Review the proposed level 11–20 sequence one level at a time before treating any
    of its suggestions as approved features.

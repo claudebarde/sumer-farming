@@ -22,7 +22,7 @@ export const advancePorterLifecycle = async (tx: DatabaseTransaction, farm: type
     buildings: buildings.map(b => ({ ...b, completesAt: b.completesAt.getTime() })), roads: farm.roads, now: now.getTime() });
   for (const [itemKey, quantity] of Object.entries(result.inventory)) {
     if (quantity === inventory[itemKey]) continue;
-    await setStoredQuantity(tx, farm.id, itemKey as "flour" | "brewersGroats" | "bread" | "beer" | "emptyBeerJar", quantity, now, undefined, result.locations[itemKey]);
+    await setStoredQuantity(tx, farm.id, itemKey as "flour" | "brewersGroats" | "bread" | "beer" | "oil" | "emptyBeerJar", quantity, now, undefined, result.locations[itemKey]);
   }
   for (const building of buildings) {
     const quantity = result.breweryJars[building.id];
@@ -30,7 +30,7 @@ export const advancePorterLifecycle = async (tx: DatabaseTransaction, farm: type
       await tx.update(farmBuildings).set({ emptyBeerJars: quantity }).where(eq(farmBuildings.id, building.id));
     }
   }
-  const pending = Object.fromEntries(result.stacks.filter(s => s.quantity > 0 && (s.itemKey === "bread" || s.itemKey === "beer")).map(s => [s.buildingId, { itemKey: s.itemKey as "bread" | "beer", quantity: s.quantity }]));
+  const pending = Object.fromEntries(result.stacks.filter(s => s.quantity > 0 && (s.itemKey === "bread" || s.itemKey === "beer" || s.itemKey === "oil")).map(s => [s.buildingId, { itemKey: s.itemKey as "bread" | "beer" | "oil", quantity: s.quantity }]));
   const millPending: typeof farm.millGoods.pending = {};
   for (const s of result.stacks) if (s.quantity > 0 && (s.itemKey === "flour" || s.itemKey === "brewersGroats")) {
     millPending[s.buildingId] = { ...(millPending[s.buildingId] ?? { flour: 0, brewersGroats: 0 }), [s.itemKey]: s.quantity };

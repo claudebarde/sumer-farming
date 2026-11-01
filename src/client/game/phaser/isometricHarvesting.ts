@@ -30,7 +30,7 @@ export const harvestingProgress = (snapshot: FarmSnapshot, now: number) => {
   return { completed, totalMs, percentage: Math.floor(Math.max(0, Math.min(100, elapsedMs / totalMs * 100))) };
 };
 
-export type HarvestGain = { readonly cell: IsoCell; readonly at: number; readonly quantity: number };
+export type HarvestGain = { readonly cell: IsoCell; readonly at: number; readonly quantity: number; readonly offsetY?: number };
 
 export type HarvestPose = {
   readonly type: "walking" | "harvesting" | "idle" | "done";

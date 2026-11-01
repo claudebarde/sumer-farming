@@ -1,3 +1,4 @@
+import suppliesStandUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/supplies-equipment-market-stand-isometric.png";
 import { savedMapZoom, saveMapZoom } from "../zoomPreference";
 import produceStandUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/fruit-vegetable-market-stand-isometric.png";
 import { createMarketPresenceSession } from "../../marketPresenceSession";
@@ -19,7 +20,7 @@ import barleyStandUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-t
 import beerStandUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/market-beer-isometric.webp";
 import bakingStandUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/market-baking-isometric.webp";
 import { prepareBuildingTexture } from "../buildingTexture";
-import { isMarketRoad, marketLastRow, marketRoadMask, marketRoadPath } from "../isometricMarketLayout";
+import { isMarketRoad, marketLastRow, marketLastColumn, marketRoadMask, marketRoadPath } from "../isometricMarketLayout";
 import type { IsoCell } from "../isometricProjection";
 import { advanceMerchantFacing, initialMerchantFacing, type MerchantFacing } from "../merchantFacing";
 import { advanceGreeting, greetingAppearance, initialGreetingState, merchantGreetings } from "../merchantGreeting";
@@ -32,13 +33,14 @@ import { advanceDonkeyFollow, appendDonkeyTrail, donkeyFollowPose, startDonkeyFo
 const merchantSources = { "market-merchant-01": merchant01, "market-merchant-02": merchant02 };
 // Align the donkey's visible hooves with the road centre without altering its route.
 const DONKEY_ROAD_OFFSET_Y = 8;
-export const merchantTextures = { barley: "market-merchant-01", beer: "market-merchant-02", baking: "market-merchant-01", produce: "market-merchant-02" } as const;
+export const merchantTextures = { barley: "market-merchant-01", beer: "market-merchant-02", baking: "market-merchant-01", produce: "market-merchant-02", supplies: "market-merchant-01" } as const;
 
 export const stands = [
   { scope: "barley", kind: "barleyMarket", url: barleyStandUrl, origin: { column: 2, row: 2 }, merchant: { column: 3, row: 4.5 } },
-  { scope: "beer", kind: "beerMarket", url: beerStandUrl, origin: { column: 5, row: 2 }, merchant: { column: 6, row: 4.5 } },
+  { scope: "beer", kind: "beerMarket", url: beerStandUrl, origin: { column: 6, row: 2 }, merchant: { column: 7, row: 4.5 } },
   { scope: "baking", kind: "bakingMarket", url: bakingStandUrl, origin: { column: 2, row: 8 }, merchant: { column: 3, row: 10.5 } },
-  { scope: "produce", kind: "produceMarket", url: produceStandUrl, origin: { column: 5, row: 8 }, merchant: { column: 6, row: 10.5 } },
+  { scope: "produce", kind: "produceMarket", url: produceStandUrl, origin: { column: 6, row: 8 }, merchant: { column: 7, row: 10.5 } },
+  { scope: "supplies", kind: "suppliesMarket", url: suppliesStandUrl, origin: { column: 10, row: 2 }, merchant: { column: 11, row: 4.5 } },
 ] as const;
 
 /** Isometric market; farmer and terrain textures are shared with the farm. */
@@ -102,7 +104,7 @@ export class IsometricMarketScene extends Phaser.Scene {
       this.textures.addCanvas(`market-${stand.scope}`, prepareBuildingTexture(this.textures.get(`source-market-${stand.scope}`).getSourceImage() as HTMLImageElement))
         ?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
-    for (let row = 0; row <= marketLastRow; row++) for (let column = config.worldBounds.minimumColumn; column <= config.worldBounds.maximumColumn; column++) {
+    for (let row = 0; row <= marketLastRow; row++) for (let column = config.worldBounds.minimumColumn; column <= marketLastColumn; column++) {
       const p = isoPoint({ column, row });
       this.add.image(p.x, p.y, isMarketRoad({ column, row }) ? `road-${marketRoadMask({ column, row })}` : "non-arable-ground")
         .setOrigin(0.5).setDisplaySize(ISO_WIDTH, ISO_HEIGHT).setDepth(-1000);
@@ -110,7 +112,7 @@ export class IsometricMarketScene extends Phaser.Scene {
     const front = footprintFront(marketReturnOrigin, 2, 2);
     this.returnFarm = this.add.image(front.x, front.y + 19, farmAppearance(this.farmLevel()).texture).setOrigin(0.5, 1).setDisplaySize(232, 232)
       .setDepth(front.y - 24).setData("returnFarm", true).setInteractive({ pixelPerfect: true });
-    this.daylightShadows = createShadowLayer(this, { ...config.worldBounds, minimumRow: 0, maximumRow: marketLastRow });
+    this.daylightShadows = createShadowLayer(this, { ...config.worldBounds, minimumRow: 0, maximumRow: marketLastRow, maximumColumn: marketLastColumn });
     this.daylightShadows.addBuilding(this.returnFarm);
     stands.forEach(stand => this.drawStand(stand));
     for (const decoration of marketScenery) {
@@ -333,8 +335,8 @@ export class IsometricMarketScene extends Phaser.Scene {
   }
   fit(persist = true) {
     if (!this.ready) return;
-    this.baseZoom = Math.min(this.scale.width / 1580, this.scale.height / 940);
-    this.cameras.main.setZoom(this.baseZoom).centerOn(-144, 195);
+    this.baseZoom = Math.min(this.scale.width / 1772, this.scale.height / 1036);
+    this.cameras.main.setZoom(this.baseZoom).centerOn(-48, 243);
     if (persist) saveMapZoom("market", "fit");
   }
   zoomBy(factor: number) {

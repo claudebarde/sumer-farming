@@ -78,6 +78,7 @@ type TargetedFarmItemActionInput = {
 };
 
 type DepositCarriedItemInput = {
+  readonly storageId?: string;
   readonly playerId: string;
   readonly expectedFarmVersion: number;
 };
@@ -444,7 +445,7 @@ const executeFarmItemAction = (
                     )
                   };
             })
-            .with({ type: "deposit" }, async () => {
+            .with({ type: "deposit" }, async ({ input }) => {
               if (
                 farm.carriedItemKey === null ||
                 farm.carriedItemQuantity === 0
@@ -484,7 +485,8 @@ const executeFarmItemAction = (
               }
 
               const destination = farm.carriedItemKey === "reed" || farm.carriedItemKey === "clay"
-                ? physicalDeliveryStop(farm.carriedItemKey, { itemKey: farm.carriedItemKey, quantity: storedQuantity, locations: inventory[0]?.locations }, storageBuildings, now.getTime()) : null;
+                ? physicalDeliveryStop(farm.carriedItemKey, { itemKey: farm.carriedItemKey, quantity: storedQuantity, locations: inventory[0]?.locations }, storageBuildings, now.getTime(), 0, input.storageId) : null;
+              if (destination && destination.room === 0) return { type: "rule_error", rule: { type: "farm_storage_full" } };
               const depositedQuantity = Math.min(
                 availableCapacity,
                 farm.carriedItemQuantity,

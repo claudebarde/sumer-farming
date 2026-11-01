@@ -28,7 +28,7 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
   const home = !building && footprintContains(farmOrigin, 2, 2, cell);
   const level = home ? snapshot.farm.progression?.level ?? 1
     : building?.type === "granary" ? granaryLevelForFarmLevel(snapshot.farm.progression?.level ?? 1)
-    : building && (building.type === "mill" || building.type === "breadOven" || building.type === "brewery") ? buildingLevel(snapshot.farm.production.buildingUpgrades, building.id, now) : null;
+    : building && (building.type === "oilMill" || building.type === "mill" || building.type === "breadOven" || building.type === "brewery") ? buildingLevel(snapshot.farm.production.buildingUpgrades, building.id, now) : null;
   const plantable = plantableFields(snapshot, now);
   const ripe = harvestableFields(snapshot, now);
   const canPlantHere = plantable.some(p => sameCell(p, cell));
@@ -47,6 +47,7 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
     }
   } else if (building) {
     if (Date.parse(building.completesAt) > now) details.push("Under construction");
+    else if (building.type === "oilMill") details.push(`${building.emptyBeerJars}/3 empty jars`);
     else if (building.type === "mill") {
       const job = snapshot.farm.milling;
       if (job?.buildingId === building.id && Date.parse(job.startedAt) > now) details.push("Collecting barley…");

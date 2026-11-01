@@ -226,8 +226,8 @@ export const advanceFarmLifecycle = async (
     const job = farm.milling;
     const bags = farm.millGoods.pending[job.buildingId] ?? { flour: 0, brewersGroats: 0 };
     const [completed] = await transaction.update(farms).set({ milling: null,
-      millGoods: { ...farm.millGoods, pending: { ...farm.millGoods.pending,
-        [job.buildingId]: { ...bags, [job.recipe]: bags[job.recipe] + job.output } } },
+      ...(job.recipe === "oil" ? { production: { ...farm.production, pending: { ...farm.production.pending, [job.buildingId]: { itemKey: "oil" as const, quantity: (farm.production.pending[job.buildingId]?.quantity ?? 0) + job.output } } } } : { millGoods: { ...farm.millGoods, pending: { ...farm.millGoods.pending,
+        [job.buildingId]: { ...bags, [job.recipe]: bags[job.recipe] + job.output } } } }),
       progressionStats: { ...farm.progressionStats, processedBarley: (farm.progressionStats.processedBarley ?? 0) + job.barley },
       version: sql`${farms.version} + 1`, updatedAt: now
     }).where(eq(farms.id, farm.id)).returning();

@@ -1,6 +1,6 @@
 import donkeyUrl from "./sprite_assets/pngs/v2/isometric-test/donkey/donkey-idle-isometric.webp";
 import millUrl from "./sprite_assets/pngs/v2/isometric-test/mill-isometric.webp";
-import beerJarsUrl from "./sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.webp";
+import beerJarsUrl from "./sprite_assets/pngs/v2/isometric-test/brewery/jar-beer-single.png";
 import breadBasketUrl from "./sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.webp";
 import fishUrl from "./sprite_assets/pngs/fish.webp";
 import waterUrl from "./sprite_assets/pngs/water.webp";

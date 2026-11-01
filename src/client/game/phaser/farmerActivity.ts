@@ -3,7 +3,7 @@ import type { FarmSnapshot } from "../../../schemas/farm";
 import { farmerProductionJob } from "../../../game-core/farm/farmerProduction";
 import { isometricPlantingPose } from "./isometricPlanting";
 import type { InventoryItemKey } from "../../../game-data/inventoryItems";
-export type FarmerActivityItem = "barley" | "sesame" | "flour" | "brewersGroats" | "reed" | "clay" | "fish" | "road" | "canal" | "bread" | "beer" | "dates" | "stool" | "pickaxe" | "water";
+export type FarmerActivityItem = "oil" | "barley" | "sesame" | "flour" | "brewersGroats" | "reed" | "clay" | "fish" | "road" | "canal" | "bread" | "beer" | "dates" | "stool" | "pickaxe" | "water";
 export type FarmerActivity = { readonly label: string; readonly item?: FarmerActivityItem; readonly quantity?: number };
 const activity = (label: string, item?: FarmerActivityItem, quantity?: number): FarmerActivity => ({ label, item, quantity });
 const carriedIcons: Partial<Record<InventoryItemKey, FarmerActivityItem>> = {
@@ -26,7 +26,7 @@ export const farmerActivity = (snapshot: FarmSnapshot, now: number, walking = fa
   if (farm.millGoods.delivery) return activity("Storing", "flour");
   if (farm.production.delivery) return activity("Storing", farm.production.delivery.itemKey);
   const job = farmerProductionJob(farm, now);
-  if (job?.type === "milling") return farm.milling && Date.parse(farm.milling.startedAt) > now ? activity("Collecting", "barley") : activity("Milling", "flour");
+  if (job?.type === "milling") return farm.milling && Date.parse(farm.milling.startedAt) > now ? activity("Collecting", farm.milling.recipe === "oil" ? "sesame" : "barley") : activity("Milling", farm.milling?.recipe === "oil" ? "oil" : "flour");
   if (job?.type === "baking") return activity("Baking", "bread");
   if (job?.type === "brewing") return activity("Brewing", "beer");
   if (farm.fishing) return activity("Fishing", "fish");

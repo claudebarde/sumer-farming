@@ -8,7 +8,7 @@ it("scatters ten bushes and ten rocks away from roads, current/future stalls and
   expect(marketScenery.filter(p => p.texture.startsWith("bush"))).toHaveLength(10);
   expect(marketScenery.filter(p => p.texture.startsWith("rocks"))).toHaveLength(10);
   expect(new Set(marketScenery.map(p => `${p.column}:${p.row}`)).size).toBe(20);
-  const buildings = [marketReturnOrigin, { column: 2, row: 2 }, { column: 5, row: 2 }, ...futureMarketStandOrigins];
+  const buildings = [marketReturnOrigin, { column: 2, row: 2 }, { column: 6, row: 2 }, { column: 10, row: 2 }, ...futureMarketStandOrigins];
   for (const p of marketScenery) {
     expect(isMarketRoad(p)).toBe(false);
     expect(buildings.some(b => footprintContains(b, 2, 3, p))).toBe(false);

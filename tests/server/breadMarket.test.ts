@@ -101,10 +101,10 @@ describe("bread markets", () => {
     expect(await db.select().from(marketOrders).where(eq(marketOrders.playerId, input.playerId))).toHaveLength(0);
   });
 
-  it("offers baking tools only in the NPC bread buy tab at level 6", () => {
-    expect(marketIncludesItem("bread", "bakingTools", { market: "npc", action: "buy" })).toBe(true);
-    expect(marketIncludesItem("bread", "bakingTools", { market: "npc", action: "sell" })).toBe(false);
-    expect(marketIncludesItem("bread", "bakingTools", { market: "player", action: "buy" })).toBe(false);
+  it("offers baking tools only in the NPC supplies buy tab at level 6", () => {
+    expect(marketIncludesItem("supplies", "bakingTools", { market: "npc", action: "buy" })).toBe(true);
+    expect(marketIncludesItem("supplies", "bakingTools", { market: "npc", action: "sell" })).toBe(false);
+    expect(marketIncludesItem("supplies", "bakingTools", { market: "player", action: "buy" })).toBe(false);
     expect(marketIncludesItem("beer", "bakingTools", { market: "npc", action: "buy" })).toBe(false);
     expect(commandUnlockLevel(GameCommandSchema.parse({ type: "buy_from_npc_market", itemKey: "bakingTools", quantity: 2, expectedUnitPrice: 6, expectedFarmVersion: 1, idempotencyKey: randomUUID() }))).toBe(6);
   });

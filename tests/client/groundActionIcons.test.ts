@@ -15,7 +15,7 @@ it.each([
   ["walk", "walk-here-icon.png"],
   ["irrigation", "canal-ne-sw.png"],
   ["road", "road-ne-sw.png"],
-  ["emptyJars", "beer-jars-empty-isometric.webp"],
+  ["emptyJars", "jar-empty-single.png"],
   ["brewBeer", "brewing-beer-icon.webp"],
   ["fish", "fish.webp"],
   ["reed", "reed-bundle.webp"],

@@ -6,16 +6,16 @@ import { pickupPath } from "./isometricPickup";
 import { physicalDeliveryStop } from "../../../game-core/farm/physicalStorage";
 import { farmOrigin } from "./isometricFarm";
 
-export const materialStoragePlan = (snapshot: FarmSnapshot, from: IsoCell, now: number) => {
+export const materialStoragePlan = (snapshot: FarmSnapshot, from: IsoCell, now: number, destination?: string) => {
   const item = snapshot.farm.carriedItem?.itemKey;
   if (item !== "reed" && item !== "clay") return null;
-  const stop = physicalDeliveryStop(item, snapshot.inventory.find(i => i.itemKey === item), snapshot.buildings, now);
+  const stop = physicalDeliveryStop(item, snapshot.inventory.find(i => i.itemKey === item), snapshot.buildings, now, 0, destination);
   if (!stop.room) return null;
   const warehouse = snapshot.buildings.find(b => b.id === stop.storageId);
   const building = warehouse ?? farmOrigin;
   const target = warehouse?.loadingTile ?? (warehouse ? { column: warehouse.column, row: warehouse.row + 2 } : INITIAL_FARM_CONFIG.farmerSpawn);
   const path = pickupPath(snapshot, from, target, now);
-  return path ? { path, building } : null;
+  return path ? { path, building, storageId: stop.storageId } : null;
 };
 
 type Destination = { type: "farm"; room: number; loading: IsoCell } |

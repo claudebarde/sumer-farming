@@ -1,3 +1,4 @@
+import oilIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-oil-single.png";
 import sesameIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png";
 import { sharedStorageAllocation } from "../../game-core/farm/storageDisplay";
 import { FARM_STORAGE_CAPACITY } from "../../game-data/storage";
@@ -10,11 +11,11 @@ import { FARM_SPRITES } from "../../assets/farmSprites";
 import datesIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 import breadImage from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.webp";
 import flourImage from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.webp";
-import beerImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.webp";
+import beerImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-beer-single.png";
 import groatsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.webp";
 
 const storageImages: Record<string, string> = {
-  Bread: breadImage, Beer: beerImage, Flour: flourImage, Groats: groatsImage,
+  Oil: oilIcon, Bread: breadImage, Beer: beerImage, Flour: flourImage, Groats: groatsImage,
   Barley: FARM_SPRITES.harvestedBarley, Fish: FARM_SPRITES.fish,
   Reed: FARM_SPRITES.reedBundle, Clay: FARM_SPRITES.brickPile,
   "Date baskets": datesIcon, Sesame: sesameIcon
@@ -36,7 +37,7 @@ export default function BuildingStorageTables({ location, inventory, barley, war
   const quantity = (key: InventoryItemKey) => inventory.find(item => item.itemKey === key)?.quantity ?? 0;
   const shared = (key: Parameters<typeof sharedStorageAllocation>[0], label: string) => ({ label, ...sharedStorageAllocation(key, quantity(key), warehouseComplete, inventory.find(i => i.itemKey === key)?.locations, warehouseId)[location] });
   const groups = [
-    { label: "Processed food storage", items: [shared("bread", "Bread"), shared("beer", "Beer"), shared("flour", "Flour"), shared("brewersGroats", "Groats")] },
+    { label: "Processed food storage", items: [shared("bread", "Bread"), shared("beer", "Beer"), shared("flour", "Flour"), shared("brewersGroats", "Groats"), ...(showSesame && location === "warehouse" ? [shared("oil", "Oil")] : [])] },
     { label: "Barley and building material storage", items: [
       { label: "Barley", quantity: barley, capacity: location === "farm" ? FARM_STORAGE_CAPACITY : warehouseComplete ? FARM_BUILDING_DEFINITIONS.warehouse.barleyStorageBonus : 0 },
       ...(location === "farm" && showFish ? [{ label: "Fish", quantity: quantity("fish"), capacity: FISH_CAPACITY }] : []),
@@ -47,7 +48,7 @@ export default function BuildingStorageTables({ location, inventory, barley, war
   ];
   if (visual) {
     const items = groups.flatMap(group => group.items);
-    const foodLabels = new Set(["Bread", "Beer", "Flour", "Groats", "Date baskets", "Fish"]);
+    const foodLabels = new Set(["Oil", "Bread", "Beer", "Flour", "Groats", "Date baskets", "Fish"]);
     const tables = [
       { label: "Food and drink", items: items.filter(item => foodLabels.has(item.label)) },
       { label: "Crops and materials", items: items.filter(item => !foodLabels.has(item.label)) }

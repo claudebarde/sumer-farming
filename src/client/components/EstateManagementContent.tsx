@@ -1,4 +1,7 @@
 import sesameImage from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png";
+import emptyJarImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-empty-single.png";
+import brewingJarImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-left-bottom-jar.png";
+import bakingToolsImage from "../../assets/sprite_assets/pngs/wooden-baking-tools.webp";
 import type { ReactNode } from "react";
 import { Dialog, Tabs } from "radix-ui";
 import { Cross2Icon } from "@radix-ui/react-icons";
@@ -7,12 +10,13 @@ import FarmerPanel from "./FarmerPanel";
 import PorterPanel from "./PorterPanel";
 import { FARM_SPRITES } from "../../assets/farmSprites";
 import styles from "../styles/GameCanvas.module.scss";
+import oilImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-oil-single.png";
 import flourBagsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.webp";
 import groatsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.webp";
 import shekelsImage from "../../assets/sprite_assets/pngs/shekels.webp";
 import barleyImage from "../../assets/sprite_assets/pngs/wheat-sheaf.webp";
 import breadBasketImage from "../../assets/sprite_assets/pngs/v2/isometric-test/bread-oven-active/bread-basket-isometric.webp";
-import beerJarsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/beer-jars-full-isometric.webp";
+import beerJarsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-beer-single.png";
 import fishImage from "../../assets/sprite_assets/pngs/fish.webp";
 import datesImage from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
 import reedImage from "../../assets/sprite_assets/pngs/reed-bundle.webp";
@@ -98,6 +102,10 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                         Processed grain
                       </h3>
                       <dl className={styles["resource-list"]}>
+                        {(farmState.snapshot.farm.progression?.level ?? 1) >= 10 && <div>
+                          <dt className={styles["resource-title"]}><img src={oilImage} alt="" width={32} height={32} draggable={false} />Sesame oil</dt>
+                          <dd>{farmState.snapshot.inventory.find(i => i.itemKey === "oil")?.quantity ?? 0}</dd>
+                        </div>}
                         <div>
                           <dt>Flour</dt>
                           <dd>
@@ -205,15 +213,24 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                       <h3>Equipment</h3>
                       <dl className={styles["resource-list"]}>
                         <div>
-                          <dt>Brewing jars</dt>
+                          <dt className={styles["resource-title"]}>
+                            <img src={brewingJarImage} alt="" width={32} height={32} draggable={false} />
+                            Brewing jars
+                          </dt>
                           <dd>{availableVessels}</dd>
                         </div>
                         <div>
-                          <dt>Empty beer jars</dt>
+                          <dt className={styles["resource-title"]}>
+                            <img src={emptyJarImage} alt="" width={32} height={32} draggable={false} />
+                            Empty jars
+                          </dt>
                           <dd>{availableEmptyBeerJars}</dd>
                         </div>
                         <div>
-                          <dt>Baking tools</dt>
+                          <dt className={styles["resource-title"]}>
+                            <img src={bakingToolsImage} alt="" width={32} height={32} draggable={false} />
+                            Baking tools
+                          </dt>
                           <dd>{availableBakingTools}</dd>
                         </div>
                       </dl>

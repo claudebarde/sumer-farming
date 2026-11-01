@@ -45,7 +45,7 @@ describe.sequential("live market presence", () => {
   });
   it("shares fractional positions on the isometric road loop", async () => {
     await join(0); await join(1);
-    const position = { column: 9, row: 8.5 };
+    const position = { column: 13, row: 8.5 };
     await run(1, { type: "heartbeat", sessionId: sessions[1]!, position });
     expect(await heartbeat(0)).toMatchObject({ visitors: [{ playerId: ids[1], position }] });
     expect((await run(1, { type: "heartbeat", sessionId: sessions[1]!, position: { column: 5, row: 8.5 } })).type).toBe("rejected");

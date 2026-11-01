@@ -9,7 +9,7 @@ import { batchPlantingAction } from "../../src/server/services/batchPlanting";
 import { deliverNpcRequest, getNpcRequests } from "../../src/server/services/npcRequests";
 import { getTradeHistory } from "../../src/server/services/tradeHistory";
 import { TradeHistorySchema } from "../../src/schemas/tradeHistory";
-import { MERCHANT_TRAVEL_MS, REQUEST_CYCLE_MS, REQUEST_OPEN_MS } from "../../src/game-data/npcRequests";
+import { MERCHANT_TRAVEL_MS, MERCHANT_OFFERS, merchantOfferRequest, REQUEST_CYCLE_MS, REQUEST_OPEN_MS } from "../../src/game-data/npcRequests";
 import { getRequestWindow } from "../../src/game-core/market/npcRequests";
 
 const connectionString = process.env.TEST_DATABASE_URL ?? "postgres://sumer:sumer_dev@localhost:5432/sumer_farming";
@@ -33,6 +33,9 @@ const fixture = async (brewer = false, beer = 2, arriving = false) => {
   ]);
   if (brewer) await db.insert(farmBuildings).values({ farmId: farm!.id, type: "brewery", column: 5, row: 3,
     startedAt: new Date(0), completesAt: new Date(1000), brewingBarley: 2 });
+  // Exercise legacy active visits as well as the new persisted catalogue below.
+  if (!arriving) await db.insert(npcRequestBoards).values({ farmId: farm!.id,
+    anchor: new Date(Date.now() - 1000), cycle: 0, brewer, completed: [] });
   let board = await Effect.runPromise(getNpcRequests(db, playerId));
   if (!arriving) {
     await db.update(npcRequestBoards).set({ anchor: new Date(Date.now() - 1000) }).where(eq(npcRequestBoards.farmId, farm!.id));
@@ -124,7 +127,7 @@ describe("NPC requests", () => {
       startedAt: new Date(0), completesAt: new Date(1000) });
     expect((await Effect.runPromise(getNpcRequests(db, f.playerId))).requests.every(r => r.beer === 0)).toBe(true);
     await db.update(npcRequestBoards).set({ anchor: new Date(Date.now() - REQUEST_CYCLE_MS - 1000) }).where(eq(npcRequestBoards.farmId, f.farmId));
-    expect((await Effect.runPromise(getNpcRequests(db, f.playerId))).requests[1]?.beer).toBe(2);
+    expect((await Effect.runPromise(getNpcRequests(db, f.playerId))).requests.some(request => request.beer === 2)).toBe(true);
   });
 
   it("isolates players and validates current stock instead of unrelated farm versions", async () => {
@@ -160,7 +163,7 @@ describe("NPC requests", () => {
     await db.update(farms).set({ version: 2 }).where(eq(farms.id, f.farmId));
     expect(await Effect.runPromise(Effect.flip(deliverNpcRequest(db, f.command(2))))).toMatchObject({ reason: "insufficient_goods" });
     const board = await Effect.runPromise(getNpcRequests(db, f.playerId));
-    expect(board.stock).toEqual({ barley: 5, beer: 1 });
+    expect(board.stock).toMatchObject({ barley: 5, beer: 1 });
     expect(board.requests[2]?.completed).toBe(false);
     expect(await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, f.playerId))).toHaveLength(0);
   });
@@ -191,4 +194,34 @@ describe("NPC requests", () => {
       expect(await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, f.playerId))).toHaveLength(1);
     } finally { await second.end(); }
   });
+});
+
+
+it("persists new level-based offers without requiring buildings or stock", async () => {
+  const f = await fixture();
+  await db.delete(npcRequestBoards).where(eq(npcRequestBoards.farmId, f.farmId));
+  await db.update(farms).set({ level: 10 }).where(eq(farms.id, f.farmId));
+  await Effect.runPromise(getNpcRequests(db, f.playerId));
+  await db.update(npcRequestBoards).set({ anchor: new Date(Date.now() - 1000) }).where(eq(npcRequestBoards.farmId, f.farmId));
+  const first = await Effect.runPromise(getNpcRequests(db, f.playerId));
+  expect(first.requests).toHaveLength(3);
+  const [saved] = await db.select().from(npcRequestBoards).where(eq(npcRequestBoards.farmId, f.farmId));
+  expect(saved?.requests?.map((request, slot) => ({ ...request, slot, completed: false }))).toEqual(first.requests);
+  expect((await Effect.runPromise(getNpcRequests(db, f.playerId))).requests).toEqual(first.requests);
+  await db.update(npcRequestBoards).set({ anchor: new Date(Date.now() - REQUEST_CYCLE_MS - 1000) }).where(eq(npcRequestBoards.farmId, f.farmId));
+  const next = await Effect.runPromise(getNpcRequests(db, f.playerId));
+  expect(next.requests.map(request => request.customer).every(customer => !first.requests.some(request => request.customer === customer))).toBe(true);
+});
+
+it.each(MERCHANT_OFFERS)("delivers $product for its approved reward exactly once", async offer => {
+  const f = await fixture();
+  await db.update(farms).set({ level: 10 }).where(eq(farms.id, f.farmId));
+  await db.update(npcRequestBoards).set({ requests: [merchantOfferRequest(offer)] }).where(eq(npcRequestBoards.farmId, f.farmId));
+  await db.delete(farmInventory).where(eq(farmInventory.farmId, f.farmId));
+  expect(await Effect.runPromise(Effect.flip(deliverNpcRequest(db, f.command())))).toMatchObject({ reason: "insufficient_goods" });
+  await db.insert(farmInventory).values({ farmId: f.farmId, itemKey: offer.product, quantity: offer.quantity });
+  const delivered = await Effect.runPromise(deliverNpcRequest(db, f.command()));
+  expect(delivered.player.shekelBalance).toBe(offer.reward);
+  expect(delivered.inventory.find(item => item.itemKey === offer.product)?.quantity ?? 0).toBe(0);
+  expect((await Effect.runPromise(deliverNpcRequest(db, f.command()))).player.shekelBalance).toBe(offer.reward);
 });

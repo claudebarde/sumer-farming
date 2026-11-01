@@ -67,7 +67,7 @@ describe("brewery construction and equipment", () => {
     expect((await db.select().from(farms).where(eq(farms.id, input.farmId)))[0]?.version).toBe(1);
   });
 
-  it("buys empty beer jars for two shekels each without using barley storage or charging retries twice", async () => {
+  it("buys empty jars for two shekels each without using barley storage or charging retries twice", async () => {
     const input = await fixture();
     const purchase = { ...input, itemKey: "emptyBeerJar" as const, quantity: 3, expectedUnitPrice: 2, idempotencyKey: randomUUID() };
     const first = await Effect.runPromise(buyFromNpcMarket(db, purchase));
@@ -96,7 +96,7 @@ describe("brewery construction and equipment", () => {
     expect(await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, input.playerId))).toHaveLength(0);
   });
 
-  it("does not substitute empty beer jars for brewery equipment or allow their resale", async () => {
+  it("does not substitute empty jars for brewery equipment or allow their resale", async () => {
     const input = await fixture(0);
     await db.insert(farmInventory).values({ farmId: input.farmId, itemKey: "emptyBeerJar", quantity: 2 });
     await expect(Effect.runPromise(Effect.flip(buildFarmBuilding(db, input))))

@@ -13,7 +13,7 @@ export const millingBarleyAvailable = (snapshot: FarmSnapshot, now: number): num
 
 export const millingUnavailableReason = (snapshot: FarmSnapshot, recipe: MillRecipe, now: number, worker: MillWorker = "farmer", buildingId?: string): string | null => {
   if (snapshot.farm.production.cropWork && !snapshot.farm.production.cropWork.settled) return "The farmer is tending a crop.";
-  const mills = snapshot.buildings.filter(b => b.type === "mill");
+  const mills = snapshot.buildings.filter(b => b.type === (recipe === "oil" ? "oilMill" : "mill"));
   const id = buildingId ?? (mills.length === 1 ? mills[0]!.id : undefined);
   if (id && !productionOutputFits(snapshot.farm, id, millRecipe(recipe, worker).output)) return OUTPUT_FULL_MESSAGE;
   if (id && activeBuildingUpgrade(snapshot.farm.production.buildingUpgrades, id, now)) return "The Mill is upgrading. Wait for the upgrade to finish.";
@@ -24,12 +24,22 @@ export const millingUnavailableReason = (snapshot: FarmSnapshot, recipe: MillRec
   if (snapshot.farm.millGoods.delivery) return "Store the processed grain at the farm first.";
   if ((snapshot.farm.progression?.level ?? 1) < 5) return "The Mill unlocks at farm level 5.";
   if (farmerProductionJob(snapshot.farm)?.type === "baking") return "The farmer is baking. Wait for baking to finish.";
+  if (farmerProductionJob(snapshot.farm, now)?.type === "brewing") return "The farmer is brewing. Wait for preparation to finish.";
   if (snapshot.farm.milling) return "The Mill is already working.";
   if (snapshot.farm.fishing || snapshot.farm.gathering ||
     snapshot.crops.some(c => Date.parse(c.plantedAt) > now || c.harvestStartedAt !== null) ||
     snapshot.buildings.some(b => Date.parse(b.completesAt) > now) ||
     snapshot.improvements.some(i => improvementWorkActive(i, now))) return "Wait for the farmer to finish the current task.";
   if (snapshot.farm.carriedItem && snapshot.farm.carriedItem.itemKey !== "barley") return "Empty the farmer's hands or bring barley.";
+  if (recipe === "oil") {
+    if (snapshot.farm.carriedItem) return "Empty the farmer's hands first.";
+    if ((snapshot.farm.progression?.level ?? 1) < 10) return "Oil milling unlocks at level 10.";
+    const amount = worker === "donkey" ? 3 : 1;
+    if ((snapshot.buildings.find(b => b.id === id)?.emptyBeerJars ?? 0) < amount) return "Stock empty jars first.";
+    if ((snapshot.inventory.find(i => i.itemKey === "sesame")?.quantity ?? 0) < 3 * amount) return "Not enough sesame.";
+    if (millStorageAvailable(snapshot, "oil", now) < amount) return "No storage space";
+    return null;
+  }
   if (millingBarleyAvailable(snapshot, now) < millRecipe(recipe, worker).barley) return "Bring barley or store it in the farm or a completed granary.";
   if (millStorageAvailable(snapshot, recipe, now) < millRecipe(recipe, worker).output) return "No storage space";
   return null;

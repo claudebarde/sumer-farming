@@ -1887,3 +1887,15 @@ storage capacity. Reuse the existing beer-jars asset for output and carrying;
 groat supply uses the approved flour-bag carrying frames. River collection and
 brewery water/jar supply controls preserve the existing recipe and capacities.
 Production is now playable.
+
+## Transparent building selection
+
+Manually transparent buildings must use their ground footprint for selection,
+never their sprite silhouette or rectangular image bounds. The farmhouse trial
+uses a separate 2×2 isometric diamond input zone and no input on the faded image.
+Keep roads, items and other buildings outside that footprint selectable through
+its upper artwork. Reuse this rule when extending the eye toggle to more buildings.
+
+The clickable footprint has a faint yellow fill and thin yellow outline, brighter
+on hover. Draw it on the ground layer and reuse the exact input polygon. Remove
+it with the transparency state; it must not cover neighbouring objects.

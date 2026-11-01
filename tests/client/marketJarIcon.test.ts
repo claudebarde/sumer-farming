@@ -3,12 +3,12 @@ import { createElement } from "react";
 import { expect, it } from "vitest";
 import MarketJarIcon from "../../src/client/components/MarketJarIcon";
 import { MARKET_ITEM_DEFINITIONS } from "../../src/game-data/marketItems";
-import { beerMarketBuyOrder } from "../../src/client/stores/marketUiStore";
+import { suppliesMarketBuyOrder } from "../../src/client/stores/marketUiStore";
 import { readFileSync } from "node:fs";
 
 it("distinguishes brewing equipment from beer packaging with names and artwork", () => {
   expect(MARKET_ITEM_DEFINITIONS.brewingVessels.label).toBe("Brewing jars");
-  expect(MARKET_ITEM_DEFINITIONS.emptyBeerJar.label).toBe("Empty beer jars");
+  expect(MARKET_ITEM_DEFINITIONS.emptyBeerJar.label).toBe("Empty jars");
   expect(MARKET_ITEM_DEFINITIONS.beer.label).toBe("Beer");
   const brewing = renderToStaticMarkup(createElement(MarketJarIcon, { itemKey: "brewingVessels" }));
   expect(brewing).toContain("brewery-left-bottom-jar.png");
@@ -17,16 +17,16 @@ it("distinguishes brewing equipment from beer packaging with names and artwork",
   expect(brewing).toContain('width="48" height="48"');
   expect(brewing).toContain("object-fit:contain");
   const packaging = renderToStaticMarkup(createElement(MarketJarIcon, { itemKey: "emptyBeerJar" }));
-  expect(packaging).toContain("/beer-jars-empty-isometric.webp");
+  expect(packaging).toContain("/jar-empty-single.png");
   expect(packaging).not.toContain("brewery-left-bottom-jar");
   const beer = renderToStaticMarkup(createElement(MarketJarIcon, { itemKey: "beer" }));
-  expect(beer).toContain("/beer-jars-full-isometric.webp");
+  expect(beer).toContain("/jar-beer-single.png");
 });
 
-it("orders brewing jars before empty jars and beer without removing groats", () => {
-  expect(["beer", "brewersGroats", "emptyBeerJar", "brewingVessels"]
-    .sort((a, b) => beerMarketBuyOrder(a) - beerMarketBuyOrder(b)))
-    .toEqual(["brewingVessels", "emptyBeerJar", "beer", "brewersGroats"]);
+it("orders packaging, tools, brewing vessels and the donkey in the supplies stand", () => {
+  expect(["donkey", "bakingTools", "brewingVessels", "emptyBeerJar"]
+    .sort((a, b) => suppliesMarketBuyOrder(a) - suppliesMarketBuyOrder(b)))
+    .toEqual(["emptyBeerJar", "bakingTools", "brewingVessels", "donkey"]);
   expect(["brewingVessels", "emptyBeerJar", "beer"].map(key =>
     MARKET_ITEM_DEFINITIONS[key as keyof typeof MARKET_ITEM_DEFINITIONS].npcMarket.buyPrice))
     .toEqual([6, 2, 8]);

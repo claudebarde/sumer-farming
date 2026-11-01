@@ -1,12 +1,12 @@
 import { createStore } from "zustand/vanilla";
 
-export type MarketScope = "barley" | "beer" | "bread" | "produce";
+export type MarketScope = "barley" | "beer" | "bread" | "produce" | "supplies";
 export const MARKET_TITLES: Record<MarketScope, string> = {
-  barley: "Barley market", beer: "Beer market", bread: "Baking market", produce: "Fruit and vegetables"
+  barley: "Barley market", beer: "Beer market", bread: "Baking market", produce: "Fruit and vegetables", supplies: "Supplies and equipment"
 };
-/** Keep brewing equipment, packaging and finished beer together, in that order. */
-export const beerMarketBuyOrder = (itemKey: string): number =>
-  ({ brewingVessels: 0, emptyBeerJar: 1, beer: 2 }[itemKey] ?? 3);
+/** Stable ordering within the supplies catalogue. */
+export const suppliesMarketBuyOrder = (itemKey: string): number =>
+  ({ emptyBeerJar: 0, bakingTools: 1, brewingVessels: 2, donkey: 3 }[itemKey] ?? 4);
 export const marketIncludesItem = (
   scope: MarketScope,
   itemKey: string,
@@ -16,9 +16,9 @@ export const marketIncludesItem = (
   (scope === "produce" && (itemKey === "dates" || itemKey === "sesame")) ||
   (scope === "bread" && itemKey === "flour") ||
   (scope === "beer" && itemKey === "brewersGroats") ||
-  (scope === "bread" && (itemKey === "bakingTools" || itemKey === "donkey") && trade?.market === "npc" && trade.action === "buy") ||
-  (scope === "beer" && (itemKey === "emptyBeerJar" || itemKey === "brewingVessels") &&
-    trade?.market === "npc" && trade.action === "buy");
+  (scope === "supplies" && ["emptyBeerJar", "brewingVessels", "bakingTools", "donkey"].includes(itemKey) &&
+    (!trade || (trade.market === "npc" && trade.action === "buy")));
+
 
 type State = {
   readonly location: "farm" | "market" | "sumer";

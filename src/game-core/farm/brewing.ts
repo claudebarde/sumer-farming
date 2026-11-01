@@ -16,7 +16,7 @@ export const getBrewingState = (readyAt: string | null, now: number): BrewingSta
 
 export const brewingErrors = {
   batch_active: "Collect the current batch before starting another.",
-  missing_ingredients: "Brewing requires 2 stored Brewer's Groats, 2 water loads and 2 empty beer jars.",
+  missing_ingredients: "Brewing requires 2 stored Brewer's Groats, 2 water loads and 2 empty jars.",
   beer_not_ready: "The beer is not ready to collect.",
   no_batch: "There is no beer to collect.",
   beer_inventory_full: "The estate cannot hold more beer."

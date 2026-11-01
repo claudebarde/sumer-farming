@@ -1,6 +1,5 @@
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { MillRecipe, MillWorker } from "../../game-data/milling";
-import { millingUnavailableReason } from "../../game-core/farm/milling";
 import { millPopupState } from "../game/phaser/isometricMilling";
 import { productionOutputFits, OUTPUT_FULL_MESSAGE } from "../../game-core/farm/productionOutputCapacity";
 import { millRecipe } from "../../game-data/milling";
@@ -14,12 +13,13 @@ export default function IsometricMillActions({ snapshot, buildingId, now, onMill
   readonly snapshot: FarmSnapshot; readonly buildingId: string; readonly now: number;
   readonly onMill: (recipe: MillRecipe, worker: MillWorker) => void;
 }) {
-  const state = millPopupState(snapshot, buildingId, now);
+  const oil = snapshot.buildings.find(b => b.id === buildingId)?.type === "oilMill";
+  const state = millPopupState(snapshot, buildingId, now, oil ? "oil" : "flour");
   if (snapshot.farm.milling) return null;
   if (!productionOutputFits(snapshot.farm, buildingId, millRecipe("flour").output)) return <button disabled>{OUTPUT_FULL_MESSAGE}</button>;
-  if (state.insufficient) return <button disabled>You don't have enough barley</button>;
+  if (state.insufficient) return <button disabled>{oil ? "Not enough sesame" : "You don't have enough barley"}</button>;
   const groats = millPopupState(snapshot, buildingId, now, "brewersGroats");
-  return <>{([
+  return <>{(oil ? [{ recipe: "oil", icon: "oil", label: "Make oil", available: state.canStart }] as const : [
     { recipe: "flour", icon: "flour", label: "Make flour (for bread)", available: state.canStart },
     { recipe: "brewersGroats", icon: "groats", label: "Make groats (for beer)", available: groats.canStart }
   ] as const).filter(action => action.available).map(({ recipe, icon, label }) =>
@@ -38,8 +38,7 @@ export default function IsometricMillActions({ snapshot, buildingId, now, onMill
               <Select.ItemText>Produce with the farmer</Select.ItemText>
             </Select.Item>
             <Select.Item className={popupStyles["mill-select-item"]} value="donkey"
-              disabled={!millPopupState(snapshot, buildingId, now, recipe, "donkey").canStart}
-              title={millingUnavailableReason(snapshot, recipe, now, "donkey", buildingId) ?? undefined}>
+              disabled={!millPopupState(snapshot, buildingId, now, recipe, "donkey").canStart}>
               <Select.ItemText>Produce with the donkey</Select.ItemText>
             </Select.Item>
           </Select.Viewport>

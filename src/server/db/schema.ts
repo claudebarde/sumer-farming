@@ -1,3 +1,4 @@
+import type { NpcRequestDefinition } from "../../game-data/npcRequests";
 import type { SavedZigguratStage, ZigguratMaterials } from "../../game-data/ziggurat";
 import { sql } from "drizzle-orm";
 import type { FishingSession } from "../../game-data/fishing";
@@ -21,7 +22,7 @@ import type { CropKey } from "../../game-data/crops";
 import type { InventoryItemKey } from "../../game-data/inventoryItems";
 import type { GatherableResourceKey } from "../../game-data/resources";
 import { farmBuildingTypes } from "../../game-data/buildings";
-import { BREWERY_WATER_CAPACITY, BREWERY_EMPTY_JAR_CAPACITY, BEER_RECIPE } from "../../game-data/brewing";
+import { BREWERY_WATER_CAPACITY, BEER_RECIPE } from "../../game-data/brewing";
 import { farmObjectTypes } from "../../game-data/farmObjects";
 import { farmImprovementTypes } from "../../game-data/farmImprovements";
 import { FARMER_CARRY_CAPACITY, UPGRADED_GRANARY_CAPACITY } from "../../game-data/storage";
@@ -229,6 +230,7 @@ export const npcRequestBoards = pgTable("npc_request_boards", {
   anchor: timestamp("anchor", { withTimezone: true }).notNull(),
   cycle: integer("cycle").notNull(),
   brewer: boolean("brewer").notNull(),
+  requests: jsonb("requests").$type<readonly NpcRequestDefinition[]>(),
   completed: jsonb("completed").$type<readonly number[]>().notNull().default([])
 }, table => [check("npc_request_cycle_nonnegative", sql`${table.cycle} >= 0`)]);
 
@@ -549,7 +551,7 @@ export const farmBuildings = pgTable(
       table.column,
       table.row
     ),
-    check("farm_buildings_empty_jars_valid", sql`${table.emptyBeerJars} >= 0 AND ${table.emptyBeerJars} <= ${sql.raw(String(BREWERY_EMPTY_JAR_CAPACITY))} AND (${table.type} = 'brewery' OR ${table.emptyBeerJars} = 0)`),
+    check("farm_buildings_empty_jars_valid", sql`${table.emptyBeerJars} >= 0 AND ((${table.type} = 'oilMill' AND ${table.emptyBeerJars} <= 3) OR (${table.type} = 'brewery' AND ${table.emptyBeerJars} <= 10) OR ${table.emptyBeerJars} = 0)`),
     check("farm_buildings_beer_batch_valid", sql`${table.beerReadyAt} IS NULL OR (${table.type} = 'brewery' AND ${table.beerReadyAt} > ${table.completesAt})`),
     check("farm_buildings_beer_served_valid", sql`${table.beerServed} >= 0 AND ${table.beerServed} < 2 AND (${table.beerReadyAt} IS NOT NULL OR ${table.beerServed} = 0)`),
     check("farm_buildings_brewing_barley_capacity", sql`${table.brewingBarley} <= ${sql.raw(String(BEER_RECIPE.barley))}`),

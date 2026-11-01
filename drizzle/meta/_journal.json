@@ -421,6 +421,27 @@
       "when": 1793440000000,
       "tag": "0059_player-points",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1793450000000,
+      "tag": "0060_oil-mill",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1793450000001,
+      "tag": "0061_legacy-jar-capacity",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1793536400000,
+      "tag": "0062_merchant-offers",
+      "breakpoints": true
     }
   ]
 }
