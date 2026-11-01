@@ -1,3 +1,5 @@
+import { useRef } from "react";
+import BuildingVisibilityButton from "./BuildingVisibilityButton";
 import { Popover } from "radix-ui";
 import { TILE_SIZE } from "../game/phaser/config";
 import type { IsometricTileAnchor } from "../game/phaser/scenes/IsometricFarmScene";
@@ -8,21 +10,27 @@ import MapCuneiformLabel from "./MapCuneiformLabel";
 import BuildingActionIcon from "./BuildingActionIcon";
 import actionStyles from "../styles/BuildingActionButton.module.scss";
 
-export default function IsometricTravelPopup({ anchor, available, onClose, onTravel }: {
+export default function IsometricTravelPopup({ anchor, available, onClose, onTravel, transparent = false, onToggleTransparency }: {
+  transparent?: boolean; onToggleTransparency?: () => void;
   anchor: IsometricTileAnchor; available: boolean; onClose: () => void; onTravel: () => void;
 }) {
+  const popupRef = useRef<HTMLDivElement>(null);
   const returning = anchor.kind === "farmReturn";
   const stand = anchor.kind === "barleyMarket" || anchor.kind === "beerMarket" || anchor.kind === "bakingMarket" || anchor.kind === "produceMarket" || anchor.kind === "suppliesMarket";
   const scope = isometricTradeScope(anchor.kind);
-  const title = anchor.kind === "suppliesMarket" ? "Supplies and equipment" : anchor.kind === "produceMarket" ? "Fruit and vegetables" : anchor.kind === "bakingMarket" ? "Baking market" : anchor.kind === "beerMarket" ? "Beer market" : anchor.kind === "barleyMarket" ? "Barley market" : returning ? "Farm" : "Market";
+  const title = anchor.kind === "suppliesMarket" ? "Supplies and equipment" : anchor.kind === "produceMarket" ? "Produce and provisions" : anchor.kind === "bakingMarket" ? "Baking market" : anchor.kind === "beerMarket" ? "Beer market" : anchor.kind === "barleyMarket" ? "Barley market" : returning ? "Farm" : "Market";
   return <Popover.Root open onOpenChange={open => { if (!open) onClose(); }}>
     <Popover.Anchor asChild><span className={styles.popupAnchor} style={{ left: anchor.x, top: anchor.y + 90 }} /></Popover.Anchor>
     <Popover.Portal><Popover.Content key={anchor.kind} className={styles.tilePopup} side="top" sideOffset={8} collisionPadding={12}
       style={{ maxWidth: `min(${TILE_SIZE * 6}px, calc(100vw - 24px))` }} aria-label={title}
+      ref={popupRef} tabIndex={-1} onOpenAutoFocus={event => { if (onToggleTransparency) { event.preventDefault(); popupRef.current?.focus({ preventScroll: true }); } }}
       onCloseAutoFocus={event => event.preventDefault()}>
       <div className={styles.popupBody}>
-        <div className={styles.popupHeader}><h2><MapCuneiformLabel element={title} /><span>{title}</span></h2></div>
-        <Popover.Close className={styles.popupClose} aria-label="Close tile popup"><span aria-hidden="true">×</span></Popover.Close>
+        <div className={`${styles.popupHeader} ${onToggleTransparency ? styles.farmVisibilityHeader : ""}`}><h2><MapCuneiformLabel element={title} /><span>{title}</span></h2></div>
+        {onToggleTransparency ? <div className={styles.popupHeaderControls}>
+          <BuildingVisibilityButton transparent={transparent} onToggle={onToggleTransparency} />
+          <Popover.Close className={styles.popupIconButton} aria-label="Close tile popup"><span aria-hidden="true">×</span></Popover.Close>
+        </div> : <Popover.Close className={styles.popupClose} aria-label="Close tile popup"><span aria-hidden="true">×</span></Popover.Close>}
         {stand && <p>{scope ? `Unlocks at level ${marketStandUnlockLevel(scope)}.` : "Trading coming soon."}</p>}
         <div className={styles.popupActions}>{!stand && available && <button className={actionStyles.button} onClick={onTravel}>
           <BuildingActionIcon kind="walk" /><span>{returning ? "Go back to the farm" : "Go to the market"}</span>

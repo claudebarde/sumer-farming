@@ -44,17 +44,17 @@ it("keeps the map read-only with a level-seven entry and return navigation", () 
   expect(scene).not.toContain("strokePoints");
   const ui = readFileSync(new URL("../../src/client/components/IsometricFarm.tsx", import.meta.url), "utf8");
   expect(ui).toContain('(snapshot?.farm.progression?.level ?? 1) >= 7 && <Tooltip.Root {...navigationTooltip("neighbourhood")}>');
-  const controls = ui.slice(ui.indexOf('<div className={styles.manageControls}>'), ui.indexOf('<EstateManagementContent'));
+  const controls = ui.slice(ui.indexOf('<div className={styles.manageControls}>'), ui.indexOf('{location === "market" && !neighbourhoodOpen'));
   expect(controls.match(/styles.manageButton}/g)).toHaveLength(3); // Manage, neighbourhood and road planning.
   expect(controls).toContain('<div className={styles.manageButtonRow}>');
-  expect(controls).toContain('aria-label="Manage"><BuildingActionIcon kind="manage" /></button>');
+  expect(controls).toContain('aria-label="Manage"><BuildingActionIcon kind="manage" />');
   expect(controls).toContain('Manage your estate<Tooltip.Arrow');
   expect(controls).toContain('View your neighbourhood<Tooltip.Arrow');
   expect(controls).not.toContain('title="Manage"');
   expect(controls).not.toContain('title="Neighbourhood"');
-  expect(controls).toContain('<BuildingActionIcon kind="neighbourhood" /></button>');
+  expect(controls).toContain('<BuildingActionIcon kind="neighbourhood" />');
   expect(controls.indexOf('aria-label="Manage"')).toBeLessThan(controls.indexOf('aria-label="Neighbourhood"'));
-  expect(controls.indexOf('aria-label="Neighbourhood"')).toBeLessThan(controls.indexOf("<ShekelBalance"));
+  expect(controls.indexOf('aria-label="Neighbourhood"')).toBeLessThan(ui.indexOf("<ShekelBalance"));
   expect(ui).toContain('scene.switch("neighbourhood")');
   expect(ui).toContain('neighbourhoodScene.current?.scene.switch("isometric-farm")');
   const neighbourhoodControls = ui.slice(ui.indexOf('{neighbourhoodOpen && <div className={styles.manageControls}>'), ui.indexOf('<div className={styles.toolbar}>'));

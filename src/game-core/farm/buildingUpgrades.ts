@@ -1,3 +1,4 @@
+import { millingJobForBuilding } from "../../game-data/millingJobs";
 import type { FarmSnapshot } from "../../schemas/farm";
 import { activeBuildingUpgrade, buildingLevel, BUILDING_UPGRADES } from "../../game-data/buildingUpgrades";
 
@@ -7,7 +8,7 @@ export const buildingUpgradeUnavailableReason = (snapshot: FarmSnapshot, buildin
   if (Date.parse(building.completesAt) > now) return "Finish constructing this building first.";
   const upgrades = snapshot.farm.production.buildingUpgrades;
   if (Object.keys(upgrades ?? {}).some(id => activeBuildingUpgrade(upgrades, id, now))) return "Finish the current building upgrade first.";
-  if (snapshot.farm.milling?.buildingId === buildingId) return "Finish milling before upgrading.";
+  if (millingJobForBuilding(snapshot.farm, buildingId)) return "Finish milling before upgrading.";
   if (snapshot.farm.production.baking[buildingId]) return "Finish baking before upgrading.";
   if (building.beerReadyAt && Date.parse(building.beerReadyAt) > now) return "Finish brewing before upgrading.";
   const next = BUILDING_UPGRADES[building.type]?.[buildingLevel(upgrades, buildingId, now) + 1];

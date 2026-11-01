@@ -12,17 +12,10 @@
 }
 // Compensate for the sheaf's transparent right margin without enlarging the artwork.
 .barleyBalanceIcon { margin-inline-end: -4px; }
-.test:has(.manageButton) > .toolbar { padding-inline: 170px; }
-.test:has(button[aria-label="Settings"]) > .toolbar { padding-inline: 224px; }
-@media (max-width: 600px) {
-  .test:has(.manageButton) > .toolbar { padding: 8px 170px 8px 8px; justify-content: flex-start; }
-  .test:has(button[aria-label="Settings"]) > .toolbar { padding-right: 224px; padding-left: 8px; }
-}
-.canvas { position: absolute; inset: 90px 0 58px; canvas { display: block; touch-action: none; } }
-.toolbar { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px; font-size: 0.75rem; flex-wrap: wrap; button { padding: 3px 12px; } }
+.canvas { position: relative; flex: 1; min-height: 0; canvas { display: block; touch-action: none; } }
+.toolbar { position: relative; z-index: 1; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px; font-size: 0.75rem; flex-wrap: wrap; button { padding: 3px 12px; } }
 .toolbar label { display: flex; align-items: center; gap: 6px; }
 .toolbar select { max-width: 170px; padding: 3px 6px; font: inherit; color: #513821; background: #fff7e8; border: 1px solid #dcc08c; border-radius: 6px; }
-.status { position: absolute; bottom: 8px; left: 0; width: 100%; margin: 0; text-align: center; font-size: 0.8rem; }
 .popupAnchor { position: absolute; width: 1px; height: 1px; pointer-events: none; }
 .tilePopup { position: relative; z-index: 30; box-sizing: border-box; width: 384px; border: 2px solid #dcc08c; border-radius: 10px; background: #fff7e8; color: #352015; box-shadow: 0 5px 20px #35201530; overflow: visible; font-size: 1rem;
   transform-origin: var(--radix-popover-content-transform-origin, bottom center);
@@ -76,17 +69,17 @@
   section { text-align: left; }
   p:last-child { margin-bottom: 0; }
 }
-.planting { position: absolute; bottom: 48px; left: 50%; transform: translateX(-50%); width: min(90%, 480px); box-sizing: border-box; padding: 12px 16px; background: #fff7e8; border: 2px solid #dcc08c; border-radius: 8px; font-size: 0.85rem; text-align: center;
+.planting { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(90%, 480px); box-sizing: border-box; padding: 12px 16px; background: #fff7e8; border: 2px solid #dcc08c; border-radius: 8px; font-size: 0.85rem; text-align: center;
   p { margin: 0 0 8px; }
   div { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
   button { padding: 6px 12px; }
 }
-.information { position: absolute; bottom: 64px; left: 50%; transform: translateX(-50%); width: min(90%, 480px); box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #fff7e8; border: 2px solid #dcc08c; border-radius: 8px; box-shadow: 0 4px 18px #35201525; font-size: 0.9rem;
+.information { position: absolute; bottom: max(12px, env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(90%, 480px); box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #fff7e8; border: 2px solid #dcc08c; border-radius: 8px; box-shadow: 0 4px 18px #35201525; font-size: 0.9rem;
   p { flex: 1; margin: 0; }
   button { padding: 4px 12px; }
 }
 
-.gameContent { height: 100%; }
+.gameContent { height: 100%; display: flex; flex-direction: column; box-sizing: border-box; }
 .loadingScreen {
   position: absolute; inset: 0; z-index: 100;
   display: grid; place-items: center; padding: 24px;
@@ -116,3 +109,60 @@
   svg { flex-shrink: 0; }
   span { font-size: 1.5rem; line-height: 1; }
 }
+
+// Shared farm, market and neighbourhood header.
+.topBar {
+  position: relative; z-index: 2; flex-shrink: 0; margin: 8px 12px 0; padding: 12px 16px;
+  display: grid; grid-template-columns: minmax(310px, 1fr) auto minmax(190px, 1fr); align-items: center; gap: 20px;
+  border: 2px solid #d5b47b; border-radius: 16px; background: #fff1d5;
+  box-shadow: inset 0 0 0 3px #f9e7bf, 0 3px 8px #59371818; color: #352015;
+  .manageControls { position: static; justify-self: center; gap: 4px; }
+  .manageButtonRow { align-self: center; gap: 12px; }
+  .manageButton.manageIconButton {
+    position: relative; align-self: flex-start; width: 54px; height: 54px; margin-bottom: 23px;
+    border: 1px solid #bd914e; border-radius: 10px; background: #f4e2ba;
+  }
+  .resourceBalanceRow { align-self: stretch; justify-self: end; align-items: center; gap: 18px; padding-left: 20px; border-left: 1px solid #dfc392; }
+  .shekelBalance { flex-direction: column; gap: 3px; font-size: 1rem; img { width: 45px; height: 45px; } }
+  .barleyBalanceIcon { margin: 0; }
+}
+.controlLabel { position: absolute; top: calc(100% + 5px); left: 50%; transform: translateX(-50%); white-space: nowrap; color: #352015; font-size: .62rem; line-height: 1.2; font-weight: 400; }
+.levelSummary {
+  display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0; text-align: left;
+  border: 0; background: transparent; box-shadow: none; color: #352015;
+  &:disabled { opacity: 1; color: #352015; background: transparent; }
+}
+.levelEmblem { display: grid; place-items: center; flex-shrink: 0; width: 48px; height: 56px; border-radius: 50%; border: 2px solid #bd914e; color: #b17b23; background: #f7e5bb; font-size: 1.6rem; }
+.levelDetails { display: flex; flex-direction: column; gap: 5px; font-size: .65rem; strong { font-size: 1rem; } }
+.levelTrack { height: 8px; background: #e4d1ab; border-radius: 8px; overflow: hidden; span { display: block; height: 100%; background: #b9913c; border-radius: inherit; } }
+@media (max-width: 900px) {
+  .topBar { grid-template-columns: 1fr auto; gap: 10px; padding: 10px 12px; .manageControls { grid-column: 1 / -1; grid-row: 2; } .resourceBalanceRow { grid-column: 2; grid-row: 1; } }
+}
+@media (max-width: 420px) {
+  .topBar { margin-inline: 6px; gap: 8px; .resourceBalanceRow { gap: 10px; padding-left: 10px; } .shekelBalance img { width: 34px; height: 34px; } }
+  .levelEmblem { width: 32px; height: 42px; font-size: 1.2rem; }
+  .levelSummary { gap: 6px; }
+  .levelDetails { font-size: .55rem; strong { font-size: .8rem; } }
+}
+
+.levelControls { display: flex; align-items: center; gap: 16px; }
+.zoomControls {
+  display: grid; grid-template-columns: repeat(2, 34px); gap: 6px; padding-left: 14px; border-left: 1px solid #dfc392; flex-shrink: 0;
+  button { display: grid; place-items: center; padding: 0; height: 32px; min-width: 0; font-size: .9rem; border: 1px solid #bd914e; border-radius: 50%; background: #f4e2ba; }
+  button:last-child { grid-column: 1 / -1; border-radius: 18px; font-size: .8rem; }
+}
+@media (max-width: 520px) {
+  .topBar { grid-template-columns: minmax(0, 1fr) auto; }
+  .levelControls { gap: 8px; flex-wrap: wrap; }
+  .zoomControls { padding-left: 0; border-left: 0; grid-template-columns: repeat(2, 30px); }
+}
+
+.happinessCounter { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 1rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; }
+.happinessPortrait { width: 45px; height: 45px; }
+@media (max-width: 420px) {
+  .happinessPortrait { width: 34px; height: 34px; }
+}
+
+.happinessShortcut { padding: 0; border: 0; background: transparent; color: inherit; box-shadow: none; border-radius: 8px; &:focus-visible { outline: 2px solid #89551e; outline-offset: 4px; } &:hover:not(:disabled) { background: #f0dfc0; } }
+
+.levelIcon { padding: 3px; box-sizing: border-box; img { width: 100%; height: 100%; min-height: 0; object-fit: contain; } }

@@ -38,6 +38,26 @@ Do not use this document as an implementation checklist; explicitly requested
 tracked work belongs in Todoist. Exact recipes, prices and timings belong in the
 rules and configuration rather than being duplicated throughout this roadmap.
 
+## Top-bar level icons
+
+When discussing each new estate level, also agree on its top-bar icon. Reuse an
+existing item, building or animal unlocked or upgraded at that level; do not
+create new artwork by default. The icon follows the saved estate level and is
+separate from earned badges.
+
+| Level | Approved icon |
+| --- | --- |
+| 1 | Barley bundle |
+| 2 | Granary |
+| 3 | Barley market stand |
+| 4 | Fish |
+| 5 | Flour bags |
+| 6 | Bread basket |
+| 7 | Donkey |
+| 8 | Warehouse |
+| 9 | Grown date palm |
+| 10 | Oil jar |
+
 ## Levels 1–9: implemented foundation
 
 | Estate level | Features becoming available | Economic role |
@@ -73,7 +93,7 @@ planned level-10 feature is already implemented.
 | Construction contribution ranking and Patron rewards | Implemented | Points, tied-winner rewards, badge and placeable miniature; visual reward acceptance testing remains separate. |
 | Ziggurat festivals | Approved, planned | Completed ziggurat required; begin with a crop-growth festival. Funding, duration and exact benefits still need agreement. |
 | Sesame crop | Implemented | Buy a basket for 3 shekels at level 10; plant one to harvest three. Growth takes 60 minutes (15 seedlings, 20 leafy, 25 flowering). Saved planting, harvesting and warehouse delivery continue offline. Warehouse capacity is 12 baskets, with no mandatory seed reserve. Sell stored sesame at the produce stand for 1 shekel per basket. Oil production is available in the oil mill. |
-| Oil mill: sesame → oil | Implemented; visual testing pending | Unlocks at level 10. Costs 2 reeds and 4 clay; 2-minute construction. Farmer: 3 sesame + 1 empty jar → 1 oil in 5 minutes. Donkey: triple batch in 15 minutes. Three-jar supply capacity; porter restocking. Warehouse stores 10 oil. Market trading is a later integration. |
+| Oil mill: sesame → oil | Implemented; visual testing pending | Unlocks at level 10. Costs 2 reeds and 4 clay; 2-minute construction. Farmer: 3 sesame + 1 empty jar → 1 oil in 5 minutes. Donkey: triple batch in 15 minutes. Three-jar supply capacity; porter restocking. Warehouse stores 10 oil. Buy and sell oil at the produce stand for 8 shekels per jar from level 10. |
 
 Ziggurat construction and festivals are optional bonuses. They must never block
 estate levelling or individual progression. There is no permanent ziggurat
@@ -139,7 +159,7 @@ Design principles for reviewing these branches:
 ## Next decisions
 
 1. Verify the level-10 oil mill construction and production in the interface.
-2. Connect the agreed oil trading prices to a market outlet and decide later oil uses.
+2. Decide later oil uses; NPC oil trading is implemented at the produce stand.
 3. Choose level 11 or 12 for sheep, and agree their care and wool collection flow.
 4. Review the proposed level 11–20 sequence one level at a time before treating any
    of its suggestions as approved features.

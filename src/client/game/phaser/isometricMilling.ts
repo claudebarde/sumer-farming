@@ -1,3 +1,4 @@
+import { farmerMillingJob, millingJobForBuilding } from "../../../game-data/millingJobs";
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { millingUnavailableReason } from "../../../game-core/farm/milling";
 import { millRecipe, type MillRecipe, type MillWorker } from "../../../game-data/milling";
@@ -17,7 +18,7 @@ export const millPopupState = (snapshot: FarmSnapshot, buildingId: string, now: 
 
 /** Render the saved server journey, never dispatch commands from animation callbacks. */
 export const millingJourneyPose = (snapshot: FarmSnapshot, now: number) => {
-  const job = snapshot.farm.milling, journey = job?.preparation;
+  const job = farmerMillingJob(snapshot.farm, now), journey = job?.preparation;
   if (!job || !journey || now >= Date.parse(job.startedAt)) return null;
   const step = Math.max(0, Math.min(journey.path.length - 1, (now - journey.departedAt) / journey.stepDurationMs));
   const index = Math.floor(step), fraction = step - index;
@@ -33,7 +34,7 @@ export const millingJourneyPose = (snapshot: FarmSnapshot, now: number) => {
 };
 
 export const millingProgress = (snapshot: FarmSnapshot, buildingId: string, now: number) => {
-  const job = snapshot.farm.milling;
+  const job = millingJobForBuilding(snapshot.farm, buildingId);
   if (!job || job.buildingId !== buildingId || now < Date.parse(job.startedAt) || now >= Date.parse(job.completesAt)) return null;
   return { elapsed: now - Date.parse(job.startedAt), fraction: (now - Date.parse(job.startedAt)) / (Date.parse(job.completesAt) - Date.parse(job.startedAt)), farmer: job.worker !== "donkey" };
 };

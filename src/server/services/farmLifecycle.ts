@@ -1,3 +1,4 @@
+import { millingJobs } from "../../game-data/millingJobs";
 import { reconcilePlayerPoints } from "./playerPoints";
 import { BARLEY_CLEARING_MS } from "../../game-core/farm/barleyDecay";
 import { and, asc, eq, lte, sql, inArray, isNull } from "drizzle-orm";
@@ -202,7 +203,7 @@ export const advanceFarmLifecycle = async (
   const porterReadyAt = Object.fromEntries([
     ...readyBreweries.map(b => [b.id, b.beerReadyAt!.getTime()] as const),
     ...readyBakes.map(([id, job]) => [id, Date.parse(job.completesAt)] as const),
-    ...(farm.milling && Date.parse(farm.milling.completesAt) <= now.getTime() ? [[farm.milling.buildingId, Date.parse(farm.milling.completesAt)] as const] : [])
+    ...millingJobs(farm).filter(job => Date.parse(job.completesAt) <= now.getTime()).map(job => [job.buildingId, Date.parse(job.completesAt)] as const)
   ]);
   if (readyBreweries.length > 0 || readyBakes.length > 0) {
     const pending = { ...farm.production.pending };
@@ -222,12 +223,16 @@ export const advanceFarmLifecycle = async (
     }).where(eq(farms.id, farm.id)).returning();
     farm = updated!;
   }
-  if (farm.milling && Date.parse(farm.milling.completesAt) <= now.getTime()) {
-    const job = farm.milling;
+  for (const job of millingJobs(farm).filter(job => Date.parse(job.completesAt) <= now.getTime())) {
     const bags = farm.millGoods.pending[job.buildingId] ?? { flour: 0, brewersGroats: 0 };
-    const [completed] = await transaction.update(farms).set({ milling: null,
-      ...(job.recipe === "oil" ? { production: { ...farm.production, pending: { ...farm.production.pending, [job.buildingId]: { itemKey: "oil" as const, quantity: (farm.production.pending[job.buildingId]?.quantity ?? 0) + job.output } } } } : { millGoods: { ...farm.millGoods, pending: { ...farm.millGoods.pending,
-        [job.buildingId]: { ...bags, [job.recipe]: bags[job.recipe] + job.output } } } }),
+    const production = { ...farm.production,
+      ...(farm.production.donkeyMilling?.buildingId === job.buildingId ? { donkeyMilling: null } : {}),
+      ...(job.recipe === "oil" ? { pending: { ...farm.production.pending, [job.buildingId]: { itemKey: "oil" as const, quantity: (farm.production.pending[job.buildingId]?.quantity ?? 0) + job.output } } } : {}) };
+    const [completed] = await transaction.update(farms).set({
+      milling: farm.milling?.buildingId === job.buildingId ? null : farm.milling,
+      production,
+      ...(job.recipe !== "oil" ? { millGoods: { ...farm.millGoods, pending: { ...farm.millGoods.pending,
+        [job.buildingId]: { ...bags, [job.recipe]: bags[job.recipe] + job.output } } } } : {}),
       progressionStats: { ...farm.progressionStats, processedBarley: (farm.progressionStats.processedBarley ?? 0) + job.barley },
       version: sql`${farms.version} + 1`, updatedAt: now
     }).where(eq(farms.id, farm.id)).returning();

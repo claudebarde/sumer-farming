@@ -72,7 +72,7 @@ export const LEVEL_UNLOCK_ITEMS = [
     "Mill donkey (30 shekels at the Baking market)"
   ],
   ["Warehouse", "Small shrine", "Mill upgrade to building level 2"],
-  ["Date palms", "Fruit and vegetables market", "Dates treats", "Bread oven and brewery upgrades to building level 2"],
+  ["Date palms", "Produce and provisions market", "Dates treats", "Bread oven and brewery upgrades to building level 2"],
   ["Mill upgrade to building level 3", "Barley withering after 24 hours ripe", "Meet neighbours at the market"],
   ["Bread oven and brewery upgrades to building level 3"]
 ] as const;
@@ -91,7 +91,7 @@ export const BREAD_OVEN_UNLOCK_LEVEL = 6;
 export const canEnterMarket = (level: number = 1) =>
   level >= MARKET_UNLOCK_LEVEL;
 export const marketUnlockLevel = (item: string) =>
-  item === "sesame" ? 10 : item === "dates" ? 9 : item === "barley"
+  (item === "sesame" || item === "oil") ? 10 : item === "dates" ? 9 : item === "barley"
     ? MARKET_UNLOCK_LEVEL
     : item === "donkey"
       ? 7

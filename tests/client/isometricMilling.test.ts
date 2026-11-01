@@ -174,3 +174,27 @@ it("restores partial supply collection and starts work only at saved arrival", (
   expect(millingProgress(restored, id, 153000)).toMatchObject({ elapsed: 150000, fraction: 0.5, farmer: true });
   expect(millingProgress(restored, id, 303000)).toBeNull();
 });
+
+it("shows the other mill's controls and renders both saved jobs independently", () => {
+  const s = snapshot(), now = 1000;
+  const oilId = "00000000-0000-4000-8000-000000000003";
+  s.farm.progression!.level = 10;
+  s.inventory.push({ itemKey: "sesame", quantity: 9 }, { itemKey: "donkey", quantity: 1 });
+  s.buildings.push({ ...s.buildings[0]!, id: oilId, type: "oilMill", emptyBeerJars: 3 });
+  s.buildings.push({ ...s.buildings[0]!, id: "00000000-0000-4000-8000-000000000004", type: "warehouse" });
+  const donkey = { buildingId: id, recipe: "flour" as const, worker: "donkey" as const, barley: 6, output: 3, startedAt: date(0), completesAt: date(10000) };
+  s.farm.milling = donkey;
+  const render = () => renderToStaticMarkup(createElement(IsometricMillActions, { snapshot: s, buildingId: oilId, now, onMill: () => {} }));
+  expect(render()).toContain('aria-label="Make oil"');
+  expect(millPopupState(s, oilId, now, "oil", "donkey").canStart).toBe(false);
+  s.farm.production.donkeyMilling = donkey;
+  s.farm.milling = { ...donkey, buildingId: oilId, worker: "farmer", recipe: "oil", barley: 0, output: 1, completesAt: date(5000) };
+  expect(render()).toBe("");
+  expect(millingProgress(s, id, now)).toMatchObject({ farmer: false, fraction: .1 });
+  expect(millingProgress(s, oilId, now)).toMatchObject({ farmer: true, fraction: .2 });
+  expect(millStorageAvailable(s, "flour", now)).toBeLessThan(millStorageAvailable({ ...s, farm: { ...s.farm, production: { ...s.farm.production, donkeyMilling: null } } }, "flour", now));
+  s.farm.milling = null;
+  expect(render()).toContain('aria-label="Make oil"');
+  expect(millingProgress(s, id, now)).toMatchObject({ farmer: false });
+  expect(buildingDemolitionReason(s, id, now)).not.toBeNull();
+});

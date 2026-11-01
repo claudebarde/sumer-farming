@@ -796,3 +796,9 @@
 @media (max-width: 480px) {
   .farmer-popup-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.mill-select-cost-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mill-select-cost { display: flex; align-items: center; gap: 12px; margin-left: auto; flex-shrink: 0; font-variant-numeric: tabular-nums;
+  > span { display: inline-flex; align-items: center; gap: 4px; }
+  img { width: 28px; height: 28px; object-fit: contain; }
+}

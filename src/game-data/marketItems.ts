@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { InventoryItemKey } from "./inventoryItems";
 
 export const marketItemKeys = [
-  "barley", "brewingVessels", "bakingTools", "emptyBeerJar", "beer", "bread", "flour", "brewersGroats", "donkey", "dates", "sesame"
+  "barley", "brewingVessels", "bakingTools", "emptyBeerJar", "beer", "bread", "flour", "brewersGroats", "donkey", "dates", "sesame", "oil"
 ] as const satisfies readonly InventoryItemKey[];
 
 export const MarketItemKeySchema = z.enum(marketItemKeys);
@@ -13,6 +13,11 @@ export type MarketItemKey = z.infer<typeof MarketItemKeySchema>;
 const PROCESSED_FOOD_PRICE = 5;
 
 export const MARKET_ITEM_DEFINITIONS = {
+  oil: {
+    label: "Oil", storage: { type: "estate_inventory" },
+    npcMarket: { canBuy: true, canSell: true, buyPrice: 8, sellPrice: 8 },
+    playerMarket: { canCreateSellOrder: false }
+  },
   sesame: {
     label: "Sesame", storage: { type: "estate_inventory" },
     npcMarket: { canBuy: true, canSell: true, buyPrice: 3, sellPrice: 1 },

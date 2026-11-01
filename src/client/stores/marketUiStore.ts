@@ -2,7 +2,7 @@ import { createStore } from "zustand/vanilla";
 
 export type MarketScope = "barley" | "beer" | "bread" | "produce" | "supplies";
 export const MARKET_TITLES: Record<MarketScope, string> = {
-  barley: "Barley market", beer: "Beer market", bread: "Baking market", produce: "Fruit and vegetables", supplies: "Supplies and equipment"
+  barley: "Barley market", beer: "Beer market", bread: "Baking market", produce: "Produce and provisions", supplies: "Supplies and equipment"
 };
 /** Stable ordering within the supplies catalogue. */
 export const suppliesMarketBuyOrder = (itemKey: string): number =>
@@ -13,7 +13,7 @@ export const marketIncludesItem = (
   trade?: { readonly market: "npc" | "player"; readonly action: "buy" | "sell" }
 ): boolean =>
   scope === itemKey ||
-  (scope === "produce" && (itemKey === "dates" || itemKey === "sesame")) ||
+  (scope === "produce" && (itemKey === "dates" || itemKey === "sesame" || itemKey === "oil")) ||
   (scope === "bread" && itemKey === "flour") ||
   (scope === "beer" && itemKey === "brewersGroats") ||
   (scope === "supplies" && ["emptyBeerJar", "brewingVessels", "bakingTools", "donkey"].includes(itemKey) &&

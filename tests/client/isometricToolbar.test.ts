@@ -13,7 +13,7 @@ it("keeps view controls without top-level planting and harvesting shortcuts", ()
   expect(html).not.toContain("Test procession");
   expect(html).not.toContain("Start mill test");
   expect(html).not.toContain("Stop mill test");
-  expect(html).toContain(">Farm level 1</button>");
+  expect(html).toContain(">Farm level 1</strong>");
   expect(html).not.toContain("Isometric preview");
   expect(html).not.toContain("Test granary placement");
   expect(html).not.toContain("Cancel granary preview");

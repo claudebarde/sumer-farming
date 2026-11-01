@@ -1,3 +1,4 @@
+import { donkeyMillingJob } from "../../../game-data/millingJobs";
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { INITIAL_FARM_CONFIG as config } from "../../../game-data/initialFarm";
 import { isArableGround } from "../../../game-core/farm/land";
@@ -67,7 +68,7 @@ export const donkeyNoRestTiles = (snapshot: FarmSnapshot): readonly IsoCell[] =>
 ];
 
 export const donkeyOwnedAndIdle = (snapshot: FarmSnapshot) =>
-  snapshot.inventory.some(i => i.itemKey === "donkey" && i.quantity > 0) && snapshot.farm.milling?.worker !== "donkey";
+  snapshot.inventory.some(i => i.itemKey === "donkey" && i.quantity > 0) && !donkeyMillingJob(snapshot.farm);
 
 /** Enter beside the market and walk onto reachable northern ground. */
 export const arrivingDonkey = (cells: readonly IsoCell[], occupied: readonly IsoCell[]): DonkeyWander | null => {

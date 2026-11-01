@@ -1,3 +1,4 @@
+import { millingJobs, farmerMillingJob, donkeyMillingJob } from "../../game-data/millingJobs";
 import { farmerProductionJob } from "./farmerProduction";
 import { improvementWorkActive } from "../../game-data/farmImprovements";
 import { millRecipe, type MillRecipe, type MillWorker } from "../../game-data/milling";
@@ -25,7 +26,9 @@ export const millingUnavailableReason = (snapshot: FarmSnapshot, recipe: MillRec
   if ((snapshot.farm.progression?.level ?? 1) < 5) return "The Mill unlocks at farm level 5.";
   if (farmerProductionJob(snapshot.farm)?.type === "baking") return "The farmer is baking. Wait for baking to finish.";
   if (farmerProductionJob(snapshot.farm, now)?.type === "brewing") return "The farmer is brewing. Wait for preparation to finish.";
-  if (snapshot.farm.milling) return "The Mill is already working.";
+  if (millingJobs(snapshot.farm).some(job => job.buildingId === id)) return "The Mill is already working.";
+  if (farmerMillingJob(snapshot.farm, now)) return "The farmer is working in or preparing a mill.";
+  if (worker === "donkey" && donkeyMillingJob(snapshot.farm)) return "The donkey is already working in another mill.";
   if (snapshot.farm.fishing || snapshot.farm.gathering ||
     snapshot.crops.some(c => Date.parse(c.plantedAt) > now || c.harvestStartedAt !== null) ||
     snapshot.buildings.some(b => Date.parse(b.completesAt) > now) ||

@@ -85,3 +85,10 @@ it("moves all equipment exclusively to supplies without changing food stands", (
   expect(canOpenMarketStand("supplies", 5)).toBe(false);
   expect(canOpenMarketStand("supplies", 6)).toBe(true);
 });
+
+it("offers oil at the produce stand from level ten", () => {
+ expect(marketUnlockLevel("oil")).toBe(10);
+ for (const action of ["buy", "sell"] as const)
+   expect(marketIncludesItem("produce", "oil", {market: "npc", action})).toBe(true);
+ expect(marketIncludesItem("beer", "oil")).toBe(false);
+});

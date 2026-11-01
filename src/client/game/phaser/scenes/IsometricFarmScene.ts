@@ -1,3 +1,5 @@
+import { productionGains } from "../productionGains";
+import { donkeyMillingJob, farmerMillingJob } from "../../../../game-data/millingJobs";
 import { constructionGains } from "../constructionGains";
 import { OIL_MILL_SOURCE, renderOilMillAnimation } from "../oilMillAnimation";
 import { currentCropWork } from "../../../../game-data/cropWork";
@@ -280,10 +282,43 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.renderRoadGhost();
   }
 
-  private farmTransparent = false;
-  setFarmTransparent(transparent: boolean) {
-    this.farmTransparent = transparent;
+  private transparentBuildings = new Set<string>();
+  private fadedBuildingObjects: Phaser.GameObjects.GameObject[] = [];
+  setBuildingTransparent(id: string, transparent: boolean) {
+    if (transparent) this.transparentBuildings.add(id); else this.transparentBuildings.delete(id);
     this.clearSelection();
+  }
+
+  resetBuildingTransparency() {
+    this.transparentBuildings.clear();
+    this.clearSelection();
+  }
+
+  private addTransparentFootprint(cell: IsoCell, columns: number, rows: number, depth: number) {
+    const centre = isoPoint({ column: cell.column + (columns - 1) / 2, row: cell.row + (rows - 1) / 2 });
+    const width = (columns + rows) * ISO_WIDTH / 2;
+    const height = (columns + rows) * ISO_HEIGHT / 2;
+    const footprint = new Phaser.Geom.Polygon([
+      rows * ISO_WIDTH / 2, 0, width, columns * ISO_HEIGHT / 2,
+      columns * ISO_WIDTH / 2, height, 0, rows * ISO_HEIGHT / 2,
+    ]);
+    const marker = this.add.graphics({ x: centre.x - width / 2, y: centre.y - height / 2 }).setDepth(-810);
+    const paint = (hovered: boolean) => {
+      marker.clear().fillStyle(0xffdc57, hovered ? 0.32 : 0.16).fillPoints(footprint.points, true)
+        .lineStyle(1.5, 0xffdc57, hovered ? 1 : 0.65).strokePoints(footprint.points, true);
+    };
+    paint(false);
+    this.add.zone(centre.x, centre.y, width, height).setDepth(depth).setData("tile", cell)
+      .setInteractive(footprint, Phaser.Geom.Polygon.Contains)
+      .on("pointerover", () => paint(true)).on("pointerout", () => paint(false));
+  }
+
+  private fadeIndividualBuildings() {
+    for (const object of this.fadedBuildingObjects) {
+      if (object instanceof Phaser.GameObjects.Image || object instanceof Phaser.GameObjects.Text || object instanceof Phaser.GameObjects.Graphics)
+        object.setAlpha(Math.min(object.alpha, 0.25));
+      if (object.input) object.disableInteractive();
+    }
   }
 
   private fadePlacementBuildings() {
@@ -826,6 +861,7 @@ export class IsometricFarmScene extends Phaser.Scene {
         ? this.pickup.startedAt + pickupDuration(this.pickup.path) : now;
       this.harvestGainEffect.enqueue(deliveryGains(this.snapshot, snapshot, now, depositAt));
       this.harvestGainEffect.enqueue(constructionGains(this.snapshot, snapshot, now));
+      this.harvestGainEffect.enqueue(productionGains(this.snapshot, snapshot, now));
     }
     this.suppressDeliveryGains = !visible;
     if (this.ready) this.harvestGainEffect.sample(this.snapshot, Date.now(), !document.hidden && this.sys.isActive());
@@ -928,7 +964,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     return position;
   }
   receiveMarketDonkey() {
-    if (this.snapshot.farm.milling?.worker === "donkey") return;
+    if (donkeyMillingJob(this.snapshot.farm)) return;
     this.donkeyWander = arrivingDonkey(donkeyGround(this.snapshot, Date.now()), [this.farmerCell]);
     if (this.ready) this.updateDonkey(0);
   }
@@ -1061,6 +1097,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.roadPlanOverlay = undefined;
     this.roadPlanNumbers = [];
     this.roadPlanObjects = [];
+    this.fadedBuildingObjects = [];
     this.caravan = undefined;
     this.daylightShadows = createShadowLayer(this, config.worldBounds);
     this.millPreviewParts = [];
@@ -1176,33 +1213,16 @@ export class IsometricFarmScene extends Phaser.Scene {
     const farmImage = this.add.image(front.x, front.y + 19, appearance.texture)
       .setOrigin(0.5, 1).setDisplaySize(232, 232).setDepth(front.y - 24).setData("tile", farmOrigin);
     this.buildingImages.push(farmImage);
-    if (this.farmTransparent) {
-      // The faded artwork has no input handler. Only the four ground tiles
-      // reopen its popup; upper walls/roof must not intercept objects behind it.
-      farmImage.setAlpha(0.25);
-      const centre = isoPoint({ column: farmOrigin.column + 0.5, row: farmOrigin.row + 0.5 });
-      const footprint = new Phaser.Geom.Polygon([
-        ISO_WIDTH, 0, ISO_WIDTH * 2, ISO_HEIGHT,
-        ISO_WIDTH, ISO_HEIGHT * 2, 0, ISO_HEIGHT,
-      ]);
-      const marker = this.add.graphics({ x: centre.x - ISO_WIDTH, y: centre.y - ISO_HEIGHT }).setDepth(-810);
-      const paintFootprint = (hovered: boolean) => {
-        marker.clear().fillStyle(0xffdc57, hovered ? 0.32 : 0.16)
-          .fillPoints(footprint.points, true)
-          .lineStyle(1.5, 0xffdc57, hovered ? 1 : 0.65).strokePoints(footprint.points, true);
-      };
-      paintFootprint(false);
-      this.add.zone(centre.x, centre.y, ISO_WIDTH * 2, ISO_HEIGHT * 2)
-        .setDepth(farmImage.depth).setData("tile", farmOrigin)
-        .setInteractive(footprint, Phaser.Geom.Polygon.Contains)
-        .on("pointerover", () => paintFootprint(true))
-        .on("pointerout", () => paintFootprint(false));
+    if (this.transparentBuildings.has("farm")) {
+      this.fadedBuildingObjects.push(farmImage);
+      this.addTransparentFootprint(farmOrigin, 2, 2, farmImage.depth);
     } else farmImage.setInteractive({ pixelPerfect: true });
     this.daylightShadows.addBuilding(this.buildingImages[this.buildingImages.length - 1]!);
     // Anchor on the visible roof, not the transparent top of the source frame.
     const storageSnapshot = this.pickup?.type === "store" ? this.pickup.before : snapshot;
     this.drawStorageChip("farm", front.x, front.y + appearance.storageChipY, storageSnapshot.inventory.find(item => item.itemKey === "barley")?.quantity ?? 0);
     for (const building of snapshot.buildings) {
+      const visualStart = this.children.list.length;
       const size = FARM_BUILDING_DEFINITIONS[building.type].footprint;
       const shrine = building.type === "smallShrine";
       const p = shrine ? isoPoint(building) : footprintFront(building, size.columns, size.rows);
@@ -1301,6 +1321,11 @@ export class IsometricFarmScene extends Phaser.Scene {
         this.daylightShadows.addBuilding(animation.site);
         this.renovations.push({ id: building.id, animation });
       }
+      if (this.transparentBuildings.has(building.id)) {
+        this.fadedBuildingObjects.push(...this.children.list.slice(visualStart).filter(object =>
+          !object.getData("millBags") && !object.getData("breadBasket") && !object.getData("beerJars")));
+        this.addTransparentFootprint({ column: building.column, row: building.row }, size.columns, size.rows, p.y - 24);
+      }
     }
     // Account for the source's transparent bottom margin.
     const marketFront = footprintFront(marketOrigin, 2, 2);
@@ -1308,8 +1333,14 @@ export class IsometricFarmScene extends Phaser.Scene {
       .setOrigin(0.5, 5 / 6).setDisplaySize(232, 232).setDepth(marketFront.y - 24)
       .setData("tile", marketOrigin).setInteractive({ pixelPerfect: true }));
     this.daylightShadows.addBuilding(this.buildingImages[this.buildingImages.length - 1]!);
+    if (this.transparentBuildings.has("market")) {
+      const image = this.buildingImages[this.buildingImages.length - 1]!;
+      this.fadedBuildingObjects.push(image);
+      this.addTransparentFootprint(marketOrigin, 2, 2, image.depth);
+    }
     const groundItems = transferGroundItems(snapshot.groundItems, this.pickup);
     this.roadPlanObjects = this.children.list.slice(buildingStart);
+    this.fadeIndividualBuildings();
     this.fadePlacementBuildings();
     this.drawRoadPlan();
     let outlinedGroundItem = false;
@@ -1431,7 +1462,7 @@ export class IsometricFarmScene extends Phaser.Scene {
   private walkingForAudio = false;
   donkeyMillingForAudio(): MillingJob | null {
     return this.ready && !this.graphicsLost && this.sys.isActive() && this.sys.isVisible()
-      ? this.snapshot.farm.milling ?? null : null;
+      ? donkeyMillingJob(this.snapshot.farm) ?? null : null;
   }
   isBuildingActiveForAudio(key: BuildingAudioKey, now: number): boolean {
     return this.ready && !this.graphicsLost && this.sys.isActive() && this.sys.isVisible() &&
@@ -1579,7 +1610,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       this.heldMaterial.setVisible(false); this.cargo.setVisible(false); this.cargoBackground.setVisible(false);
       return;
     }
-    const milling = this.snapshot.farm.milling;
+    const milling = farmerMillingJob(this.snapshot.farm, Date.now()) ?? donkeyMillingJob(this.snapshot.farm);
     const journey = millingJourneyPose(this.snapshot, Date.now());
     if (journey) {
       this.walkingForAudio = journey.walking;
@@ -1933,8 +1964,8 @@ export class IsometricFarmScene extends Phaser.Scene {
 
   private updateDonkey(delta: number) {
     if (!this.donkeyActor) return;
-    const job = this.snapshot.farm.milling;
-    if (job?.worker === "donkey") {
+    const job = donkeyMillingJob(this.snapshot.farm);
+    if (job) {
       if (this.donkeyJob?.startedAt !== job.startedAt) {
         const rest = donkeyEscortPath(job)[0];
         if (rest) {
@@ -2128,6 +2159,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     }
     // Resolve active building artwork first, including immediately after draw()
     // recreates idle sprites. Otherwise shadows flash the idle silhouette for a frame.
+    this.fadeIndividualBuildings();
     this.fadePlacementBuildings();
     this.daylightShadows.render(this.shadowPreset);
     this.renderRoadGhost();

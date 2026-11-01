@@ -38,7 +38,7 @@ export default function DestroyBuildingDialog({ snapshot, buildingId, now, onClo
         {(error || reason) && <p role="alert">{error ?? reason}</p>}
         <div className={styles["demolition-actions"]}>
           <button className={actionStyles.button} disabled={pending} onClick={onClose}><BuildingActionIcon kind="cancel" /><span>Cancel</span></button>
-          {!reason && <button className={actionStyles.button} disabled={pending} onClick={() => void destroy()}><BuildingActionIcon kind="destroy" /><span>{pending ? "Destroying…" : "Destroy the building"}</span></button>}
+          {!reason && <button className={`${actionStyles.button} ${actionStyles.danger}`} disabled={pending} onClick={() => void destroy()}><BuildingActionIcon kind="destroy" /><span>{pending ? "Destroying…" : "Destroy the building"}</span></button>}
         </div>
       </Dialog.Content>
     </Dialog.Portal>

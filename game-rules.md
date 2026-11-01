@@ -319,7 +319,7 @@ Leveling up is **manual**, not automatic. Meet every listed requirement, then pr
 | 6 — Brewer or Baker? | Complete a Mill; harvest 50 crop plantings during level 5; process 4 barley into either output; hold 2 processed goods in any combination | 2 Flour or Brewer's Groats, combined (Flour used first) | Brewery, Bread Oven, brewing supplies, bread making, beer and bread trading |
 | 7 — Trusted supplier | During level 6, produce at least 15 bread or beer combined and sell at least 10 bread or beer combined; have 5 stored bread/beer combined | 5 bread/beer in any combination (bread used first) | Merchant requests, 20-barley capacity per granary, and the mill donkey (30 shekels) |
 | 8 — Growing estate | Fulfil at least 3 merchant requests; have 20 barley stored in a completed granary; purchase a mill donkey; retain spare seed or an already-planted barley field | 20 granary barley | Warehouse and Small shrine |
-| 9 — Established producer | Complete a warehouse; during level 8, harvest 100 barley and produce 30 beer/bread combined; store 10 bread or 10 beer | 10 bread, otherwise 10 beer (not mixed) | Date palms, dates treats, the fruit and vegetables market, and bread oven and brewery upgrades to building level 2 |
+| 9 — Established producer | Complete a warehouse; during level 8, harvest 100 barley and produce 30 beer/bread combined; store 10 bread or 10 beer | 10 bread, otherwise 10 beer (not mixed) | Date palms, dates treats, the produce and provisions market, and bread oven and brewery upgrades to building level 2 |
 | 10 — Community member | Have 2 mature palms; during level 9, harvest and store 4 baskets of dates and produce 40 bread/beer combined; complete either a bread oven or brewery upgrade to level 2; hold the offering | 2 stored baskets of dates and 10 bread/beer combined (bread used first) | Mill upgrade to building level 3; barley withering; live market neighbours |
 
 Unlocking a building gives permission to construct it; the level claim does not build it or pay its construction materials.
@@ -467,7 +467,7 @@ Delivery timing and exactly-once storage remain server-authoritative.
 - Planting, growth, harvest and delivery continue while away. Saved server times, not animation completion, determine progress. Dates are credited once when the delivery arrives. Barley batch planting/harvesting and barley progression totals exclude palms.
 - In **Manage estate → Farmer**, one stored basket of dates gives **+10 happiness**, capped at 100, with an independent **8-hour cooldown** (matching fish). It does not replace the automatic barley meal and does not count as feeding fish.
 - The isometric arable-ground popup offers **Plant date palm** from level 9 when planting is available, after Plant barley. The Farmer tab displays dates alongside the other treats, with a basket icon, happiness benefit, availability and cooldown.
-- The **Fruit and vegetables** market stand opens at **level 9**. Dates are its first tradable crop: buy one basket for **5 shekels** or sell one stored basket for **2 shekels** to the merchant. The stand also supports player listings using the existing trading rules. Other displayed produce is decorative for now.
+- The **Produce and provisions** market stand opens at **level 9**. Dates are its first tradable crop: buy one basket for **5 shekels** or sell one stored basket for **2 shekels** to the merchant. The stand also supports player listings using the existing trading rules. Other displayed produce is decorative for now.
 - Purchased dates go directly into completed warehouse storage. Purchases cannot exceed its date capacity or occupy space reserved for a harvest already underway. Sales use stored dates only. Buying dates does not count toward the requirement to harvest and store dates for level 10.
 - The stand sits beside the baking stand with a gap between them. Its merchant greets the farmer when approached, and clicking the stand or merchant opens the usual trading flow. Quantities reset to one whenever the market popup opens.
 - Date recipes and automatic porter harvesting remain **not implemented**. Existing level-9 entry requirements are unchanged.
@@ -908,7 +908,7 @@ normal wandering retains the 30-second pauses between strolls.
 - The farmer fetches the donkey, leads it to the mill, then collects barley from storage and delivers it. The donkey disappears inside the mill and the donkey-powered mill sprite shows production in progress.
 - While being led to the mill, the donkey trails slightly behind on the same route: behind horizontally, above the farmer when walking down, and below him when walking up. This spacing is visual only and does not change production timing.
 - If milling finishes while you are watching the farm, the donkey walks back along its escort route to its resting tile. If it finishes while you are away, it appears at rest when you return, without replaying the journey. Production never waits for this animation.
-- Once the saved preparation route ends, the farmer is free for other work, including baking or visiting the market, even if the trip animation was paused or skipped. Only one milling job (including preparation) can run at a time.
+- Once the saved preparation route ends, the farmer is free for other work, including baking or visiting the market, even if the trip animation was paused or skipped. Each mill and each worker can have only one milling job at a time. Once the donkey’s preparation trip is finished, the farmer can operate the other mill simultaneously (flour/groats or oil). The farmer must be free to prepare any new job, including leading the donkey. Each job reserves its own ingredients and storage, completes independently while offline, and awards its output and points once.
 - Ownership and active jobs survive reloads. The donkey returns to grazing when its job finishes. Finished bags still wait over the mill's B or C footprint tile nearest a connected road and must be collected and delivered to the farm before becoming usable resources.
 
 ## Baking bread
@@ -1078,7 +1078,7 @@ visiting. Level-10 neighbours visiting the market can see one another.
 | Oil | 10 | 2 jars | 18 shekels |
 
 Rewards are fixed per bundle and exceed the corresponding NPC selling prices
-(oil uses the planned 8-shekel selling price). Player-market prices are set by
+(including oil’s 8-shekel selling price). Player-market prices are set by
 players; merchant rewards do not currently track or cap themselves to live listings.
 
 ## Small shrine (level 8)
@@ -1306,7 +1306,7 @@ dates and other goods. Stored quantities persist per warehouse and are included
 in the estate total. A warehouse containing sesame cannot be demolished.
 There is no minimum sesame reserve: its entire stock can be spent.
 
-At level 10, buy sesame at the fruit and vegetable stand for 3 shekels per basket,
+At level 10, buy sesame at the produce and provisions stand for 3 shekels per basket,
 or sell stored sesame for 1 shekel per basket. All stored sesame may be sold; no
 seed reserve is required. Purchases require available warehouse capacity.
 The **Plant sesame** action appears only when the estate has stored sesame.
@@ -1346,7 +1346,7 @@ only once. Sesame does not use the barley decay rule.
 - Finished jars wait at the oil mill for the farmer or porter. The warehouse holds **10 oil jars**; the farmhouse cannot store oil. Production needs room for its batch, and pickup/delivery recheck available storage. As with other producers, the output pile is capped at six finished items.
 - Oil milling awards the existing milling batch points: **30 with the farmer or 35 with the donkey**. Construction uses the existing first-construction scoring rule.
 - The mill cannot be destroyed during its production or while finished oil remains. No oil-mill upgrades are available yet.
-- **Planned:** oil trading at 8 shekels to buy or sell per jar, matching beer. This production update does not yet add oil to a market stand.
+- From level 10, oil can be bought and sold at the produce and provisions stand for 8 shekels per jar, matching beer. Purchased oil uses warehouse capacity; sales include the jar.
 
 When carrying reeds or clay, Store in the farm or warehouse popup deposits into that selected building only, up to its available capacity. Any remainder stays carried. Store from the farmer popup uses the automatic warehouse-first priority. The farm holds 6 reeds and 6 clay; the warehouse holds 10 of each.
 
@@ -1356,10 +1356,10 @@ When a first construction awards points while the farm is visible, its earned po
 
 The farmhouse popup has an eye toggle beside Close. It makes the farmhouse translucent so you can select tiles behind its upper artwork. Click a tile in the farmhouse footprint to reopen its popup and restore it. This visual setting is available from level 1, survives farm updates, and resets when leaving the farm view or reloading. Other buildings do not yet have this individual toggle.
 
-### Seeing behind the farmhouse
+### Seeing behind buildings
 
-The eye button in the farm popup makes the farmhouse transparent. While it is
-transparent, a faint yellow tint and thin outline mark its clickable 2 × 2 ground
+The eye button in each farm-building popup (including the market entrance) toggles that building independently. This includes production buildings, storage, the shrine, construction sites and upgrades. While a building is
+transparent, a faint yellow tint and thin outline mark its actual clickable ground
 footprint. The marker brightens on hover; click it to reopen the popup. Its upper
 artwork does not intercept clicks, so roads, items and buildings behind it remain
 selectable. Use the eye button again to restore the normal appearance and sprite
@@ -1375,3 +1375,14 @@ The beer stand trades beer and groats; the baking stand trades bread and flour.
 The produce stand continues trading dates and sesame. The market roads and map
 have been widened to leave space between stands. Click the stand or its merchant
 to approach and open its usual trading controls.
+
+The farm, market and neighbourhood share a top bar showing the farm level, completed level objectives, navigation controls, estate shekel and stored barley totals, and the farmer’s current happiness percentage. Select the level panel in the farm view to see the level requirements. In the farm view, select the farmer headshot to open Manage estate on the Farmer tab. In the market and neighbourhood views, happiness remains visible but this shortcut is disabled. Zoom controls sit beside the farm level in the bar.
+
+The top-bar level icon changes automatically with your estate level, using artwork
+representing a milestone unlocked at that level. Level 10 uses the oil jar.
+
+### Oil trading
+
+From level 10, buy and sell oil at the produce and provisions stand for 8 shekels per jar. Purchased oil goes into the warehouse (capacity: 10); space reserved for incoming deliveries is unavailable for purchases. Sales include the jar and do not return an empty jar. Only stored oil can be sold. Player-market oil listings are not available yet.
+
+When bread, beer, flour, groats or oil finishes producing while you are viewing the farm, its output pile shows a rising points number for 1.5 seconds: +40 for bread or beer, +30 for farmer milling and +35 for donkey milling. These are the batch’s existing points, not extra rewards. Reloading or returning after time away does not replay old completion animations.

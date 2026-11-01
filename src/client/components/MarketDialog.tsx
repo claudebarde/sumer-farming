@@ -481,6 +481,7 @@ export default function MarketDialog() {
                                       "donkey",
                                       "dates",
                                       "sesame",
+                                      "oil",
                                       () =>
                                         farmState.snapshot.inventory.find(
                                           entry =>
@@ -568,7 +569,7 @@ export default function MarketDialog() {
                                             height={48}
                                           />
                                         )}
-                                        {(item.itemKey === "beer" || item.itemKey === "emptyBeerJar" || item.itemKey === "brewingVessels") &&
+                                        {(item.itemKey === "oil" || item.itemKey === "beer" || item.itemKey === "emptyBeerJar" || item.itemKey === "brewingVessels") &&
                                           <MarketJarIcon itemKey={item.itemKey} />}
                                         {item.itemKey === "bakingTools" && (
                                           <img
@@ -605,7 +606,7 @@ export default function MarketDialog() {
                                       <MarketTransactionPreview
                                         showPrice={false}
                                         itemKey={item.itemKey}
-                                        label={item.label.toLowerCase()}
+                                        label={item.label}
                                         stock={storedQuantity}
                                         balance={farmState.snapshot.player.shekelBalance}
                                         transaction={market === "npc" ? {
@@ -616,7 +617,7 @@ export default function MarketDialog() {
                                           type: "listing", quantity: marketQuantity, unitPrice: listingPrice
                                         } : undefined}
                                       />
-                                      {item.itemKey === "beer" && (
+                                      {(item.itemKey === "beer" || item.itemKey === "oil") && (
                                         <p>
                                           Each sale includes the jar; no empty
                                           jar is returned.

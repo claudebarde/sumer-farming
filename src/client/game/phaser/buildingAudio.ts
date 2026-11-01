@@ -1,3 +1,4 @@
+import { millingJobs } from "../../../game-data/millingJobs";
 import type { FarmSnapshot } from "../../../schemas/farm";
 
 export const BUILDING_AUDIO = {
@@ -17,7 +18,7 @@ export const buildingAudioActive = (farm: Pick<FarmSnapshot["farm"], "milling" |
   switch (key) {
     case "construction": return buildings.some(job => during(job.startedAt, job.completesAt, now)) ||
       Object.values(farm.production.buildingUpgrades ?? {}).some(jobs => jobs.some(job => during(job.startedAt, job.completesAt, now)));
-    case "grinding": return !!farm.milling && during(farm.milling.startedAt, farm.milling.completesAt, now);
+    case "grinding": return millingJobs(farm).some(job => during(job.startedAt, job.completesAt, now));
     case "baking": return Object.values(farm.production.baking).some(job => during(job.startedAt, job.completesAt, now));
     case "stirring": return Object.values(farm.production.brewing ?? {}).some(job => during(job.arrivedAt, job.startedAt, now));
     case "bubbling": return Object.values(farm.production.brewing ?? {}).some(job => during(job.startedAt, job.completesAt, now));

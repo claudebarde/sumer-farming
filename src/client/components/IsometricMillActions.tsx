@@ -1,3 +1,5 @@
+import MarketItemIcon from "./MarketItemIcon";
+import { millingJobForBuilding } from "../../game-data/millingJobs";
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { MillRecipe, MillWorker } from "../../game-data/milling";
 import { millPopupState } from "../game/phaser/isometricMilling";
@@ -15,8 +17,8 @@ export default function IsometricMillActions({ snapshot, buildingId, now, onMill
 }) {
   const oil = snapshot.buildings.find(b => b.id === buildingId)?.type === "oilMill";
   const state = millPopupState(snapshot, buildingId, now, oil ? "oil" : "flour");
-  if (snapshot.farm.milling) return null;
-  if (!productionOutputFits(snapshot.farm, buildingId, millRecipe("flour").output)) return <button disabled>{OUTPUT_FULL_MESSAGE}</button>;
+  if (millingJobForBuilding(snapshot.farm, buildingId)) return null;
+  if (!productionOutputFits(snapshot.farm, buildingId, millRecipe(oil ? "oil" : "flour").output)) return <button disabled>{OUTPUT_FULL_MESSAGE}</button>;
   if (state.insufficient) return <button disabled>{oil ? "Not enough sesame" : "You don't have enough barley"}</button>;
   const groats = millPopupState(snapshot, buildingId, now, "brewersGroats");
   return <>{(oil ? [{ recipe: "oil", icon: "oil", label: "Make oil", available: state.canStart }] as const : [
@@ -34,13 +36,24 @@ export default function IsometricMillActions({ snapshot, buildingId, now, onMill
       <Select.Portal>
         <Select.Content className={popupStyles["mill-select-content"]} position="popper" sideOffset={4} collisionPadding={12}>
           <Select.Viewport>
-            <Select.Item className={popupStyles["mill-select-item"]} value="farmer">
-              <Select.ItemText>Produce with the farmer</Select.ItemText>
-            </Select.Item>
-            <Select.Item className={popupStyles["mill-select-item"]} value="donkey"
-              disabled={!millPopupState(snapshot, buildingId, now, recipe, "donkey").canStart}>
-              <Select.ItemText>Produce with the donkey</Select.ItemText>
-            </Select.Item>
+            {(["farmer", "donkey"] as const).map(worker => {
+              const batch = millRecipe(recipe, worker);
+              const costLabel = oil
+                ? `${batch.output * 3} sesame baskets and ${batch.output} empty ${batch.output === 1 ? "jar" : "jars"}`
+                : `${batch.barley} barley`;
+              return <Select.Item key={worker} className={`${popupStyles["mill-select-item"]} ${popupStyles["mill-select-cost-item"]}`} value={worker}
+                textValue={`With the ${worker}`}
+                aria-label={`With the ${worker}, costs ${costLabel}`}
+                disabled={!millPopupState(snapshot, buildingId, now, recipe, worker).canStart}>
+                <Select.ItemText>{`With the ${worker}`}</Select.ItemText>
+                <span className={popupStyles["mill-select-cost"]} aria-hidden="true">
+                  {oil ? <>
+                    <span><MarketItemIcon itemKey="sesame" />{batch.output * 3}</span>
+                    <span><MarketItemIcon itemKey="emptyBeerJar" />{batch.output}</span>
+                  </> : <span><MarketItemIcon itemKey="barley" />{batch.barley}</span>}
+                </span>
+              </Select.Item>;
+            })}
           </Select.Viewport>
         </Select.Content>
       </Select.Portal>

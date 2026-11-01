@@ -1,3 +1,4 @@
+import { millingJobs } from "../../game-data/millingJobs";
 import { and, eq, sql } from "drizzle-orm";
 import { ACTION_POINTS, POINTS_RULE_VERSION, type PointAction } from "../../game-data/points";
 import type { DatabaseTransaction } from "../db/client";
@@ -47,8 +48,7 @@ export const reconcilePlayerPoints = async (tx: DatabaseTransaction, farm: typeo
     }
     if (b.beerReadyAt) award({ action: "brewBeer", source: `beer:${b.id}:${b.beerReadyAt.toISOString()}`, completedAt: b.beerReadyAt });
   }
-  if (farm.milling) {
-    const job = farm.milling;
+  for (const job of millingJobs(farm)) {
     award({ action: job.worker === "donkey" ? "millDonkey" : "millFarmer", source: `mill:${job.buildingId}:${job.startedAt}`, completedAt: new Date(job.completesAt) });
   }
   for (const [id, job] of Object.entries(farm.production.baking)) {

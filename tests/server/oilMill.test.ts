@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { Client } from "pg";
 import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
 import { createDatabase } from "../../src/server/db/client";
-import { farmBuildings, farmInventory, farms, players } from "../../src/server/db/schema";
+import { farmBuildings, farmInventory, farms, players, pointAwards } from "../../src/server/db/schema";
 import { startMilling } from "../../src/server/services/milling";
 import { supplyBrewery } from "../../src/server/services/brewerySupplies";
 import { advanceFarmLifecycle } from "../../src/server/services/farmLifecycle";
@@ -99,4 +99,64 @@ it("protects the warehouse reservation during donkey work", async () => {
   const f = await fixture();
   const started = await Effect.runPromise(startMilling(db, await f.command("donkey")));
   expect(buildingDemolitionReason(started, f.warehouse.id, Date.parse(started.farm.milling!.startedAt) + 1)).not.toBeNull();
+});
+
+it.each([
+  ["flour", "farmer-first"], ["oil", "farmer-first"],
+  ["flour", "donkey-first"], ["oil", "offline"],
+] as const)("runs farmer and donkey mills independently: donkey %s, %s", async (donkeyRecipe, completionOrder) => {
+  const f = await fixture();
+  const [flourMill] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "mill", column: 8, row: 3,
+    loadingTile: { column: 8, row: 5 }, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+  await db.insert(farmInventory).values({ farmId: f.farm.id, itemKey: "barley", quantity: 12 });
+  const farmerRecipe = donkeyRecipe === "oil" ? "flour" as const : "oil" as const;
+  const target = (recipe: "oil" | "flour") => recipe === "oil" ? f.mill : flourMill!;
+  const command = async (recipe: "oil" | "flour", worker: "farmer" | "donkey") => ({
+    playerId: f.playerId, type: "start_milling" as const, recipe, worker, target: target(recipe), expectedFarmVersion: (await f.read()).farm.version
+  });
+  const first = await Effect.runPromise(startMilling(db, await command(donkeyRecipe, "donkey")));
+  // Farmer is still needed to collect supplies and lead the donkey to its mill.
+  await expect(Effect.runPromise(startMilling(db, await command(farmerRecipe, "farmer")))).rejects.toThrow();
+  const donkeyJob = { ...first.farm.milling!, startedAt: new Date(Date.now() - 1000).toISOString(),
+    ...(completionOrder === "donkey-first" ? { completesAt: new Date(Date.now() + 60_000).toISOString() } : {}) };
+  await db.update(farms).set({ milling: donkeyJob }).where(eq(farms.id, f.farm.id));
+  await expect(Effect.runPromise(startMilling(db, await command(farmerRecipe, "donkey")))).rejects.toThrow("donkey is already");
+  const nextCommand = await command(farmerRecipe, "farmer");
+  const contender = new Client({ connectionString: process.env.TEST_DATABASE_URL ?? "postgres://sumer:sumer_dev@localhost:5432/sumer_farming" });
+  await contender.connect();
+  const attempts = await Promise.allSettled([
+    Effect.runPromise(startMilling(db, nextCommand)), Effect.runPromise(startMilling(createDatabase(contender), nextCommand))
+  ]).finally(() => contender.end());
+  expect(attempts.filter(result => result.status === "fulfilled")).toHaveLength(1);
+  const running = await f.read();
+  expect(running.farm.milling).toMatchObject({ worker: "farmer", recipe: farmerRecipe });
+  expect(running.farm.production.donkeyMilling).toEqual(donkeyJob);
+  expect(running.inventory.find(i => i.itemKey === "sesame")?.quantity).toBe(donkeyRecipe === "oil" ? 3 : 9);
+  expect(running.inventory.find(i => i.itemKey === "barley")?.quantity).toBe(donkeyRecipe === "flour" ? 6 : 10);
+  expect(buildingDemolitionReason(running, target(donkeyRecipe).id, Date.now())).not.toBeNull();
+  await expect(Effect.runPromise(startMilling(db, await command(farmerRecipe, "farmer")))).rejects.toThrow();
+  // Farmer finishes first, without releasing the donkey or its output reservation.
+  const farmerEnd = Date.parse(running.farm.milling!.completesAt);
+  if (completionOrder === "farmer-first") {
+    const partlyDone = await f.advance(farmerEnd + 1);
+    expect(partlyDone.milling).toBeNull();
+    expect(partlyDone.production.donkeyMilling).toEqual(donkeyJob);
+  } else if (completionOrder === "donkey-first") {
+    const partlyDone = await f.advance(Date.parse(donkeyJob.completesAt) + 1);
+    expect(partlyDone.milling).toEqual(running.farm.milling);
+    expect(partlyDone.production.donkeyMilling).toBeNull();
+  }
+  const end = Math.max(farmerEnd, Date.parse(donkeyJob.completesAt)) + 1000;
+  const done = await f.advance(end);
+  expect(done.milling).toBeNull();
+  expect(done.production.donkeyMilling).toBeNull();
+  expect(done.production.pending[f.mill.id]).toEqual({ itemKey: "oil", quantity: donkeyRecipe === "oil" ? 3 : 1 });
+  expect(done.millGoods.pending[flourMill!.id]?.flour).toBe(donkeyRecipe === "flour" ? 3 : 1);
+  const pointsBefore = await db.select().from(pointAwards).where(eq(pointAwards.playerId, f.playerId));
+  const repeated = await f.advance(end + 1000);
+  const pointsAfter = await db.select().from(pointAwards).where(eq(pointAwards.playerId, f.playerId));
+  expect(pointsAfter).toEqual(pointsBefore);
+  expect(repeated.production.pending).toEqual(done.production.pending);
+  expect(repeated.millGoods).toEqual(done.millGoods);
+  expect(repeated.progressionStats.processedBarley).toBe(done.progressionStats.processedBarley);
 });

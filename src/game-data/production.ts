@@ -1,3 +1,4 @@
+import { MillingJobSchema } from "./milling";
 import { z } from "zod";
 import { CropWorkSchema } from "./cropWork";
 import { ProductionJourneySchema } from "./productionJourney";
@@ -8,6 +9,7 @@ import { BuildingUpgradesSchema } from "./buildingUpgrades";
 export const BREAD_RECIPE = { flour: 2, output: 2, durationMs: 5 * 60_000 } as const;
 export const ProductionStackSchema = z.object({ itemKey: z.enum(["beer", "bread", "oil"]), quantity: z.int().positive() });
 export const ProductionStateSchema = z.object({
+  donkeyMilling: MillingJobSchema.nullable().optional(),
   brewing: z.record(z.string(), z.object({ preparation: ProductionJourneySchema, arrivedAt: z.iso.datetime(), startedAt: z.iso.datetime(), completesAt: z.iso.datetime() })).optional(),
   cropWork: CropWorkSchema.nullable().optional(),
   cropWorkQueue: z.array(CropWorkSchema).max(7).optional(),

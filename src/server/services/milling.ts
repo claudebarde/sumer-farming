@@ -106,9 +106,14 @@ export const startMilling = (database: Database, input: Extract<GameCommand, { t
       }
       const fromFarm = Math.min(remaining, stored);
       if (fromFarm > 0) await tx.update(farmInventory).set({ quantity: stored - fromFarm }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "barley")));
+      const job = { preparation, buildingId: mill.id, recipe: input.recipe, worker: input.worker ?? "farmer" as const, barley: recipe.barley, output: recipe.output,
+        startedAt: new Date(startsAt).toISOString(), completesAt: new Date(startsAt + recipe.durationMs).toISOString() };
+      // Promote a saved donkey job when the farmer starts in the other mill.
+      // Keep the existing slot format for single jobs and older saves.
       const [updated] = await tx.update(farms).set({
-        milling: { preparation, buildingId: mill.id, recipe: input.recipe, worker: input.worker ?? "farmer", barley: recipe.barley, output: recipe.output,
-          startedAt: new Date(startsAt).toISOString(), completesAt: new Date(startsAt + recipe.durationMs).toISOString() },
+        milling: job,
+        production: { ...snapshot.farm.production,
+          ...(snapshot.farm.milling?.worker === "donkey" ? { donkeyMilling: snapshot.farm.milling } : {}) },
         ...(fromHands > 0 ? { carriedItemKey: carried!.quantity === fromHands ? null : "barley" as const,
           carriedItemQuantity: carried!.quantity - fromHands, carriedItemExpiresAt: carried!.quantity === fromHands ? null : new Date(carried!.expiresAt!) } : {}),
         version: sql`${farms.version} + 1`, updatedAt: new Date(now)

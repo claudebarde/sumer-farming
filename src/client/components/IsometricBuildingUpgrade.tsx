@@ -1,3 +1,4 @@
+import { millingJobForBuilding } from "../../game-data/millingJobs";
 import { useRef, useState } from "react";
 import { match } from "ts-pattern";
 import type { FarmSnapshot } from "../../schemas/farm";
@@ -52,7 +53,7 @@ export default function IsometricBuildingUpgrade({ snapshot, buildingId, now, on
     <ProductionProgress job={active} now={now} label={`${name} upgrade progress`} />
   </div>;
   if (!next || (snapshot.farm.progression?.level ?? 1) < next.estateLevel) return null;
-  if (building.type === "mill" && snapshot.farm.milling?.buildingId === buildingId) return null;
+  if (building.type === "mill" && millingJobForBuilding(snapshot.farm, buildingId)) return null;
   if (building.type === "breadOven" && snapshot.farm.production.baking[buildingId]) return null;
   if (building.type === "brewery" && building.beerReadyAt && Date.parse(building.beerReadyAt) > now) return null;
   return <>

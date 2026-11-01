@@ -1,3 +1,4 @@
+import { millingJobForBuilding } from "../../../game-data/millingJobs";
 import { barleyHasExpired, barleyHarvestYield, BARLEY_WITHERING_MS, BARLEY_CLEARING_MS } from "../../../game-core/farm/barleyDecay";
 import { countdownLabel } from "../../components/countdownLabel";
 import type { FarmSnapshot } from "../../../schemas/farm";
@@ -49,7 +50,7 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
     if (Date.parse(building.completesAt) > now) details.push("Under construction");
     else if (building.type === "oilMill") details.push(`${building.emptyBeerJars}/3 empty jars`);
     else if (building.type === "mill") {
-      const job = snapshot.farm.milling;
+      const job = millingJobForBuilding(snapshot.farm, building.id);
       if (job?.buildingId === building.id && Date.parse(job.startedAt) > now) details.push("Collecting barley…");
       const bags = snapshot.farm.millGoods.pending[building.id];
       if (bags?.flour) details.push(`${bags.flour} flour ${bags.flour === 1 ? "bag" : "bags"} ready`);

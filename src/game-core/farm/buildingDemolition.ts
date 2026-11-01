@@ -1,3 +1,4 @@
+import { millingJobForBuilding } from "../../game-data/millingJobs";
 import type { FarmSnapshot } from "../../schemas/farm";
 import { activeBuildingUpgrade } from "../../game-data/buildingUpgrades";
 import { estateResourceCapacity } from "../../game-data/storage";
@@ -19,7 +20,7 @@ export const buildingDemolitionReason = (snapshot: FarmSnapshot, buildingId: str
   // Pending journeys may refer to a source, destination or route around buildings.
   // After preparation the donkey works in place: protect its mill, not unrelated buildings.
   if (farmerProductionJob(farm, now) || farm.production.planting || farm.production.delivery || farm.millGoods.delivery || farm.production.materialDelivery ||
-    farm.production.porter?.job || farm.gathering || farm.fishing || farm.milling?.buildingId === buildingId ||
+    farm.production.porter?.job || farm.gathering || farm.fishing || millingJobForBuilding(farm, buildingId) ||
     Object.keys(farm.production.baking).length > 0 || (farm.production.cropWork && !farm.production.cropWork.settled))
     return "Finish active work and deliveries first.";
   if (building.beerReadyAt || (farm.production.pending[buildingId]?.quantity ?? 0) > 0 ||

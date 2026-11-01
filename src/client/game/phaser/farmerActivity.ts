@@ -1,3 +1,4 @@
+import { farmerMillingJob } from "../../../game-data/millingJobs";
 import { currentCropWork } from "../../../game-data/cropWork";
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { farmerProductionJob } from "../../../game-core/farm/farmerProduction";
@@ -26,7 +27,10 @@ export const farmerActivity = (snapshot: FarmSnapshot, now: number, walking = fa
   if (farm.millGoods.delivery) return activity("Storing", "flour");
   if (farm.production.delivery) return activity("Storing", farm.production.delivery.itemKey);
   const job = farmerProductionJob(farm, now);
-  if (job?.type === "milling") return farm.milling && Date.parse(farm.milling.startedAt) > now ? activity("Collecting", farm.milling.recipe === "oil" ? "sesame" : "barley") : activity("Milling", farm.milling?.recipe === "oil" ? "oil" : "flour");
+  if (job?.type === "milling") {
+    const milling = farmerMillingJob(farm, now);
+    return milling && Date.parse(milling.startedAt) > now ? activity("Collecting", milling.recipe === "oil" ? "sesame" : "barley") : activity("Milling", milling?.recipe === "oil" ? "oil" : "flour");
+  }
   if (job?.type === "baking") return activity("Baking", "bread");
   if (job?.type === "brewing") return activity("Brewing", "beer");
   if (farm.fishing) return activity("Fishing", "fish");

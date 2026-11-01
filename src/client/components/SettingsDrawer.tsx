@@ -15,7 +15,7 @@ export default function SettingsDrawer({ onOpen }: { readonly onOpen: () => void
       <Tooltip.Trigger asChild>
         <Dialog.Trigger asChild>
           <button className={`${styles.manageButton} ${actionStyles.button} ${styles.manageIconButton}`} aria-label="Settings">
-            <BuildingActionIcon kind="settings" />
+            <BuildingActionIcon kind="settings" /><span className={styles.controlLabel}>Settings</span>
           </button>
         </Dialog.Trigger>
       </Tooltip.Trigger>

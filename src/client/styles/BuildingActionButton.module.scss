@@ -5,6 +5,13 @@
   gap: 12px;
   text-align: left;
 }
+.button.danger:not(:disabled) {
+  background: #c58a70;
+  border-color: #985b46;
+  color: #392518;
+
+  &:hover:not(:disabled) { background: #b97a60; }
+}
 .icon {
   position: relative;
   display: inline-block;

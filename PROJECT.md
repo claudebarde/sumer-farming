@@ -44,6 +44,11 @@ rules and saved-job compatibility remain in use.
 
 ## Interface styling
 
+Destroy building buttons use the shared `BuildingActionButton` danger style:
+muted terracotta `#C58A70`, border `#985B46`, dark brown text, and hover
+`#B97A60`. Apply it in building popups and demolition confirmations; preserve
+the shared disabled appearance while a request is pending.
+
 Keep popup text to a minimum. Show only information needed to make the current
 decision or understand a blocker; avoid routine explanatory sentences beneath
 action buttons. Keep detailed rules in the game rules documentation.
@@ -1899,3 +1904,19 @@ its upper artwork. Reuse this rule when extending the eye toggle to more buildin
 The clickable footprint has a faint yellow fill and thin yellow outline, brighter
 on hover. Draw it on the ground layer and reuse the exact input polygon. Remove
 it with the transparency state; it must not cover neighbouring objects.
+
+## Estate level icon standard
+
+Discuss and approve a top-bar icon whenever planning a new estate level. Reuse
+existing artwork for an item, building or animal unlocked or upgraded at that
+level. Record the selection in `game-progression.md` and update `FarmLevelIcon.tsx`.
+The production icon follows the saved level; it must not cycle through previews.
+
+## Concurrent milling jobs
+
+Use `game-data/millingJobs.ts` selectors for building, worker, reservation and
+completion checks. `farm.milling` retains the original saved-job format; when
+a farmer starts a second mill while a donkey is working, the donkey job moves
+to `production.donkeyMilling` and the farmer job uses `farm.milling`. Both are
+server-timed jobs. Never test the original slot alone to infer whether a mill
+or donkey is busy. The farmer is required during either job’s preparation.
