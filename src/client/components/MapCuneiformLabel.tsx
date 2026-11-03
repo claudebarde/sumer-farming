@@ -22,7 +22,11 @@ const labels: Readonly<Record<string, string>> = {
   Rocks: "𒎎",
   Bush: "𒄉",
   "Date palm": "𒊷",
-  "Merchant boat": "𒈣 𒁮𒃼𒀀"
+  "Merchant boat": "𒈣 𒁮𒃼𒀀",
+  "Bread basket": "𒃻𒃻",
+  "Mill bags": "𒍥𒃻𒄯𒊏",
+  "Oil mill": "𒂍𒄯𒉌𒄑𒀀",
+  "Small shrine": "𒀊𒌉"
 };
 
 export default function MapCuneiformLabel({ element }: { element: string }) {

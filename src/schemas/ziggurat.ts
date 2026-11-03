@@ -13,11 +13,13 @@ export const ZigguratSchema = z.object({
   z.object({ type: z.literal("building"), stage: z.number().int().min(0).max(3), startedAt: z.iso.datetime(), completesAt: z.iso.datetime() }),
   z.object({ type: z.literal("complete"), completedAt: z.iso.datetime() })
  ]),
+ participantCount: z.number().int().nonnegative().default(0),
  eligibleCount: z.number().int().nonnegative(), canParticipate: z.boolean(), interested: z.boolean(),
  supporters: z.array(z.object({ slot: z.number().int(), name: z.string(), isYou: z.boolean() })),
  stock: materials, funded: materials, serverTime: z.iso.datetime(),
  deliveries: z.array(z.object({ id: z.uuid(), slot: z.number().int().min(1).max(10), startsAt: z.iso.datetime(), completesAt: z.iso.datetime() })),
- contributionPoints: z.number().int().nonnegative()
+ contributionPoints: z.number().int().nonnegative(),
+ interestVisits: z.array(z.object({ slot: z.number().int().min(1).max(10), startsAt: z.iso.datetime(), completesAt: z.iso.datetime() })).optional()
 });
 export const ZigguratDonationResponseSchema = z.object({ data: ZigguratSchema, receipt: ZigguratReceiptSchema });
 export type Ziggurat = z.infer<typeof ZigguratSchema>;

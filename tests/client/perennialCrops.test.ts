@@ -68,11 +68,11 @@ describe("date palm presentation and rules", () => {
     expect(growing).toContain('aria-label="Dates ripening"');
     expect(growing).toContain('value="50"');
     expect(growing).toContain("12h 0m remaining");
-    expect(growing).not.toContain("Harvest dates</span>");
-    expect(render(mature)).toContain("Harvest dates</span>");
+    expect(growing).not.toContain("Harvest</span>");
+    expect(render(mature)).toContain("Harvest</span>");
     expect(render(mature)).toContain("baskets-dates.webp");
     expect(render(mature, snapshot(4))).toContain("No storage space");
-    expect(render(mature, snapshot(4))).not.toContain("Harvest dates</span>");
+    expect(render(mature, snapshot(4))).not.toContain("Harvest</span>");
     const plan = planCropWork(s, s.crops[0]!, "datePalm", "harvest", mature)!;
     expect(plan.outbound.at(-1)).toEqual({ column: 4, row: 8 });
     expect(plan.inbound[0]).toEqual({ column: 4, row: 8 });

@@ -1,7 +1,23 @@
 import { WORKER_MOVE_DURATION_PER_TILE } from "../../src/game-data/movement";
 import { expect, it } from "vitest";
-import { deliveryPlan, deliveryPose, DONKEY_HITCH, ZIGGURAT_DROPOFF } from "../../src/game-data/zigguratDelivery";
+import { deliveryPlan, deliveryPose, interestPlan, interestPose, DONKEY_HITCH, ZIGGURAT_DROPOFF } from "../../src/game-data/zigguratDelivery";
 import { neighbourhoodMarket, neighbourhoodRoads } from "../../src/game-data/neighbourhoodGeometry";
+it("walks every neighbour to the tablet, pauses exactly three seconds and returns home", () => {
+  for (let slot = 1; slot <= 10; slot++) {
+    const plan = interestPlan(slot);
+    const home = deliveryPlan(slot).home;
+    expect(interestPose(plan, 0).position).toEqual(home);
+    expect(interestPose(plan, plan.travelMs).waiting).toBe(true);
+    expect(interestPose(plan, plan.travelMs + 2999).waiting).toBe(true);
+    expect(interestPose(plan, plan.travelMs + 3000).waiting).toBe(false);
+    expect(interestPose(plan, plan.travelMs + 100).position).toEqual({ column: -3, row: 1.65 });
+    expect(interestPose(plan, plan.duration + 100000).position).toEqual(home);
+    for (let i = 1; i < plan.route.length; i++) {
+      const a = plan.route[i-1]!, b = plan.route[i]!;
+      expect(Math.abs(a.column-b.column)+Math.abs(a.row-b.row)).toBeLessThanOrEqual(1);
+    }
+  }
+});
 it("routes every plot to the hitch and worksite without crossing the market or ziggurat",()=>{
  for(let slot=1;slot<=10;slot++){
   const plan=deliveryPlan(slot);

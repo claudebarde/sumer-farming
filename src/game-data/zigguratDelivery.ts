@@ -54,6 +54,27 @@ const samplePath = (route: readonly DeliveryCell[], steps: number) => {
   return {position:{column:from.column+(to.column-from.column)*fraction,row:from.row+(to.row-from.row)*fraction},from,to,
     moving:steps>0 && steps<route.length-1, travelledTiles:t};
 };
+
+/** Walk directly from home along the approved access roads to the site's tablet. */
+const TABLET_APPROACH_DISTANCE = 0.35;
+export const interestPlan = (slot: number) => {
+  const delivery = deliveryPlan(slot);
+  const route = [...delivery.legs[3]!.route, { column: -3, row: 2 - TABLET_APPROACH_DISTANCE }];
+  const travelMs = (route.length - 2 + TABLET_APPROACH_DISTANCE) * DELIVERY_STEP_MS;
+  return { route, travelMs, duration: travelMs * 2 + 3000 };
+};
+export const interestPose = (plan: ReturnType<typeof interestPlan>, elapsed: number) => {
+  const waiting = elapsed >= plan.travelMs && elapsed < plan.travelMs + 3000;
+  const returning = elapsed >= plan.travelMs + 3000;
+  // Sample by distance, including the short final approach to the tablet.
+  const distance = Math.max(0, Math.min(plan.travelMs / DELIVERY_STEP_MS,
+    (returning ? plan.duration - elapsed : elapsed) / DELIVERY_STEP_MS));
+  const roadSteps = plan.route.length - 2;
+  const steps = distance > roadSteps ? roadSteps + (distance - roadSteps) / TABLET_APPROACH_DISTANCE : distance;
+  const pose = samplePath(plan.route, waiting ? plan.route.length - 1 : steps);
+  return { ...pose, from: returning ? pose.to : pose.from, to: returning ? pose.from : pose.to,
+    moving: !waiting && elapsed > 0 && elapsed < plan.duration, waiting };
+};
 export const deliveryPose = (plan: ReturnType<typeof deliveryPlan>, elapsed: number) => {
   let remaining=Math.max(0,elapsed), leg=plan.legs[plan.legs.length-1]!;
   for (const candidate of plan.legs) { leg=candidate; if(remaining<candidate.duration) break; remaining-=candidate.duration; }

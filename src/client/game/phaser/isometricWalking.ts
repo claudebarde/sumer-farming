@@ -1,3 +1,5 @@
+import { findRoadPreferredPath } from "../../../game-core/farm/roadPath";
+import { roadIsComplete } from "../../../game-data/roads";
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { INITIAL_FARM_CONFIG } from "../../../game-data/initialFarm";
 import { buildingAt, farmOrigin, insideWorld, presentCanals, sameCell } from "./isometricFarm";
@@ -16,17 +18,23 @@ export const previewWalkable = (snapshot: FarmSnapshot, cell: IsoCell, now: numb
 
 export const previewWalkPath = (snapshot: FarmSnapshot, start: IsoCell, target: IsoCell, now: number, avoid?: IsoCell): readonly IsoCell[] => {
   if (!previewWalkable(snapshot, target, now)) return [];
+  const bounds = INITIAL_FARM_CONFIG.worldBounds;
+  const local = (cell: IsoCell) => ({ column: cell.column - bounds.minimumColumn, row: cell.row - bounds.minimumRow });
   const key = (cell: IsoCell) => `${cell.column}:${cell.row}`;
-  const queue: { cell: IsoCell; path: readonly IsoCell[] }[] = [{ cell: start, path: [] }];
-  const seen = new Set([key(start)]);
-  for (let i = 0; i < queue.length; i++) {
-    const { cell, path } = queue[i]!;
-    if (sameCell(cell, target)) return path;
-    for (const [dc, dr] of [[1, 0], [0, 1], [-1, 0], [0, -1]] as const) {
-      const next = { column: cell.column + dc, row: cell.row + dr };
-      if (seen.has(key(next)) || (avoid && sameCell(next, avoid)) || !previewWalkable(snapshot, next, now)) continue;
-      seen.add(key(next)); queue.push({ cell: next, path: [...path, next] });
+  const blocked = new Set<string>();
+  const roads = new Set(snapshot.farm.roads.filter(r => roadIsComplete(r, now)).map(r => key(local(r))));
+  for (let column = bounds.minimumColumn; column <= bounds.maximumColumn; column++) {
+    roads.add(key(local({ column, row: INITIAL_FARM_CONFIG.roadRow })));
+    for (let row = bounds.minimumRow; row <= bounds.maximumRow; row++) {
+      const cell = { column, row };
+      if (!previewWalkable(snapshot, cell, now) || (avoid && sameCell(cell, avoid))) blocked.add(key(local(cell)));
     }
   }
-  return [];
+  // Preserve the caller contract: omit the starting tile from the shared route.
+  return findRoadPreferredPath(local(start), local(target), {
+    columns: bounds.maximumColumn - bounds.minimumColumn + 1,
+    rows: bounds.maximumRow - bounds.minimumRow + 1
+  }, blocked, roads)?.slice(1).map(cell => ({
+    column: cell.column + bounds.minimumColumn, row: cell.row + bounds.minimumRow
+  })) ?? [];
 };

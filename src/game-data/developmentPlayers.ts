@@ -2,7 +2,8 @@
 export const DEVELOPMENT_PLAYERS = [
   { key: "primary", id: "00000000-0000-4000-8000-000000000001", displayName: "Development Player" },
   { key: "second", id: "00000000-0000-4000-8000-000000000002", displayName: "Test Player 2" },
-  { key: "onboarding", id: "00000000-0000-4000-8000-000000000003", displayName: "Onboarding playthrough" }
+  { key: "onboarding", id: "00000000-0000-4000-8000-000000000003", displayName: "Onboarding playthrough" },
+  { key: "third", id: "00000000-0000-4000-8000-000000000004", displayName: "Test Player 3" }
 ] as const;
 
 export const resolveDevelopmentPlayer = (key: string | undefined) =>

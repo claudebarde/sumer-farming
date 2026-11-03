@@ -231,6 +231,12 @@ row is highlighted and ties share a rank. Sample farms never enter the rankings.
 Refresh reloads saved standings; no rewards or penalties are attached.
 The existing market leaderboard retains its neighbourhood/global tabs.
 
+Nearby neighbours in the shared market greet you with a brief **Hello!** bubble.
+If the entrance tile is occupied when you arrive, you appear on the next free
+tile along the market road. Farmers already there stay in place.
+The greeting does not interrupt walking or trading, and does not repeat while
+you remain together. Each player sees the greeting above the other farmer.
+
 The market also has ten decorative bushes and ten rocks in fixed scattered
 positions clear of roads and stalls. Market and neighbourhood views share the
 farm's soft, randomly arriving clouds, crossing over two minutes with up to three
@@ -564,7 +570,11 @@ New deposits and purchases fill warehouse space first, then farm space. Spending
 
 Storage deliveries animate visits to available buildings in this order: barley goes to the granary, then warehouse, then farm; flour, groats, bread, beer, reed and clay go to the warehouse, then farm. Only completed buildings contribute storage. Split loads continue to the next building, with remaining production cargo retained between stops and across reloads. Fish remains farm-only. References below to delivering goods to the farm mean estate storage, using these priorities.
 
-Starting a reed or clay gathering action reserves one storage slot for that material during gathering. Gathering is unavailable when no unreserved storage slot is free. Gathering completes from saved time even while away, leaves one material in the farmer's hands, and releases the reservation; it does not credit inventory automatically. In the isometric farm, click riverbank reeds to **Collect reeds**, or empty ground immediately above the river to **Collect clay**. The farmer approaches the source and uses harvesting movements for reeds or the pickaxe for clay. Once finished, select any empty ground tile (arable or non-arable) to **Drop reeds** or **Drop clay**; he walks there before the visual drop. Materials can be picked up again, and dropped piles count toward construction materials. Material drops never expire and cannot occupy water, roads, crops, canals, scenery, buildings or another ground item, or lie outside the map. Barley drops still require arable ground. Resources shows only the stored total, without an outside counter. Construction consumes stored materials first, then ground piles. All current buildings, including the warehouse, fit within the initial 6-reed and 6-clay limits. The old flat interface still directs a deposit after gathering; isometric gathering leaves the drop decision to the player.
+Click riverbank reeds to **Collect reeds**, or empty non-arable ground immediately above the river to **Collect clay**. Choose a quantity with **− / +**, then select **Collect clay** or **Collect reeds**. The available storage space is shown above the controls; **Cancel** closes the selection before collection starts. The farmer visits the source once and gathers the selected amount continuously, taking **10 seconds per unit**, plus travel and unloading time. The lower panel shows the collected quantity, progress and remaining time. Collection gives no points.
+
+The whole batch's destination slots are reserved when confirmed. The farmer automatically carries the load to the **warehouse first**, then the **farm** for any overflow, without returning to the source. Only completed warehouses provide space. Each deposit credits only its destination, exactly once. Gathering and delivery continue from their saved schedule while the game is closed or the tab is hidden; reloading neither restarts the job nor duplicates materials. The farmer is busy until the delivery is finished.
+
+Materials already carried from an older gathering job or picked up from the ground can still be stored or dropped manually. Dropped materials do not expire and count toward construction materials. Drops cannot occupy water, roads, crops, canals, scenery, buildings or another kind of ground item, or lie outside the map. Barley drops still require arable ground. Resources shows the stored total. Construction consumes stored materials first, then ground piles.
 
 When all material storage slots are occupied or reserved, the ground popup disables clay collection and displays **Clay storage is full**, and the river-reeds popup disables reed collection and displays **Reed storage is full**. Each check uses that resource's independent capacity, including completed warehouse capacity.
 
@@ -1215,6 +1225,12 @@ The approved initial ziggurat donation site and interest popup are displayed in
 the neighbourhood. The map shows the artwork matching saved construction progress; the construction-stage test selector is removed. Interest is saved on the server, shared with current
 neighbours and counted once per player. Only level-10 neighbours can register
 or withdraw interest; withdrawal is available only before fundraising opens.
+Checking **I’m interested** saves immediately and shows your neighbourhood farmer
+walking to the site's tablet, facing it for three seconds, then walking home.
+Everyone viewing the neighbourhood sees this cosmetic journey. It does not occupy
+your working farmer or delay fundraising. Reloads resume an ongoing visit rather
+than restarting it; finished visits are not replayed. Withdrawing interest ends
+the presentation, and a material delivery takes priority over the same farmer's visit.
 Three interested level-10 neighbours open the fundraising view immediately with no
 48-hour announcement. The counter uses all current level-10 neighbours as its
 denominator. The view shows 30 clay and 15 reeds required for foundations and
@@ -1234,7 +1250,13 @@ the remaining time. Each completed stage immediately opens fundraising for the n
 | Upper terraces | 60 clay, 24 bread, 18 beer | 18 hours |
 | Summit sanctuary | 30 clay, 12 baskets of dates, 250 shekels | 24 hours |
 
-Costs stay fixed regardless of neighbourhood size. Mixed donations are accepted
+Costs stay fixed regardless of neighbourhood size. The fundraising popup shows
+an optional equal-share reference for each material: the full current stage cost
+divided by current level-10 neighbours who expressed interest or have contributed
+at any stage, counting each neighbour once. Joining participants update the split;
+existing donations do not reduce this reference. Uneven shares are approximate,
+shown to one decimal place. This is guidance, not a quota or reserved share.
+Mixed donations are accepted
 atomically and capped to what the current stage still needs. Barley donations
 leave at least one stored barley across the estate for planting. Carried barley
 and growing fields do not count. Contribution points per unit are clay/reeds 2,
@@ -1309,8 +1331,12 @@ There is no minimum sesame reserve: its entire stock can be spent.
 At level 10, buy sesame at the produce and provisions stand for 3 shekels per basket,
 or sell stored sesame for 1 shekel per basket. All stored sesame may be sold; no
 seed reserve is required. Purchases require available warehouse capacity.
-The **Plant sesame** action appears only when the estate has stored sesame.
-Choose it on empty irrigated arable ground, select multiple fields, then confirm.
+Before level 10, arable ground keeps the direct **Plant barley** button.
+From level 10, a **Plant** dropdown consistently offers
+**Barley** and **Sesame**, each opening its existing multiple-field selector.
+Unavailable crops remain visible as disabled options, including Sesame when
+there is no stored basket to plant. Date palm planting stays separate.
+Select multiple fields on empty irrigated arable ground, then confirm.
 The selection limit matches barley's happiness-based field limit and cannot exceed
 stored sesame. Each field costs one basket; all selected seeds are deducted once
 when the queue is confirmed. No sesame reserve is required. The farmer collects
@@ -1386,3 +1412,39 @@ representing a milestone unlocked at that level. Level 10 uses the oil jar.
 From level 10, buy and sell oil at the produce and provisions stand for 8 shekels per jar. Purchased oil goes into the warehouse (capacity: 10); space reserved for incoming deliveries is unavailable for purchases. Sales include the jar and do not return an empty jar. Only stored oil can be sold. Player-market oil listings are not available yet.
 
 When bread, beer, flour, groats or oil finishes producing while you are viewing the farm, its output pile shows a rising points number for 1.5 seconds: +40 for bread or beer, +30 for farmer milling and +35 for donkey milling. These are the batch’s existing points, not extra rewards. Reloading or returning after time away does not replay old completion animations.
+
+Date harvesting shows the same 1.5-second rising points animation above the palm at harvest completion: **+20**. This displays the existing harvest reward, not an additional award; delivery does not repeat it, and reloads or time away do not replay old harvests.
+
+### Farmer road preference
+
+For travel around the farm, including manual walking, market trips, building
+approaches and deliveries, the farmer prefers completed roads over open ground,
+even when the road route is longer. Routes minimize off-road steps first, then
+distance. He can still leave roads to reach fields, resources or destinations
+without road access. Buildings, scenery, water and other blocked tiles remain
+impassable; unfinished roads are not shortcuts.
+
+### Gazelles — decorative wildlife
+
+Five adult gazelles and two hornless youngsters visit the inaccessible southern
+riverbank automatically at every farm level. The first visit begins after a random
+5–15 seconds in the farm scene. Visits last 1–2 minutes, with random 1–3 minute
+quiet intervals. The herd walks in from the left edge of the southern riverbank,
+fading in as it enters. After grazing and wandering, it walks right and fades
+out at the opposite edge. Travel is additional to the 1–2 minute grazing visit.
+The whole formation moves together during arrival and departure, using clear
+lanes that avoid rocks and bushes. No animal jumps back to its starting position.
+
+They keep spacing while travelling and grazing, reserving clear walking routes
+and grazing independently when a route is blocked. Each youngster stays near an
+adult; both constrain their routes so neither leaves the other behind. Youngsters
+use their own smaller walking and grazing artwork.
+
+Visits pause when the tab is hidden or the farm scene is inactive; missed visits
+are not replayed. Returning to a newly created scene starts a fresh schedule.
+Reduced motion keeps the herd in its standing pose with gentle fades instead of travel. There is no preview control
+or automatic camera movement. Wildlife does not affect resources, points or farm
+actions and cannot be hunted or selected.
+
+Walking uses left/right paths matching the available artwork. Rear-facing walking
+sprites are needed before enabling full diagonal roaming.

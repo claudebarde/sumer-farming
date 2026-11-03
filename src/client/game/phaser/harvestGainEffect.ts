@@ -8,9 +8,9 @@ import { isoPoint } from "./isometricProjection";
 export const HARVEST_GAIN_DURATION = 1500;
 
 /** The saved harvest timeline supplies the field; scoring is per completed action. */
-export const sesameHarvestGains = (job: CropWork | null | undefined): readonly HarvestGain[] =>
-  job?.cropKey === "sesame" && job.action === "harvest" && job.quantity > 0 && job.inbound[0]
-    ? [{ cell: job.inbound[0], at: job.workEndsAt, quantity: ACTION_POINTS.harvestSesame }] : [];
+export const cropHarvestGains = (job: CropWork | null | undefined): readonly HarvestGain[] =>
+  job && job.action === "harvest" && job.quantity > 0 && job.inbound[0]
+    ? [{ cell: job.inbound[0], at: job.workEndsAt, quantity: job.cropKey === "sesame" ? ACTION_POINTS.harvestSesame : ACTION_POINTS.harvestDates }] : [];
 
 /** Only newly observed completions; never replay an offline backlog. */
 export const recentHarvestGains = (gains: readonly HarvestGain[], previous: number | null, now: number) =>
@@ -45,8 +45,8 @@ export class HarvestGainEffect {
     if (!visible) { this.reset(); return; }
     const gains = recentHarvestGains([
       ...(isometricHarvestPose(snapshot, now)?.gains ?? []).map(gain => ({ ...gain, quantity: ACTION_POINTS.harvestBarley })),
-      ...sesameHarvestGains(snapshot.farm.production.cropWork),
-      ...(snapshot.farm.production.cropWorkQueue ?? []).flatMap(sesameHarvestGains)
+      ...cropHarvestGains(snapshot.farm.production.cropWork),
+      ...(snapshot.farm.production.cropWorkQueue ?? []).flatMap(cropHarvestGains)
     ], this.previous, now);
     this.previous = now;
     this.effects.push(...gains.map(gain => ({ gain, elapsed: 0, displayed: false })));

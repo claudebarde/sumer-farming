@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { Dialog } from "radix-ui";
-import { Cross2Icon } from "@radix-ui/react-icons";
+import { randomId } from "../randomId";
+import { useEffect, useId, useRef, useState } from "react";
+import { Checkbox, Dialog } from "radix-ui";
+import { CheckIcon, Cross2Icon } from "@radix-ui/react-icons";
 import { ZigguratDonationCommandSchema, type Ziggurat, type ZigguratDonationCommand } from "../../schemas/ziggurat";
 import { ZIGGURAT_STAGES, ZIGGURAT_RESOURCES, ZIGGURAT_LABELS, emptyMaterials, type ZigguratResource } from "../../game-data/ziggurat";
 import ProductionProgress from "./ProductionProgress";
@@ -18,6 +19,7 @@ export default function ZigguratDialog({ open, onOpenChange, farmId, onState }: 
   onState: (data: Ziggurat) => void;
 }) {
   const storageKey = `ziggurat-donation:${farmId}`;
+  const interestId = useId();
   const [quantities, setQuantities] = useState(emptyMaterials);
   const [unconfirmed, setUnconfirmed] = useState<ZigguratDonationCommand | null>(() => {
     try { const saved = ZigguratDonationCommandSchema.safeParse(JSON.parse(sessionStorage.getItem(storageKey) ?? "null")); return saved.success ? saved.data : null; }
@@ -49,7 +51,7 @@ export default function ZigguratDialog({ open, onOpenChange, farmId, onState }: 
       }
     };
     void refresh();
-    const interval = window.setInterval(() => void refresh(), 5000);
+    const interval = window.setInterval(() => void refresh(), 1000);
     document.addEventListener("visibilitychange", refresh);
     return () => { disposed = true; request.current?.abort(); window.clearInterval(interval); document.removeEventListener("visibilitychange", refresh); };
   }, [onState]);
@@ -60,7 +62,7 @@ export default function ZigguratDialog({ open, onOpenChange, farmId, onState }: 
     const controller = new AbortController(); request.current = controller;
     try {
       const next = await requestZiggurat(AbortSignal.any([controller.signal, AbortSignal.timeout(10000)]), !data.interested);
-      if (!controller.signal.aborted) { setData(next); onState(next); }
+      if (!controller.signal.aborted) { setData(next); onState(next); if (!data.interested) onOpenChange(false); }
     } catch (cause) {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Could not register interest.");
     } finally { submitting.current = false; setPending(false); }
@@ -75,7 +77,7 @@ export default function ZigguratDialog({ open, onOpenChange, farmId, onState }: 
     submitting.current = true; setPending(true); setError(null); setReceipt(null);
     request.current?.abort();
     const controller = new AbortController(); request.current = controller;
-    const command = unconfirmed ?? { idempotencyKey: crypto.randomUUID(), stage: data.state.type === "fundraising" ? data.state.stage : 0, ...quantities };
+    const command = unconfirmed ?? { idempotencyKey: randomId(), stage: data.state.type === "fundraising" ? data.state.stage : 0, ...quantities };
     try {
       // Keep the same receipt key across uncertain network failures and reloads.
       rememberDonation(command);
@@ -120,11 +122,14 @@ export default function ZigguratDialog({ open, onOpenChange, farmId, onState }: 
             <strong aria-live="polite">{data.supporters.length} of {data.eligibleCount} neighbours interested</strong>
             <p>3 interested neighbours are needed to open fundraising.</p>
             {data.supporters.length > 0 && <p>{data.supporters.map(member => member.name + (member.isYou ? " (You)" : "")).join(", ")}</p>}
-            <button className={actions.button} disabled={!data.canParticipate || pending} aria-pressed={data.interested}
-              onClick={() => void toggleInterest()}>
-              <BuildingActionIcon kind={data.interested ? "cancel" : "confirm"} />
-              <span>{pending ? "Saving…" : data.interested ? "Withdraw interest" : "I’m interested"}</span>
-            </button>
+            <div className={styles.interestChoice} aria-busy={pending}>
+              <Checkbox.Root id={interestId} className={styles.interestCheckbox} checked={data.interested}
+                disabled={!data.canParticipate || pending} onCheckedChange={() => void toggleInterest()}>
+                <Checkbox.Indicator><CheckIcon /></Checkbox.Indicator>
+              </Checkbox.Root>
+              <label htmlFor={interestId}>I’m interested</label>
+              {pending && <span role="status">Saving…</span>}
+            </div>
             {!data.canParticipate && <InfoAlert>Reach level 10 to take part.</InfoAlert>}
             <small>Expressing interest costs nothing. Donate during construction to earn points and unlock festival access.</small>
           </div>}
@@ -136,12 +141,16 @@ export default function ZigguratDialog({ open, onOpenChange, farmId, onState }: 
           {data?.state.type === "fundraising" && <section className={styles.interest}>
             <h3>Contribute to the fundraising</h3>
             <p>{stage.name}</p>
+            {data.participantCount > 0 && <small>Equal split · {data.participantCount} participants · optional</small>}
             {ZIGGURAT_RESOURCES.filter(key => stage.materials[key] > 0).map(item => ({ item, name: ZIGGURAT_LABELS[item] })).map(resource =>
               <div className={styles.material} key={resource.item}>
                 <BuildingActionIcon kind={resource.item} />
                 <div><strong>{resource.name} · {data.funded[resource.item]}/{stage.materials[resource.item]}</strong>
                   <progress aria-label={`${resource.name} donated`} max={stage.materials[resource.item]} value={data.funded[resource.item]} />
-                  <p>You have {data.stock[resource.item]}</p></div>
+                  <div className={styles.materialMeta}>
+                    <span>You have {data.stock[resource.item]}</span>
+                    {data.participantCount > 0 && <span>Equal share <strong>{stage.materials[resource.item] % data.participantCount !== 0 ? "≈" : ""}{new Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format(stage.materials[resource.item] / data.participantCount)}</strong></span>}
+                  </div></div>
                 {data.canParticipate && <label>Donate
                   <input type="number" aria-label={`${resource.name} to donate`} min={0} max={materialLimit(resource.item)} step={1}
                     disabled={pending || unconfirmed !== null} value={quantities[resource.item]}

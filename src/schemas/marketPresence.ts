@@ -20,4 +20,4 @@ export const MarketVisitorSchema = z.object({
   playerId: z.uuid(), name: z.string().max(50), position: MarketPositionSchema
 });
 export type MarketVisitor = z.infer<typeof MarketVisitorSchema>;
-export const MarketPresenceResponseSchema = z.object({ visitors: z.array(MarketVisitorSchema).max(9) });
+export const MarketPresenceResponseSchema = z.object({ visitors: z.array(MarketVisitorSchema).max(9), entryPosition: MarketPositionSchema.optional() });

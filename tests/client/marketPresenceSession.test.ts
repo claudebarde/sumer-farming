@@ -5,9 +5,23 @@ import type { MarketPresenceCommand, MarketVisitor } from "../../src/schemas/mar
 afterEach(() => { vi.useRealTimers(); });
 const position = { column: 0, row: 5 };
 describe("market visit lifecycle", () => {
+  it("applies the assigned entry position before sending heartbeats", async () => {
+    vi.useFakeTimers();
+    let current = position;
+    const assigned = { column: 1, row: 5 };
+    const send = vi.fn(async () => ({ visitors: [], entryPosition: assigned }));
+    const place = vi.fn((next: typeof position) => { current = next; });
+    const session = createMarketPresenceSession({ eligible: () => true, position: () => current, place, receive: vi.fn(), send });
+    session.start();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(place).toHaveBeenCalledTimes(1);
+    expect(current).toEqual(assigned);
+    expect(send).toHaveBeenLastCalledWith(expect.objectContaining({ type: "heartbeat", position: assigned }), expect.any(AbortSignal));
+    session.stop();
+  });
   it("joins once, heartbeats, leaves and uses a new session on return", async () => {
     vi.useFakeTimers();
-    const send = vi.fn<(command: MarketPresenceCommand) => Promise<MarketVisitor[]>>(async () => []);
+    const send = vi.fn<(command: MarketPresenceCommand) => Promise<{ visitors: MarketVisitor[] }>>(async () => ({ visitors: [] }));
     const receive = vi.fn();
     let eligible = false;
     const session = createMarketPresenceSession({ eligible: () => eligible, position: () => position, receive, send });
@@ -26,16 +40,16 @@ describe("market visit lifecycle", () => {
   });
   it("does not overlap requests or render a late response after leaving", async () => {
     vi.useFakeTimers();
-    let resolve!: (visitors: MarketVisitor[]) => void;
+    let resolve!: (response: { visitors: MarketVisitor[] }) => void;
     const send = vi.fn((command: MarketPresenceCommand) => command.type === "leave"
-      ? Promise.resolve([]) : new Promise<MarketVisitor[]>(r => { resolve = r; }));
+      ? Promise.resolve({ visitors: [] }) : new Promise<{ visitors: MarketVisitor[] }>(r => { resolve = r; }));
     const receive = vi.fn();
     const session = createMarketPresenceSession({ eligible: () => true, position: () => position, receive, send });
     session.start();
     await vi.advanceTimersByTimeAsync(2000);
     expect(send).toHaveBeenCalledTimes(1);
     session.stop();
-    resolve([{ playerId: "old", name: "Old visitor", position }]);
+    resolve({ visitors: [{ playerId: "old", name: "Old visitor", position }] });
     await vi.advanceTimersByTimeAsync(2000);
     expect(receive).toHaveBeenCalledTimes(1);
     expect(receive).toHaveBeenCalledWith([]);
@@ -44,7 +58,7 @@ describe("market visit lifecycle", () => {
   it("clears stale visitors on connection failure and retries without a tight loop", async () => {
     vi.useFakeTimers();
     const receive = vi.fn();
-    const send = vi.fn<(command: MarketPresenceCommand) => Promise<readonly MarketVisitor[] | null>>(async () => { throw new Error("Offline"); });
+    const send = vi.fn<(command: MarketPresenceCommand) => Promise<{ visitors: MarketVisitor[] } | null>>(async () => { throw new Error("Offline"); });
     const session = createMarketPresenceSession({ eligible: () => true, position: () => position, receive, send });
     session.start();
     await vi.advanceTimersByTimeAsync(15000);

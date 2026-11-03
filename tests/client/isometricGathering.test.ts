@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
-import { gatherableResource, gatheringOffsetY, gatheringPath, gatheringPose } from "../../src/client/game/phaser/isometricGathering";
+import { gatherableResource, gatheringRestCell, gatheringOffsetY, gatheringPath, gatheringPose } from "../../src/client/game/phaser/isometricGathering";
 import { isometricTilePopup } from "../../src/client/game/phaser/isometricTilePopup";
 import { isoPoint } from "../../src/client/game/phaser/isometricProjection";
 const id = "00000000-0000-4000-8000-000000000001";
@@ -110,4 +110,15 @@ it("approaches reeds from upper-right and keeps the working farmer behind the pa
   const before = isoPoint(gatheringPose(s, arrival - 1, { path, startedAt: 1000 })!.visualPosition);
   const after = isoPoint(gatheringPose(s, arrival, { path, startedAt: 1000 })!.visualPosition);
   expect(Math.hypot(after.x - before.x, after.y - before.y)).toBeLessThan(1);
+});
+
+it("keeps clay carrying at the working feet position without moving the logical tile", () => {
+  const tile = { column: -1, row: 9 };
+  const working = isoPoint(tile);
+  const resting = isoPoint(gatheringRestCell(tile, "clay", false));
+  expect(resting.x).toBeCloseTo(working.x);
+  expect(resting.y).toBeCloseTo(working.y + gatheringOffsetY("clay", false));
+  expect(gatheringRestCell(tile, "clay", true)).toEqual(tile);
+  expect(gatheringRestCell(tile, "reed", false)).toEqual(tile);
+  expect(tile).toEqual({ column: -1, row: 9 });
 });

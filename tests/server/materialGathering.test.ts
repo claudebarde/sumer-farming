@@ -1,0 +1,61 @@
+import { randomUUID } from "node:crypto";
+import { eq, inArray } from "drizzle-orm";
+import { Effect } from "effect";
+import { Client } from "pg";
+import { afterAll, afterEach, beforeAll, expect, it } from "vitest";
+import { createDatabase } from "../../src/server/db/client";
+import { farmBuildings, farmInventory, farmObjects, farms, players } from "../../src/server/db/schema";
+import { startGatherResource } from "../../src/server/services/gatherResource";
+import { advanceFarmLifecycle } from "../../src/server/services/farmLifecycle";
+import { setStoredQuantity } from "../../src/server/services/physicalStorage";
+
+const client = new Client({ connectionString: process.env.TEST_DATABASE_URL ?? "postgres://sumer:sumer_dev@localhost:5432/sumer_farming" });
+const db = createDatabase(client), ids = new Set<string>();
+beforeAll(() => client.connect());
+afterEach(async () => { if (ids.size) await db.delete(players).where(inArray(players.id, [...ids])); ids.clear(); });
+afterAll(() => client.end());
+const fixture = async (itemKey: "clay" | "reed") => {
+  const playerId = randomUUID(); ids.add(playerId);
+  await db.insert(players).values({ id: playerId, displayName: "Batch gathering test" });
+  const [farm] = await db.insert(farms).values({ playerId, level: 8 }).returning();
+  const [warehouse] = await db.insert(farmBuildings).values({ farmId: farm!.id, type: "warehouse", column: 5, row: 3, loadingTile: { column: 5, row: 5 }, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+  const target = { column: -1, row: 9 };
+  if (itemKey === "reed") await db.insert(farmObjects).values({ farmId: farm!.id, type: "reeds", ...target });
+  await db.insert(farmInventory).values({ farmId: farm!.id, itemKey, quantity: 9, locations: { farm: 0, [warehouse!.id]: 9 } });
+  const start = (quantity: number) => Effect.runPromise(startGatherResource(db, { playerId, itemKey, quantity, target, expectedFarmVersion: 1 }));
+  const advance = (time: number) => db.transaction(async tx => {
+    const [loaded] = await tx.select().from(farms).where(eq(farms.id, farm!.id)).for("update");
+    return advanceFarmLifecycle(tx, loaded!, new Date(time));
+  });
+  const stock = async () => (await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm!.id))).find(i => i.itemKey === itemKey);
+  return { farm: farm!, warehouse: warehouse!, start, advance, stock };
+};
+it.each(["clay", "reed"] as const)("collects %s once, splits deposits and catches up offline exactly once", async itemKey => {
+  const f = await fixture(itemKey);
+  const started = await f.start(4);
+  const job = started.farm.production.materialGathering!;
+  expect(job.workStartsAt).toBeGreaterThan(job.startedAt);
+  expect(job.workEndsAt - job.workStartsAt).toBe(40_000);
+  expect(job.deliveries.map(d => [d.storageId, d.quantity])).toEqual([[f.warehouse.id, 1], ["farm", 3]]);
+  await f.advance(job.workEndsAt);
+  expect((await f.stock())?.quantity).toBe(9);
+  await f.advance(job.deliveries[0]!.completesAt);
+  expect((await f.stock())?.locations).toEqual({ farm: 0, [f.warehouse.id]: 10 });
+  const finished = await f.advance(job.completesAt + 86400000);
+  expect(finished.gatheringItemKey).toBeNull();
+  expect(finished.production.materialDelivery).toBe(false);
+  expect(finished.production.materialGathering?.settled).toBe(true);
+  expect((await f.stock())?.locations).toEqual({ farm: 3, [f.warehouse.id]: 10 });
+  await f.advance(job.completesAt + 86400001);
+  expect((await f.stock())?.quantity).toBe(13);
+});
+it("protects reserved destination space from concurrent deposits and rejects oversized batches", async () => {
+  const f = await fixture("clay");
+  await expect(f.start(8)).rejects.toThrow();
+  expect((await f.stock())?.quantity).toBe(9);
+  const started = await f.start(7);
+  await expect(db.transaction(tx => setStoredQuantity(tx, f.farm.id, "clay", 10, new Date(), f.warehouse.id))).rejects.toThrow("Not enough space");
+  await expect(db.transaction(tx => setStoredQuantity(tx, f.farm.id, "clay", 10, new Date(), "farm"))).rejects.toThrow("Not enough space");
+  await f.advance(started.farm.production.materialGathering!.completesAt);
+  expect((await f.stock())?.quantity).toBe(16);
+});

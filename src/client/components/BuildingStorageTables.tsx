@@ -15,15 +15,26 @@ import beerImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery
 import groatsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.webp";
 
 const storageImages: Record<string, string> = {
-  Oil: oilIcon, Bread: breadImage, Beer: beerImage, Flour: flourImage, Groats: groatsImage,
-  Barley: FARM_SPRITES.harvestedBarley, Fish: FARM_SPRITES.fish,
-  Reed: FARM_SPRITES.reedBundle, Clay: FARM_SPRITES.brickPile,
-  "Date baskets": datesIcon, Sesame: sesameIcon
+  Oil: oilIcon,
+  Bread: breadImage,
+  Beer: beerImage,
+  Flour: flourImage,
+  Groats: groatsImage,
+  Barley: FARM_SPRITES.harvestedBarley,
+  Fish: FARM_SPRITES.fish,
+  Reed: FARM_SPRITES.reedBundle,
+  Clay: FARM_SPRITES.brickPile,
+  "Date baskets": datesIcon,
+  Sesame: sesameIcon
 };
 
 type Props = {
   readonly location: "farm" | "warehouse";
-  readonly inventory: readonly { readonly itemKey: InventoryItemKey; readonly quantity: number; readonly locations?: Readonly<Record<string, number>> | null }[];
+  readonly inventory: readonly {
+    readonly itemKey: InventoryItemKey;
+    readonly quantity: number;
+    readonly locations?: Readonly<Record<string, number>> | null;
+  }[];
   readonly warehouseId?: string;
   readonly barley: number;
   readonly warehouseComplete: boolean;
@@ -33,43 +44,177 @@ type Props = {
   readonly visual?: boolean;
 };
 
-export default function BuildingStorageTables({ location, inventory, barley, warehouseComplete, warehouseId, showFish = false, showDates = false, showSesame = false, visual = false }: Props) {
-  const quantity = (key: InventoryItemKey) => inventory.find(item => item.itemKey === key)?.quantity ?? 0;
-  const shared = (key: Parameters<typeof sharedStorageAllocation>[0], label: string) => ({ label, ...sharedStorageAllocation(key, quantity(key), warehouseComplete, inventory.find(i => i.itemKey === key)?.locations, warehouseId)[location] });
+export default function BuildingStorageTables({
+  location,
+  inventory,
+  barley,
+  warehouseComplete,
+  warehouseId,
+  showFish = false,
+  showDates = false,
+  showSesame = false,
+  visual = false
+}: Props) {
+  const quantity = (key: InventoryItemKey) =>
+    inventory.find(item => item.itemKey === key)?.quantity ?? 0;
+  const shared = (
+    key: Parameters<typeof sharedStorageAllocation>[0],
+    label: string
+  ) => ({
+    label,
+    ...sharedStorageAllocation(
+      key,
+      quantity(key),
+      warehouseComplete,
+      inventory.find(i => i.itemKey === key)?.locations,
+      warehouseId
+    )[location]
+  });
   const groups = [
-    { label: "Processed food storage", items: [shared("bread", "Bread"), shared("beer", "Beer"), shared("flour", "Flour"), shared("brewersGroats", "Groats"), ...(showSesame && location === "warehouse" ? [shared("oil", "Oil")] : [])] },
-    { label: "Barley and building material storage", items: [
-      { label: "Barley", quantity: barley, capacity: location === "farm" ? FARM_STORAGE_CAPACITY : warehouseComplete ? FARM_BUILDING_DEFINITIONS.warehouse.barleyStorageBonus : 0 },
-      ...(location === "farm" && showFish ? [{ label: "Fish", quantity: quantity("fish"), capacity: FISH_CAPACITY }] : []),
-      ...(showDates && location === "warehouse" ? [shared("dates", "Date baskets")] : []),
-      ...(showSesame && location === "warehouse" ? [shared("sesame", "Sesame")] : []),
-      shared("reed", "Reed"), shared("clay", "Clay")
-    ] }
+    {
+      label: "Processed food storage",
+      items: [
+        shared("bread", "Bread"),
+        shared("beer", "Beer"),
+        shared("flour", "Flour"),
+        shared("brewersGroats", "Groats"),
+        ...(showSesame && location === "warehouse"
+          ? [shared("oil", "Oil")]
+          : [])
+      ]
+    },
+    {
+      label: "Barley and building material storage",
+      items: [
+        {
+          label: "Barley",
+          quantity: barley,
+          capacity:
+            location === "farm"
+              ? FARM_STORAGE_CAPACITY
+              : warehouseComplete
+                ? FARM_BUILDING_DEFINITIONS.warehouse.barleyStorageBonus
+                : 0
+        },
+        ...(location === "farm" && showFish
+          ? [
+              {
+                label: "Fish",
+                quantity: quantity("fish"),
+                capacity: FISH_CAPACITY
+              }
+            ]
+          : []),
+        ...(showDates && location === "warehouse"
+          ? [shared("dates", "Date baskets")]
+          : []),
+        ...(showSesame && location === "warehouse"
+          ? [shared("sesame", "Sesame")]
+          : []),
+        shared("reed", "Reed"),
+        shared("clay", "Clay")
+      ]
+    }
   ];
   if (visual) {
     const items = groups.flatMap(group => group.items);
-    const foodLabels = new Set(["Oil", "Bread", "Beer", "Flour", "Groats", "Date baskets", "Fish"]);
+    const foodLabels = new Set([
+      "Flour",
+      "Groats",
+      "Oil",
+      "Bread",
+      "Beer",
+      "Fish"
+    ]);
     const tables = [
-      { label: "Food and drink", items: items.filter(item => foodLabels.has(item.label)) },
-      { label: "Crops and materials", items: items.filter(item => !foodLabels.has(item.label)) }
+      {
+        label: "Food and drink",
+        items: items.filter(item => foodLabels.has(item.label))
+      },
+      {
+        label: "Crops and materials",
+        items: items.filter(item => !foodLabels.has(item.label))
+      }
     ];
-    return <div className={gridStyles.tableColumns} aria-label={`${location} inventory`}>
-      {tables.map(group => <table key={group.label} className={gridStyles.inventoryTable} aria-label={group.label}>
-        <colgroup><col className={gridStyles.iconColumn} /><col className={gridStyles.nameColumn} /><col /><col className={gridStyles.countColumn} /></colgroup>
-        <tbody>{group.items.map(item => <tr key={item.label}>
-          <td className={gridStyles.tableIcon}><img src={storageImages[item.label]} alt="" width={36} height={36} draggable={false} /></td>
-          <th scope="row" className={gridStyles.tableName}>{item.label === "Date baskets" ? "Dates" : item.label}</th>
-          <td className={gridStyles.tableCapacity}><progress value={Math.min(item.quantity, item.capacity)} max={Math.max(1, item.capacity)}
-            aria-label={`${item.label} storage`} aria-valuetext={`${item.quantity} of ${item.capacity}`} /></td>
-          <td className={gridStyles.tableQuantity}>{item.quantity}/{item.capacity}</td>
-        </tr>)}</tbody>
-      </table>)}
-    </div>;
+    return (
+      <div
+        className={gridStyles.tableColumns}
+        aria-label={`${location} inventory`}
+      >
+        {tables.map(group => (
+          <table
+            key={group.label}
+            className={gridStyles.inventoryTable}
+            aria-label={group.label}
+          >
+            <colgroup>
+              <col className={gridStyles.iconColumn} />
+              <col className={gridStyles.nameColumn} />
+              <col />
+              <col className={gridStyles.countColumn} />
+            </colgroup>
+            <tbody>
+              {group.items.map(item => (
+                <tr key={item.label}>
+                  <td className={gridStyles.tableIcon}>
+                    <img
+                      src={storageImages[item.label]}
+                      alt=""
+                      width={36}
+                      height={36}
+                      draggable={false}
+                    />
+                  </td>
+                  <th scope="row" className={gridStyles.tableName}>
+                    {item.label === "Date baskets" ? "Dates" : item.label}
+                  </th>
+                  <td className={gridStyles.tableCapacity}>
+                    <progress
+                      value={Math.min(item.quantity, item.capacity)}
+                      max={Math.max(1, item.capacity)}
+                      aria-label={`${item.label} storage`}
+                      aria-valuetext={`${item.quantity} of ${item.capacity}`}
+                    />
+                  </td>
+                  <td className={gridStyles.tableQuantity}>
+                    {item.quantity}/{item.capacity}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ))}
+      </div>
+    );
   }
-  return <>{groups.map(group => (
-    <table key={group.label} className={styles["warehouse-storage-table"]} aria-label={`${location} ${group.label}`}>
-      <thead><tr>{group.items.map(item => <th key={item.label} scope="col">{item.label}</th>)}</tr></thead>
-      <tbody><tr>{group.items.map(item => <td key={item.label}>{item.quantity}/{item.capacity}</td>)}</tr></tbody>
-    </table>
-  ))}</>;
+  return (
+    <>
+      {groups.map(group => (
+        <table
+          key={group.label}
+          className={styles["warehouse-storage-table"]}
+          aria-label={`${location} ${group.label}`}
+        >
+          <thead>
+            <tr>
+              {group.items.map(item => (
+                <th key={item.label} scope="col">
+                  {item.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {group.items.map(item => (
+                <td key={item.label}>
+                  {item.quantity}/{item.capacity}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      ))}
+    </>
+  );
 }

@@ -1,3 +1,4 @@
+import { MaterialGatheringSchema } from "./materialGathering";
 import { MillingJobSchema } from "./milling";
 import { z } from "zod";
 import { CropWorkSchema } from "./cropWork";
@@ -21,7 +22,8 @@ export const ProductionStateSchema = z.object({
   buildingUpgrades: BuildingUpgradesSchema.optional(),
   porter: PorterSchema.nullable().optional(),
   materialDelivery: z.boolean().optional(),
-  // One slot held during gathering; legacy deliveries can also retain a reservation.
+  materialGathering: MaterialGatheringSchema.nullable().optional(),
+  // Compatibility for single-unit jobs accepted before batch gathering.
   materialReservation: z.enum(["reed", "clay"]).nullable().optional(),
   shrineBlessing: z.object({ buildingId: z.uuid(), item: z.enum(["bread", "beer"]).optional(), startedAt: z.iso.datetime(), expiresAt: z.iso.datetime() }).nullable().optional(),
   planting: BatchPlantingSchema.nullable().optional(),

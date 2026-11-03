@@ -1,3 +1,4 @@
+import { gatheringRoom, planMaterialGathering } from "../../game-core/farm/materialGathering";
 import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
 import { and, eq, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
@@ -28,6 +29,7 @@ import { farmInventory } from "../db/schema";
 
 type GatherResourceRule =
   | { readonly type: "storage_full" }
+  | { readonly type: "unreachable_destination" }
   | { readonly type: "farm_not_found" }
   | {
       readonly type: "version_conflict";
@@ -58,6 +60,8 @@ export type GatherResourceError = FarmerUnavailableError
   | GatherResourcePersistenceError;
 
 type StartGatherResourceInput = {
+  readonly quantity?: number;
+  readonly farmerPosition?: FarmCoordinate;
   readonly playerId: string;
   readonly itemKey: GatherableResourceKey;
   readonly target: FarmCoordinate;
@@ -259,15 +263,20 @@ export const startGatherResource = (
           if ((stored?.quantity ?? 0) + reserved >= estateResourceCapacity(input.itemKey, storageBuildings, currentTimeMillis)) {
             return { type: "rule_error", rule: { type: "storage_full" } };
           }
+          const snapshot = input.quantity === undefined ? null : await readFarmSnapshot(transaction, farm, false);
+          if (snapshot && (!Number.isSafeInteger(input.quantity) || input.quantity! < 1 || input.quantity! > gatheringRoom(snapshot, input.itemKey, currentTimeMillis)))
+            return { type: "rule_error", rule: { type: "storage_full" } };
+          const batch = snapshot ? planMaterialGathering(snapshot, input.itemKey, input.quantity!, input.target, currentTimeMillis, input.farmerPosition) : null;
+          if (snapshot && !batch) return { type: "rule_error", rule: { type: "unreachable_destination" } };
           const completesAt = new Date(
-            currentTimeMillis +
+            batch?.completesAt ?? currentTimeMillis +
               RESOURCE_DEFINITIONS[input.itemKey].gatheringDurationMs
           );
           const [updatedFarm] = await transaction
             .update(farms)
             .set({
               gatheringItemKey: input.itemKey,
-              production: { ...farm.production, materialReservation: input.itemKey },
+              production: { ...farm.production, materialReservation: batch ? null : input.itemKey, materialGathering: batch, materialDelivery: !!batch },
               gatheringColumn: input.target.column,
               gatheringRow: input.target.row,
               gatheringStartedAt: now,

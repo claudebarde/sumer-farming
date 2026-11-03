@@ -51,7 +51,7 @@ export function PerennialCropAction({ snapshot, cropKey, target, now, action, is
   const button = <TileActionButton className={isometric ? actionStyles.button : undefined} disabled={pending || reason !== null} onClick={() => void submit()}>
       {isometric && (action !== "plant" ? <span className={actionStyles.icon} aria-hidden="true"><img src={action === "harvest" ? datesIcon : grownPalmIcon} alt="" draggable={false} /></span>
         : <img src={grownPalmIcon} alt="" width={36} height={36} style={{ objectFit: "contain" }} />)}
-      <span>{pending ? "Starting…" : (!isometric && reason) || (action === "plant" ? `Plant ${definition.label.toLowerCase()}${onRequestPlant ? "" : ` · ${definition.saplingCost} shekels`}` : action === "tend" ? "Tend palm" : "Harvest dates")}</span>
+      <span>{pending ? "Starting…" : (!isometric && reason) || (action === "plant" ? `Plant ${definition.label.toLowerCase()}${onRequestPlant ? "" : ` · ${definition.saplingCost} shekels`}` : action === "tend" ? "Tend palm" : "Harvest")}</span>
     </TileActionButton>;
   return <>
     {error && <p role="alert">{error}</p>}

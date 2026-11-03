@@ -1,7 +1,7 @@
 import { savedMapZoom, saveMapZoom } from "../zoomPreference";
 import { deliveryPlan } from "../../../../game-data/zigguratDelivery";
 import { preloadZigguratDonkey } from "../zigguratDonkeyPreview";
-import { createZigguratDeliveryAnimation } from "../zigguratDeliveryAnimation";
+import { createZigguratDeliveryAnimation, preloadZigguratFarmer } from "../zigguratDeliveryAnimation";
 import Phaser from "phaser";
 import type { Ziggurat } from "../../../../schemas/ziggurat";
 import { zigguratPresentation } from "../zigguratPresentation";
@@ -36,7 +36,7 @@ export class NeighbourhoodScene extends Phaser.Scene {
   }
   private baseZoom = 1;
   private ziggurat?: ReturnType<typeof createZigguratPlacementPreview>;
-  preload() { preloadZigguratPlacement(this); preloadZigguratDonkey(this); }
+  preload() { preloadZigguratPlacement(this); preloadZigguratDonkey(this); preloadZigguratFarmer(this); }
   private shadows?: ReturnType<typeof createShadowLayer>;
   private clouds?: ReturnType<typeof createAmbientCloudLayer>;
   private members: Neighbourhood["members"] = [];

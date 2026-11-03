@@ -31,14 +31,16 @@ it("explains each shortage in mixed mill bags and enables storage when the whole
   expect(canPickupMillBags(s, id, 1000)).toBe(true);
 });
 
-it("shows flour then groats and replaces both with the exact insufficient-barley message", () => {
+it("keeps flour and groats dropdowns available to inspect insufficient ingredients", () => {
   const s = snapshot(), render = () => renderToStaticMarkup(createElement(IsometricMillActions, { snapshot: s, buildingId: id, now: 1000, onMill: () => {} }));
   const html = render();
   expect(html).toContain("mill-flour-bags-isometric.webp");
   expect(html).toContain("brewers-groats-icon.webp");
   expect(html.indexOf("Make flour (for bread)")).toBeLessThan(html.indexOf("Make groats (for beer)"));
   s.inventory[0]!.quantity = 1;
-  expect(render()).toBe('<button disabled="">You don&#x27;t have enough barley</button>');
+  expect(render()).toContain('aria-label="Make flour (for bread)"');
+  expect(render()).not.toContain("You don&#x27;t have enough barley");
+  expect(millPopupState(s, id, 1000).canStart).toBe(false);
   s.buildings.push({ ...s.buildings[0]!, id: "00000000-0000-4000-8000-000000000002", type: "granary", storedBarley: 1 });
   expect(millPopupState(s, id, 1000).canStart).toBe(true);
   s.farm.carriedItem = { itemKey: "clay", quantity: 1, expiresAt: null };
@@ -197,4 +199,23 @@ it("shows the other mill's controls and renders both saved jobs independently", 
   expect(render()).toContain('aria-label="Make oil"');
   expect(millingProgress(s, id, now)).toMatchObject({ farmer: false });
   expect(buildingDemolitionReason(s, id, now)).not.toBeNull();
+});
+
+it("explains donkey oil storage without hiding the dropdown", () => {
+  const s = snapshot(), now = 1000;
+  s.farm.progression!.level = 10;
+  s.buildings[0] = { ...s.buildings[0]!, type: "oilMill", emptyBeerJars: 3 };
+  s.buildings.push({ ...s.buildings[0]!, id: "00000000-0000-4000-8000-000000000004", type: "warehouse" });
+  s.inventory.push({ itemKey: "sesame", quantity: 10 }, { itemKey: "donkey", quantity: 1 }, { itemKey: "oil", quantity: 8 });
+  const render = () => renderToStaticMarkup(createElement(IsometricMillActions, { snapshot: s, buildingId: id, now, onMill: () => {} }));
+  expect(render()).toContain("Not enough oil storage for the donkey batch: only 2 spaces available.");
+  expect(millPopupState(s, id, now, "oil", "farmer").canStart).toBe(true);
+  expect(millPopupState(s, id, now, "oil", "donkey").canStart).toBe(false);
+  s.inventory.find(i => i.itemKey === "oil")!.quantity = 7;
+  expect(render()).not.toContain("Not enough oil storage");
+  expect(millPopupState(s, id, now, "oil", "donkey").canStart).toBe(true);
+  s.inventory.find(i => i.itemKey === "sesame")!.quantity = 0;
+  expect(render()).toContain('aria-label="Make oil"');
+  expect(render()).not.toContain("Not enough sesame");
+  expect(millPopupState(s, id, now, "oil", "farmer").canStart).toBe(false);
 });

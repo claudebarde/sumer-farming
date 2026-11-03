@@ -1,3 +1,4 @@
+import { randomId } from "../randomId";
 import { createStore } from "zustand/vanilla";
 import type { TradeHistory } from "../../schemas/tradeHistory";
 import type { FarmBuildingType } from "../../game-data/buildings";
@@ -23,7 +24,7 @@ type State = {
 
 export const createNotificationStore = () => createStore<State>()(set => ({
   playerId: null,
-  notifyError: message => set(state => ({ pending: [{ id: crypto.randomUUID(), type: "action_error", message }, ...state.pending] })),
+  notifyError: message => set(state => ({ pending: [{ id: randomId(), type: "action_error", message }, ...state.pending] })),
   pending: [],
   announced: new Set(),
   materialDropFarmId: null,

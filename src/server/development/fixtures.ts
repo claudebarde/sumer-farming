@@ -10,5 +10,6 @@ export type DevelopmentFixture = {
 export const DEVELOPMENT_FIXTURES = {
   primary: { shekels: 0, inventory: [] },
   second: { shekels: 0, inventory: [] },
-  onboarding: { shekels: 0, inventory: [] }
+  onboarding: { shekels: 0, inventory: [] },
+  third: { shekels: 0, inventory: [] }
 } as const satisfies Record<string, DevelopmentFixture>;

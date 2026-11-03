@@ -40,7 +40,7 @@ export function SesameAction({ snapshot, target, now, getFarmerPosition, onStart
     {reason && <InfoAlert>{reason}</InfoAlert>}
     <button className={actionStyles.button} disabled={pending || !!reason} onClick={() => void submit()}>
       <span className={actionStyles.icon} aria-hidden="true"><img src={basket} alt="" draggable={false} /></span>
-      <span>{pending ? "Starting…" : action === "plant" ? "Plant sesame" : "Harvest sesame"}</span>
+      <span>{pending ? "Starting…" : action === "plant" ? "Plant sesame" : "Harvest"}</span>
     </button>
   </>;
 }

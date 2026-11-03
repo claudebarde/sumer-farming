@@ -66,6 +66,7 @@ export class IsometricMarketScene extends Phaser.Scene {
   private returning = false;
   private approaching: typeof stands[number] | null = null;
   private actor!: Phaser.GameObjects.Image;
+  private playerLabel!: Phaser.GameObjects.Text;
   private donkey?: Phaser.GameObjects.Image;
   private donkeyFollow: DonkeyFollow | null = null;
   private donkeyArrival: DonkeyArrival | null = null;
@@ -124,6 +125,9 @@ export class IsometricMarketScene extends Phaser.Scene {
     this.shadow = this.add.ellipse(0, 0, 23, 8, 0x624728, 0).setAlpha(0);
     this.daylightShadows.add(() => this.shadow, 23, 48);
     this.actor = this.add.image(0, 0, "farmer-idle").setOrigin(0.5, 120 / 128).setDisplaySize(64, 64);
+    this.playerLabel = this.add.text(0, 0, "You", { fontFamily: "Georgia, serif", fontSize: "12px",
+      color: "#382519", backgroundColor: "#fff7e8", padding: { x: 4, y: 2 } })
+      .setOrigin(0.5, 1).setResolution(2).setDepth(10002);
     this.donkey = this.add.image(0, 0, "isometric-donkey-front-0")
       .setOrigin(0.5, 120 / 128).setDisplaySize(76, 76).setVisible(false);
     this.daylightShadows.add(() => this.donkey!, 32, 48);
@@ -133,8 +137,14 @@ export class IsometricMarketScene extends Phaser.Scene {
       .setOrigin(0.5).setResolution(2);
     this.speech = this.add.container(0, 0, [this.speechBackground, this.speechText])
       .setDepth(10000).setName("merchant-speech-bubble").setVisible(false);
-    this.visitors = createMarketVisitors(this, () => [this.returnFarm, ...this.standBuildings]);
+    this.visitors = createMarketVisitors(this, () => [this.returnFarm, ...this.standBuildings], () => this.position);
     this.presence = createMarketPresenceSession({ eligible: this.presenceEligible,
+      place: position => {
+        this.position = position;
+        const target = this.path.at(-1);
+        if (target) this.path = marketRoadPath(position, target);
+        this.renderFarmer(false);
+      },
       position: () => this.position, receive: visitors => {
         this.visitors?.receive(visitors); this.visitors?.update(0, this.reducedMotion);
       } });
@@ -258,6 +268,7 @@ export class IsometricMarketScene extends Phaser.Scene {
     const p = isoPoint(this.position);
     this.actor.setPosition(p.x, p.y).setDepth(p.y + 1).setTexture(farmerTravelTexture(this.distance, 0, walking)).setDisplaySize(64, 64);
     this.shadow.setPosition(p.x, p.y).setDepth(p.y);
+    this.playerLabel.setPosition(p.x, p.y - 60);
   }
   private renderGreeting(now: number) {
     if (!this.speech || !this.speechText || !this.speechBackground) return;

@@ -1,3 +1,4 @@
+import { randomId } from "../randomId";
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { NpcRequestsSchema, type NpcRequests as RequestBoard } from "../../schemas/npcRequests";
@@ -58,7 +59,7 @@ export default function NpcRequests({ onDelivered, visual = false }: { readonly 
     setError(null);
     try {
       const snapshot = await executeGameCommand({ type: "deliver_npc_request", cycle: board.cycle, slot,
-        idempotencyKey: crypto.randomUUID(), expectedFarmVersion: farm.snapshot.farm.version });
+        idempotencyKey: randomId(), expectedFarmVersion: farm.snapshot.farm.version });
       if (farmStore.getState().farm.type === "ready") farmStore.getState().setReady(snapshot);
       onDelivered();
     } catch (cause) {

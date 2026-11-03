@@ -1,3 +1,4 @@
+import { materialGatheringReservations } from "../../game-data/materialGathering";
 import { and, eq } from "drizzle-orm";
 import { changeStorageLocations, physicalStorageItem, storedLocations, type StorageLocations } from "../../game-core/farm/physicalStorage";
 import type { InventoryItemKey } from "../../game-data/inventoryItems";
@@ -12,7 +13,8 @@ export const setStoredQuantity = async (tx: DatabaseTransaction, farmId: string,
   const buildings = physicalStorageItem(itemKey) ? await tx.select().from(farmBuildings).where(eq(farmBuildings.farmId, farmId)) : [];
   const [farm] = await tx.select({ production: farms.production }).from(farms).where(eq(farms.id, farmId));
   const job = farm?.production.porter?.job;
-  const reserved = !destination && job?.itemKey === itemKey && job.storageId ? { [job.storageId]: job.quantity } : {};
+  const reserved = materialGatheringReservations(farm?.production.materialGathering, itemKey);
+  if (!destination && job?.itemKey === itemKey && job.storageId) reserved[job.storageId] = (reserved[job.storageId] ?? 0) + job.quantity;
   const locations = physicalStorageItem(itemKey) ? explicitLocations ?? changeStorageLocations(itemKey,
     storedLocations(entry, buildings, now.getTime()), quantity - (entry?.quantity ?? 0), buildings, now.getTime(), destination, reserved) : null;
   if (!Number.isSafeInteger(quantity) || quantity < 0 || (locations && (Object.values(locations).some(q => !Number.isSafeInteger(q) || q < 0) || Object.values(locations).reduce((sum, q) => sum + q, 0) !== quantity))) throw new Error("Invalid physical inventory total.");

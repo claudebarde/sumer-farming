@@ -1,3 +1,4 @@
+import { randomId } from "../randomId";
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { createStore } from "zustand/vanilla";
 import { farmStore } from "./farmStore";
@@ -192,7 +193,7 @@ export const farmerCommandStore = createStore<State>()(set => ({
 
       const newCommand: FarmerCommand = {
         ...command,
-        id: crypto.randomUUID()
+        id: randomId()
       };
 
       return { commands: [...state.commands, newCommand] };

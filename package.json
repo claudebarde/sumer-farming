@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "npm run db:start && npm run db:verify && vite",
+    "dev:lan": "npm run dev -- --host 0.0.0.0 --port 5174 --strictPort",
     "db:start": "docker compose up -d --wait postgres",
     "db:verify": "docker compose exec -T postgres pg_isready -U sumer -d sumer_farming",
     "db:stop": "docker compose stop postgres",

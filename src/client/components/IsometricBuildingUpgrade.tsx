@@ -1,3 +1,4 @@
+import { randomId } from "../randomId";
 import { millingJobForBuilding } from "../../game-data/millingJobs";
 import { useRef, useState } from "react";
 import { match } from "ts-pattern";
@@ -34,7 +35,7 @@ export default function IsometricBuildingUpgrade({ snapshot, buildingId, now, on
   const upgrade = async () => {
     if (submitting.current || reason || !next) return;
     submitting.current = true; setPending(true); setError(null);
-    if (!request.current || request.current.level !== level + 1) request.current = { key: crypto.randomUUID(), level: level + 1 };
+    if (!request.current || request.current.level !== level + 1) request.current = { key: randomId(), level: level + 1 };
     try {
       const updated = await executeGameCommand({ type: "upgrade_building", buildingId,
         targetLevel: request.current.level, idempotencyKey: request.current.key, expectedFarmVersion: snapshot.farm.version });

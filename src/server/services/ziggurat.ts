@@ -1,5 +1,5 @@
 import { settleZigguratRewards } from "./zigguratRewards";
-import { deliveryPlan } from "../../game-data/zigguratDelivery";
+import { deliveryPlan, interestPlan } from "../../game-data/zigguratDelivery";
 import { and, asc, eq, gt, sql } from "drizzle-orm";
 import type { Database, DatabaseTransaction } from "../db/client";
 import { players, farmInventory, farms, neighbourhoodMembers, neighbourhoods, zigguratInterests, zigguratProjects, zigguratDonations, zigguratDeliveries } from "../db/schema";
@@ -37,8 +37,8 @@ const readState = async (tx: DatabaseTransaction, home: string, playerId: string
   const [project] = await tx.select().from(zigguratProjects).where(eq(zigguratProjects.neighbourhoodId, home));
   const stock = await tx.select({ itemKey: farmInventory.itemKey, quantity: farmInventory.quantity }).from(farmInventory)
     .innerJoin(farms, eq(farms.id, farmInventory.farmId)).where(eq(farms.playerId, playerId));
-  const donations = await tx.select({ points: zigguratDonations.points }).from(zigguratDonations)
-    .where(and(eq(zigguratDonations.neighbourhoodId, home), eq(zigguratDonations.playerId, playerId)));
+  const donations = await tx.select({ playerId: zigguratDonations.playerId, points: zigguratDonations.points }).from(zigguratDonations)
+    .where(eq(zigguratDonations.neighbourhoodId, home));
   const serverTime = new Date();
   const deliveries = await tx.select().from(zigguratDeliveries).where(and(eq(zigguratDeliveries.neighbourhoodId, home), gt(zigguratDeliveries.completesAt, serverTime))).orderBy(asc(zigguratDeliveries.startsAt));
   const [player] = await tx.select().from(players).where(eq(players.id, playerId));
@@ -49,12 +49,19 @@ const readState = async (tx: DatabaseTransaction, home: string, playerId: string
   return ZigguratSchema.parse({
     ...projectProgress(project, serverTime),
     serverTime: serverTime.toISOString(),
+    interestVisits: interests.flatMap(interest => {
+      const member = eligible.find(m => m.playerId === interest.playerId);
+      if (!member) return [];
+      const completesAt = new Date(interest.registeredAt.getTime() + interestPlan(member.slot).duration);
+      return completesAt > serverTime ? [{ slot: member.slot, startsAt: interest.registeredAt.toISOString(), completesAt: completesAt.toISOString() }] : [];
+    }),
     deliveries: deliveries.map(job => ({id:job.id,slot:job.slot,startsAt:job.startsAt.toISOString(),completesAt:job.completesAt.toISOString()})),
+    participantCount: eligible.filter(member => supporters.some(supporter => supporter.playerId === member.playerId) || donations.some(donation => donation.playerId === member.playerId)).length,
     eligibleCount: eligible.length, canParticipate: eligible.some(member => member.playerId === playerId),
     interested: supporters.some(member => member.playerId === playerId),
     supporters: supporters.map(member => ({ slot: member.slot, name: member.profile?.identity.name ?? "Farmer", isYou: member.playerId === playerId })),
     stock: Object.fromEntries(ZIGGURAT_RESOURCES.map(key => [key, key === "shekels" ? player?.shekelBalance ?? 0 : key === "barley" ? barley?.storedQuantity ?? 0 : stock.find(item => item.itemKey === key)?.quantity ?? 0])),
-    contributionPoints: donations.reduce((total, donation) => total + donation.points, 0)
+    contributionPoints: donations.filter(donation => donation.playerId === playerId).reduce((total, donation) => total + donation.points, 0)
   });
 };
 

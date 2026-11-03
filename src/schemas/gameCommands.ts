@@ -106,6 +106,8 @@ export const GameCommandSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("start_gather_resource"),
+    quantity: z.int().positive().max(100).optional(),
+    farmerPosition: FarmCoordinateSchema.optional(),
     itemKey: GatherableResourceKeySchema,
     target: FarmCoordinateSchema,
     expectedFarmVersion: z.int().positive()

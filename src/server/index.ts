@@ -244,7 +244,7 @@ app.post("/api/market/presence", async c => {
       console.error("Market presence failed", result.left.cause);
       return c.json({ error: { message: "Live neighbours are temporarily unavailable." } }, 503);
     }
-    return result.right.type === "ok" ? c.json({ visitors: result.right.visitors })
+    return result.right.type === "ok" ? c.json({ visitors: result.right.visitors, entryPosition: result.right.entryPosition })
       : c.json({ error: { message: result.right.message } }, 409);
   } catch (error) {
     console.error("Market presence connection failed", error);
@@ -640,6 +640,7 @@ app.post("/api/game/action", async c => {
           )
           .with({ type: "start_gather_resource" }, command =>
             startGatherResource(database, {
+              quantity: command.quantity, farmerPosition: command.farmerPosition,
               playerId: c.get("developmentPlayer").id,
               itemKey: command.itemKey,
               target: command.target,
@@ -1217,7 +1218,8 @@ app.post("/api/game/action", async c => {
       })
       .with(P.instanceOf(GatherResourceRuleError), error =>
         match(error.rule)
-          .with({ type: "storage_full" }, () => c.json({ error: { type: "storage_full", message: "Material storage is full. Use some materials before gathering more." } }, 409))
+          .with({ type: "unreachable_destination" }, () => c.json({ error: { type: "unreachable_destination", message: "No clear path to the resource or its storage." } }, 409))
+          .with({ type: "storage_full" }, () => c.json({ error: { type: "storage_full", message: "Not enough material storage space for this quantity." } }, 409))
           .with({ type: "farm_not_found" }, () =>
             c.json(
               {

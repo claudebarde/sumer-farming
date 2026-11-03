@@ -35,6 +35,19 @@ const state = async (id: string, interested?: boolean) => {
   if (!result.ok) throw new Error(result.message);
   return result.data;
 };
+it("shares saved interest visits without restarting on retries and excludes elapsed visits", async () => {
+  const { ids, home } = await fixture();
+  const first = await state(ids[0]!, true);
+  expect(first.interestVisits).toHaveLength(1);
+  expect((await state(ids[0]!, true)).interestVisits).toEqual(first.interestVisits);
+  expect((await state(ids[1]!)).interestVisits).toEqual(first.interestVisits);
+  await state(ids[1]!, true);
+  const opened = await state(ids[2]!, true);
+  expect(opened.state.type).toBe("fundraising");
+  expect(opened.interestVisits).toHaveLength(3);
+  await db.update(zigguratInterests).set({ registeredAt: new Date(Date.now()-3600000) }).where(eq(zigguratInterests.neighbourhoodId, home));
+  expect((await state(ids[0]!)).interestVisits).toEqual([]);
+});
 it("persists interest, counts eligible neighbours dynamically, and supports withdrawal without spending goods", async () => {
   const { ids, home } = await fixture();
   const before = await db.select().from(farms).where(inArray(farms.playerId, ids));
@@ -384,4 +397,21 @@ it("scopes farm rewards to the owner and retries busy awards on the next neighbo
   await state(ids[2]!);
   await state(ids[2]!);
   expect(await db.select().from(zigguratRewards).where(eq(zigguratRewards.neighbourhoodId, home))).toHaveLength(2);
+});
+
+it("counts interested neighbours and later contributors once for the equal-share reference", async () => {
+  const { ids } = await fundable();
+  expect((await state(ids[0]!)).participantCount).toBe(3);
+  await db.update(farms).set({ level: 10 }).where(eq(farms.playerId, ids[3]!));
+  expect((await state(ids[0]!)).participantCount).toBe(3);
+  await stock(ids[0]!);
+  await donateZiggurat(db, ids[0]!, command(1, 0));
+  expect((await state(ids[0]!)).participantCount).toBe(3);
+  await stock(ids[3]!);
+  await donateZiggurat(db, ids[3]!, command(1, 0));
+  await donateZiggurat(db, ids[3]!, command(1, 0));
+  const updated = await state(ids[0]!);
+  expect(updated.participantCount).toBe(4);
+  expect(updated.contributionPoints).toBe(2);
+  expect((await state(ids[3]!)).contributionPoints).toBe(4);
 });

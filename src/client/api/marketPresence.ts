@@ -8,5 +8,5 @@ export const sendMarketPresence = async (command: MarketPresenceCommand, signal?
   });
   if (response.status === 409) return null;
   if (!response.ok) throw new Error("Market presence unavailable");
-  return MarketPresenceResponseSchema.parse(await response.json()).visitors;
+  return MarketPresenceResponseSchema.parse(await response.json());
 };

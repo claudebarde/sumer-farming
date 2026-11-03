@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { recentHarvestGains, harvestGainPresentation, sesameHarvestGains } from "../../src/client/game/phaser/harvestGainEffect";
+import { recentHarvestGains, harvestGainPresentation, cropHarvestGains } from "../../src/client/game/phaser/harvestGainEffect";
 import type { CropWork } from "../../src/game-data/cropWork";
 
 const gain = { cell: { column: 3, row: 6 }, at: 10000, quantity: 2 };
@@ -66,22 +66,22 @@ it("preserves a full visible rise across a slow redraw and a delivery snapshot",
   } finally { pose.mockRestore(); }
 });
 
-it("shows sesame's points at cutting completion, once, without replaying offline work", () => {
+it.each(["sesame", "datePalm"] as const)("shows %s points at harvest completion, once, without replaying offline work", cropKey => {
   const target = { column: 4, row: 8 };
-  const job: CropWork = { id: "harvest", cropId: "sesame", cropKey: "sesame", action: "harvest",
+  const job: CropWork = { id: "harvest", cropId: "sesame", cropKey, action: "harvest",
     startedAt: 0, workStartsAt: 2000, workEndsAt: 12000, completesAt: 15000,
     outbound: [{ column: 4, row: 7 }, target], inbound: [target, { column: 5, row: 5 }],
     quantity: 3, settled: false };
-  const gains = sesameHarvestGains(job);
+  const gains = cropHarvestGains(job);
   expect(gains).toEqual([{ cell: target, at: 12000, quantity: 20 }]);
   expect(recentHarvestGains(gains, 11900, 11999)).toEqual([]);
   expect(recentHarvestGains(gains, 11999, 12000)).toEqual(gains);
   expect(recentHarvestGains(gains, 12000, 12100)).toEqual([]);
   expect(recentHarvestGains(gains, null, 13000)).toEqual([]);
   expect(recentHarvestGains(gains, 11900, 15000)).toEqual([]);
-  expect(sesameHarvestGains({ ...job, quantity: 1 })[0]?.quantity).toBe(20);
-  expect(sesameHarvestGains({ ...job, action: "plant" })).toEqual([]);
-  expect(sesameHarvestGains({ ...job, cropKey: "datePalm" })).toEqual([]);
-  expect(sesameHarvestGains({ ...job, quantity: 0 })).toEqual([]);
-  expect(sesameHarvestGains(null)).toEqual([]);
+  expect(cropHarvestGains({ ...job, quantity: 1 })[0]?.quantity).toBe(20);
+  expect(cropHarvestGains({ ...job, action: "plant" })).toEqual([]);
+  expect(cropHarvestGains({ ...job, action: "tend" })).toEqual([]);
+  expect(cropHarvestGains({ ...job, quantity: 0 })).toEqual([]);
+  expect(cropHarvestGains(null)).toEqual([]);
 });

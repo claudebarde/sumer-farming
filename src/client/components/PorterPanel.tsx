@@ -1,3 +1,4 @@
+import { randomId } from "../randomId";
 import { useRef, useState } from "react";
 import type { FarmSnapshot } from "../../schemas/farm";
 import { PORTER_COST, PORTER_HIRE_MS } from "../../game-data/porter";
@@ -19,7 +20,7 @@ export default function PorterPanel({ snapshot, now, marketRoad }: { snapshot: F
   const hire = async () => {
     if (pending) return;
     setPending(true); setError(null);
-    requestKey.current ??= crypto.randomUUID();
+    requestKey.current ??= randomId();
     try {
       const updated = await executeGameCommand({ type: "hire_porter", marketRoad: marketRoad ?? workerLocationStore.getState().marketRoad, idempotencyKey: requestKey.current, expectedFarmVersion: snapshot.farm.version });
       farmStore.getState().setReady(updated); requestKey.current = null;

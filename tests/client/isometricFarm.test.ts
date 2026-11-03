@@ -112,3 +112,28 @@ describe("saved farm isometric projection", () => {
     expect(presentCanals(saved, 30)).toHaveLength(0);
   });
 });
+
+it("prefers a longer completed road between destinations over a ground shortcut", () => {
+  const saved = snapshot();
+  const start = { column: -3, row: 1 }, target = { column: 0, row: 1 };
+  const road = [start, { column: -3, row: 0 }, { column: -2, row: 0 },
+    { column: -1, row: 0 }, { column: 0, row: 0 }, target];
+  saved.farm.roads = road;
+  expect(previewWalkPath(saved, start, target, 100)).toEqual(road.slice(1));
+  saved.farm.roads = road.map(p => ({ ...p, completesAt: 200 }));
+  expect(previewWalkPath(saved, start, target, 100)).toEqual([]);
+  expect(previewWalkPath(saved, start, target, 200)).toEqual(road.slice(1));
+});
+
+it("takes the connected road to the market instead of a shorter route across ground", () => {
+  const saved = snapshot();
+  const start = { column: 5, row: 1 }, target = { column: 10, row: 5 };
+  saved.farm.roads = [{ column: 5, row: 1 }, { column: 4, row: 1 },
+    ...[2, 3, 4].map(row => ({ column: 4, row }))];
+  const path = previewWalkPath(saved, start, target, 100);
+  expect(path[0]).toEqual({ column: 4, row: 1 });
+  expect(path.at(-1)).toEqual(target);
+  expect(path.every(p => p.row === 5 || saved.farm.roads.some(r => r.column === p.column && r.row === p.row))).toBe(true);
+  const avoided = { column: 4, row: 2 };
+  expect(previewWalkPath(saved, start, target, 100, avoided)).not.toContainEqual(avoided);
+});

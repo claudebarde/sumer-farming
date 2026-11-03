@@ -1,3 +1,4 @@
+import { advanceMaterialGathering } from "./materialGatheringLifecycle";
 import { millingJobs } from "../../game-data/millingJobs";
 import { reconcilePlayerPoints } from "./playerPoints";
 import { BARLEY_CLEARING_MS } from "../../game-core/farm/barleyDecay";
@@ -101,9 +102,10 @@ export const advanceFarmLifecycle = async (
       .where(eq(farms.id, farm.id)).returning();
     farm = updated ?? farm;
   }
+  farm = await advanceMaterialGathering(transaction, farm, now);
   // Gathering completes from saved time, including while the tab is closed.
   // Leave the material in the farmer's hands for a player-directed drop/deposit.
-  if (farm.gatheringItemKey && farm.gatheringCompletesAt && farm.gatheringCompletesAt <= now && !farm.carriedItemKey) {
+  if (!farm.production.materialGathering && farm.gatheringItemKey && farm.gatheringCompletesAt && farm.gatheringCompletesAt <= now && !farm.carriedItemKey) {
     const [gathered] = await transaction.update(farms).set({
       carriedItemKey: farm.gatheringItemKey, carriedItemQuantity: 1, carriedItemExpiresAt: null,
       gatheringItemKey: null, gatheringColumn: null, gatheringRow: null,

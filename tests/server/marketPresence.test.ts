@@ -34,6 +34,26 @@ afterAll(async () => {
   await client.end();
 });
 describe.sequential("live market presence", () => {
+  it("assigns separate entry tiles for simultaneous arrivals and preserves join retries", async () => {
+    const other = new Client({ connectionString: process.env.TEST_DATABASE_URL ?? "postgres://sumer:sumer_dev@localhost:5432/sumer_farming" });
+    await other.connect();
+    try {
+      const results = await Promise.all([join(0), Effect.runPromise(updateMarketPresence(createDatabase(other), ids[1]!,
+        { type: "join", sessionId: sessions[1]!, position }))]);
+      const positions = results.map(result => result.type === "ok" ? result.entryPosition : null);
+      expect(positions).toEqual(expect.arrayContaining([position, { column: 1, row: 5 }]));
+      expect(await join(0)).toMatchObject({ entryPosition: positions[0] });
+      expect(await join(1)).toMatchObject({ entryPosition: positions[1] });
+    } finally { await other.end(); }
+  });
+  it("reuses the entrance after a departure or expired visit", async () => {
+    await join(0);
+    await run(0, { type: "leave", sessionId: sessions[0]! });
+    expect(await join(1)).toMatchObject({ entryPosition: position });
+    await db.update(marketPresence).set({ seenAt: new Date(Date.now() - MARKET_PRESENCE_TTL_MS - 100) })
+      .where(eq(marketPresence.playerId, ids[1]!));
+    expect(await run(0, { type: "join", sessionId: randomUUID(), position })).toMatchObject({ entryPosition: position });
+  });
   it("enforces level 10 on both the observer and every returned visitor", async () => {
     await join(0); await join(1);
     await db.update(farms).set({ level: 9 }).where(eq(farms.playerId, ids[1]!));
@@ -52,7 +72,7 @@ describe.sequential("live market presence", () => {
   });
   it("shows actual visitors only in the same neighbourhood, excludes self, and preserves farm state", async () => {
     await join(0); await join(1); await join(2);
-    expect(await heartbeat(0)).toEqual({ type: "ok", visitors: [{ playerId: ids[1], name: "Gudea", position }] });
+    expect(await heartbeat(0)).toEqual({ type: "ok", visitors: [{ playerId: ids[1], name: "Gudea", position: { column: 1, row: 5 } }] });
     expect(await heartbeat(2)).toEqual({ type: "ok", visitors: [] });
     expect((await db.select().from(farms).where(eq(farms.playerId, ids[0]!)))[0]).toMatchObject({ version: 1, level: 10 });
   });

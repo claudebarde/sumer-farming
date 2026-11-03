@@ -3,13 +3,18 @@ import { INITIAL_FARM_CONFIG } from "../../../game-data/initialFarm";
 import { estateResourceCapacity } from "../../../game-data/storage";
 import { plantingBlocker } from "./isometricPlanting";
 import { buildingAt, farmOrigin, GROUND_ITEM_ORIGIN, insidePlot, presentCanals, sameCell } from "./isometricFarm";
-import { footprintContains, type IsoCell } from "./isometricProjection";
+import { footprintContains, ISO_HEIGHT, type IsoCell } from "./isometricProjection";
 import { pickupPath, pickupPose } from "./isometricPickup";
 
 export const materialLabel = (key: string, quantity?: number) => key === "reed" && quantity !== 1 ? "reeds" : key;
 /** Clay-only visual trial: equivalent to the approved ground-item origin at 64px. */
 export const gatheringOffsetY = (itemKey: "reed" | "clay", walking: boolean) =>
   itemKey === "clay" && !walking ? (120 / 128 - GROUND_ITEM_ORIGIN.y) * 64 : 0;
+/** Preserve the working feet position after gathering without changing the logical tile. */
+export const gatheringRestCell = (visual: IsoCell, itemKey: "reed" | "clay", walking: boolean): IsoCell => {
+  const offset = gatheringOffsetY(itemKey, walking) / ISO_HEIGHT;
+  return { column: visual.column + offset, row: visual.row + offset };
+};
 export const materialCarry = (snapshot: FarmSnapshot) => {
   const carry = snapshot.farm.carriedItem;
   return carry && (carry.itemKey === "reed" || carry.itemKey === "clay") ? carry : null;

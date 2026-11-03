@@ -5,9 +5,12 @@ import { advanceMarketVisitor, marketVisitorPath } from "./marketVisitorMotion";
 import { farmerTravelTexture } from "./farmerCarry";
 import { farmerObscured, hiddenFarmerBounce, walkingCharacterDepth, type OcclusionSprite } from "./farmerOcclusion";
 import { isoPoint, ISO_HEIGHT, ISO_WIDTH } from "./isometricProjection";
+import { advanceNeighbourGreeting, initialNeighbourGreeting, type NeighbourGreeting } from "./neighbourGreeting";
+import { greetingAppearance } from "./merchantGreeting";
 
-export const createMarketVisitors = (scene: Phaser.Scene, buildings: () => readonly Phaser.GameObjects.Image[]) => {
+export const createMarketVisitors = (scene: Phaser.Scene, buildings: () => readonly Phaser.GameObjects.Image[], farmer: () => MarketPosition) => {
   type Visitor = { position: MarketPosition; path: readonly MarketPosition[]; speed: number; distance: number;
+    greeting: NeighbourGreeting; speech: Phaser.GameObjects.Container;
     actor: Phaser.GameObjects.Image; name: Phaser.GameObjects.Text; shadow: Phaser.GameObjects.Ellipse; marker: Phaser.GameObjects.Graphics };
   const visitors = new Map<string, Visitor>();
   const masks = new Map<string, ImageData>();
@@ -29,7 +32,7 @@ export const createMarketVisitors = (scene: Phaser.Scene, buildings: () => reado
       } };
   };
   const remove = (id: string, visitor: Visitor) => {
-    visitor.actor.destroy(); visitor.name.destroy(); visitor.shadow.destroy(); visitor.marker.destroy(); visitors.delete(id);
+    visitor.speech.destroy(); visitor.actor.destroy(); visitor.name.destroy(); visitor.shadow.destroy(); visitor.marker.destroy(); visitors.delete(id);
   };
   return {
     receive(incoming: readonly MarketVisitor[]) {
@@ -38,11 +41,24 @@ export const createMarketVisitors = (scene: Phaser.Scene, buildings: () => reado
       for (const entry of incoming) {
         let visitor = visitors.get(entry.playerId);
         if (!visitor) {
+          const text = scene.add.text(0, 0, "Hello!", { fontFamily: "Georgia, serif", fontSize: "18px",
+            fontStyle: "bold", color: "#382519", align: "center" }).setOrigin(0.5).setResolution(2);
+          const width = text.width + 28, height = text.height + 22;
+          text.setPosition(0, -12 - height / 2);
+          const background = scene.add.graphics();
+          background.fillStyle(0x382519, 0.16).fillRoundedRect(-width / 2 + 2, -height - 9, width, height, 14);
+          background.fillStyle(0xfff7e8).lineStyle(2, 0x9b7545);
+          background.fillRoundedRect(-width / 2, -height - 12, width, height, 14);
+          background.strokeRoundedRect(-width / 2, -height - 12, width, height, 14);
+          background.fillTriangle(-9, -13, 9, -13, 0, 0);
+          background.lineBetween(-9, -12, 0, 0); background.lineBetween(0, 0, 9, -12);
+          const speech = scene.add.container(0, 0, [background, text]).setDepth(10003)
+            .setName("neighbour-speech-bubble").setVisible(false);
           const marker = scene.add.graphics().setDepth(10001).setVisible(false);
           const arrow = [{ x: -4, y: -20 }, { x: 4, y: -20 }, { x: 4, y: -11 }, { x: 10, y: -11 },
             { x: 0, y: 0 }, { x: -10, y: -11 }, { x: -4, y: -11 }].map(p => new Phaser.Math.Vector2(p.x, p.y));
           marker.fillStyle(0xffd568).fillPoints(arrow, true).lineStyle(2, 0x624728).strokePoints(arrow, true);
-          visitor = { position: entry.position, path: [], speed: 0, distance: 0, marker,
+          visitor = { position: entry.position, path: [], speed: 0, distance: 0, marker, speech, greeting: initialNeighbourGreeting(),
             actor: scene.add.image(0, 0, "farmer-idle").setOrigin(0.5, 120 / 128).setDisplaySize(64, 64),
             shadow: scene.add.ellipse(0, 0, 23, 8, 0x624728, 0.18),
             name: scene.add.text(0, 0, entry.name, { fontFamily: "Georgia, serif", fontSize: "12px",
@@ -75,6 +91,17 @@ export const createMarketVisitors = (scene: Phaser.Scene, buildings: () => reado
         const hidden = farmerObscured(occlusion(visitor.actor), obstacles);
         visitor.marker.setVisible(hidden).setPosition(point.x, point.y - 63 + hiddenFarmerBounce(Date.now(), reducedMotion));
         visitor.name.setPosition(point.x, point.y - (hidden ? 88 : 60));
+        const local = farmer(), now = Date.now();
+        visitor.greeting = advanceNeighbourGreeting(visitor.greeting,
+          Math.hypot(local.column - visitor.position.column, local.row - visitor.position.row), now);
+        const startedAt = visitor.greeting.startedAt;
+        visitor.speech.setVisible(startedAt !== null);
+        visitor.name.setVisible(startedAt === null);
+        if (startedAt !== null) {
+          const appearance = greetingAppearance(now - startedAt, reducedMotion);
+          visitor.speech.setPosition(point.x, point.y - (hidden ? 88 : 62))
+            .setScale(appearance.scale).setAlpha(appearance.alpha);
+        }
       }
     },
     destroy() { for (const [id, visitor] of visitors) remove(id, visitor); masks.clear(); }

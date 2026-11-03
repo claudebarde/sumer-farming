@@ -1,3 +1,4 @@
+import { randomId } from "../randomId";
 import { cropWorkReserved } from "../../game-data/cropWork";
 import MarketItemIcon from "./MarketItemIcon";
 import actionStyles from "../styles/BuildingActionButton.module.scss";
@@ -105,7 +106,7 @@ export default function MarketDialog() {
         itemKey,
         quantity,
         expectedUnitPrice,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: randomId(),
         expectedFarmVersion: farmState.snapshot.farm.version
       } as const;
       const snapshot = await match(direction)
@@ -154,7 +155,7 @@ export default function MarketDialog() {
         itemKey,
         quantity,
         unitPrice,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: randomId(),
         expectedFarmVersion: farmState.snapshot.farm.version
       });
       farmStore.getState().setReady(snapshot);
@@ -214,7 +215,7 @@ export default function MarketDialog() {
         orderId,
         expectedUnitPrice,
         quantity,
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: randomId(),
         expectedFarmVersion: farmState.snapshot.farm.version
       });
       farmStore.getState().setReady(snapshot);

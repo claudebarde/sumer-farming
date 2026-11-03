@@ -7,7 +7,7 @@ import DecorationsPanel from "./DecorationsPanel";
 import { sendDecoration } from "../api/decorations";
 import { miniaturePlacementError } from "../../game-core/farm/miniaturePlacement";
 import { nextCropTransition } from "../game/phaser/cropPresentation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import type { Ziggurat } from "../../schemas/ziggurat";
 import { renderDiagnostic } from "../game/phaser/renderDiagnostics";
 import { shrineOfferingBlocker } from "../game/phaser/isometricShrine";
@@ -80,7 +80,6 @@ import { describeBuildingPlacementRule } from "../../game-core/farm/buildings";
 import { previewWalkPath } from "../game/phaser/isometricWalking";
 import { sameCell } from "../game/phaser/isometricFarm";
 import { OPEN_BUILD_DRAWER } from "../api/buildingReadiness";
-import { gatheringPath } from "../game/phaser/isometricGathering";
 import { canStartIsometricFishing, fishingApproach } from "../game/phaser/isometricFishing";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import MerchantRequests from "./MerchantRequests";
@@ -91,16 +90,23 @@ import InfoAlert from "./InfoAlert";
 import GameLoadingScreen from "./GameLoadingScreen";
 import { monitorGameLoading, type GameLoadingState } from "../game/phaser/gameLoading";
 
+const MaterialGatheringControls = lazy(() => import("./MaterialGatheringControls"));
+const MaterialGatheringProgress = lazy(() => import("./MaterialGatheringControls").then(module => ({ default: module.MaterialGatheringProgress })));
+
 export default function IsometricFarm() {
   const [gameLoading, setGameLoading] = useState<GameLoadingState>("loading");
   const navigationTooltip = useNavigationTooltip();
   const parent = useRef<HTMLDivElement>(null);
+  const [mapElement, setMapElement] = useState<HTMLDivElement | null>(null);
+  const mountMap = useCallback((element: HTMLDivElement | null) => {
+    parent.current = element;
+    setMapElement(element);
+  }, []);
   const scene = useRef<IsometricFarmScene | null>(null);
   const marketScene = useRef<IsometricMarketScene | null>(null);
   const neighbourhoodScene = useRef<NeighbourhoodScene | null>(null);
   const updateZiggurat = useCallback((data: Ziggurat) => neighbourhoodScene.current?.setZigguratState(data), []);
   const [neighbourhoodOpen, setNeighbourhoodOpen] = useState(false);
-  const [deliveryPreview, setDeliveryPreview] = useState(false);
   const [zigguratOpen, setZigguratOpen] = useState(false);
   const [neighbourhoodLoad, setNeighbourhoodLoad] = useState<"idle" | "loading" | "error">("idle");
   const neighbourhoodRequest = useRef<AbortController | null>(null);
@@ -128,6 +134,7 @@ export default function IsometricFarm() {
   const submitting = useRef(false);
   const mounted = useRef(false);
   const [snapshot, setSnapshot] = useState<FarmSnapshot | null>(null);
+  const [gatherTarget, setGatherTarget] = useState<{ itemKey: "reed" | "clay"; target: IsoCell } | null>(null);
   const [selection, setSelection] = useState<readonly IsoCell[] | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -694,26 +701,10 @@ export default function IsometricFarm() {
       if (mounted.current) { setPending(false); renderer.setPlantingSelection(null, false); refresh.current(); }
     }
   };
-  const gather = async (itemKey: "reed" | "clay") => {
-    const farm = current.current, renderer = scene.current;
-    if (!farm || !renderer || !information || submitting.current) return;
-    const target = information.cell;
-    if (isometricTilePopup(farm, target, Date.now()).actions.gather !== itemKey) return;
-    const path = gatheringPath(farm, renderer.farmerPosition(), target, Date.now());
-    if (!path) { setError("No clear path to this resource."); return; }
-    submitting.current = true; setPending(true); setError(null);
-    renderer.setPlantingSelection(null, true);
-    try {
-      const next = await executeGameCommand({ type: "start_gather_resource", itemKey, target, expectedFarmVersion: farm.farm.version });
-      if (!mounted.current) return;
-      renderer.presentGatheringApproach(path);
-      accept.current(next); renderer.clearSelection();
-    } catch (cause) {
-      if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not collect the material.");
-    } finally {
-      submitting.current = false;
-      if (mounted.current) { setPending(false); renderer.setPlantingSelection(null, false); refresh.current(); }
-    }
+  const gather = (itemKey: "reed" | "clay") => {
+    if (!information || !snapshot) return;
+    setGatherTarget({ itemKey, target: information.cell });
+    setInformation(null);
   };
   const tileAction = async (type: "pickup_ground_item" | "drop_carried_item" | "build_irrigation" | "destroy_irrigation" | "build_road" | "destroy_road" | "destroy_ground_material") => {
     const farm = current.current;
@@ -870,7 +861,6 @@ export default function IsometricFarm() {
           <Tooltip.Root {...navigationTooltip("return")}>
             <Tooltip.Trigger asChild>
               <button className={`${styles.manageButton} ${actionStyles.button} ${styles.manageIconButton}`} aria-label="Back to your farm" onClick={() => {
-                setDeliveryPreview(false); neighbourhoodScene.current?.previewDelivery(false);
                 setNeighbourhoodLeaderboardOpen(false);
                 neighbourhoodScene.current?.scene.switch("isometric-farm");
                 activeScene.current = scene.current; setNeighbourhoodOpen(false); refresh.current();
@@ -907,16 +897,7 @@ export default function IsometricFarm() {
         decorationsContent={snapshot && <><DecorationsPanel snapshot={snapshot} pending={pending} onPlace={placeDecoration} onStore={id=>void changeDecoration(id)}/>
           {decorationError&&<p role="alert">{decorationError}</p>}</>} />
     </Dialog.Root>
-    {neighbourhoodOpen && <div className={styles.toolbar}>
-      <strong>Neighbourhood</strong>
-
-
-
-      {neighbourhoodOpen && <button aria-pressed={deliveryPreview} onClick={()=>{
-        const next=!deliveryPreview;setDeliveryPreview(next);neighbourhoodScene.current?.previewDelivery(next);
-      }}>{deliveryPreview ? "Stop delivery preview" : "Preview ziggurat delivery"}</button>}
-    </div>}
-    <div ref={parent} className={styles.canvas} />
+    <div ref={mountMap} className={styles.canvas} />
     {neighbourhoodOpen && (snapshot?.farm.progression?.level ?? 1) >= 7 &&
       <NeighbourhoodLeaderboardDialog open={neighbourhoodLeaderboardOpen} onOpenChange={setNeighbourhoodLeaderboardOpen} />}
     {neighbourhoodOpen && snapshot && <ZigguratDialog key={snapshot.farm.id} farmId={snapshot.farm.id} open={zigguratOpen} onOpenChange={setZigguratOpen} onState={updateZiggurat} />}
@@ -943,6 +924,13 @@ export default function IsometricFarm() {
     </aside>}
     {demolitionId && snapshot && <DestroyBuildingDialog key={demolitionId} snapshot={snapshot} buildingId={demolitionId} now={clock}
       onClose={() => setDemolitionId(null)} onDestroyed={next => accept.current(next)} />}
+    {!neighbourhoodOpen && location === "farm" && gatherTarget && snapshot &&
+      <Suspense fallback={null}><MaterialGatheringControls key={`${gatherTarget.itemKey}:${gatherTarget.target.column}:${gatherTarget.target.row}`} snapshot={snapshot} {...gatherTarget} now={clock}
+        getFarmerPosition={() => { const p = scene.current?.farmerPosition(); return p && { column: Math.round(p.column), row: Math.round(p.row) }; }}
+        onCancel={() => { setGatherTarget(null); scene.current?.clearSelection(); }}
+        onStarted={next => { accept.current(next); setGatherTarget(null); scene.current?.clearSelection(); setInformation(null); }} /></Suspense>}
+    {!neighbourhoodOpen && location === "farm" && snapshot?.farm.production.materialGathering && !snapshot.farm.production.materialGathering.settled &&
+      <Suspense fallback={null}><MaterialGatheringProgress job={snapshot.farm.production.materialGathering} now={clock} /></Suspense>}
     {!neighbourhoodOpen && location === "farm" && palmTarget && snapshot &&
       <PalmPlantingConfirmation key={`${palmTarget.column}:${palmTarget.row}`} snapshot={snapshot} target={palmTarget} now={clock}
         getFarmerPosition={() => { const p = scene.current?.farmerPosition(); return p && { column: Math.round(p.column), row: Math.round(p.row) }; }}
@@ -973,7 +961,7 @@ export default function IsometricFarm() {
         <button disabled={pending} onClick={() => { updateSelection(null); setError(null); }}>Cancel</button>
       </div>}
     </aside>}
-    {!decorationId && !neighbourhoodOpen && information && snapshot && selection === null && !error && !pending && (information.kind === "market" || information.kind === "farmReturn" || information.kind === "barleyMarket" || information.kind === "beerMarket" || information.kind === "bakingMarket" || information.kind === "produceMarket" || information.kind === "suppliesMarket"
+    {!gatherTarget && !decorationId && !neighbourhoodOpen && information && snapshot && selection === null && !error && !pending && (information.kind === "market" || information.kind === "farmReturn" || information.kind === "barleyMarket" || information.kind === "beerMarket" || information.kind === "bakingMarket" || information.kind === "produceMarket" || information.kind === "suppliesMarket"
       ? <IsometricTravelPopup transparent={transparentBuildings.has("market")} onToggleTransparency={information.kind === "market" ? () => {
         const next = new Set(transparentBuildings);
         if (next.has("market")) next.delete("market"); else next.add("market");
@@ -983,7 +971,7 @@ export default function IsometricFarm() {
           if (information.kind === "farmReturn") marketScene.current?.goBackToFarm();
           else if (!scene.current?.goToMarket()) setError("Cannot reach the market right now.");
         }} />
-      : <IsometricTilePopup buildingTransparent={transparentBuildings.has(buildingAt(snapshot, information.cell)?.id ?? "farm")} onToggleBuildingTransparency={() => {
+      : <IsometricTilePopup mapElement={mapElement} buildingTransparent={transparentBuildings.has(buildingAt(snapshot, information.cell)?.id ?? "farm")} onToggleBuildingTransparency={() => {
         const id = buildingAt(snapshot, information.cell)?.id ?? "farm";
         const next = new Set(transparentBuildings);
         if (next.has(id)) next.delete(id); else next.add(id);

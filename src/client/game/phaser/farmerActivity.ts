@@ -34,6 +34,8 @@ export const farmerActivity = (snapshot: FarmSnapshot, now: number, walking = fa
   if (job?.type === "baking") return activity("Baking", "bread");
   if (job?.type === "brewing") return activity("Brewing", "beer");
   if (farm.fishing) return activity("Fishing", "fish");
+  const gathering = farm.production.materialGathering;
+  if (gathering && !gathering.settled) return activity(now < gathering.workStartsAt ? "Walking" : now < gathering.workEndsAt ? "Collecting" : "Storing", gathering.itemKey);
   if (farm.gathering) return activity("Collecting", farm.gathering.itemKey);
   if (snapshot.buildings.some(b => Date.parse(b.completesAt) > now)) return activity("Building", "pickaxe");
   if (farm.roads.some(r => (r.completesAt ?? 0) > now)) return activity("Building", "road");

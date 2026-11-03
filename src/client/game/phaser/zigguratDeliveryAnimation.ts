@@ -1,16 +1,27 @@
 import Phaser from "phaser";
-import { deliveryPlan, deliveryPose, DONKEY_HITCH, type DeliveryCell } from "../../../game-data/zigguratDelivery";
+import { deliveryPlan, deliveryPose, interestPlan, interestPose, DONKEY_HITCH, type DeliveryCell } from "../../../game-data/zigguratDelivery";
 import { DONKEY_STEP_MS } from "./isometricDonkey";
 import { isoPoint, ISO_WIDTH, ISO_HEIGHT } from "./isometricProjection";
 import { farmerTravelTexture } from "./farmerCarry";
 import { prepareZigguratDonkey } from "./zigguratDonkeyPreview";
 import { farmerObscured, type OcclusionSprite } from "./farmerOcclusion";
 import type { Ziggurat } from "../../../schemas/ziggurat";
+import farmerBack from "../../../assets/sprite_assets/pngs/v2/isometric-test/ziggurat/farmer-idle-back.png";
+import { prepareFarmerTexture } from "./farmerTexture";
+
+const READING_FARMER = "ziggurat-farmer-idle-back";
+export const preloadZigguratFarmer = (scene: Phaser.Scene) => {
+  if (!scene.textures.exists(READING_FARMER)) scene.load.image(`source-${READING_FARMER}`, farmerBack);
+};
 
 /** One shared visual donkey. Saved timestamps are presentation only. */
 export const createZigguratDeliveryAnimation = (scene: Phaser.Scene,
   farmers: ReadonlyMap<number, Phaser.GameObjects.Image>, buildings: readonly { sprite: Phaser.GameObjects.Image; column:number;row:number;columns:number;rows:number }[]) => {
   prepareZigguratDonkey(scene);
+  if (!scene.textures.exists(READING_FARMER)) {
+    const source = scene.textures.get(`source-${READING_FARMER}`).getSourceImage() as HTMLImageElement;
+    scene.textures.addCanvas(READING_FARMER, prepareFarmerTexture(source))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+  }
   const empty=scene.add.image(0,0,"isometric-donkey-front-0").setOrigin(.5,120/128).setDisplaySize(76,76);
   const loaded=scene.add.image(0,0,"ziggurat-donkey-front-0").setOrigin(.5,120/128).setDisplaySize(76,76);
   const worker=scene.add.image(0,0,"farmer-idle").setOrigin(.5,120/128).setDisplaySize(64,64).setVisible(false);
@@ -43,6 +54,8 @@ export const createZigguratDeliveryAnimation = (scene: Phaser.Scene,
     return result;
   };
   let deliveries:Ziggurat["deliveries"]=[],clockOffset=0,previewSlot:number|null=null,previewElapsed=0;
+  let interestVisits: NonNullable<Ziggurat["interestVisits"]> = [];
+  const interestActors = new Map<number, { actor: Phaser.GameObjects.Image; shadow: Phaser.GameObjects.Ellipse; arrow: Phaser.GameObjects.Text; plan: ReturnType<typeof interestPlan> }>();
   const plans=new Map<number,ReturnType<typeof deliveryPlan>>();
   const planFor=(slot:number)=>{let plan=plans.get(slot);if(!plan){plan=deliveryPlan(slot);plans.set(slot,plan);}return plan;};
   const reduced=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -51,6 +64,30 @@ export const createZigguratDeliveryAnimation = (scene: Phaser.Scene,
     const job=deliveries.find(d=>Date.parse(d.startsAt)<=now && Date.parse(d.completesAt)>now);
     const slot=previewSlot??job?.slot;
     for(const [s,farmer] of farmers) farmer.setVisible(s!==slot);
+    const activeVisits = interestVisits.filter(v => v.slot !== slot && Date.parse(v.startsAt) <= now && Date.parse(v.completesAt) > now);
+    for (const [s, objects] of interestActors) if (!activeVisits.some(v => v.slot === s)) {
+      objects.actor.destroy(); objects.shadow.destroy(); objects.arrow.destroy(); interestActors.delete(s);
+    }
+    for (const visit of activeVisits) {
+      if (!farmers.has(visit.slot)) continue;
+      let objects = interestActors.get(visit.slot);
+      if (!objects) {
+        objects = { actor: scene.add.image(0,0,"farmer-idle"), shadow: scene.add.ellipse(0,0,23,8,0x624728,.18),
+          arrow: scene.add.text(0,0,"↓",{fontSize:"24px",color:"#ffd568",stroke:"#624728",strokeThickness:2}).setOrigin(.5,1).setDepth(10001), plan: interestPlan(visit.slot) };
+        interestActors.set(visit.slot, objects);
+      }
+      const pose = interestPose(objects.plan, now - Date.parse(visit.startsAt));
+      const point = isoPoint(pose.position), from = isoPoint(pose.from), to = isoPoint(pose.to);
+      const atTablet = pose.position.column === -3 && pose.position.row < 2;
+      const siteDepth = buildings.find(b => b.column === -5 && b.row === -2)?.sprite.depth ?? 0;
+      farmers.get(visit.slot)!.setVisible(false);
+      objects.actor.setTexture(pose.waiting ? READING_FARMER : farmerTravelTexture(pose.travelledTiles * Math.hypot(ISO_WIDTH/2,ISO_HEIGHT/2),0,pose.moving&&!reduced))
+        .setOrigin(.5,120/128).setDisplaySize(64,64)
+        .setFlipX(pose.waiting || to.x<from.x).setPosition(point.x,point.y)
+        .setDepth(atTablet ? Math.max(depth(pose.position)+1,siteDepth+1) : depth(pose.position)+1);
+      objects.shadow.setPosition(point.x,point.y).setDepth(point.y);
+      objects.arrow.setVisible(farmerObscured(occlusion(objects.actor),buildings.map(b=>occlusion(b.sprite)))).setPosition(point.x,point.y-70);
+    }
     if(slot===undefined){worker.setVisible(false);loaded.setVisible(false);empty.setVisible(true).setAlpha(1).setTexture("isometric-donkey-front-0").setDisplaySize(76,76).setPosition(hitch.x,hitch.y+8).setDepth(depth(DONKEY_HITCH));
       shadows[0]!.setPosition(hitch.x,hitch.y).setDepth(hitch.y);shadows[1]!.setVisible(false);arrows.forEach(a=>a.setVisible(false));return;}
     const plan=planFor(slot);
@@ -74,7 +111,7 @@ export const createZigguratDeliveryAnimation = (scene: Phaser.Scene,
     [pose.load>.5?loaded:empty,worker].forEach((actor,i)=>arrows[i]!.setVisible(farmerObscured(occlusion(actor),obstacles)).setPosition(actor.x,actor.y-70));
   };
   update(0);
-  return {update,receive:(data:Ziggurat)=>{deliveries=data.deliveries;clockOffset=Date.parse(data.serverTime)-Date.now();},
+  return {update,receive:(data:Ziggurat)=>{deliveries=data.deliveries;interestVisits=data.interestVisits??[];clockOffset=Date.parse(data.serverTime)-Date.now();},
     preview:(slot:number|null)=>{previewSlot=slot;previewElapsed=0;update(0);},
-    destroy:()=>{for(const farmer of farmers.values())farmer.setVisible(true);[empty,loaded,worker,post,...shadows,...arrows].forEach(a=>a.destroy());}};
+    destroy:()=>{for(const farmer of farmers.values())farmer.setVisible(true);for(const objects of interestActors.values()){objects.actor.destroy();objects.shadow.destroy();objects.arrow.destroy();}interestActors.clear();[empty,loaded,worker,post,...shadows,...arrows].forEach(a=>a.destroy());}};
 };

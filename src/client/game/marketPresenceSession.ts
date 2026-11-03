@@ -1,3 +1,4 @@
+import { randomId } from "../randomId";
 import { MARKET_PRESENCE_POLL_MS, MARKET_PRESENCE_TTL_MS, type MarketPosition, type MarketVisitor } from "../../schemas/marketPresence";
 import { sendMarketPresence } from "../api/marketPresence";
 
@@ -6,6 +7,7 @@ export const createMarketPresenceSession = (options: {
   eligible: () => boolean;
   position: () => MarketPosition;
   receive: (visitors: readonly MarketVisitor[]) => void;
+  place?: (position: MarketPosition) => void;
   send?: typeof sendMarketPresence;
 }) => {
   const send = options.send ?? sendMarketPresence;
@@ -26,16 +28,22 @@ export const createMarketPresenceSession = (options: {
     const controller = new AbortController(); visit.controller = controller;
     const timeout = setTimeout(() => controller.abort(), 8000);
     try {
-      const visitors = await send({ type: visit.joined ? "heartbeat" : "join", sessionId: visit.id,
-        position: options.position() }, controller.signal);
+      const requested = options.position();
+      const response = await send({ type: visit.joined ? "heartbeat" : "join", sessionId: visit.id,
+        position: requested }, controller.signal);
       if (active !== visit) return;
-      if (visitors === null) {
+      if (response === null) {
         // Closed/expired session: fresh ID on the next poll; never reuse a tombstone.
         stop();
         if (options.eligible()) timer = setTimeout(() => { timer = undefined; start(); }, 2000);
         return;
       }
-      visit.joined = true; visit.lastSuccess = Date.now(); options.receive(visitors);
+      // Never teleport a farmer who has already started walking during the request.
+      const current = options.position();
+      if (!visit.joined && response.entryPosition && current.column === requested.column && current.row === requested.row) {
+        options.place?.(response.entryPosition);
+      }
+      visit.joined = true; visit.lastSuccess = Date.now(); options.receive(response.visitors);
     } catch {
       if (active === visit && Date.now() - visit.lastSuccess >= MARKET_PRESENCE_TTL_MS) options.receive([]);
     } finally {
@@ -45,7 +53,7 @@ export const createMarketPresenceSession = (options: {
   };
   const start = () => {
     if (active || timer !== undefined || !options.eligible()) return;
-    active = { id: crypto.randomUUID(), joined: false, lastSuccess: Date.now() };
+    active = { id: randomId(), joined: false, lastSuccess: Date.now() };
     void poll();
   };
   return { start, stop };
