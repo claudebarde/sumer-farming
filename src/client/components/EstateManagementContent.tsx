@@ -40,7 +40,7 @@ export default function EstateManagementContent({ farmState, storageClock, manag
   return (
         <Dialog.Portal>
           <Dialog.Overlay className={styles["manage-dialog-overlay"]} />
-          <Dialog.Content className={styles["manage-dialog-content"]}>
+          <Dialog.Content className={`${styles["manage-dialog-content"]} ${styles["estate-dialog-content"]}`}>
             <Dialog.Title>Manage estate</Dialog.Title>
             <Dialog.Description>
               Review your resources and plan improvements to the farm.

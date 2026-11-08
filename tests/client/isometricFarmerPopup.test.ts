@@ -38,9 +38,9 @@ it("renders the shared happiness and meal meters with empty hands", () => {
   farm.farm.household.nextBarleyConsumptionAt = new Date(3600000).toISOString();
   const html = renderToStaticMarkup(createElement(FarmerPopupStatus, { snapshot: farm, now: 0 }));
   expect(html).not.toContain("head-and-shoulders portrait");
-  expect(html).toContain("Idle");
-  expect(html).toContain('alt="stool"');
-  expect(html.indexOf("Idle")).toBeLessThan(html.indexOf("Happiness"));
+  expect(html).not.toContain("Idle");
+  expect(html).not.toContain('alt="stool"');
+  expect(html).toContain("Points");
   expect(html.indexOf("Happiness")).toBeLessThan(html.indexOf("Next meal"));
   expect(html).toContain('aria-label="Farmer happiness"');
   expect(html).toContain('aria-valuenow="70"');
@@ -49,7 +49,7 @@ it("renders the shared happiness and meal meters with empty hands", () => {
   expect(renderToStaticMarkup(createElement(FarmerPopupStatus, { snapshot: farm, now: 0 }))).toContain("Hungry: a meal is needed now");
 });
 
-it("shows carrying in the activity column and prioritizes current work", () => {
+it("keeps activity out of the popup while retaining work classification", () => {
   const s = snapshot();
   s.farm.carriedItem = { itemKey: "barley", quantity: 2, expiresAt: null };
   expect(farmerActivity(s, 0)).toMatchObject({ label: "Carrying", item: "barley", quantity: 2 });
@@ -58,8 +58,8 @@ it("shows carrying in the activity column and prioritizes current work", () => {
   expect(farmerActivity(s, 0)).toMatchObject({ label: "Collecting", item: "barley" });
   expect(farmerActivity(s, 2000)).toMatchObject({ label: "Milling", item: "flour" });
   const html = renderToStaticMarkup(createElement(FarmerPopupStatus, { snapshot: s, now: 2000 }));
-  expect(html).toContain('alt="flour"');
-  expect(html).toContain("Milling");
+  expect(html).not.toContain('alt="flour"');
+  expect(html).not.toContain("Milling");
   expect(html).not.toContain(">Activity<");
 });
 
@@ -71,24 +71,24 @@ it("uses the corresponding collected material icon", () => {
   }
 });
 
-it.each([false, true])("shows the water icon without a cuneiform overlay while carrying (walking=%s)", walking => {
+it.each([false, true])("keeps carrying details out of the status row (walking=%s)", walking => {
   const s = snapshot();
   s.farm.carriedItem = { itemKey: "water", quantity: 1, expiresAt: null };
   expect(farmerActivity(s, 0, walking)).toMatchObject({ item: "water", quantity: 1 });
   const html = renderToStaticMarkup(createElement(FarmerPopupStatus, { snapshot: s, now: 0, walking }));
-  expect(html).toContain('alt="water"');
-  expect(html).toContain("water.webp");
+  expect(html).not.toContain('alt="water"');
+  expect(html).not.toContain("water.webp");
   expect(html).not.toContain("𒀀");
 });
 
-it("shows the pickaxe during building construction and the stool after completion", () => {
+it("keeps construction classification without an activity column", () => {
   const s = snapshot();
   s.buildings = [{ id, type: "mill", column: 4, row: 3, storedBarley: 0, brewingBarley: 0,
     brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0, loadingTile: null,
     startedAt: new Date(0).toISOString(), completesAt: new Date(2000).toISOString() }];
   expect(farmerActivity(s, 1000)).toMatchObject({ label: "Building", item: "pickaxe" });
   const html = renderToStaticMarkup(createElement(FarmerPopupStatus, { snapshot: s, now: 1000 }));
-  expect(html).toContain('alt="pickaxe"');
-  expect(html).toContain(">Building<");
+  expect(html).not.toContain('alt="pickaxe"');
+  expect(html).not.toContain(">Building<");
   expect(farmerActivity(s, 2000)).toMatchObject({ label: "Idle", item: "stool" });
 });

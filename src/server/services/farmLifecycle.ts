@@ -1,6 +1,9 @@
+import { initializeLevel10Work } from "./level10History";
+import { MEALS, mealRationDeadline } from "../../game-data/kitchen";
+import { sleepIntervals } from "../../game-data/farmerSleep";
 import { advanceMaterialGathering } from "./materialGatheringLifecycle";
 import { millingJobs } from "../../game-data/millingJobs";
-import { reconcilePlayerPoints } from "./playerPoints";
+import { awardPoints, reconcilePlayerPoints } from "./playerPoints";
 import { BARLEY_CLEARING_MS } from "../../game-core/farm/barleyDecay";
 import { and, asc, eq, lte, sql, inArray, isNull } from "drizzle-orm";
 import { getRiverConnectedCanals } from "../../game-core/farm/irrigation";
@@ -68,6 +71,23 @@ export const advanceFarmLifecycle = async (
   farm: FarmRecord,
   now: Date
 ): Promise<FarmRecord> => {
+  farm = await initializeLevel10Work(transaction, farm);
+  const cooking = farm.production.cooking;
+  if (cooking && Date.parse(cooking.completesAt) <= now.getTime()) {
+    const finishedAt = Date.parse(cooking.completesAt);
+    // Settle preceding work and hunger before replacing the benefit, including
+    // offline catch-up. At end-1 the same cooking job is still pending.
+    farm = await advanceFarmLifecycle(transaction, farm, new Date(finishedAt - 1));
+    await awardPoints(transaction, farm.playerId, { action: "cookMeal", source: `meal:${cooking.id}`, completedAt: new Date(finishedAt) }, now);
+    const mealBenefit = { meal: cooking.meal, startedAt: finishedAt, expiresAt: finishedAt + MEALS[cooking.meal].durationMs };
+    const deadline = mealRationDeadline(farm.nextBarleyConsumptionAt?.getTime() ?? null, farm.production.mealBenefit, mealBenefit, finishedAt);
+    const [updated] = await transaction.update(farms).set({
+      production: { ...farm.production, cooking: null, mealBenefit },
+      nextBarleyConsumptionAt: deadline === null ? null : new Date(deadline),
+      version: sql`${farms.version} + 1`, updatedAt: new Date(finishedAt)
+    }).where(eq(farms.id, farm.id)).returning();
+    farm = updated!;
+  }
   farm = await migrateFarmLand(transaction, farm, now);
   await initializePhysicalStorage(transaction, farm.id, now);
   await reconcilePlayerPoints(transaction, farm, now);
@@ -235,7 +255,9 @@ export const advanceFarmLifecycle = async (
       production,
       ...(job.recipe !== "oil" ? { millGoods: { ...farm.millGoods, pending: { ...farm.millGoods.pending,
         [job.buildingId]: { ...bags, [job.recipe]: bags[job.recipe] + job.output } } } } : {}),
-      progressionStats: { ...farm.progressionStats, processedBarley: (farm.progressionStats.processedBarley ?? 0) + job.barley },
+      progressionStats: { ...farm.progressionStats,
+        ...(farm.level === 10 && job.recipe === "oil" ? { level10Work: { sesameHarvests: farm.progressionStats.level10Work?.sesameHarvests ?? 0, oilProduced: (farm.progressionStats.level10Work?.oilProduced ?? 0) + job.output } } : {}),
+        processedBarley: (farm.progressionStats.processedBarley ?? 0) + job.barley },
       version: sql`${farms.version} + 1`, updatedAt: now
     }).where(eq(farms.id, farm.id)).returning();
     farm = completed!;
@@ -256,14 +278,15 @@ export const advanceFarmLifecycle = async (
     farm.carriedItemExpiresAt !== null &&
     farm.carriedItemExpiresAt <= now;
   const nextConsumptionAt = farm.nextBarleyConsumptionAt;
+  // If the next ration falls inside the porridge hour, the remaining slowdown
+  // belongs to the following ration interval, not just the first deadline.
+  const porridgeEnd = farm.production.mealBenefit?.meal === "porridge" ? farm.production.mealBenefit.expiresAt : 0;
+  const followingRationDelay = nextConsumptionAt ? Math.max(0, porridgeEnd - nextConsumptionAt.getTime()) / 2 : 0;
   const dueRations =
     farm.hungrySince !== null
       ? 1
       : nextConsumptionAt !== null && nextConsumptionAt <= now
-        ? Math.floor(
-            (now.getTime() - nextConsumptionAt.getTime()) /
-              BARLEY_CONSUMPTION_INTERVAL_MS
-          ) + 1
+        ? 1 + Math.max(0, Math.floor((now.getTime() - nextConsumptionAt.getTime() - followingRationDelay) / BARLEY_CONSUMPTION_INTERVAL_MS))
         : 0;
 
   let hungrySince = farm.hungrySince;
@@ -332,13 +355,13 @@ export const advanceFarmLifecycle = async (
       nextBarleyConsumptionAt = new Date(
         farm.hungrySince === null && nextConsumptionAt !== null
           ? nextConsumptionAt.getTime() +
-              dueRations * BARLEY_CONSUMPTION_INTERVAL_MS
-          : now.getTime() + BARLEY_CONSUMPTION_INTERVAL_MS
+              dueRations * BARLEY_CONSUMPTION_INTERVAL_MS + followingRationDelay
+          : now.getTime() + BARLEY_CONSUMPTION_INTERVAL_MS + Math.max(0, porridgeEnd - now.getTime()) / 2
       );
     } else {
       hungrySince ??= new Date(
         (nextConsumptionAt?.getTime() ?? now.getTime()) +
-          consumed * BARLEY_CONSUMPTION_INTERVAL_MS
+          consumed * BARLEY_CONSUMPTION_INTERVAL_MS + (consumed > 0 ? followingRationDelay : 0)
       );
       nextBarleyConsumptionAt = new Date(
         now.getTime() + BARLEY_CONSUMPTION_INTERVAL_MS
@@ -352,7 +375,9 @@ export const advanceFarmLifecycle = async (
     consumedRations,
     hungrySince !== null && farm.hungrySince === null ? hungrySince.getTime() : null,
     farm.level,
-    farm.production.shrineBlessing
+    farm.production.shrineBlessing,
+    sleepIntervals(farm.sleep),
+    followingRationDelay
   );
   const happiness = wellbeing.happiness;
   const farmChanged =

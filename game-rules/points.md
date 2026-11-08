@@ -72,6 +72,7 @@ repetition generating points.
 | Make brewer's groats with the farmer | 30 | Per completed milling batch |
 | Make brewer's groats with the donkey | 35 | Per completed milling batch |
 | Bake bread | 40 | Per completed baking batch, not per bread basket |
+| Cook any kitchen meal | 30 | Per completed meal, when automatically consumed; once per cooking job, including offline completion |
 | Brew beer | 40 | Per completed fermentation batch; stirring and supply trips earn no separate award |
 
 Award these points when production finishes, whether the player is watching or

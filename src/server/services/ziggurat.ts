@@ -2,7 +2,7 @@ import { settleZigguratRewards } from "./zigguratRewards";
 import { deliveryPlan, interestPlan } from "../../game-data/zigguratDelivery";
 import { and, asc, eq, gt, sql } from "drizzle-orm";
 import type { Database, DatabaseTransaction } from "../db/client";
-import { players, farmInventory, farms, neighbourhoodMembers, neighbourhoods, zigguratInterests, zigguratProjects, zigguratDonations, zigguratDeliveries } from "../db/schema";
+import { zigguratCelebrations, players, farmInventory, farms, neighbourhoodMembers, neighbourhoods, zigguratInterests, zigguratProjects, zigguratDonations, zigguratDeliveries } from "../db/schema";
 import { ZigguratSchema, ZigguratDonationCommandSchema, type Ziggurat, type ZigguratDonationCommand } from "../../schemas/ziggurat";
 import { ZIGGURAT_STAGES, ZIGGURAT_RESOURCES, ZIGGURAT_POINTS, emptyMaterials, type ZigguratMaterials } from "../../game-data/ziggurat";
 import { setStoredQuantity } from "./physicalStorage";
@@ -39,6 +39,7 @@ const readState = async (tx: DatabaseTransaction, home: string, playerId: string
     .innerJoin(farms, eq(farms.id, farmInventory.farmId)).where(eq(farms.playerId, playerId));
   const donations = await tx.select({ playerId: zigguratDonations.playerId, points: zigguratDonations.points }).from(zigguratDonations)
     .where(eq(zigguratDonations.neighbourhoodId, home));
+  const [celebration] = await tx.select().from(zigguratCelebrations).where(and(eq(zigguratCelebrations.neighbourhoodId, home), eq(zigguratCelebrations.playerId, playerId)));
   const serverTime = new Date();
   const deliveries = await tx.select().from(zigguratDeliveries).where(and(eq(zigguratDeliveries.neighbourhoodId, home), gt(zigguratDeliveries.completesAt, serverTime))).orderBy(asc(zigguratDeliveries.startsAt));
   const [player] = await tx.select().from(players).where(eq(players.id, playerId));
@@ -48,6 +49,7 @@ const readState = async (tx: DatabaseTransaction, home: string, playerId: string
   const supporters = eligible.filter(member => interests.some(interest => interest.playerId === member.playerId));
   return ZigguratSchema.parse({
     ...projectProgress(project, serverTime),
+    celebrationSeen: !!celebration,
     serverTime: serverTime.toISOString(),
     interestVisits: interests.flatMap(interest => {
       const member = eligible.find(m => m.playerId === interest.playerId);
@@ -167,3 +169,16 @@ export const donateZiggurat = async (db: Database, playerId: string, input: Zigg
     return { ok: true, data: await readState(tx, home, playerId), receipt: { ...accepted, points } };
   });
 };
+
+/** Atomically consume the cosmetic celebration across tabs/devices, never on GET. */
+export const claimZigguratCelebration = (db: Database, playerId: string) => db.transaction(async tx => {
+  const [member] = await tx.select({ home: neighbourhoodMembers.neighbourhoodId, level: farms.level })
+    .from(neighbourhoodMembers).innerJoin(farms, eq(farms.playerId, neighbourhoodMembers.playerId))
+    .where(eq(neighbourhoodMembers.playerId, playerId));
+  if (!member || member.level < 7) return { started: false };
+  const [project] = await tx.select().from(zigguratProjects).where(eq(zigguratProjects.neighbourhoodId, member.home));
+  if (projectProgress(project, new Date()).state.type !== "complete") return { started: false };
+  const inserted = await tx.insert(zigguratCelebrations).values({ neighbourhoodId: member.home, playerId })
+    .onConflictDoNothing().returning();
+  return { started: inserted.length > 0 };
+});

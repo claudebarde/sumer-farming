@@ -9,14 +9,18 @@ export const MarketListingCursorSchema = z.object({
 });
 export const MarketListingsQuerySchema = z.object({
   itemKey: MarketItemKeySchema,
+  itemKeys: z.array(MarketItemKeySchema).min(1).max(10).optional(),
   action: z.enum(["buy", "sell"]),
   after: MarketListingCursorSchema.optional()
 });
 export const MarketListingsPageSchema = z.object({
   orders: z.array(z.object({
     id: z.uuid(),
+    itemKey: MarketItemKeySchema.optional(),
     unitPrice: z.int().positive(),
-    remainingQuantity: z.int().positive()
+    remainingQuantity: z.int().positive(),
+    originalQuantity: z.int().positive().optional(),
+    createdAt: z.iso.datetime().optional()
   })).max(MARKET_LISTINGS_PAGE_SIZE),
   nextCursor: MarketListingCursorSchema.nullable()
 });

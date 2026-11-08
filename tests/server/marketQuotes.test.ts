@@ -11,6 +11,8 @@ describe("market quotes", () => {
       { itemKey: "barley", quantity: 3, unitPrice: 4 }
     ]);
     expect(quotes.items[0]?.playerMarket.recentTradeAveragePrice).toBe(3.5);
+    expect(quotes.items[0]?.playerMarket.recentTradeQuantity).toBe(4);
+    expect(quotes.items.find(item => item.itemKey === "bread")?.playerMarket.recentTradeQuantity).toBe(0);
     expect(quotes.items[0]?.playerMarket.weightedAverageSellPrice).toBeNull();
   });
   it("creates a validated quote from the tradable item catalog", () => {
@@ -59,6 +61,7 @@ describe("market quotes", () => {
             highestBuyPrice: null,
             weightedAverageSellPrice: 3.5,
             recentTradeAveragePrice: null,
+            recentTradeQuantity: 0,
             totalSellQuantity: 4,
             suggestedSellPrice: 4
           }

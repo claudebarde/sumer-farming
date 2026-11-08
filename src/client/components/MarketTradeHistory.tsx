@@ -1,3 +1,4 @@
+import RulesLink from "./RulesLink";
 import actionStyles from "../styles/BuildingActionButton.module.scss";
 import BuildingActionIcon from "./BuildingActionIcon";
 import { useEffect, useState } from "react";
@@ -5,6 +6,7 @@ import { Dialog } from "radix-ui";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import type { TradeHistory } from "../../schemas/tradeHistory";
 import { fetchTradeHistory } from "../api/tradeHistory";
+import common from "../styles/GameCanvas.module.scss";
 import styles from "../styles/TradeHistory.module.scss";
 import { MARKET_ITEM_DEFINITIONS } from "../../game-data/marketItems";
 import { marketIncludesItem, type MarketScope } from "../stores/marketUiStore";
@@ -104,12 +106,15 @@ export default function MarketTradeHistory({ refresh, scope }: { readonly refres
         <Dialog.Portal>
           <Dialog.Overlay className={styles.overlay} />
           <Dialog.Content className={styles.dialog}>
+            <header className={common["market-dialog-header"]}>
             <Dialog.Title>Trade history</Dialog.Title>
+            <RulesLink section="market" />
+            <Dialog.Close asChild><button className={common["market-dialog-close"]} aria-label="Close trade history"><Cross2Icon /></button></Dialog.Close>
+            </header>
+            <div className={common["market-dialog-body"]}>
             <Dialog.Description>Your completed purchases and sales, newest first. Dates use your local time.</Dialog.Description>
             <FullTradeHistory scope={scope} />
-            <Dialog.Close asChild>
-              <button className={styles.close} aria-label="Close trade history"><Cross2Icon /></button>
-            </Dialog.Close>
+            </div>
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>

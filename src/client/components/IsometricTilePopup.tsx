@@ -1,3 +1,7 @@
+import RulesLink from "./RulesLink";
+import { buildingRuleSections, tileRuleSection } from "../features/rules/links";
+import { isFarmerSleeping } from "../../game-data/farmerSleep";
+import { farmerSleepBlocker } from "../../game-core/farm/farmerSleep";
 import { millingJobForBuilding } from "../../game-data/millingJobs";
 import { useRef } from "react";
 import {
@@ -32,6 +36,7 @@ import buildingActionStyles from "../styles/BuildingActionButton.module.scss";
 import type { MillRecipe, MillWorker } from "../../game-data/milling";
 import { TILE_SIZE } from "../game/phaser/config";
 import BuildingStorageTables from "./BuildingStorageTables";
+import { productionIngredientsAwaitingPickup } from "../game/productionIngredientsAwaitingPickup";
 import GranaryStorageCard from "./GranaryStorageCard";
 import styles from "../styles/IsometricTest.module.scss";
 import {
@@ -74,6 +79,9 @@ export default function IsometricTilePopup({
   now,
   onClose,
   onSelect,
+  onSleep,
+  onCustomizeHome,
+  onEnterHome,
   onWalk,
   onDrop,
   onPickup,
@@ -104,6 +112,8 @@ export default function IsometricTilePopup({
   mapElement?: HTMLDivElement | null;
   now: number;
   onClose: () => void;
+  onCustomizeHome?: () => void;
+  onEnterHome?: () => void;
   buildingTransparent?: boolean;
   onToggleBuildingTransparency?: () => void;
   getFarmerPosition?: () => IsometricTileAnchor["cell"] | undefined;
@@ -113,6 +123,7 @@ export default function IsometricTilePopup({
     mode: "plant" | "harvest" | "sesame" | "harvestSesame",
     initial?: IsometricTileAnchor["cell"]
   ) => void;
+  onSleep: (action: "sleep" | "wake") => void;
   onWalk: () => void;
   onDrop: () => void;
   onPickup: () => void;
@@ -332,7 +343,7 @@ export default function IsometricTilePopup({
             className={`${styles.popupBody} ${inventoryPopup ? styles.inventoryBody : ""}`}
           >
             <div
-              className={`${styles.popupHeader} ${farmer ? styles.farmerHeader : (content.home || content.building) && !bread && !bags ? styles.farmVisibilityHeader : ""}`}
+              className={`${styles.popupHeader} ${styles.rulesPopupHeader} ${farmer ? styles.farmerHeader : (content.home || content.building) && !bread && !bags ? styles.farmVisibilityHeader : ""}`}
             >
               {farmer && <FarmerPortrait name={title} variant="headshot" />}
               <h2>
@@ -366,32 +377,12 @@ export default function IsometricTilePopup({
                 </span>
               )}
             </div>
-            {(content.home || content.building) &&
-            !farmer &&
-            !porter &&
-            !bread &&
-            !bags &&
-            onToggleBuildingTransparency ? (
-              <div className={styles.popupHeaderControls}>
-                <BuildingVisibilityButton
-                  transparent={buildingTransparent}
-                  onToggle={onToggleBuildingTransparency}
-                />
-                <Popover.Close
-                  className={styles.popupIconButton}
-                  aria-label="Close tile popup"
-                >
-                  <span aria-hidden="true">×</span>
-                </Popover.Close>
-              </div>
-            ) : (
-              <Popover.Close
-                className={styles.popupClose}
-                aria-label="Close tile popup"
-              >
-                <span aria-hidden="true">×</span>
-              </Popover.Close>
-            )}
+            <div className={styles.popupHeaderControls}>
+              <RulesLink section={farmer ? "farmer" : porter ? "porter" : content.building ? buildingRuleSections[content.building.type] : content.home ? "farm" : tileRuleSection(title)} />
+              {(content.home || content.building) && !farmer && !porter && !bread && !bags && onToggleBuildingTransparency && <BuildingVisibilityButton transparent={buildingTransparent} onToggle={onToggleBuildingTransparency} />}
+              <Popover.Close className={styles.popupIconButton} aria-label="Close tile popup"><span aria-hidden="true">×</span></Popover.Close>
+            </div>
+            <div className={styles.popupScrollableContent}>
             {decoration ? (
               <button
                 className={buildingActionStyles.button}
@@ -414,6 +405,8 @@ export default function IsometricTilePopup({
                       now={now}
                       walking={anchor.walking}
                     />
+                    <button className={`${buildingActionStyles.button} ${styles.restButton}`} disabled={farmerSleepBlocker(snapshot, now) !== null} onClick={() => onSleep("sleep")}><BuildingActionIcon kind="farm" /><span>{farmerSleepBlocker(snapshot, now) ?? "Have a rest"}</span></button>
+
                   </>
                 ) : (
                   content.details
@@ -442,7 +435,7 @@ export default function IsometricTilePopup({
                 )}
                 {granaryInventory && (
                   <GranaryStorageCard
-                    quantity={granaryInventory.storedBarley}
+                    quantity={granaryInventory.storedBarley + (productionIngredientsAwaitingPickup(snapshot.farm, granaryInventory.id, now).barley ?? 0)}
                     farmLevel={snapshot.farm.progression?.level ?? 1}
                   />
                 )}
@@ -527,6 +520,7 @@ export default function IsometricTilePopup({
                 {!farmer &&
                   (content.home || content.building?.type === "warehouse") && (
                     <BuildingStorageTables
+                      awaitingPickup={productionIngredientsAwaitingPickup(snapshot.farm, content.home ? "farm" : content.building!.id, now)}
                       location={content.home ? "farm" : "warehouse"}
                       inventory={snapshot.inventory}
                       visual
@@ -1201,8 +1195,14 @@ export default function IsometricTilePopup({
                     </>
                   )}
                 </div>
+                {content.home && (onCustomizeHome || onEnterHome) && <div className={styles.homeActions}>
+                  {onCustomizeHome && <button className={buildingActionStyles.button} onClick={onCustomizeHome}><BuildingActionIcon kind="farm" /><span>Customize house</span></button>}
+                  {onEnterHome && <button className={buildingActionStyles.button} onClick={onEnterHome}><BuildingActionIcon kind="farm" /><span>Enter house</span></button>}
+                </div>}
+                {content.home && isFarmerSleeping(snapshot.farm.sleep, now) && <button className={`${buildingActionStyles.button} ${styles.wakeButton}`} onClick={() => onSleep("wake")}><BuildingActionIcon kind="farm" /><span>Wake farmer</span></button>}
               </>
             )}
+            </div>
           </div>
           <Popover.Arrow
             className={styles.popupArrow}

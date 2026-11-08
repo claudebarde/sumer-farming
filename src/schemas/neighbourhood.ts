@@ -1,7 +1,10 @@
+import { HomeAppearanceSchema } from "./homeAppearance";
 import { z } from "zod";
 
 export const NeighbourhoodMemberSchema = z.object({
   slot: z.number().int().min(1).max(10),
+  wallTablet: HomeAppearanceSchema.shape.wallTablet,
+  homeStyle: HomeAppearanceSchema.shape.style.optional(),
   name: z.string(), level: z.number().int().positive(), isYou: z.boolean(),
 });
 export const NeighbourhoodSchema = z.object({

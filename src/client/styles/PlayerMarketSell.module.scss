@@ -1,0 +1,18 @@
+.sell { display: flex; flex-direction: column; gap: 12px; margin-block: 18px; color: #392518; }
+.resource, .panel, .summary, .listings { border: 1px solid #d8b77e; border-radius: 12px; background: #f6e9cf; padding: 14px 16px; }
+.resource { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.identity { display: flex; align-items: center; gap: 16px; img { width: 64px; height: 64px; object-fit: contain; } h3 { margin: 0 0 4px; } small { font-size: .8em; } }
+.quantity { display: flex; flex-direction: column; gap: 6px; }
+.prices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.panel { display: flex; flex-direction: column; justify-content: center; gap: 8px; min-width: 0; small { font-size: .8em; } }
+.summary { display: flex; flex-wrap: wrap; gap: 8px 24px; font-size: .8em; }
+.submit { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; > span { font-size: .85em; } }
+.listingHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; h4 { margin: 0; } button { padding: 6px 10px; font-size: .8em; } }
+.orders { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.order { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; padding: 12px; background: #fff7e9; border: 1px solid #dfc18c; border-radius: 10px; font-size: .85em;
+  > div { display: flex; flex-direction: column; gap: 4px; }
+  .listingResource { flex-direction: row; align-items: center; gap: 10px; img { width: 40px; height: 40px; object-fit: contain; } div { display: flex; flex-direction: column; gap: 4px; } }
+  button { margin-left: auto; font-size: .85em; padding: 8px 12px; }
+  small { font-size: .85em; }
+}
+@media (max-width: 560px) { .prices { grid-template-columns: 1fr; } .resource, .panel, .summary, .listings { padding: 12px; } }

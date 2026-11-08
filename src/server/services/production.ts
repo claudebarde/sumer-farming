@@ -1,3 +1,4 @@
+import { sleepIntervals } from "../../game-data/farmerSleep";
 import { eq, sql } from "drizzle-orm";
 import { planProductionJourney, productionArrivalAt } from "../../game-core/farm/productionJourney";
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
@@ -8,7 +9,7 @@ import { porterReserved, porterStorageReservation } from "../../game-data/porter
 import { Data, Effect } from "effect";
 import { BREAD_RECIPE, type ProductionState } from "../../game-data/production";
 import { SHRINE_UNLOCK_LEVEL, SHRINE_OFFERING_QUANTITY, SHRINE_BLESSING_DURATION_MS, shrineBlessingActive } from "../../game-data/shrine";
-import { happinessDecayElapsed } from "../../game-core/farm/wellbeing";
+import { happinessCreditStart, happinessDecayElapsed } from "../../game-core/farm/wellbeing";
 import type { GameCommand } from "../../schemas/gameCommands";
 import type { Database } from "../db/client";
 import { farms } from "../db/schema";
@@ -31,6 +32,7 @@ export const productionAction = (database: Database, input: Extract<GameCommand,
       const now = Date.now();
       if (snapshot.farm.roads.some(r => (r.completesAt ?? 0) > now)) return fail("Finish building the road first.");
       const state = snapshot.farm.production;
+      if (state.cooking) return fail("The farmer is cooking.");
       if (state.cropWork && !state.cropWork.settled) return fail("The farmer is tending a crop.");
       if (state.planting) return fail("Finish or stop planting or harvesting the selected fields first.");
       if (input.type === "start_baking" && state.baking[input.buildingId]) return fail("This oven is already baking.");
@@ -51,8 +53,8 @@ export const productionAction = (database: Database, input: Extract<GameCommand,
         await setStoredQuantity(tx, farm.id, input.item, quantity - SHRINE_OFFERING_QUANTITY, new Date(now));
         // Preserve fractional decay accrued under the previous blessing before replacing it.
         const [current] = await tx.select().from(farms).where(eq(farms.id, farm.id));
-        const credit = happinessDecayElapsed(current!.happinessCheckedAt.getTime(), now, state.shrineBlessing);
-        await tx.update(farms).set({ happinessCheckedAt: new Date(now - credit) }).where(eq(farms.id, farm.id));
+        const credit = happinessDecayElapsed(current!.happinessCheckedAt.getTime(), now, state.shrineBlessing, sleepIntervals(current!.sleep));
+        await tx.update(farms).set({ happinessCheckedAt: new Date(happinessCreditStart(now, credit, sleepIntervals(current!.sleep))) }).where(eq(farms.id, farm.id));
         production = { ...state, shrineBlessing: { buildingId: input.buildingId, item: input.item, startedAt: new Date(now).toISOString(), expiresAt: new Date(now + SHRINE_BLESSING_DURATION_MS).toISOString() } };
       } else if (input.type === "start_baking") {
         const oven = snapshot.buildings.find(b => b.id === input.buildingId && b.type === "breadOven" && Date.parse(b.completesAt) <= now);

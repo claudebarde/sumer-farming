@@ -1,4 +1,4 @@
-import { and, asc, eq, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { MARKET_LISTINGS_PAGE_SIZE, type MarketListingsQuery, type MarketListingsPage } from "../../schemas/marketListings";
 import type { Database } from "../db/client";
@@ -18,12 +18,14 @@ export const getMarketListings = (
       const after = query.after;
       const rows = await database.select({
         id: marketOrders.id,
+        itemKey: marketOrders.itemKey,
         unitPrice: marketOrders.unitPrice,
         remainingQuantity: marketOrders.remainingQuantity,
+        originalQuantity: marketOrders.originalQuantity,
         // Preserve PostgreSQL microseconds so equal-price cursors never skip rows.
         createdAt: sql<string>`to_char(${marketOrders.createdAt} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')`
       }).from(marketOrders).where(and(
-        eq(marketOrders.itemKey, query.itemKey),
+        query.itemKeys ? inArray(marketOrders.itemKey, query.itemKeys) : eq(marketOrders.itemKey, query.itemKey),
         eq(marketOrders.side, "sell"),
         eq(marketOrders.status, "open"),
         query.action === "sell"
@@ -38,7 +40,7 @@ export const getMarketListings = (
       const page = rows.slice(0, MARKET_LISTINGS_PAGE_SIZE);
       const last = page.at(-1);
       return {
-        orders: page.map(({ id, unitPrice, remainingQuantity }) => ({ id, unitPrice, remainingQuantity })),
+        orders: page.map(({ id, itemKey, unitPrice, remainingQuantity, originalQuantity, createdAt }) => ({ id, itemKey, unitPrice, remainingQuantity, originalQuantity, createdAt })),
         nextCursor: rows.length > MARKET_LISTINGS_PAGE_SIZE && last !== undefined
           ? { id: last.id, unitPrice: last.unitPrice, createdAt: last.createdAt }
           : null

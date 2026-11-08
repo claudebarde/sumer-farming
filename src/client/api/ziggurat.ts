@@ -24,3 +24,12 @@ export const sendZigguratDonation = async (command: ZigguratDonationCommand, sig
   if (!response.ok) throw new Error("Could not confirm your donation. Retry to check it safely.");
   return ZigguratDonationResponseSchema.parse(await response.json());
 };
+
+export const claimZigguratCelebration = async () => {
+  const response = await fetch("/api/neighbourhood/ziggurat/celebration", {
+    method: "POST", headers: developmentPlayerHeaders(), signal: AbortSignal.timeout(10000),
+  });
+  if (!response.ok) throw new Error("Could not start the celebration.");
+  const body = await response.json() as { started: boolean };
+  return body.started === true;
+};

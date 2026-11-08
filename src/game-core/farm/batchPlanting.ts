@@ -1,3 +1,4 @@
+import { plantingMealBonus, type MealBenefit } from "../../game-data/kitchen";
 import { calculateFarmStorageCapacity, estateResourceCapacity } from "../../game-data/storage";
 import { cropWorkReserved } from "../../game-data/cropWork";
 import { CROP_DEFINITIONS } from "../../game-data/crops";
@@ -10,11 +11,11 @@ import { validateCultivation } from "./cultivation";
 import type { FarmCoordinate } from "./irrigation";
 import { harvestFieldLimit } from "./harvestCapacity";
 
-export const plantingFieldLimit = harvestFieldLimit;
+export const plantingFieldLimit = (happiness: number, benefit?: MealBenefit | null, now = Date.now()): number => harvestFieldLimit(happiness) + plantingMealBonus(benefit, now);
 export const availablePlantingSeeds = (snapshot: FarmSnapshot, now: number, crop: "barley" | "sesame" = "barley"): number =>
   crop === "sesame" ? snapshot.inventory.find(i => i.itemKey === "sesame")?.quantity ?? 0 : availablePlantingBarley(snapshot, now);
 export const plantingSelectionLimit = (snapshot: FarmSnapshot, now: number, crop: "barley" | "sesame" = "barley"): number =>
-  Math.min(plantingFieldLimit(snapshot.farm.household.happiness), availablePlantingSeeds(snapshot, now, crop));
+  Math.min(plantingFieldLimit(snapshot.farm.household.happiness, snapshot.farm.production.mealBenefit, now), availablePlantingSeeds(snapshot, now, crop));
 
 export const fieldKey = (p: FarmCoordinate) => `${p.column}:${p.row}`;
 

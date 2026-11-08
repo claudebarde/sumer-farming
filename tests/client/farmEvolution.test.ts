@@ -5,8 +5,10 @@ it.each([[1, "farm-level-1"], [2, "farm-level-1"], [3, "farm-level-3"], [4, "far
   expect(farmAppearance(Number(level)).texture).toBe(texture);
   expect(FARM_EVOLUTION_SOURCES).toHaveProperty(String(texture));
 });
-it("defaults older saves to the first stage and keeps stock labels lower on shorter stages", () => {
+it("uses distinct historical stages and lowers the label for the open low walls", () => {
   expect(farmAppearance().texture).toBe("farm-level-1");
-  expect(farmAppearance(1).storageChipY).toBeGreaterThan(farmAppearance(3).storageChipY);
-  expect(farmAppearance(3).storageChipY).toBeGreaterThan(farmAppearance(9).storageChipY);
+  expect(new Set(Object.values(FARM_EVOLUTION_SOURCES)).size).toBe(4);
+  expect(FARM_EVOLUTION_SOURCES["farm-level-9"]).toContain("farm-isometric-historical.png");
+  for (const level of [1, 2]) expect(farmAppearance(level).storageChipY).toBe(-60);
+  for (const level of [3, 4, 9, 10, 11]) expect(farmAppearance(level).storageChipY).toBe(-150);
 });

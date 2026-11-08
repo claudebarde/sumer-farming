@@ -1,3 +1,4 @@
+import { MealKeySchema } from "../game-data/kitchen";
 import { z } from "zod";
 import { WorkerPositionSchema } from "../game-data/productionJourney";
 import { MillRecipeSchema, MillWorkerSchema } from "../game-data/milling";
@@ -14,13 +15,14 @@ const FarmCoordinateSchema = z.object({
 });
 
 export const GameCommandSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("farmer_sleep"), action: z.enum(["sleep", "wake"]), farmerPosition: WorkerPositionSchema.optional(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("work_sesame"), crop: z.literal("sesame"), action: z.enum(["plant", "harvest"]),
     target: FarmCoordinateSchema, farmerPosition: WorkerPositionSchema.optional(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("destroy_building"), buildingId: z.uuid(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("tend_perennial_crop"), action: z.enum(["plant", "harvest", "tend"]), crop: PerennialCropKeySchema,
     target: FarmCoordinateSchema, farmerPosition: WorkerPositionSchema.optional(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("give_farmer_dates"), expectedFarmVersion: z.int().positive() }),
-  z.object({ type: z.literal("start_batch_planting"), crop: z.enum(["barley", "sesame"]).optional(), farmerPosition: WorkerPositionSchema.optional(), targets: z.array(FarmCoordinateSchema).min(1).max(MAX_BATCH_HARVEST_FIELDS), expectedFarmVersion: z.int().positive() }),
+  z.object({ type: z.literal("start_batch_planting"), crop: z.enum(["barley", "sesame"]).optional(), farmerPosition: WorkerPositionSchema.optional(), targets: z.array(FarmCoordinateSchema).min(1).max(MAX_BATCH_HARVEST_FIELDS + 2), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("start_batch_harvesting"), crop: z.enum(["barley", "sesame"]).optional(), farmerPosition: WorkerPositionSchema.optional(), targets: z.array(FarmCoordinateSchema).min(1).max(MAX_BATCH_HARVEST_FIELDS), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("advance_batch_planting"), batchId: z.uuid(), action: z.enum(["collect", "plant", "harvest", "finish", "stop"]), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("build_road"), target: FarmCoordinateSchema, targets: z.array(FarmCoordinateSchema).min(1).max(1024).optional(), farmerPosition: WorkerPositionSchema.optional(), expectedFarmVersion: z.int().positive() }),
@@ -29,9 +31,11 @@ export const GameCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("hire_porter"), marketRoad: WorkerPositionSchema.optional(), idempotencyKey: z.uuid(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("upgrade_building"), buildingId: z.uuid(), targetLevel: z.int().min(2), idempotencyKey: z.uuid(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("mill_delivery"), action: z.enum(["pickup", "store"]), millId: z.uuid(), expectedFarmVersion: z.int().positive() }),
+  z.object({ type: z.literal("build_kitchen"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("build_oil_mill"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("build_mill"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("build_bread_oven"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
+  z.object({ type: z.literal("cook_meal"), meal: MealKeySchema, buildingId: z.uuid(), farmerPosition: WorkerPositionSchema.optional(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("start_baking"), farmerPosition: WorkerPositionSchema.optional(), buildingId: z.uuid(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("shrine_offering"), buildingId: z.uuid(), item: z.enum(["bread", "beer"]), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("build_small_shrine"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),

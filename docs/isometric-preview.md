@@ -323,7 +323,10 @@ corner clipping; normal farmer/dog depth sorting and building appearance are unc
 
 The toolbar's Farm level N
 button remains the progression entry point. Farm evolution uses the supplied
-1024px transparent level-01/03/04/09 assets at levels 1–2/3/4–8/9+, with full-frame
+historical transparent variants at levels 1–2 (low walls), 3 (plain roofed
+house), 4–8 (reed awning), and 9+ (approved complete historical farmhouse).
+Assets are `farm-isometric-historical-level-01/03/04.png` and
+`farm-isometric-historical.png`, with full-frame
 progressive downsampling/sharpening and the unchanged 232px size, origin and depth.
 Do not independently crop stages. Stock-chip heights follow the shorter stages;
 market return art refreshes on wake. The isolated art sandbox is unchanged.

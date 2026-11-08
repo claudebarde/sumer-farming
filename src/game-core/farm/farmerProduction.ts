@@ -4,8 +4,9 @@ import { productionIsPreparing } from "../../game-data/productionPreparation";
 /** Persisted jobs own the farmer until the server completes them. */
 export const farmerProductionJob = (farm: {
   readonly milling?: { readonly buildingId: string; readonly worker?: "farmer" | "donkey"; readonly startedAt?: string } | null;
-  readonly production?: { readonly donkeyMilling?: { readonly buildingId: string; readonly startedAt: string } | null; readonly baking?: ProductionState["baking"]; readonly brewing?: ProductionState["brewing"] };
+  readonly production?: { readonly cooking?: ProductionState["cooking"]; readonly donkeyMilling?: { readonly buildingId: string; readonly startedAt: string } | null; readonly baking?: ProductionState["baking"]; readonly brewing?: ProductionState["brewing"] };
 }, now = Date.now()) => {
+  if (farm.production?.cooking) return { type: "cooking" as const, buildingId: farm.production.cooking.buildingId };
   if (farm.milling && (farm.milling.worker !== "donkey" || productionIsPreparing(farm.milling, now))) return { type: "milling" as const, buildingId: farm.milling.buildingId };
   if (farm.production?.donkeyMilling && productionIsPreparing(farm.production.donkeyMilling, now)) return { type: "milling" as const, buildingId: farm.production.donkeyMilling.buildingId };
   const brewing = Object.entries(farm.production?.brewing ?? {}).find(([, job]) => now < Date.parse(job.startedAt));

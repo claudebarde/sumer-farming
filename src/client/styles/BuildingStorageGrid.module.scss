@@ -57,6 +57,11 @@
     &::-webkit-progress-bar { background: #e0d2b5; border-radius: 5px; }
     &::-webkit-progress-value { background: #7d8d48; border-radius: 5px; }
     &::-moz-progress-bar { background: #7d8d48; border-radius: 5px; }
+    &[data-full="true"] {
+      color: #a65f49;
+      &::-webkit-progress-value { background: #a65f49; }
+      &::-moz-progress-bar { background: #a65f49; }
+    }
   }
 }
 @media (max-width: 520px) {

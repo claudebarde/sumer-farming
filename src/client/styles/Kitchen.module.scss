@@ -1,0 +1,20 @@
+.kitchen { display: grid; gap: 12px; }
+.recipe { display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; padding: 12px; border-radius: 8px; background: #f3e3c8;
+  small { display: block; margin-top: 4px; }
+  > div:first-child { grid-column: 1 / -1; }
+}
+.ingredients { display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+  > span { display: inline-flex; align-items: center; gap: 4px; }
+  img { max-width: 40px; max-height: 40px; object-fit: contain; }
+}
+.benefit { display: flex; align-items: center; gap: 10px; margin: 12px 0; padding: 10px 14px; background: #f3e3c8; border-left: 5px solid #684328; }
+.mealIcon { object-fit: contain; flex-shrink: 0; }
+.mealHeading { display: flex; align-items: center; gap: 12px; }
+
+.drawer { box-sizing: border-box; width: min(480px, 100vw); display: flex; flex-direction: column; overflow: hidden; padding: 0; }
+.drawerHeader { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 12px; padding: 20px; border-bottom: 2px solid #dcc08c;
+  h2 { flex: 1; min-width: 0; margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  button { display: inline-flex; align-items: center; justify-content: center; }
+}
+.drawerBody { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px; }
+.destroy { margin-top: 20px; width: 100%; }

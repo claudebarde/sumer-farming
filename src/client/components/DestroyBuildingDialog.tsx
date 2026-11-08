@@ -1,3 +1,4 @@
+import RulesLink from "./RulesLink";
 import BuildingActionIcon from "./BuildingActionIcon";
 import actionStyles from "../styles/BuildingActionButton.module.scss";
 import { useRef, useState } from "react";
@@ -32,13 +33,19 @@ export default function DestroyBuildingDialog({ snapshot, buildingId, now, onClo
       <Dialog.Overlay className={styles["market-dialog-overlay"]} />
       <Dialog.Content className={`${styles["market-dialog-content"]} ${styles["demolition-dialog"]}`}
         onPointerDownOutside={event => event.preventDefault()}>
+        <header className={styles["market-dialog-header"]}>
         <Dialog.Title>Are you sure you want to destroy {building ? buildingNames[building.type] : "this building"}?</Dialog.Title>
+        <RulesLink section="construction" />
+          <Dialog.Close asChild><button className={styles["market-dialog-close"]} disabled={pending} aria-label="Close demolition confirmation">×</button></Dialog.Close>
+        </header>
+        <div className={styles["market-dialog-body"]}>
         <Dialog.Description>This cannot be undone. Construction materials and upgrades are lost; nothing is refunded.</Dialog.Description>
         {building?.type === "brewery" && <p>Any remaining brewing supplies will also be lost.</p>}
         {(error || reason) && <p role="alert">{error ?? reason}</p>}
         <div className={styles["demolition-actions"]}>
           <button className={actionStyles.button} disabled={pending} onClick={onClose}><BuildingActionIcon kind="cancel" /><span>Cancel</span></button>
           {!reason && <button className={`${actionStyles.button} ${actionStyles.danger}`} disabled={pending} onClick={() => void destroy()}><BuildingActionIcon kind="destroy" /><span>{pending ? "Destroying…" : "Destroy the building"}</span></button>}
+        </div>
         </div>
       </Dialog.Content>
     </Dialog.Portal>

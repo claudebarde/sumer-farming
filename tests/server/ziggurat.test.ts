@@ -415,3 +415,25 @@ it("counts interested neighbours and later contributors once for the equal-share
   expect(updated.contributionPoints).toBe(2);
   expect((await state(ids[3]!)).contributionPoints).toBe(4);
 });
+
+it("claims the completion celebration once per neighbour across connections, without consuming it on reads", async () => {
+  const { claimZigguratCelebration } = await import("../../src/server/services/ziggurat");
+  const pending = await fixture();
+  expect(await claimZigguratCelebration(db, pending.ids[0]!)).toEqual({ started: false });
+  expect(await claimZigguratCelebration(db, randomUUID())).toEqual({ started: false });
+  const { ids } = await completedRewardFixture();
+  expect((await state(ids[0]!)).celebrationSeen).toBe(false);
+  expect((await state(ids[0]!)).celebrationSeen).toBe(false);
+  const other = new Client({ connectionString });
+  await other.connect();
+  try {
+    const results = await Promise.all([
+      claimZigguratCelebration(db, ids[0]!), claimZigguratCelebration(createDatabase(other), ids[0]!),
+    ]);
+    expect(results.filter(result => result.started)).toHaveLength(1);
+    expect((await state(ids[0]!)).celebrationSeen).toBe(true);
+    expect(await claimZigguratCelebration(createDatabase(other), ids[0]!)).toEqual({ started: false });
+    expect(await claimZigguratCelebration(db, ids[1]!)).toEqual({ started: true });
+    expect((await state(ids[2]!)).celebrationSeen).toBe(false);
+  } finally { await other.end(); }
+});

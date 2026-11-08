@@ -15,7 +15,7 @@ export default function RationMeter({ nextRationAt, hungry, now }: Props) {
   const hours = Math.floor(minutes / 60);
   const label = inactive ? "Automatic feeding begins after cultivation starts" :
     hungry ? "Hungry: a meal is needed now" :
-      remaining === 0 ? "Meal due now" : `Next meal in ${hours} hours and ${minutes % 60} minutes`;
+      remaining === 0 ? "Meal due now" : `Next meal in ${hours > 0 ? `${hours} hours and ` : ""}${minutes % 60} minutes`;
 
   return (
     <div className={styles.meter} data-mood={percentage >= 50 ? "happy" : percentage > 0 ? "content" : "unhappy"}
@@ -28,7 +28,7 @@ export default function RationMeter({ nextRationAt, hungry, now }: Props) {
       </svg>
       <span className={`${styles.value} ${styles.time}`} aria-hidden="true">
         {inactive ? "—" : remaining === 0 ? "Due" : (
-          <><span>{hours}h</span><span>{minutes % 60}m</span></>
+          <>{hours > 0 && <span>{hours}h</span>}<span>{minutes % 60}m</span></>
         )}
       </span>
     </div>

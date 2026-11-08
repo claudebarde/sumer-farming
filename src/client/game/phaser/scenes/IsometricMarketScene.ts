@@ -1,3 +1,4 @@
+import { drawMapBase } from "../mapBase";
 import suppliesStandUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/supplies-equipment-market-stand-isometric.png";
 import { savedMapZoom, saveMapZoom } from "../zoomPreference";
 import produceStandUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/fruit-vegetable-market-stand-isometric.png";
@@ -105,6 +106,7 @@ export class IsometricMarketScene extends Phaser.Scene {
       this.textures.addCanvas(`market-${stand.scope}`, prepareBuildingTexture(this.textures.get(`source-market-${stand.scope}`).getSourceImage() as HTMLImageElement))
         ?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
+    drawMapBase(this, { minimumColumn: config.worldBounds.minimumColumn, maximumColumn: marketLastColumn, minimumRow: 0, maximumRow: marketLastRow });
     for (let row = 0; row <= marketLastRow; row++) for (let column = config.worldBounds.minimumColumn; column <= marketLastColumn; column++) {
       const p = isoPoint({ column, row });
       this.add.image(p.x, p.y, isMarketRoad({ column, row }) ? `road-${marketRoadMask({ column, row })}` : "non-arable-ground")

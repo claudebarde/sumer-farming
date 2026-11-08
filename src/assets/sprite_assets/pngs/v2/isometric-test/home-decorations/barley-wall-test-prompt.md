@@ -1,0 +1,5 @@
+# Barley tablet wall test
+
+Built-in image generation. References: original barley tablet and approved Sky wall tablet. Original artwork preserved.
+
+Use case: precise-object-edit. Image 2 is the approved isometric Sky clay tablet sprite: preserve EXACTLY its silhouette, angle, thin edges, position, scale within the square canvas, warm terracotta material, shading, transparent background and camera. Change ONLY the incised symbol on its face: erase the star-like Sky symbol and replace it with the exact two-row barley cuneiform design from image 1. Image 1 supplies ONLY the symbol: two stacked rows of wedge impressions; reproduce their count, arrangement, orientation and spacing faithfully, then project the inscriptions naturally into the angled face of image 2. Do not copy image 1's front-facing tablet. The finished tablet has vertical sides and top/bottom edges rising toward screen-right at roughly one unit up per two right, exactly like image 2. Engraved wedges recessed into clay, crisp readable contrast at small game size. Output just one tablet on actual transparency, identical framing to image 2, no house, text, rope, additional object or external shadow.

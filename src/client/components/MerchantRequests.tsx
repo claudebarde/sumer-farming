@@ -1,3 +1,4 @@
+import RulesLink from "./RulesLink";
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { Dialog } from "radix-ui";
@@ -17,7 +18,7 @@ import requestStyles from "../styles/MerchantRequests.module.scss";
 export default function MerchantRequests({ visual = false }: { readonly visual?: boolean }) {
   const playerId = useStore(farmStore, state => state.farm.type === "ready" ? state.farm.snapshot.farm.playerId : null);
   const location = useStore(marketUiStore, state => state.location);
-  const { board, clockOffset, isOpen } = useStore(merchantUiStore);
+  const { board, clockOffset, isOpen, departureAt } = useStore(merchantUiStore);
   const [clock, setClock] = useState(Date.now);
   useEffect(() => {
     merchantUiStore.getState().reset();
@@ -48,7 +49,7 @@ export default function MerchantRequests({ visual = false }: { readonly visual?:
       merchantUiStore.getState().reset();
     };
   }, [playerId]);
-  const available = board !== null && getMerchantVisit(board, clock + clockOffset).phase === "stopped";
+  const available = board !== null && getMerchantVisit(board, clock + clockOffset, { holdCompleted: isOpen, departureAt }).phase === "stopped";
   useEffect(() => {
     if (!available || location !== "farm") merchantUiStore.getState().setOpen(false);
   }, [available, location]);
@@ -61,6 +62,7 @@ export default function MerchantRequests({ visual = false }: { readonly visual?:
             <MapCuneiformLabel element={visual ? "Merchant boat" : "Merchant chariot"} />
             <span>{visual ? "Merchant boat" : "Merchant chariot"}</span>
           </Dialog.Title>
+          <RulesLink section="merchant" />
           <Dialog.Close asChild><button className={styles["market-dialog-close"]} aria-label="Close merchant requests"><Cross2Icon /></button></Dialog.Close>
         </header>
         <div className={styles["market-dialog-body"]}>

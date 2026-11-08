@@ -31,6 +31,8 @@ export const neighbourhoodPlots = (members: Neighbourhood["members"]) =>
       column, row, x: point.x, y: point.y,
       name: member?.name ?? "Empty lot",
       level: member?.level ?? null,
+      homeStyle: member?.homeStyle ?? "farm-level-9",
+      wallTablet: member?.wallTablet ?? "none",
     } as const;
   });
 

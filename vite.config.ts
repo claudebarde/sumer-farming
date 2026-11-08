@@ -31,6 +31,8 @@ export default defineConfig({
           output: {
             codeSplitting: {
               groups: [
+                { name: "game-rules", test: /[/\\](?:game-core|game-data)[/\\]/, priority: 25 },
+                { name: "shadows", test: /[/\\]game[/\\]phaser[/\\](?:coneBuildingShadow|buildingShadows|buildingShadowProjection|daylightShadows)\.ts$/, priority: 30 },
                 { name: "phaser", test: /node_modules[/\\]phaser[/\\]/, priority: 30 },
                 { name: "ui-vendor", test: /node_modules[/\\](?:react|react-dom|scheduler|@radix-ui)[/\\]/, priority: 20 },
                 { name: "vendor", test: /node_modules/, priority: 10 }

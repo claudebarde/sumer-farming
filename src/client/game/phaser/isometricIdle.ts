@@ -1,3 +1,4 @@
+import { isFarmerSleeping } from "../../../game-data/farmerSleep";
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { INITIAL_FARM_CONFIG as config } from "../../../game-data/initialFarm";
 import { plantingBlocker } from "./isometricPlanting";
@@ -5,7 +6,7 @@ import { previewWalkable } from "./isometricWalking";
 import { idleKey, type IdleWorld } from "./farmerIdle";
 
 export const isometricIdleEligible = (snapshot: FarmSnapshot, now: number) =>
-  !snapshot.farm.carriedItem && plantingBlocker(snapshot, now) === null;
+  !isFarmerSleeping(snapshot.farm.sleep, now) && !snapshot.farm.carriedItem && plantingBlocker(snapshot, now) === null;
 
 export const isometricIdleWorld = (snapshot: FarmSnapshot, now: number): IdleWorld => {
   const blocked = new Set([...snapshot.crops, ...snapshot.groundItems].map(idleKey));

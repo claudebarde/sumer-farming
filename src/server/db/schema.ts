@@ -1,3 +1,5 @@
+import { DEFAULT_HOME_APPEARANCE, type HomeAppearance } from "../../schemas/homeAppearance";
+import { emptyFarmerSleep, type FarmerSleep } from "../../game-data/farmerSleep";
 import type { NpcRequestDefinition } from "../../game-data/npcRequests";
 import type { SavedZigguratStage, ZigguratMaterials } from "../../game-data/ziggurat";
 import { sql } from "drizzle-orm";
@@ -160,6 +162,12 @@ export const zigguratDeliveries = pgTable("ziggurat_deliveries", {
 }, table => [index("ziggurat_deliveries_queue").on(table.neighbourhoodId, table.completesAt),
   check("ziggurat_deliveries_slot_check", sql`${table.slot} BETWEEN 1 AND 10`),
   check("ziggurat_deliveries_check", sql`${table.completesAt} > ${table.startsAt}`)]);
+
+export const zigguratCelebrations = pgTable("ziggurat_celebrations", {
+  neighbourhoodId: uuid("neighbourhood_id").notNull().references(() => neighbourhoods.id, { onDelete: "cascade" }),
+  playerId: uuid("player_id").notNull().references(() => players.id, { onDelete: "cascade" }),
+  seenAt: timestamp("seen_at", { withTimezone: true }).defaultNow().notNull()
+}, table => [primaryKey({ columns: [table.neighbourhoodId, table.playerId] })]);
 
 export const zigguratInterests = pgTable("ziggurat_interests", {
   neighbourhoodId: uuid("neighbourhood_id").notNull().references(() => neighbourhoods.id, { onDelete: "cascade" }),
@@ -344,6 +352,8 @@ export const farms = pgTable(
     }),
     hungrySince: timestamp("hungry_since", { withTimezone: true }),
     happiness: integer("happiness").default(70).notNull(),
+    homeAppearance: jsonb("home_appearance").$type<HomeAppearance>().notNull().default(DEFAULT_HOME_APPEARANCE),
+    sleep: jsonb("sleep").$type<FarmerSleep>().notNull().default(emptyFarmerSleep()),
     happinessCheckedAt: timestamp("happiness_checked_at", { withTimezone: true }).defaultNow().notNull(),
     lastBeerAt: timestamp("last_beer_at", { withTimezone: true }),
     lastBreadAt: timestamp("last_bread_at", { withTimezone: true }),

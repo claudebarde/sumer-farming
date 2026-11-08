@@ -10,10 +10,12 @@ export const readNeighbourhood = (db: Database, playerId: string) => db.transact
     .where(eq(neighbourhoodMembers.playerId, playerId));
   if (!viewer || viewer.level < 7) return null;
   const rows = await tx.select({ slot: neighbourhoodMembers.slot, playerId: farms.playerId,
-    profile: farms.farmerProfile, level: farms.level }).from(neighbourhoodMembers)
+    profile: farms.farmerProfile, level: farms.level, appearance: farms.homeAppearance }).from(neighbourhoodMembers)
     .innerJoin(farms, eq(farms.playerId, neighbourhoodMembers.playerId))
     .where(eq(neighbourhoodMembers.neighbourhoodId, viewer.home)).orderBy(asc(neighbourhoodMembers.slot));
   return NeighbourhoodSchema.parse({ members: rows.map(row => ({
+    homeStyle: row.appearance.style,
+    wallTablet: row.appearance.wallTablet ?? "none",
     slot: row.slot, name: row.profile?.identity.name ?? "Farmer", level: row.level, isYou: row.playerId === playerId,
   })) });
 });

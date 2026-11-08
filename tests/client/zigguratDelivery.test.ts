@@ -2,6 +2,22 @@ import { WORKER_MOVE_DURATION_PER_TILE } from "../../src/game-data/movement";
 import { expect, it } from "vitest";
 import { deliveryPlan, deliveryPose, interestPlan, interestPose, DONKEY_HITCH, ZIGGURAT_DROPOFF } from "../../src/game-data/zigguratDelivery";
 import { neighbourhoodMarket, neighbourhoodRoads } from "../../src/game-data/neighbourhoodGeometry";
+it("retains the arrival direction while both actors pause to unload", () => {
+  for (let slot = 1; slot <= 10; slot++) {
+    const plan = deliveryPlan(slot);
+    const route = plan.legs[3]!.route;
+    const start = plan.legs.slice(0, 4).reduce((sum, leg) => sum + leg.duration, 0);
+    for (const offset of [0, 1200, 2399]) {
+      const pose = deliveryPose(plan, start + offset);
+      for (const actor of [pose.farmer, pose.donkey]) {
+        expect(actor.position).toEqual(ZIGGURAT_DROPOFF);
+        expect(actor.moving).toBe(false);
+        expect(actor.from).toEqual(route.at(-2));
+        expect(actor.to).toEqual(route.at(-1));
+      }
+    }
+  }
+});
 it("walks every neighbour to the tablet, pauses exactly three seconds and returns home", () => {
   for (let slot = 1; slot <= 10; slot++) {
     const plan = interestPlan(slot);

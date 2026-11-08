@@ -14,6 +14,9 @@ import back04 from "../../../assets/sprite_assets/pngs/v2/isometric-test/donkey/
 import type { DonkeyWander } from "./isometricDonkey";
 import { DONKEY_STEP_MS } from "./isometricDonkey";
 
+// Directional frames have padding below the hooves; match the approved market road contact.
+export const DONKEY_ROAD_OFFSET_Y = 8;
+
 export const DONKEY_SOURCES = {
   "isometric-donkey": idle,
   "isometric-donkey-walk-0": walk01, "isometric-donkey-walk-1": walk02,

@@ -5,6 +5,7 @@ import flour from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active
 import warehouse from "../../assets/sprite_assets/pngs/v2/isometric-test/warehouse-isometric.webp";
 import palm from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/date-palm-isometric-empty.webp";
 import oil from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-oil-single.png";
+import porridge from "../../assets/sprite_assets/pngs/v2/isometric-test/icons/meals/date-sesame-porridge.png";
 import styles from "../styles/IsometricTest.module.scss";
 
 const icons = [
@@ -18,6 +19,7 @@ const icons = [
   { name: "Warehouse", src: warehouse },
   { name: "Date palm", src: palm },
   { name: "Oil", src: oil },
+  { name: "Date and sesame porridge", src: porridge },
 ] as const;
 
 /** Existing milestone artwork, selected from the saved estate level. */

@@ -1,3 +1,4 @@
+import RulesLink from "./RulesLink";
 import actionStyles from "../styles/BuildingActionButton.module.scss";
 import BuildingActionIcon from "./BuildingActionIcon";
 import { useStore } from "zustand";
@@ -63,6 +64,7 @@ export function NeighbourhoodLeaderboardDialog({ open, onOpenChange }: {
       <Dialog.Content className={`${styles["market-dialog-content"]} ${boardStyles.neighbourhoodDialog}`} aria-describedby={undefined}>
         <header className={styles["market-dialog-header"]}>
           <Dialog.Title>Neighbourhood leaderboard</Dialog.Title>
+          <RulesLink section="points" />
           <Dialog.Close asChild><button className={styles["market-dialog-close"]} aria-label="Close leaderboard"><Cross2Icon /></button></Dialog.Close>
         </header>
         <div className={styles["market-dialog-body"]}>{open && <LeaderboardContent localOnly />}</div>
@@ -79,6 +81,7 @@ export default function LeaderboardDialog() {
       <Dialog.Content className={styles["market-dialog-content"]} aria-describedby={undefined}>
         <header className={styles["market-dialog-header"]}>
           <Dialog.Title>Leaderboard</Dialog.Title>
+          <RulesLink section="points" />
           <Dialog.Close asChild><button className={styles["market-dialog-close"]} aria-label="Close leaderboard"><Cross2Icon /></button></Dialog.Close>
         </header>
         <div className={styles["market-dialog-body"]}>{open && <LeaderboardContent />}</div>

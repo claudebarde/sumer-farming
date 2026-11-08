@@ -1,3 +1,5 @@
+import { merchantUiStore } from "../stores/merchantUiStore";
+import { minuteCountdownLabel } from "./countdownLabel";
 import { randomId } from "../randomId";
 import { useEffect, useState } from "react";
 import { useStore } from "zustand";
@@ -12,7 +14,7 @@ import MerchantRequestCard from "./MerchantRequestCard";
 
 const timeLeft = (milliseconds: number) => {
   const minutes = Math.max(0, Math.ceil(milliseconds / 60_000));
-  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+  return minuteCountdownLabel(minutes);
 };
 
 export default function NpcRequests({ onDelivered, visual = false }: { readonly onDelivered: () => void; readonly visual?: boolean }) {
@@ -36,6 +38,7 @@ export default function NpcRequests({ onDelivered, visual = false }: { readonly 
         if (!result.ok) throw new Error("Requests could not be loaded. Please retry.");
         const board = NpcRequestsSchema.parse(await result.json());
         if (!controller.signal.aborted) {
+          merchantUiStore.getState().setBoard(board);
           setResponse({ board, offset: Date.parse(board.serverNow) - Date.now(), playerId });
           setError(null);
         }
@@ -61,6 +64,10 @@ export default function NpcRequests({ onDelivered, visual = false }: { readonly 
       const snapshot = await executeGameCommand({ type: "deliver_npc_request", cycle: board.cycle, slot,
         idempotencyKey: randomId(), expectedFarmVersion: farm.snapshot.farm.version });
       if (farmStore.getState().farm.type === "ready") farmStore.getState().setReady(snapshot);
+      const requests = board.requests.map(request => request.slot === slot ? { ...request, completed: true } : request);
+      const updatedBoard = { ...board, requests, visitCompleted: requests.length > 0 && requests.every(request => request.completed) };
+      merchantUiStore.getState().recordDelivery(board.cycle, slot);
+      setResponse({ board: updatedBoard, offset: response?.offset ?? 0, playerId });
       onDelivered();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Delivery failed.");

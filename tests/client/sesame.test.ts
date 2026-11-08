@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { expect, it } from "vitest";
 import type { FarmSnapshot } from "../../src/schemas/farm";
 import { CropWorkSchema, cropWorkReserved } from "../../src/game-data/cropWork";
-import { cropSprite, nextCropTransition } from "../../src/client/game/phaser/cropPresentation";
+import { cropSprite, nextCropTransition, cropStageLabel } from "../../src/client/game/phaser/cropPresentation";
 import { palmHarvestPose, palmHarvestCarrier } from "../../src/client/game/phaser/palmHarvesting";
 import { palmPlantingPose } from "../../src/client/game/phaser/palmPlanting";
 import PalmHarvestProgress from "../../src/client/components/PalmHarvestProgress";
@@ -14,9 +14,14 @@ const crop: FarmSnapshot["crops"][number] = { id: "00000000-0000-4000-8000-00000
   harvestStartedAt: null, harvestCompletesAt: null, decayEligible: false };
 it("uses all four approved stages at 15, 35 and 60 minutes and remains ripe without barley decay", () => {
   expect(cropSprite(crop, 9999)).toBeNull();
-  for (const [minute, texture] of [[0,"sesameYoung"],[14,"sesameYoung"],[15,"sesameGrowing"],[34,"sesameGrowing"],[35,"sesameFlowering"],[59,"sesameFlowering"],[60,"sesameRipe"],[3000,"sesameRipe"]] as const)
+  for (const [minute, texture] of [[0,"barleySeeded"],[14,"sesameYoung"],[15,"sesameGrowing"],[34,"sesameGrowing"],[35,"sesameFlowering"],[59,"sesameFlowering"],[60,"sesameRipe"],[3000,"sesameRipe"]] as const)
     expect(cropSprite(crop,10000+minute*60000)).toBe(texture);
-  expect(nextCropTransition(crop, 10000)).toBe(910000);
+  expect(nextCropTransition(crop, 10000)).toBe(20000);
+  expect(cropSprite(crop, 19999)).toBe("barleySeeded");
+  expect(cropStageLabel(crop, 19999)).toBe("Seeds");
+  expect(cropSprite(crop, 20000)).toBe("sesameYoung");
+  expect(cropStageLabel(crop, 20000)).toBe("Growing");
+  expect(nextCropTransition(crop, 20000)).toBe(910000);
   expect(nextCropTransition(crop, 910000)).toBe(2110000);
   expect(cropSprite({ ...crop, harvestCompletesAt: new Date(4000000).toISOString() }, 4000000)).toBeNull();
 });

@@ -4,6 +4,7 @@ import { musicSettingsStore } from "../../../stores/musicSettingsStore";
 import { createWindAmbience, WIND_GUST_KEY, WIND_GUST_URL } from "../windAmbience";
 import { HARVEST_AUDIO_KEY, HARVEST_AUDIO_URL, syncHarvestingAudio } from "../harvestingAudio";
 import type { IsometricFarmScene } from "./IsometricFarmScene";
+import type { NeighbourhoodScene } from "./NeighbourhoodScene";
 import type { IsometricMarketScene } from "./IsometricMarketScene";
 import { syncActionLoopAudio } from "../actionLoopAudio";
 import { BUILDING_AUDIO, type BuildingAudioKey } from "../buildingAudio";
@@ -62,14 +63,17 @@ export class BackgroundMusicScene extends Phaser.Scene {
       const { enabled, volume } = musicSettingsStore.getState();
       const farm = this.scene.get("isometric-farm") as IsometricFarmScene | undefined;
       const market = this.scene.get("isometric-market") as IsometricMarketScene | undefined;
+      const neighbourhood = this.scene.get("neighbourhood") as NeighbourhoodScene | undefined;
+      const now = Date.now();
+      const neighbourhoodState = neighbourhood?.audioState(now);
       const allowed = !document.hidden && enabled && (context ? context.state === "running" : !this.sound.locked);
       const harvesting = !document.hidden && !!farm?.isHarvestingForAudio(Date.now());
       if (harvestSound) syncHarvestingAudio(harvestSound, harvesting, allowed, volume);
       if (walkingSound) syncActionLoopAudio(walkingSound,
-        !harvesting && (!!farm?.isWalkingForAudio() || !!market?.isWalkingForAudio()), allowed, volume);
-      const now = Date.now();
-      brayAudio?.(donkeyPickupCue(farm?.donkeyMillingForAudio()), now,
-        allowed && !!farm?.sys.isActive() && !!farm?.sys.isVisible(), volume);
+        !harvesting && (!!farm?.isWalkingForAudio() || !!market?.isWalkingForAudio() || !!neighbourhoodState?.walking), allowed, volume);
+      const inNeighbourhood = !!neighbourhood?.sys.isActive() && !!neighbourhood?.sys.isVisible();
+      brayAudio?.(inNeighbourhood ? neighbourhoodState?.pickup ?? null : donkeyPickupCue(farm?.donkeyMillingForAudio()), now,
+        allowed && (inNeighbourhood || (!!farm?.sys.isActive() && !!farm?.sys.isVisible())), volume);
       buildingAudio(buildingSounds.filter(({ key }) => farm?.isBuildingActiveForAudio(key, now)).map(({ key }) => key),
         allowed, volume, performance.now());
     };

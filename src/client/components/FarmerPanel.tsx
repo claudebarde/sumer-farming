@@ -1,3 +1,5 @@
+import { minuteCountdownLabel } from "./countdownLabel";
+import { MealBenefitStatus } from "./KitchenContent";
 import FarmerPointsCounter from "./FarmerPointsCounter";
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { cropWorkActive } from "../../game-core/farm/perennialCrops";
@@ -137,6 +139,7 @@ export default function FarmerPanel({
           <span>Next meal</span>
         </div>
       </div>
+      <MealBenefitStatus snapshot={snapshot} now={now} />
       {household.hungrySince !== null && (
         <p>Your farmer is hungry. Store barley in the farm or a completed granary so he can eat.</p>
       )}
@@ -149,7 +152,7 @@ export default function FarmerPanel({
       {blessed && (
         <p>
           Shrine blessing: 25% slower happiness decay ·{" "}
-          {Math.floor(blessingMinutes / 60)}h {blessingMinutes % 60}m remaining.
+          {minuteCountdownLabel(blessingMinutes)} remaining.
         </p>
       )}
       <div className={`${styles["resource-sections"]} ${treatStyles.list}`}>
@@ -209,7 +212,7 @@ export default function FarmerPanel({
               {pending === item
                 ? "Giving treat…"
                 : remainingMinutes > 0 && !locked
-                  ? `Wait ${Math.floor(remainingMinutes / 60)}h ${remainingMinutes % 60}m`
+                  ? `Wait ${minuteCountdownLabel(remainingMinutes)}`
                   : item === "dates" ? "Give one basket of dates" : `Give ${item}`}
             </button>
           );

@@ -1,3 +1,4 @@
+import RulesLink from "./RulesLink";
 import { useRef } from "react";
 import BuildingVisibilityButton from "./BuildingVisibilityButton";
 import { Popover } from "radix-ui";
@@ -26,15 +27,18 @@ export default function IsometricTravelPopup({ anchor, available, onClose, onTra
       ref={popupRef} tabIndex={-1} onOpenAutoFocus={event => { if (onToggleTransparency) { event.preventDefault(); popupRef.current?.focus({ preventScroll: true }); } }}
       onCloseAutoFocus={event => event.preventDefault()}>
       <div className={styles.popupBody}>
-        <div className={`${styles.popupHeader} ${onToggleTransparency ? styles.farmVisibilityHeader : ""}`}><h2><MapCuneiformLabel element={title} /><span>{title}</span></h2></div>
-        {onToggleTransparency ? <div className={styles.popupHeaderControls}>
-          <BuildingVisibilityButton transparent={transparent} onToggle={onToggleTransparency} />
+        <div className={`${styles.popupHeader} ${styles.rulesPopupHeader} ${onToggleTransparency ? styles.farmVisibilityHeader : ""}`}><h2><MapCuneiformLabel element={title} /><span>{title}</span></h2></div>
+        <div className={styles.popupHeaderControls}>
+          <RulesLink section={returning ? "farm" : "market"} />
+          {onToggleTransparency && <BuildingVisibilityButton transparent={transparent} onToggle={onToggleTransparency} />}
           <Popover.Close className={styles.popupIconButton} aria-label="Close tile popup"><span aria-hidden="true">×</span></Popover.Close>
-        </div> : <Popover.Close className={styles.popupClose} aria-label="Close tile popup"><span aria-hidden="true">×</span></Popover.Close>}
+        </div>
+        <div className={styles.popupScrollableContent}>
         {stand && <p>{scope ? `Unlocks at level ${marketStandUnlockLevel(scope)}.` : "Trading coming soon."}</p>}
         <div className={styles.popupActions}>{!stand && available && <button className={actionStyles.button} onClick={onTravel}>
           <BuildingActionIcon kind="walk" /><span>{returning ? "Go back to the farm" : "Go to the market"}</span>
         </button>}</div>
+        </div>
       </div>
       <Popover.Arrow className={styles.popupArrow} width={20} height={10} />
     </Popover.Content></Popover.Portal>

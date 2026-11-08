@@ -71,10 +71,13 @@
 
 
 .farmer-popup-metrics {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   min-width: 0;
 }
+
+.farmer-popup-metrics-boost { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 16px; }
+.farmer-meal-boost { display: flex; align-items: center; gap: 6px; min-height: 44px; }
 
 .farmer-activity {
   position: relative;
@@ -300,6 +303,30 @@
   }
 }
 
+// Keep estate navigation and dismissal visible; only the active panel scrolls.
+.estate-dialog-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  > h2, > p { flex-shrink: 0; }
+
+  > .manage-tabs {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .manage-tabs-list { flex-shrink: 0; }
+
+  .manage-tabs-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+  }
+}
+
 .manage-dialog-close {
   position: absolute;
   top: 12px;
@@ -362,8 +389,7 @@
 
 .market-dialog-content.demolition-dialog {
   box-sizing: border-box;
-  padding: clamp(16px, 4vw, 24px);
-  overflow-y: auto;
+  overflow: hidden;
 
   > h2 {
     margin-top: 0;
@@ -575,6 +601,7 @@
   background-color: $color-parchment-light;
 
   > h2 {
+    flex: 1;
     min-width: 0;
     margin: 0;
   }
@@ -809,4 +836,17 @@
   background: rgba(255, 247, 232, .35); box-shadow: 0 0 0 1px #fff7e8;
   &::after { content: ""; position: absolute; top: 50%; left: -1px; right: -1px;
     height: 3px; background: #985b46; transform: translateY(-50%) rotate(-45deg); }
+}
+
+.settings-dialog-content {
+  display: flex; flex-direction: column; overflow: hidden;
+  > h2 { flex-shrink: 0; padding-right: 40px; }
+}
+.settings-dialog-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.settings-test-player {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #dcc08c;
+  label { display: flex; flex-direction: column; gap: 8px; }
+  select { width: 100%; padding: 8px 12px; color: #392518; background: #fff7e8; border: 1px solid #c6a66e; border-radius: 6px; }
 }

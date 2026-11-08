@@ -1,34 +1,18 @@
+import { activeMeal } from "../../game-data/kitchen";
+import MealBoostMeter from "./MealBoostMeter";
 import FarmerPointsCounter from "./FarmerPointsCounter";
 import type { FarmSnapshot } from "../../schemas/farm";
 import HappinessMeter from "./HappinessMeter";
 import RationMeter from "./RationMeter";
 import styles from "../styles/GameCanvas.module.scss";
-import { farmerActivity } from "../game/phaser/farmerActivity";
-import { FARM_SPRITES } from "../../assets/farmSprites";
-import oil from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-oil-single.png";
-import sesame from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png";
-import datesIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/date-palms/baskets-dates.webp";
-import flour from "../../assets/sprite_assets/pngs/v2/isometric-test/mill-active/mill-flour-bags-isometric.webp";
-import brewersGroats from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.webp";
-import road from "../../assets/sprite_assets/pngs/v2/isometric-test/roads/road-ne-sw.png";
-import canal from "../../assets/sprite_assets/pngs/v2/isometric-test/canals/canal-ne-sw.png";
-import stool from "../../assets/sprite_assets/pngs/v2/isometric-test/farmer-idle-stool.png";
-import pickaxe from "../../assets/sprite_assets/pngs/v2/isometric-test/farmer-building-pickaxe.png";
-
-const activityImages = { oil, sesame, barley: FARM_SPRITES.harvestedBarley, flour, brewersGroats, road, canal, stool, pickaxe,
-  reed: FARM_SPRITES.reedBundle, clay: FARM_SPRITES.brickPile, fish: FARM_SPRITES.fish,
-  bread: FARM_SPRITES.breadBasket, beer: FARM_SPRITES.beerJars, dates: datesIcon, water: FARM_SPRITES.water };
-
-export default function FarmerPopupStatus({ snapshot, now, walking = false }: { readonly snapshot: FarmSnapshot; readonly now: number; readonly walking?: boolean }) {
+export default function FarmerPopupStatus({ snapshot, now }: { readonly snapshot: FarmSnapshot; readonly now: number; readonly walking?: boolean }) {
   const household = snapshot.farm.household;
-  const activity = farmerActivity(snapshot, now, walking);
-  return <div className={`${styles["farmer-metrics"]} ${styles["farmer-popup-metrics"]}`}>
-    <div><div className={styles["farmer-activity"]}>
-      {activity.item && <img src={activityImages[activity.item]} alt={activity.item === "reed" ? "Reeds" : activity.item} />}
-      {activity.quantity !== undefined && <span className={styles["farmer-activity-count"]}>{activity.quantity}</span>}
-    </div><span>{activity.label}</span></div>
+  const benefit = snapshot.farm.production.mealBenefit;
+  const hasBoost = activeMeal(benefit, now) !== null;
+  return <div className={`${styles["farmer-metrics"]} ${styles["farmer-popup-metrics"]} ${hasBoost ? styles["farmer-popup-metrics-boost"] : ""}`}>
     <div><HappinessMeter value={household.happiness} /><span>Happiness</span></div>
     <FarmerPointsCounter points={snapshot.player.points ?? 0} />
+    {hasBoost && benefit && <MealBoostMeter benefit={benefit} now={now} />}
     <div><RationMeter nextRationAt={household.nextBarleyConsumptionAt} hungry={household.hungrySince !== null} now={now} /><span>Next meal</span></div>
   </div>;
 }

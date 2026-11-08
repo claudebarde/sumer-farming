@@ -1,3 +1,5 @@
+import { HomeAppearanceSchema, DEFAULT_HOME_APPEARANCE } from "./homeAppearance";
+import { FarmerSleepSchema, emptyFarmerSleep } from "../game-data/farmerSleep";
 import { z } from "zod";
 import { FarmerProfileSchema } from "./farmerProfile";
 import { ProductionStateSchema, emptyProductionState } from "../game-data/production";
@@ -20,6 +22,8 @@ export const FarmSnapshotSchema = z.object({
     constructionAwards: z.array(z.object({ source: z.string(), points: z.int().nonnegative(), completedAt: z.iso.datetime() })).optional()
   }),
   farm: z.object({
+    homeAppearance: HomeAppearanceSchema.default(DEFAULT_HOME_APPEARANCE),
+    sleep: FarmerSleepSchema.default(emptyFarmerSleep),
     farmerProfile: FarmerProfileSchema.nullish(),
     roads: z.array(z.object({ column: z.int(), row: z.int(), completesAt: z.number().optional(), removing: z.boolean().optional(), approachPath: z.array(z.object({ column: z.int(), row: z.int() })).optional() })).default([]),
     production: ProductionStateSchema.default(emptyProductionState),

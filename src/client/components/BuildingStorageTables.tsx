@@ -42,6 +42,7 @@ type Props = {
   readonly showDates?: boolean;
   readonly showSesame?: boolean;
   readonly visual?: boolean;
+  readonly awaitingPickup?: Partial<Record<InventoryItemKey, number>>;
 };
 
 export default function BuildingStorageTables({
@@ -53,23 +54,23 @@ export default function BuildingStorageTables({
   showFish = false,
   showDates = false,
   showSesame = false,
-  visual = false
+  visual = false,
+  awaitingPickup = {}
 }: Props) {
   const quantity = (key: InventoryItemKey) =>
     inventory.find(item => item.itemKey === key)?.quantity ?? 0;
   const shared = (
     key: Parameters<typeof sharedStorageAllocation>[0],
     label: string
-  ) => ({
-    label,
-    ...sharedStorageAllocation(
-      key,
-      quantity(key),
-      warehouseComplete,
-      inventory.find(i => i.itemKey === key)?.locations,
-      warehouseId
-    )[location]
-  });
+  ) => {
+    const allocation = sharedStorageAllocation(key, quantity(key), warehouseComplete,
+      inventory.find(i => i.itemKey === key)?.locations, warehouseId)[location];
+    return {
+      label,
+      ...allocation,
+      quantity: allocation.quantity + (awaitingPickup[key] ?? 0)
+    };
+  };
   const groups = [
     {
       label: "Processed food storage",
@@ -88,7 +89,7 @@ export default function BuildingStorageTables({
       items: [
         {
           label: "Barley",
-          quantity: barley,
+          quantity: barley + (awaitingPickup.barley ?? 0),
           capacity:
             location === "farm"
               ? FARM_STORAGE_CAPACITY
@@ -123,8 +124,7 @@ export default function BuildingStorageTables({
       "Groats",
       "Oil",
       "Bread",
-      "Beer",
-      "Fish"
+      "Beer"
     ]);
     const tables = [
       {
@@ -170,6 +170,7 @@ export default function BuildingStorageTables({
                   </th>
                   <td className={gridStyles.tableCapacity}>
                     <progress
+                      data-full={location === "warehouse" && item.capacity > 0 && item.quantity >= item.capacity ? true : undefined}
                       value={Math.min(item.quantity, item.capacity)}
                       max={Math.max(1, item.capacity)}
                       aria-label={`${item.label} storage`}

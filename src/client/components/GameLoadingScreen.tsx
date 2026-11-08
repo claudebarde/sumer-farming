@@ -26,7 +26,7 @@ export default function GameLoadingScreen({
           className={`cuneiforms ${styles.loadingEmblem}`}
           aria-hidden="true"
         >
-          𒂍 𒌙 <br /> 𒀀𒇉𒄘𒃼 𒀀𒇉𒌓𒄒𒉣𒈾𒅗
+          𒀀𒊮 𒆠𒂗𒄀𒊏
         </span>
         <h2>
           {failed

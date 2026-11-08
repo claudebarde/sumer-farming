@@ -55,6 +55,7 @@ export const buildMarketQuotes = (
         weightedAverageSellPrice: statistics.weightedAverageSellPrice,
         totalSellQuantity: statistics.totalSellQuantity,
         highestBuyPrice: null,
+        recentTradeQuantity: recentTrades.filter(trade => trade.itemKey === itemKey).reduce((total, trade) => total + trade.quantity, 0),
         recentTradeAveragePrice: calculateTradeAveragePrice(recentTrades.filter(trade => trade.itemKey === itemKey)),
         suggestedSellPrice: suggestSellUnitPrice(
           statistics,

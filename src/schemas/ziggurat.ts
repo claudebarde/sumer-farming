@@ -13,6 +13,7 @@ export const ZigguratSchema = z.object({
   z.object({ type: z.literal("building"), stage: z.number().int().min(0).max(3), startedAt: z.iso.datetime(), completesAt: z.iso.datetime() }),
   z.object({ type: z.literal("complete"), completedAt: z.iso.datetime() })
  ]),
+ celebrationSeen: z.boolean().default(false),
  participantCount: z.number().int().nonnegative().default(0),
  eligibleCount: z.number().int().nonnegative(), canParticipate: z.boolean(), interested: z.boolean(),
  supporters: z.array(z.object({ slot: z.number().int(), name: z.string(), isYou: z.boolean() })),

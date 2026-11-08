@@ -12,7 +12,8 @@ export const ProductionJourneySchema = z.object({
   path: z.array(WorkerPositionSchema).min(1),
   supplyIndex: z.int().nonnegative(),
   supplyStops: z.array(z.object({ index: z.int().nonnegative(), quantity: z.int().positive(),
-    buildingId: z.string().nullable(), column: z.int(), row: z.int() })).optional(),
+    buildingId: z.string().nullable(), column: z.int(), row: z.int(),
+    itemKey: z.enum(["flour", "oil", "dates", "sesame", "brewersGroats"]).optional() })).optional(),
   donkeyPickupIndex: z.int().nonnegative().optional(),
   donkeyDropIndex: z.int().nonnegative().optional()
 });

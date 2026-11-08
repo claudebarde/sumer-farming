@@ -1,0 +1,11 @@
+# Single-tile kitchen design trial
+
+Generated with the built-in image tool, based on the approved kitchen and actual
+road tile. Saved as `kitchen-single-tile-test.png`. Not yet connected to placement.
+Target: smaller household pot, narrow preparation shelf, single-tile footprint,
+2:1 ground projection and connected-road access. Scale and alignment still need
+in-map verification. Generated surrounding glow needs cleanup before integration.
+
+## Prompt
+
+Generate a redesigned compact SINGLE TILE outdoor kitchen sprite for this isometric farming game. Image 1 is the approved materials/style reference, NOT the size or layout to copy. Image 2 is the exact ground-angle reference. Replace the oversized two-module arrangement with ONE compact square-footprint workstation: a low warm mudbrick stove on the left, and a very narrow attached wooden preparation shelf/table on its right, nested alongside the stove rather than an entire second tile. A modest household terracotta cooking pot with lid and two handles on small stone supports occupies only about half the stove top width: NOT an enormous cauldron. Stove working surface would be around a farmer's waist, pot only a small household cooking vessel. Small mixing bowl and one wooden spoon on shelf, a few logs in the stove's arched front opening. Preserve the reference's warm Sumerian game palette, chunky clean outlines and soft illustrated shading. Important geometric constraint: strict orthographic 2:1 dimetric projection matching the road diamond, every straight ground-plane base edge and tabletop/apron edge slopes exactly +0.5 or -0.5 (26.565 degrees above/below horizontal); all legs and upright stove edges vertical. Stove and shelf share these parallel axes and one ground plane. Compact near-square footprint, not elongated. Visible front fuel opening faces lower-left. Keep access unobstructed in front for a farmer arriving from an adjacent road. No road, tile, ground slab, person, flames, smoke, text, background haze, glow or cast shadow. Full isolated sprite on genuinely transparent background, transparent gaps under shelf, centered with margins, crisp high resolution. Do not include any farmhouse or full-size separate table.

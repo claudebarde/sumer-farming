@@ -1,3 +1,4 @@
+import { harvestMealMultiplier } from "../../game-data/kitchen";
 import { awardPoints } from "./playerPoints";
 import { barleyHarvestYield } from "../../game-core/farm/barleyDecay";
 import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
@@ -161,7 +162,7 @@ const executeHarvestAction = (
 
               const harvestCompletesAt = new Date(
                 currentTimeMillis +
-                  CROP_DEFINITIONS[crop.cropKey].harvestDurationMs
+                  Math.ceil(CROP_DEFINITIONS[crop.cropKey].harvestDurationMs * harvestMealMultiplier(farm.production.mealBenefit, currentTimeMillis))
               );
 
               await transaction

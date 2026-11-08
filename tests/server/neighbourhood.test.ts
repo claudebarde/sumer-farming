@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
-import { inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { beforeAll, afterAll, expect, it } from "vitest";
 import { createDatabase } from "../../src/server/db/client";
 import { players, farms, neighbourhoods, neighbourhoodMembers } from "../../src/server/db/schema";
@@ -27,9 +27,9 @@ afterAll(async () => {
 });
 it("returns only real members of the viewer's home, including offline and lower-level farms", async () => {
   expect(await readNeighbourhood(db, ids[0]!)).toEqual({ members: [
-    { slot: 2, name: "Farmer 1", level: 7, isYou: false },
-    { slot: 6, name: "Farmer 0", level: 7, isYou: true },
-    { slot: 9, name: "Farmer", level: 3, isYou: false },
+    { homeStyle: "farm-level-9", wallTablet: "none", slot: 2, name: "Farmer 1", level: 7, isYou: false },
+    { homeStyle: "farm-level-9", wallTablet: "none", slot: 6, name: "Farmer 0", level: 7, isYou: true },
+    { homeStyle: "farm-level-9", wallTablet: "none", slot: 9, name: "Farmer", level: 3, isYou: false },
   ] });
 });
 it("keeps positions consistent for another viewer without changing membership", async () => {
@@ -42,4 +42,10 @@ it("keeps positions consistent for another viewer without changing membership", 
 it("rejects locked and unknown viewers", async () => {
   expect(await readNeighbourhood(db, ids[2]!)).toBeNull();
   expect(await readNeighbourhood(db, randomUUID())).toBeNull();
+});
+
+it.each(["home-tablet-barley", "home-tablet-sky", "home-tablet-beer", "home-tablet-cook", "none"] as const)("shares the saved house style and %s tablet with other neighbours", async wallTablet => {
+  await db.update(farms).set({ level: 9, homeAppearance: { style: "farm-style-clay", decoration: "none", wallTablet } }).where(eq(farms.playerId, ids[0]!));
+  const roster = await readNeighbourhood(db, ids[1]!);
+  expect(roster?.members.find(member => member.slot === 6)).toMatchObject({ homeStyle: "farm-style-clay", wallTablet });
 });

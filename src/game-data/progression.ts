@@ -7,6 +7,7 @@ export const INITIAL_PROGRESSION_STATS = {
   processedBarley: 0
 };
 export type ProgressionStats = typeof INITIAL_PROGRESSION_STATS & {
+  readonly level10Work?: { readonly sesameHarvests: number; readonly oilProduced: number };
   readonly datesStored?: number;
   readonly level9Baseline?: { readonly produced: number; readonly datesStored: number };
   readonly buildingReadyAnnounced?: readonly import("./buildings").FarmBuildingType[];
@@ -20,7 +21,7 @@ export type ProgressionStats = typeof INITIAL_PROGRESSION_STATS & {
     readonly sold: number;
   };
 };
-export const MAX_PLAYABLE_LEVEL = 10;
+export const MAX_PLAYABLE_LEVEL = 11;
 export const LEVEL_10_REQUIRED_PALMS = 2;
 export const LEVEL_10_REQUIRED_DATES = 4;
 export const LEVEL_10_REQUIRED_PRODUCTION = 40;
@@ -49,7 +50,7 @@ export const LEVEL_NAMES = [
   "Growing estate",
   "Established producer",
   "Community member",
-  "Level 11 (upcoming)"
+  "Farm kitchen"
 ] as const;
 export const LEVEL_UNLOCK_ITEMS = [
   [],
@@ -74,7 +75,7 @@ export const LEVEL_UNLOCK_ITEMS = [
   ["Warehouse", "Small shrine", "Mill upgrade to building level 2"],
   ["Date palms", "Produce and provisions market", "Dates treats", "Bread oven and brewery upgrades to building level 2"],
   ["Mill upgrade to building level 3", "Barley withering after 24 hours ripe", "Meet neighbours at the market"],
-  ["Bread oven and brewery upgrades to building level 3"]
+  ["Kitchen", "Cook meals with temporary benefits", "Bread oven and brewery upgrades to building level 3"]
 ] as const;
 // Notifications use the same unlock definitions in a compact sentence.
 export const LEVEL_UNLOCKS = LEVEL_UNLOCK_ITEMS.map(items => items.join(", "));

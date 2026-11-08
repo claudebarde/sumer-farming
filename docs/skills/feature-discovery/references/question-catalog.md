@@ -107,6 +107,9 @@ Use the common and animation sections alongside these construction-specific chec
   preserve existing rules unless the user requests a change.
 - **Placement and access:** Road connection, loading space, occupied tiles,
   neighbouring-building access, orientation, preview and confirmation behaviour.
+- **Shadow style:** Ask the user to choose a building-silhouette projection or
+  a cone-based projection for each new building. Check the chosen style at
+  different times of day; preserve shared colour, opacity and sun direction.
 - **Work presentation:** Reuse or replace approach, working pose, work position,
   construction sprite treatment and progress indicator? Check footprint fit and
   visibility beside neighbouring buildings.
@@ -210,6 +213,10 @@ Use alongside the animation and common questions for hired-worker logistics.
 
 ## Neighbourhood and social maps
 
+- **One-time celebrations:** Define whether completion while already visiting triggers
+  immediately or on re-entry, whether leaving/reloading consumes or resumes the event,
+  and whether acknowledgement is per player across devices or local to one browser.
+
 - **Membership baseline:** Reuse existing city/group assignment, capacity and saved
   membership. Distinguish revealing a map from assigning or relocating players.
 - **Map representation:** Real geography or a symbolic layout? Shared stable plots
@@ -239,9 +246,46 @@ Use alongside the animation and common questions for hired-worker logistics.
   time? How are repeated donations combined, which timestamp drives all viewers,
   and how do return/reload and local previews avoid replaying or charging goods?
 
+## Rest and time-limited protection
+
+- **Allowance:** Rolling window or calendar reset, maximum duration, partial sessions,
+  and when travel ends and protected rest begins. Account for time offline on the server.
+- **Interruption:** Explicit wake versus automatic wake on work/navigation; what happens
+  when the allowance runs out, including while the browser is closed?
+- **Benefit boundaries:** Which decay rates change, whether recovery is allowed, and
+  whether meals and independent production continue during rest.
+- **Presentation:** Entrance/exit anchor, hidden actor versus resting pose, ambient
+  indicators, countdown, reduced motion, and preview versus persisted gameplay.
+
+
+## Estate progression and level-up offerings
+
+- **Prerequisites versus unlocks:** Separate objectives required to reach a level
+  from activities unlocked there; prevent circular building or recipe requirements.
+- **Targets and units:** Distinguish completed fields, production batches, produced
+  units, stored goods and purchases. Decide which demonstrate the intended experience.
+- **Counting window and existing saves:** Lifetime or current-level totals; inspect
+  available history before promising credit, and agree a migration if counters are absent.
+- **Offering:** Which stored goods are consumed on claiming, quantities, allowed
+  substitutions, storage access and seed protection; keep objectives separate from costs.
+- **Scope and presentation:** Confirm the level's playable unlocks, toolbar icon,
+  concise objective UI and whether optional social progress is excluded.
+
 ## Adding a feature type
 
 When a real discussion introduces an uncovered type, add a named section with
 the information categories needed for that type and its demonstrated edge cases.
 Reference common concerns instead of duplicating them. Keep proposed solutions
 separate from the questions future discussions need to resolve.
+
+
+## Cooked meals and temporary work bonuses
+
+- Does cooking create inventory, require collection, or automatically consume the meal?
+- When do ingredients reserve and benefits start, including offline completion?
+- Is the worker occupied during travel, preparation and cooking?
+- Do effects stack, replace each other, or require the previous effect to expire?
+- Which work phases benefit (travel, hands-on work, unattended production, animal work)?
+- Are rates specified as faster work or reduced duration, and do accepted queues retain bonuses?
+- How do hunger modifiers preserve elapsed credit when replaced mid-meal interval?
+- What does the UI show for ingredients, replacement, ongoing work and benefit expiry?

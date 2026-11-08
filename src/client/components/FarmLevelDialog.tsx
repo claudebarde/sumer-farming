@@ -1,3 +1,4 @@
+import RulesLink from "./RulesLink";
 import actionStyles from "../styles/BuildingActionButton.module.scss";
 import BuildingActionIcon from "./BuildingActionIcon";
 import { useEffect, useRef, useState } from "react";
@@ -78,7 +79,8 @@ export default function FarmLevelDialog({ onLevelClaimed }: { onLevelClaimed?: (
             <Dialog.Title>
               Farm level {progress.level} · {LEVEL_NAMES[progress.level]}
             </Dialog.Title>
-            <Dialog.Close asChild>
+            <RulesLink section="levels" />
+          <Dialog.Close asChild>
               <button
                 className={styles["market-dialog-close"]}
                 aria-label="Close farm levels"

@@ -1,17 +1,24 @@
 import { getRequestWindow } from "../../../game-core/market/npcRequests";
 import { MERCHANT_TRAVEL_MS, REQUEST_CYCLE_MS, REQUEST_OPEN_MS } from "../../../game-data/npcRequests";
 
-type Schedule = { readonly cycle: number; readonly closesAt: string };
-export const scheduledMerchantVisit = (level: number, board: Schedule | null, now: number): MerchantVisit =>
-  level >= 7 && board ? getMerchantVisit(board, now) : { phase: "away" };
+type Schedule = { readonly cycle: number; readonly closesAt: string; readonly visitCompleted?: boolean };
+export const scheduledMerchantVisit = (level: number, board: Schedule | null, now: number, presentation?: CompletionPresentation): MerchantVisit =>
+  level >= 7 && board ? getMerchantVisit(board, now, presentation) : { phase: "away" };
 export type MerchantVisit =
   | { readonly phase: "away" | "stopped" }
   | { readonly phase: "arriving" | "departing"; readonly progress: number };
 
 /** Derive travel from server timestamps; no replaying missed visits on login. */
-export const getMerchantVisit = (schedule: Schedule, now: number): MerchantVisit => {
+type CompletionPresentation = { readonly holdCompleted?: boolean; readonly departureAt?: number | null };
+export const getMerchantVisit = (schedule: Schedule, now: number, presentation: CompletionPresentation = {}): MerchantVisit => {
   const anchor = Date.parse(schedule.closesAt) - REQUEST_OPEN_MS - schedule.cycle * REQUEST_CYCLE_MS;
   const window = getRequestWindow(anchor, now);
+  if (schedule.visitCompleted && window.cycle === schedule.cycle && now >= window.opensAt && now < window.closesAt + MERCHANT_TRAVEL_MS) {
+    if (presentation.holdCompleted) return { phase: "stopped" };
+    const departure = presentation.departureAt;
+    return departure != null && now >= departure && now < departure + MERCHANT_TRAVEL_MS
+      ? { phase: "departing", progress: (now - departure) / MERCHANT_TRAVEL_MS } : { phase: "away" };
+  }
   if (window.open) return { phase: "stopped" };
   if (now >= window.closesAt && now < window.closesAt + MERCHANT_TRAVEL_MS) {
     return { phase: "departing", progress: (now - window.closesAt) / MERCHANT_TRAVEL_MS };

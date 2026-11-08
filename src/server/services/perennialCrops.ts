@@ -108,7 +108,7 @@ export const startSesameHarvest = (db: Database, input: Extract<GameCommand, { t
     const jobs: CropWork[] = [];
     let at = now.getTime(), position = input.farmerPosition;
     for (const target of orderPlantingFields(input.targets, input.targets[0]!)) {
-      const plan = planCropWork(snapshot, target, "sesame", "harvest", at, position);
+      const plan = planCropWork(snapshot, target, "sesame", "harvest", at, position, now.getTime());
       if (!plan) return fail("No accessible route to the field or warehouse.");
       const crop = snapshot.crops.find(c => fieldKey(c) === fieldKey(target))!;
       jobs.push({ ...plan, id: crypto.randomUUID(), cropId: crop.id, cropKey: "sesame", action: "harvest", quantity, settled: false,

@@ -24,7 +24,7 @@ export const harvestingProgress = (snapshot: FarmSnapshot, now: number) => {
   const pose = isometricHarvestPose(snapshot, now);
   const alreadyCompleted = batch.total - batch.remaining.length - (batch.phase.type === "harvesting" ? 1 : 0);
   const completed = Math.max(0, Math.min(batch.total, alreadyCompleted + (pose?.harvested.length ?? 0)));
-  const perField = CROP_DEFINITIONS.barley.harvestDurationMs;
+  const perField = (batch.harvestDurationMs ?? CROP_DEFINITIONS.barley.harvestDurationMs);
   const totalMs = perField * batch.total;
   const elapsedMs = completed * perField + (pose?.type === "harvesting" ? Math.min(perField, pose.elapsed) : 0);
   return { completed, totalMs, percentage: Math.floor(Math.max(0, Math.min(100, elapsedMs / totalMs * 100))) };
@@ -86,10 +86,10 @@ export const isometricHarvestPose = (snapshot: FarmSnapshot, now: number): Harve
     if (batch.phase.type === "harvesting") {
       position = batch.phase.target;
       at = Date.parse(batch.phase.completesAt);
-      if (now < at) return { ...pose("harvesting"), elapsed: Math.max(0, now - at + CROP_DEFINITIONS.barley.harvestDurationMs) };
+      if (now < at) return { ...pose("harvesting"), elapsed: Math.max(0, now - at + (batch.harvestDurationMs ?? CROP_DEFINITIONS.barley.harvestDurationMs)) };
       const crop = snapshot.crops.find(c => c.column === position.column && c.row === position.row);
       harvested.push(position);
-      const gained = crop ? barleyHarvestYield(crop, at - CROP_DEFINITIONS.barley.harvestDurationMs) : 0;
+      const gained = crop ? barleyHarvestYield(crop, at - (batch.harvestDurationMs ?? CROP_DEFINITIONS.barley.harvestDurationMs)) : 0;
       if (gained > 0) gains.push({ cell: position, at, quantity: gained });
       quantity += gained;
       batch = { ...batch, lastHarvested: position, phase: { type: "ready" }, travelStartedAt: new Date(at).toISOString(), nextStepAt: new Date(at + (batch.travelMs?.[0] ?? 0)).toISOString() };
@@ -109,7 +109,7 @@ export const isometricHarvestPose = (snapshot: FarmSnapshot, now: number): Harve
           if (batch.remaining.length) continue;
         } else {
           batch = { ...batch, remaining: batch.remaining.slice(1), travelPaths: batch.travelPaths?.slice(1), travelMs: batch.travelMs?.slice(1),
-            phase: { type: "harvesting", target: batch.remaining[0]!, completesAt: new Date(at + CROP_DEFINITIONS.barley.harvestDurationMs).toISOString() } };
+            phase: { type: "harvesting", target: batch.remaining[0]!, completesAt: new Date(at + (batch.harvestDurationMs ?? CROP_DEFINITIONS.barley.harvestDurationMs)).toISOString() } };
           continue;
         }
       }

@@ -442,6 +442,34 @@
       "when": 1793536400000,
       "tag": "0062_merchant-offers",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1793790000000,
+      "tag": "0063_kitchen",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1793820000000,
+      "tag": "0064_farmer_sleep",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1793950000000,
+      "tag": "0065_ziggurat-celebrations",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1794130000000,
+      "tag": "0066_home_appearance",
+      "breakpoints": true
     }
   ]
 }

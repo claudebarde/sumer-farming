@@ -1,4 +1,5 @@
 .header {
+  background: #f4e5c7;
   padding: 1rem;
   display: flex;
   align-items: center;
@@ -6,7 +7,74 @@
   flex-wrap: wrap;
   gap: 12px;
 
-  h1 {
-    font-size: 1.5rem;
+}
+
+.title {
+  position: relative;
+  width: min(320px, 100%);
+  aspect-ratio: 5.5;
+  margin: 0;
+  overflow: hidden;
+
+  // The source has generous transparent vertical margins. Keep its proportions
+  // while letting the visible lettering determine the header height.
+  img {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: auto;
+    transform: translateY(-50%);
+  }
+}
+
+.accountActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.accountButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 16px 6px 8px;
+  min-height: 64px;
+  border: 2px solid #d2ad6e;
+  border-radius: 12px;
+  background: #dbbb80;
+  color: #392518;
+  font: inherit;
+  font-size: 18px;
+  font-weight: bold;
+  white-space: nowrap;
+  cursor: default;
+
+  img { width: 52px; height: 52px; object-fit: contain; }
+  &:not(:has(img)) { padding-inline: 16px; }
+  &:focus-visible { outline: 3px solid #94601c; outline-offset: 3px; }
+}
+
+.loginButton {
+  background: #fff2d5;
+  img { filter: saturate(0.55); }
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .accountActions { gap: 8px; }
+  .accountButton { min-height: 52px; padding: 4px 10px 4px 6px; gap: 6px; font-size: 16px;
+    img { width: 40px; height: 40px; }
   }
 }

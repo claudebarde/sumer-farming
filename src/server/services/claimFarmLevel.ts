@@ -2,7 +2,7 @@ import { awardPoints } from "./playerPoints";
 import { eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { evaluateProgression } from "../../game-core/farm/progression";
-import { HAPPINESS_MANAGEMENT_LEVEL } from "../../game-data/household";
+import { HAPPINESS_MANAGEMENT_LEVEL, FASTER_HAPPINESS_DECAY_LEVEL } from "../../game-data/household";
 import type { Database } from "../db/client";
 import { farmBuildings, farmGroundItems, farms } from "../db/schema";
 import { readFarmSnapshot } from "./farmSnapshot";
@@ -58,7 +58,7 @@ export const claimFarmLevel = (database: Database, input: {
             if (take > 0) await setStoredQuantity(tx, farm.id, itemKey, quantity - take, new Date());
             remaining -= take;
           }
-        } else if (offering.source === "fish" || offering.source === "bread" || offering.source === "beer" || offering.source === "dates") {
+        } else if (offering.source === "fish" || offering.source === "bread" || offering.source === "beer" || offering.source === "dates" || offering.source === "oil") {
           await setStoredQuantity(tx, farm.id, offering.source, (snapshot.inventory.find(i => i.itemKey === offering.source)?.quantity ?? 0) - offering.quantity, new Date());
         }
       }
@@ -92,7 +92,7 @@ export const claimFarmLevel = (database: Database, input: {
             sold: snapshot.farm.progression!.beerSold + snapshot.farm.progression!.breadSold
           }
         } } : {}),
-        ...(farm.level + 1 === HAPPINESS_MANAGEMENT_LEVEL ? { happinessCheckedAt: new Date(now) } : {}),
+        ...([HAPPINESS_MANAGEMENT_LEVEL, FASTER_HAPPINESS_DECAY_LEVEL].includes(farm.level + 1) ? { happinessCheckedAt: new Date(now) } : {}),
         version: sql`${farms.version} + 1`, updatedAt: new Date() }).where(eq(farms.id, farm.id)).returning();
       await awardPoints(tx, farm.playerId, { action: "farmLevel", source: `level:${farm.level + 1}`, completedAt: new Date(now) });
       return readFarmSnapshot(tx, updated!, false);

@@ -121,7 +121,7 @@ export const advanceBatchPlanting = async (tx: DatabaseTransaction, farm: typeof
             travelStartedAt: new Date(deadline).toISOString(), nextStepAt: new Date(deadline + (batch.travelMs?.[1] ?? 0)).toISOString() };
         } else {
           if (crop.cropKey !== "barley" || crop.growthCompletesAt.getTime() > deadline || crop.harvestStartedAt) break;
-          const completesAt = new Date(deadline + CROP_DEFINITIONS.barley.harvestDurationMs);
+          const completesAt: Date = new Date(deadline + (batch.harvestDurationMs ?? CROP_DEFINITIONS.barley.harvestDurationMs));
           await tx.update(farmCrops).set({ harvestStartedAt: new Date(deadline), harvestCompletesAt: completesAt }).where(eq(farmCrops.id, crop.id));
           batch = { ...batch, remaining: batch.remaining.slice(1), travelMs: batch.travelMs?.slice(1), travelPaths: batch.travelPaths?.slice(1),
             phase: { type: "harvesting", target, completesAt: completesAt.toISOString() }, nextStepAt: completesAt.toISOString() };

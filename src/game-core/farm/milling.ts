@@ -24,6 +24,7 @@ export const millingUnavailableReason = (snapshot: FarmSnapshot, recipe: MillRec
   if (snapshot.farm.production.delivery) return "Store the finished goods at the farm first.";
   if (snapshot.farm.millGoods.delivery) return "Store the processed grain at the farm first.";
   if ((snapshot.farm.progression?.level ?? 1) < 5) return "The Mill unlocks at farm level 5.";
+  if (snapshot.farm.production.cooking) return "The farmer is cooking.";
   if (farmerProductionJob(snapshot.farm)?.type === "baking") return "The farmer is baking. Wait for baking to finish.";
   if (farmerProductionJob(snapshot.farm, now)?.type === "brewing") return "The farmer is brewing. Wait for preparation to finish.";
   if (millingJobs(snapshot.farm).some(job => job.buildingId === id)) return "The Mill is already working.";

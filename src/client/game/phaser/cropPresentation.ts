@@ -2,6 +2,8 @@ import { barleyHasExpired, barleyHarvestYield, BARLEY_WITHERING_MS, BARLEY_CLEAR
 import type { FarmSnapshot } from "../../../schemas/farm";
 import { CROP_DEFINITIONS } from "../../../game-data/crops";
 
+export const SESAME_SEED_STAGE_MS = 10_000;
+
 type Crop = FarmSnapshot["crops"][number];
 export const cropStageLabel = (crop: Crop, now: number): string | null => {
   if (crop.cropKey === "datePalm") {
@@ -25,6 +27,7 @@ export const cropSprite = (crop: Crop, now: number) => {
   if (now < planted || barleyHasExpired(crop, now)) return null;
   if (crop.cropKey === "sesame") {
     if (crop.harvestCompletesAt && now >= Date.parse(crop.harvestCompletesAt)) return null;
+    if (now < planted + SESAME_SEED_STAGE_MS && now < ready) return "barleySeeded";
     return now >= ready ? "sesameRipe" : now >= planted + 35 * 60_000 ? "sesameFlowering"
       : now >= planted + 15 * 60_000 ? "sesameGrowing" : "sesameYoung";
   }
@@ -41,5 +44,5 @@ export const nextCropTransition = (crop: Crop, now: number): number | null => {
   const ready = Date.parse(crop.growthCompletesAt);
   const definition = CROP_DEFINITIONS[crop.cropKey];
   const middle = definition.kind === "perennial" ? planted + definition.growthDurationMs : planted + (ready - planted) / 3;
-  return [planted, ...(crop.cropKey === "sesame" ? [planted + 15 * 60_000, planted + 35 * 60_000] : [middle]), ready, ...(crop.cropKey === "barley" && crop.decayEligible && !crop.harvestStartedAt ? [ready + BARLEY_WITHERING_MS, ready + BARLEY_CLEARING_MS] : []), ...(crop.harvestCompletesAt ? [Date.parse(crop.harvestCompletesAt)] : [])].filter(t => t > now).sort((a,b) => a-b)[0] ?? null;
+  return [planted, ...(crop.cropKey === "sesame" ? [planted + SESAME_SEED_STAGE_MS, planted + 15 * 60_000, planted + 35 * 60_000] : [middle]), ready, ...(crop.cropKey === "barley" && crop.decayEligible && !crop.harvestStartedAt ? [ready + BARLEY_WITHERING_MS, ready + BARLEY_CLEARING_MS] : []), ...(crop.harvestCompletesAt ? [Date.parse(crop.harvestCompletesAt)] : [])].filter(t => t > now).sort((a,b) => a-b)[0] ?? null;
 };

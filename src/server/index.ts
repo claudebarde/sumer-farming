@@ -1,3 +1,8 @@
+import { SaveFurnitureSchema } from "../schemas/homeFurniture";
+import { HomeAppearanceSchema } from "../schemas/homeAppearance";
+import { saveHomeAppearance, saveHomeFurniture } from "./services/homeAppearance";
+import { cookMeal } from "./services/kitchen";
+import { farmerSleepAction, wakeForPlayerCommand } from "./services/farmerSleep";
 import { DecorationCommandSchema } from "../schemas/decorations";
 import { changeDecoration } from "./services/decorations";
 // src/server/index.ts
@@ -8,7 +13,7 @@ import { Effect, Either } from "effect";
 import { LeaderboardQuerySchema } from "../schemas/leaderboard";
 import { readLeaderboard } from "./services/leaderboard";
 import { readNeighbourhood } from "./services/neighbourhood";
-import { zigguratInterest, donateZiggurat } from "./services/ziggurat";
+import { zigguratInterest, donateZiggurat, claimZigguratCelebration } from "./services/ziggurat";
 import { ZigguratInterestCommandSchema, ZigguratDonationCommandSchema } from "../schemas/ziggurat";
 import { MarketPresenceCommandSchema } from "../schemas/marketPresence";
 import { updateMarketPresence } from "./services/marketPresence";
@@ -252,6 +257,32 @@ app.post("/api/market/presence", async c => {
   } finally { await client.end().catch(error => console.error("Closing presence connection failed", error)); }
 });
 
+app.post("/api/home-appearance", async c => {
+  c.header("Cache-Control", "no-store");
+  const command=HomeAppearanceSchema.safeParse(await c.req.json().catch(()=>null));
+  if(!command.success)return c.json({error:{message:"Choose a valid home appearance action."}},400);
+  const client=new Client({connectionString:c.env.HYPERDRIVE.connectionString});
+  try {
+    await client.connect();
+    const result=await saveHomeAppearance(createDatabase(client),c.get("developmentPlayer").id,command.data);
+    return result.ok?c.json(result.snapshot):c.json({error:{message:result.message}},409);
+  }catch(error){console.error("Home appearance update failed",error);return c.json({error:{message:"Could not update your home appearance. Please retry."}},503);}
+  finally{await client.end().catch(error=>console.error("Closing home appearance connection failed",error));}
+});
+
+app.post("/api/home-furniture", async c => {
+  c.header("Cache-Control", "no-store");
+  const command=SaveFurnitureSchema.safeParse(await c.req.json().catch(()=>null));
+  if(!command.success)return c.json({error:{message:"Choose a valid furniture action."}},400);
+  const client=new Client({connectionString:c.env.HYPERDRIVE.connectionString});
+  try {
+    await client.connect();
+    const result=await saveHomeFurniture(createDatabase(client),c.get("developmentPlayer").id,command.data);
+    return result.ok?c.json(result.snapshot):c.json({error:{message:result.message}},409);
+  }catch(error){console.error("Furniture update failed",error);return c.json({error:{message:"Could not update your furniture. Please retry."}},503);}
+  finally{await client.end().catch(error=>console.error("Closing furniture connection failed",error));}
+});
+
 app.post("/api/decorations", async c => {
   c.header("Cache-Control", "no-store");
   const command=DecorationCommandSchema.safeParse(await c.req.json().catch(()=>null));
@@ -263,6 +294,18 @@ app.post("/api/decorations", async c => {
     return result.ok?c.json(result.snapshot):c.json({error:{message:result.message}},409);
   }catch(error){console.error("Decoration update failed",error);return c.json({error:{message:"Could not update your decoration. Please retry."}},503);}
   finally{await client.end().catch(error=>console.error("Closing decoration connection failed",error));}
+});
+
+app.post("/api/neighbourhood/ziggurat/celebration", async c => {
+  c.header("Cache-Control", "no-store");
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    return c.json(await claimZigguratCelebration(createDatabase(client), c.get("developmentPlayer").id));
+  } catch (error) {
+    console.error("Ziggurat celebration failed", error);
+    return c.json({ error: { message: "Could not start the celebration." } }, 503);
+  } finally { await client.end().catch(error => console.error("Closing celebration connection failed", error)); }
 });
 
 app.post("/api/neighbourhood/ziggurat/donations", async c => {
@@ -399,13 +442,16 @@ app.get("/api/market/requests", async c => {
 
 app.get("/api/market/listings", async c => {
   let after: unknown;
+  let itemKeys: unknown;
   try {
     const raw = c.req.query("after");
     after = raw === undefined ? undefined : JSON.parse(raw);
+    const rawItems = c.req.query("itemKeys");
+    itemKeys = rawItems === undefined ? undefined : JSON.parse(rawItems);
   } catch {
     return c.json({ error: { type: "invalid_listings_query", message: "Invalid listing cursor" } }, 400);
   }
-  const query = MarketListingsQuerySchema.safeParse({ ...c.req.query(), after });
+  const query = MarketListingsQuerySchema.safeParse({ ...c.req.query(), after, itemKeys });
   if (!query.success) {
     return c.json({ error: { type: "invalid_listings_query", message: "Invalid listings request" } }, 400);
   }
@@ -558,7 +604,10 @@ app.post("/api/game/action", async c => {
     await client.connect();
 
     const database = createDatabase(client);
-    const command = parsedCommand.data;
+    // Serialize player starts, including sleep/wake, across tabs. Released when
+    // this dedicated connection closes; background lifecycle keeps its row lock.
+    await client.query("SELECT pg_advisory_lock(hashtextextended($1, 17))", [c.get("developmentPlayer").id]);
+    const command = await wakeForPlayerCommand(database, c.get("developmentPlayer").id, parsedCommand.data);
     if (!await readResidence(database, c.get("developmentPlayer").id)) return c.json({ error: { type: "city_required", message: "Choose your city before starting your farm." } }, 409);
     const [progressFarm] = await database.select({ level: farms.level, production: farms.production, farmerProfile: farms.farmerProfile }).from(farms).where(eq(farms.playerId, c.get("developmentPlayer").id));
     if (progressFarm && !progressFarm.farmerProfile) return c.json({ error: { type: "farmer_name_required", message: "Choose your farmer's name before starting your farm." } }, 409);
@@ -575,6 +624,8 @@ app.post("/api/game/action", async c => {
       Effect.either(
         match(command)
           .returnType<GameActionEffect>()
+          .with({ type: "cook_meal" }, command => cookMeal(database, { ...command, playerId: c.get("developmentPlayer").id }))
+          .with({ type: "farmer_sleep" }, command => farmerSleepAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "start_batch_harvesting", crop: "sesame" }, command => startSesameHarvest(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: P.union("start_batch_planting", "start_batch_harvesting", "advance_batch_planting") }, command => batchPlantingAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "build_road" }, command => buildRoad(database, { ...command, playerId: c.get("developmentPlayer").id }))
@@ -601,9 +652,9 @@ app.post("/api/game/action", async c => {
           .with({ type: "upgrade_building" }, command => upgradeBuilding(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "destroy_building" }, command => destroyBuilding(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: P.union("start_baking", "production_delivery", "shrine_offering") }, command => productionAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
-          .with({ type: P.union("build_oil_mill", "build_granary", "build_brewery", "build_mill", "build_bread_oven", "build_small_shrine", "build_warehouse") }, command =>
+          .with({ type: P.union("build_kitchen", "build_oil_mill", "build_granary", "build_brewery", "build_mill", "build_bread_oven", "build_small_shrine", "build_warehouse") }, command =>
             buildFarmBuilding(database, {
-              building: command.type === "build_oil_mill" ? "oilMill" : command.type === "build_warehouse" ? "warehouse" : command.type === "build_small_shrine" ? "smallShrine" : command.type === "build_bread_oven" ? "breadOven" : command.type === "build_mill" ? "mill" : command.type === "build_brewery" ? "brewery" : "granary",
+              building: command.type === "build_kitchen" ? "kitchen" : command.type === "build_oil_mill" ? "oilMill" : command.type === "build_warehouse" ? "warehouse" : command.type === "build_small_shrine" ? "smallShrine" : command.type === "build_bread_oven" ? "breadOven" : command.type === "build_mill" ? "mill" : command.type === "build_brewery" ? "brewery" : "granary",
               playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
@@ -1776,6 +1827,8 @@ app.post("/api/game/action", async c => {
       503
     );
   } finally {
+    // Explicit release is required even when a deployment pools connections.
+    await client.query("SELECT pg_advisory_unlock(hashtextextended($1, 17))", [c.get("developmentPlayer").id]).catch(() => {});
     await client.end().catch(error => {
       console.error("Failed to close database connection", error);
     });

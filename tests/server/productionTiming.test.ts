@@ -84,3 +84,17 @@ describe("production without animation callbacks", () => {
     }
   });
 });
+
+
+it.each(["farmer", "donkey"] as const)("applies the sesame meal only to %s-operated milling", async worker => {
+  const playerId = randomUUID(); ids.push(playerId);
+  const now = Date.now();
+  await db.insert(players).values({ id: playerId, displayName: "Meal milling test" });
+  const [farm] = await db.insert(farms).values({ playerId, level: 11 }).returning();
+  await db.update(farms).set({ production: { ...farm!.production, mealBenefit: { meal: "sesameCakes", startedAt: now - 1000, expiresAt: now + 100000 } } }).where(eq(farms.id, farm!.id));
+  const [mill] = await db.insert(farmBuildings).values({ farmId: farm!.id, type: "mill", column: 2, row: 2, startedAt: new Date(0), completesAt: new Date(1) }).returning();
+  await db.insert(farmInventory).values([{ farmId: farm!.id, itemKey: "barley", quantity: 6 }, { farmId: farm!.id, itemKey: "donkey", quantity: 1 }]);
+  const snapshot = await Effect.runPromise(startMilling(db, { type: "start_milling", worker, recipe: "flour", playerId, target: mill!, expectedFarmVersion: 1 }));
+  const job = snapshot.farm.milling!;
+  expect(Date.parse(job.completesAt) - Date.parse(job.startedAt)).toBe(worker === "farmer" ? Math.ceil(300000 / 1.15) : 900000);
+});

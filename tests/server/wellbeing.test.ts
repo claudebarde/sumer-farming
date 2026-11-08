@@ -86,3 +86,28 @@ describe("farmer wellbeing", () => {
     expect(farmerMovementDurationMultiplier(20, true)).toBe(HUNGRY_FARMER_MOVEMENT_DURATION_MULTIPLIER);
   });
 });
+
+describe("level-10 happiness decay", () => {
+  it.each([4, 9, 10, 11, 20])("uses the correct slow rate at level %i", level => {
+    const initial = { happiness: 50, checkedAt: 0 };
+    expect(advanceHappiness(initial, 6 * hour, 0, 0, null, level).happiness).toBe(level < 10 ? 49 : 47);
+    expect(advanceHappiness({ happiness: 60, checkedAt: 0 }, 2 * hour, 0, 0, null, level).happiness).toBe(50);
+  });
+  it("preserves the exact boundary and stacks sleep and shrine protection", () => {
+    const initial = { happiness: 50, checkedAt: 0 };
+    expect(decayHappiness(initial, 2 * hour - 1, null, [], 10).happiness).toBe(50);
+    expect(decayHappiness(initial, 2 * hour, null, [], 10).happiness).toBe(49);
+    const blessing = { buildingId: "shrine", startedAt: new Date(0).toISOString(), expiresAt: new Date(12 * hour).toISOString() };
+    expect(decayHappiness(initial, 8 * hour, blessing, [{ start: 0, end: 8 * hour }], 10).happiness).toBe(49);
+    expect(decayHappiness(initial, 1000 * hour, null, [], 10).happiness).toBe(0);
+  });
+  it("matches polling and offline catch-up with daily rations", () => {
+    const initial = { happiness: 60, checkedAt: 0 };
+    const offline = advanceHappiness(initial, 100 * hour, 24 * hour, 4, null, 10);
+    let online = initial;
+    for (let h = 1; h <= 100; h++) {
+      online = advanceHappiness(online, h * hour, h * hour, h % 24 === 0 ? 1 : 0, null, 10);
+    }
+    expect(online).toEqual(offline);
+  });
+});

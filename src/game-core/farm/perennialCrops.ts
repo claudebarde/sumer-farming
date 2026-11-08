@@ -1,3 +1,4 @@
+import { harvestMealMultiplier } from "../../game-data/kitchen";
 import type { FarmSnapshot } from "../../schemas/farm";
 import { CROP_DEFINITIONS, type PerennialCropKey } from "../../game-data/crops";
 import type { CropWork } from "../../game-data/cropWork";
@@ -34,7 +35,7 @@ export const perennialActionReason = (snapshot: FarmSnapshot, cropKey: Perennial
 };
 
 /** Work on the palm tile; the client presents the farmer beside its trunk. */
-export const planCropWork = (snapshot: FarmSnapshot, target: FarmCoordinate, cropKey: CropWork["cropKey"], action: "plant" | "harvest" | "tend", now: number, hint?: FarmCoordinate) => {
+export const planCropWork = (snapshot: FarmSnapshot, target: FarmCoordinate, cropKey: CropWork["cropKey"], action: "plant" | "harvest" | "tend", now: number, hint?: FarmCoordinate, acceptedAt = now) => {
   const definition = CROP_DEFINITIONS[cropKey];
   const buildings = snapshot.buildings.map(b => ({ ...b, completesAt: Date.parse(b.completesAt) }));
   const home = INITIAL_FARM_CONFIG.farmerSpawn;
@@ -54,7 +55,7 @@ export const planCropWork = (snapshot: FarmSnapshot, target: FarmCoordinate, cro
   if (!inbound) return null;
   const step = WORKER_MOVE_DURATION_PER_TILE * farmerMovementDurationMultiplier(snapshot.farm.household.happiness, snapshot.farm.household.hungrySince !== null, snapshot.farm.progression?.level ?? 1);
   const workStartsAt = now + Math.ceil((outbound.length - 1) * step);
-  const workEndsAt = workStartsAt + (action === "plant" ? definition.sowingDurationMs : definition.harvestDurationMs);
+  const workEndsAt = workStartsAt + (action === "plant" ? definition.sowingDurationMs : Math.ceil(definition.harvestDurationMs * (cropKey === "sesame" && action === "harvest" ? harvestMealMultiplier(snapshot.farm.production.mealBenefit, acceptedAt) : 1)));
   return { outbound: [...outbound], inbound: [...inbound], startedAt: now, workStartsAt, workEndsAt,
     completesAt: workEndsAt + Math.ceil((inbound.length - 1) * step), room: stop.room };
 };

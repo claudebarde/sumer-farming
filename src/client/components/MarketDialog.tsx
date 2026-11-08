@@ -1,3 +1,5 @@
+import PlayerMarketSell from "./PlayerMarketSell";
+import RulesLink from "./RulesLink";
 import { randomId } from "../randomId";
 import { cropWorkReserved } from "../../game-data/cropWork";
 import MarketItemIcon from "./MarketItemIcon";
@@ -311,7 +313,8 @@ export default function MarketDialog() {
                   <span className="cuneiforms">𒆠𒇴𒃻𒀀</span>
                 ) : null}
               </Dialog.Title>
-              <Dialog.Close asChild>
+              <RulesLink section="market" />
+          <Dialog.Close asChild>
                 <button
                   className={styles["market-dialog-close"]}
                   aria-label="Close market"
@@ -428,7 +431,7 @@ export default function MarketDialog() {
                               value={action}
                               className={styles["market-tab-content"]}
                             >
-                              <p>
+                              {!(market === "player" && action === "sell") && <p>
                                 {market === "npc"
                                   ? action === "buy"
                                     ? "Choose a quantity to buy from NPC merchants."
@@ -436,7 +439,7 @@ export default function MarketDialog() {
                                   : action === "buy"
                                     ? "Choose a quantity and buy from another player's listing. Your own listings are shown under Sell."
                                     : "Choose a quantity and asking price to create a listing. Manage your unsold listings below."}
-                              </p>
+                              </p>}
                               {marketQuoteState.quotes.items
                                 .filter(
                                   item =>
@@ -536,6 +539,15 @@ export default function MarketDialog() {
                                   const listingPrice =
                                     marketSellPrices[item.itemKey] ??
                                     item.playerMarket.suggestedSellPrice;
+                                  if (market === "player" && action === "sell") return <PlayerMarketSell
+                                    key={item.itemKey} item={item} quantity={marketQuantity} price={listingPrice}
+                                    stock={storedQuantity} limit={quantityLimit ?? storedQuantity} availableStorage={availableStorage}
+                                    balance={farmState.snapshot.player.shekelBalance} pending={marketTradePending} farmVersion={farmState.snapshot.farm.version}
+                                    onQuantity={quantity => setMarketQuantities(current => ({ ...current, [quantityKey]: quantity }))}
+                                    onPrice={price => setMarketSellPrices(current => ({ ...current, [item.itemKey]: price }))}
+                                    onSell={() => { void createMarketSellOrder(item.itemKey, listingPrice, marketQuantity); }}
+                                    onCancel={cancelMarketSellOrder} onRefresh={() => setMarketQuoteRefresh(value => value + 1)}
+                                  />;
                                   const cuneiformLabel = () => {
                                     switch (item.itemKey) {
                                       case "barley":
@@ -614,11 +626,9 @@ export default function MarketDialog() {
                                           type: action === "buy" ? "buy" : "sell",
                                           quantity: marketQuantity,
                                           unitPrice: action === "buy" ? item.npcMarket.buyPrice : item.npcMarket.sellPrice
-                                        } : action === "sell" ? {
-                                          type: "listing", quantity: marketQuantity, unitPrice: listingPrice
                                         } : undefined}
                                       />
-                                      {(item.itemKey === "beer" || item.itemKey === "oil") && (
+                                      {item.itemKey === "oil" && (
                                         <p>
                                           Each sale includes the jar; no empty
                                           jar is returned.
@@ -630,7 +640,7 @@ export default function MarketDialog() {
                                         </p>
                                       )}
                                       <MarketQuantityControl
-                                        unitPrice={market === "npc" ? (action === "buy" ? item.npcMarket.buyPrice : item.npcMarket.sellPrice) : action === "sell" ? listingPrice : undefined}
+                                        unitPrice={market === "npc" ? (action === "buy" ? item.npcMarket.buyPrice : item.npcMarket.sellPrice) : undefined}
                                         priceLabel={market === "player" ? "Asking price per item" : "Price per item"}
                                         label={action === "buy" ? "Quantity to buy" : "Quantity to sell"}
                                         value={marketQuantity} limit={quantityLimit}
@@ -769,86 +779,12 @@ export default function MarketDialog() {
                                               </dd>
                                             </div>
                                           </dl>
-                                          {action === "sell" && (
-                                            <div
-                                              className={
-                                                styles[
-                                                  "market-listing-controls"
-                                                ]
-                                              }
-                                            >
-                                              <label
-                                                className={
-                                                  styles["market-quantity"]
-                                                }
-                                              >
-                                                Asking price per item
-                                                <input
-                                                  type="number"
-                                                  min="1"
-                                                  step="1"
-                                                  value={listingPrice}
-                                                  disabled={marketTradePending}
-                                                  onChange={event => {
-                                                    const price =
-                                                      Number.parseInt(
-                                                        event.currentTarget
-                                                          .value,
-                                                        10
-                                                      );
-                                                    setMarketSellPrices(
-                                                      prices => ({
-                                                        ...prices,
-                                                        [item.itemKey]:
-                                                          Number.isNaN(price)
-                                                            ? 1
-                                                            : Math.max(1, price)
-                                                      })
-                                                    );
-                                                  }}
-                                                />
-                                              </label>
-                                              <span>
-                                                Suggested:{" "}
-                                                {formatShekels(
-                                                  item.playerMarket
-                                                    .suggestedSellPrice
-                                                )}
-                                              </span>
-                                              <button className={actionStyles.button}
-                                                disabled={
-                                                  marketTradePending ||
-                                                  !item.playerMarket
-                                                    .canCreateSellOrder ||
-                                                  reserveBlocked || storedQuantity <
-                                                    marketQuantity
-                                                }
-                                                onClick={() => {
-                                                  void createMarketSellOrder(
-                                                    item.itemKey,
-                                                    listingPrice,
-                                                    marketQuantity
-                                                  );
-                                                }}
-                                              ><BuildingActionIcon kind="manage" /><span>
-                                                {reserveBlocked ? BARLEY_RESERVE_MESSAGE : !item.playerMarket
-                                                  .canCreateSellOrder
-                                                  ? "Player listings unavailable"
-                                                  : storedQuantity <
-                                                      marketQuantity
-                                                    ? `Not enough stored ${item.label.toLowerCase()}`
-                                                    : `Create sell listing: ${marketQuantity} for ${formatShekels(
-                                                        listingPrice
-                                                      )} each`}
-                                              </span></button>
-                                            </div>
-                                          )}
                                           <MarketListings
                                             key={`${action}:${item.itemKey}`}
                                             stock={storedQuantity}
                                             itemKey={item.itemKey}
                                             action={
-                                              action === "sell" ? "sell" : "buy"
+                                              "buy"
                                             }
                                             quantity={marketQuantity}
                                             availableStorage={availableStorage}
@@ -874,6 +810,14 @@ export default function MarketDialog() {
                                     </section>
                                   );
                                 })}
+                              {market === "player" && action === "sell" && <MarketListings
+                                key={`stand:${marketScope}`} compact itemKey="barley"
+                                itemKeys={marketQuoteState.quotes.items.filter(item => item.playerMarket.canCreateSellOrder && farmLevel >= marketUnlockLevel(item.itemKey) && marketIncludesItem(marketScope, item.itemKey, { market: "player", action: "sell" })).map(item => item.itemKey)}
+                                availableStorageByItem={Object.fromEntries(marketQuoteState.quotes.items.map(item => [item.itemKey, item.storageType === "barley_storage" ? availableBarleyStorage : Math.max(0, estateResourceCapacity(item.itemKey, buildings, storageClock) - stored(item.itemKey) - cropWorkReserved(farmState.snapshot.farm.production, item.itemKey) - millStorageReserved(farmState.snapshot.farm, item.itemKey) - porterReserved(farmState.snapshot.farm.production.porter, item.itemKey))]))}
+                                action="sell" quantity={1} stock={0} availableStorage={0} balance={farmState.snapshot.player.shekelBalance}
+                                pending={marketTradePending} farmVersion={farmState.snapshot.farm.version}
+                                buy={async () => {}} cancel={cancelMarketSellOrder} onRefresh={() => setMarketQuoteRefresh(value => value + 1)}
+                              />}
                             </Tabs.Content>
                           ))}
                         </Tabs.Root>

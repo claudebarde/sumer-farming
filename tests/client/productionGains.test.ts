@@ -44,3 +44,15 @@ it("preserves parallel mill completions and ignores unrelated farm changes", () 
  after.farm.id = oilId;
  expect(productionGains(before, after, 10020)).toEqual([]);
 });
+
+it("shows meal points once on confirmed consumption, never for cancellation or old completions", () => {
+ const before = snapshot(); before.buildings[0]!.type = "kitchen";
+ before.farm.production.cooking = { id, buildingId: id, meal: "dateCakes", startedAt: iso(1000), completesAt: iso(31000),
+   preparation: { path: [loading], departedAt: 0, stepDurationMs: 1000, supplyIndex: 0 } };
+ const after = next(before); after.farm.production.cooking = null;
+ expect(productionGains(before, after, 31010)).toEqual([]);
+ after.farm.production.mealBenefit = { meal: "dateCakes", startedAt: 31000, expiresAt: 1231000 };
+ expect(productionGains(before, after, 31010)).toMatchObject([{ quantity: 30, cell: { column: 5, row: 3 }, offsetY: -64 }]);
+ expect(productionGains(after, after, 31020)).toEqual([]);
+ expect(productionGains(before, after, 50000)).toEqual([]);
+});

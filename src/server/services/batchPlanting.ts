@@ -1,3 +1,5 @@
+import { storedLocations } from "../../game-core/farm/physicalStorage";
+import { harvestMealMultiplier } from "../../game-data/kitchen";
 import { barleyHarvestYield } from "../../game-core/farm/barleyDecay";
 import { eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
@@ -7,7 +9,7 @@ import { farms, farmCrops } from "../db/schema";
 import { readFarmSnapshot } from "./farmSnapshot";
 import { advanceFarmLifecycle } from "./farmLifecycle";
 import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailability";
-import { fieldKey, orderPlantingFields, plantableFields, harvestableFields } from "../../game-core/farm/batchPlanting";
+import { fieldKey, plantingFieldLimit, orderPlantingFields, plantableFields, harvestableFields } from "../../game-core/farm/batchPlanting";
 import { loadMarketItemStorage, removeFromMarketItemStorage, addToMarketItemStorage } from "./marketItemStorage";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import { CROP_DEFINITIONS } from "../../game-data/crops";
@@ -55,13 +57,13 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
         snapshot.crops.some(c => Date.parse(c.plantedAt) > now.getTime() || c.harvestStartedAt !== null) ||
         snapshot.buildings.some(b => Date.parse(b.completesAt) > now.getTime()) ||
         snapshot.improvements.some(i => Date.parse(i.completesAt) > now.getTime() || i.destroyStartedAt !== null)) return fail("Finish the current task and empty your hands first.");
-      const limit = harvestFieldLimit(farm.happiness);
+      const limit = harvesting ? harvestFieldLimit(farm.happiness) : plantingFieldLimit(farm.happiness, farm.production.mealBenefit, now.getTime());
       if (input.targets.length < 1 || input.targets.length > limit) return fail(`Select up to ${limit} fields to ${harvesting ? "harvest" : "plant"} at ${farm.happiness}% happiness.`);
       const eligible = new Set((harvesting ? harvestableFields : plantableFields)(snapshot, now.getTime()).map(fieldKey));
       if (new Set(input.targets.map(fieldKey)).size !== input.targets.length || input.targets.some(p => !eligible.has(fieldKey(p)))) return fail(harvesting ? "Select distinct ripe barley fields." : "Select distinct empty, irrigated arable fields.");
       if (harvesting) {
         const source = { type: "farm" as const, column: INITIAL_FARM_CONFIG.buildingBounds.minimumColumn, row: INITIAL_FARM_CONFIG.buildingBounds.minimumRow };
-        planting = { id: crypto.randomUUID(), mode: "harvest", harvestFieldLimit: limit, total: input.targets.length, remaining: [...orderPlantingFields(input.targets, input.targets[0]!)], source, stopRequested: false, phase: { type: "ready" } };
+        planting = { id: crypto.randomUUID(), mode: "harvest", harvestFieldLimit: harvestFieldLimit(farm.happiness), harvestDurationMs: Math.ceil(CROP_DEFINITIONS.barley.harvestDurationMs * harvestMealMultiplier(farm.production.mealBenefit, now.getTime())), total: input.targets.length, remaining: [...orderPlantingFields(input.targets, input.targets[0]!)], source, stopRequested: false, phase: { type: "ready" } };
         let position: { column: number; row: number } = origin;
         const travelPaths = planting.remaining.map(target => { const path = pathTo(position, target); position = target; return path; });
         position = origin;
@@ -87,13 +89,34 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
       planting = { cropKey, decayEligible: cropKey === "barley" && farm.level >= 10, id: crypto.randomUUID(), total: input.targets.length, remaining: [...orderPlantingFields(input.targets, stored > 0 ? source : input.targets[0]!)], source, stopRequested: false,
         carriedSeeds: { quantity: carried, expiresAt: farm.carriedItemExpiresAt?.toISOString() ?? null },
         phase: { type: stored > 0 ? "collecting" : "ready" } };
-      const collectionTile = granary ? [granary.loadingTile, { column: granary.column, row: granary.row + 2 },
-        { column: granary.column - 1, row: granary.row }, { column: granary.column + 2, row: granary.row },
-        { column: granary.column, row: granary.row - 1 }].find(p => p && plantingTravelPath(snapshot, origin, p, now.getTime()))
-        : INITIAL_FARM_CONFIG.farmerSpawn;
-      if (!collectionTile) return fail("The seed storage cannot be reached.");
-      const collectionPath = stored > 0 ? pathTo(origin, collectionTile) : undefined;
-      const collectionTravelMs = stored > 0 ? plantingTravelMs(snapshot, origin, collectionTile, now.getTime()) : undefined;
+      // Follow the same source order as the authoritative withdrawal above.
+      const locations = cropKey === "barley"
+        ? [{ storageId: "farm", quantity: storage.farmQuantity }, ...storage.granaries.map(g => ({ storageId: g.id, quantity: g.storedBarley }))]
+        : Object.entries(storedLocations(snapshot.inventory.find(i => i.itemKey === cropKey), snapshot.buildings, now.getTime()))
+          .sort(([a], [b]) => a === "farm" ? -1 : b === "farm" ? 1 : a.localeCompare(b))
+          .map(([storageId, quantity]) => ({ storageId, quantity }));
+      const collectionPath = [origin];
+      const seedPickups: NonNullable<BatchPlanting["seedPickups"]> = [];
+      let collectionTravelMs = 0;
+      let needed = stored;
+      for (const location of locations) {
+        const quantity = Math.min(needed, location.quantity);
+        if (!quantity) continue;
+        const building = snapshot.buildings.find(b => b.id === location.storageId);
+        const from = collectionPath.at(-1)!;
+        const tile = location.storageId === "farm" ? INITIAL_FARM_CONFIG.farmerSpawn : building &&
+          [building.loadingTile, { column: building.column, row: building.row + 2 },
+            { column: building.column - 1, row: building.row }, { column: building.column + 2, row: building.row },
+            { column: building.column, row: building.row - 1 }].find(p => p && plantingTravelPath(snapshot, from, p, now.getTime()));
+        if (!tile) return fail("The seed storage cannot be reached.");
+        collectionPath.push(...pathTo(from, tile).slice(1));
+        collectionTravelMs += plantingTravelMs(snapshot, from, tile, now.getTime());
+        seedPickups.push({ storageId: location.storageId, quantity, pickupAt: now.getTime() + collectionTravelMs });
+        needed -= quantity;
+        if (!needed) break;
+      }
+      if (needed) return fail("Not enough stored seeds.");
+      const collectionTile = collectionPath.at(-1)!;
       let position = stored > 0 ? collectionTile : origin;
       const travelPaths = planting.remaining.map(target => { const path = pathTo(position, target); position = target; return path; });
       position = stored > 0 ? collectionTile : origin;
@@ -102,7 +125,7 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
         position = target;
         return duration;
       });
-      planting = { ...planting, travelMs, travelPaths, collectionPath, collectionTravelMs, travelStartedAt: now.toISOString(), nextStepAt: new Date(now.getTime() + (stored > 0
+      planting = { ...planting, travelMs, travelPaths, collectionPath: stored > 0 ? collectionPath : undefined, collectionTravelMs: stored > 0 ? collectionTravelMs : undefined, seedPickups, travelStartedAt: now.toISOString(), nextStepAt: new Date(now.getTime() + (stored > 0
         ? Math.max(1000, collectionTravelMs!)
         : travelMs[0] ?? 0)).toISOString() };
       }
@@ -133,7 +156,7 @@ export const batchPlantingAction = (database: Database, input: Extract<GameComma
         const target = planting.remaining[0];
         const crop = snapshot.crops.find(c => target && fieldKey(c) === fieldKey(target));
         if (!crop || !target || !harvestableFields(snapshot, now.getTime()).some(p => fieldKey(p) === fieldKey(target))) return fail("The next field is no longer ready to harvest.");
-        const completesAt = new Date(now.getTime() + CROP_DEFINITIONS.barley.harvestDurationMs);
+        const completesAt = new Date(now.getTime() + (planting.harvestDurationMs ?? CROP_DEFINITIONS.barley.harvestDurationMs));
         await tx.update(farmCrops).set({ harvestStartedAt: now, harvestCompletesAt: completesAt }).where(eq(farmCrops.id, crop.id));
         planting = { ...planting, travelMs: planting.travelMs?.slice(1), nextStepAt: completesAt.toISOString(), remaining: planting.remaining.slice(1), phase: { type: "harvesting", target, completesAt: completesAt.toISOString() } };
       } else {

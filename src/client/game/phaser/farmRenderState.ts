@@ -11,6 +11,7 @@ export const farmRenderKey = (s: FarmSnapshot, now: number): string => {
   const infrastructureWork = s.improvements.some(i => Date.parse(i.completesAt) > now || (i.destroyCompletesAt && Date.parse(i.destroyCompletesAt) > now)) ||
     s.farm.roads.some(r => (r.completesAt ?? 0) > now);
   return JSON.stringify({
+    homeAppearance: s.farm.homeAppearance,
     level: s.farm.progression?.level, inventory: s.inventory,
     objects: s.objects, groundItems: s.groundItems,
     crops: s.crops.map(c => [c, isometricCropSprite(c, now, production.palmCycles?.[c.id])]),

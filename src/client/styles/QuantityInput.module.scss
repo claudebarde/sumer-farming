@@ -1,0 +1,14 @@
+.quantity.quantity {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 8px;
+  button { flex: 0 0 36px; width: 36px; min-height: 40px; padding: 6px; }
+  input {
+    width: 4ch; min-width: 0; padding: 6px 0; border: 0;
+    background: transparent; color: inherit; text-align: center; font: inherit;
+    appearance: textfield;
+    &::-webkit-inner-spin-button, &::-webkit-outer-spin-button { appearance: none; margin: 0; }
+    &:focus-visible { outline: 2px solid #795221; outline-offset: 2px; border-radius: 4px; }
+  }
+}

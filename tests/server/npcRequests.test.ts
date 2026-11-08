@@ -118,7 +118,20 @@ describe("NPC requests", () => {
     await db.update(npcRequestBoards).set({ anchor: new Date(Date.now() - REQUEST_CYCLE_MS - 1000), completed: [0, 1, 2] }).where(eq(npcRequestBoards.farmId, f.farmId));
     const next = await Effect.runPromise(getNpcRequests(db, f.playerId));
     expect(next.cycle).toBe(1); expect(next.requests.every(r => !r.completed)).toBe(true);
+    expect(next.visitCompleted).toBe(false);
     expect(await Effect.runPromise(Effect.flip(deliverNpcRequest(db, f.command())))).toMatchObject({ reason: "expired" });
+  });
+
+  it("reports saved visit completion without changing its schedule", async () => {
+    const f = await fixture();
+    const before = await Effect.runPromise(getNpcRequests(db, f.playerId));
+    await db.update(npcRequestBoards).set({ completed: [0, 1, 2] }).where(eq(npcRequestBoards.farmId, f.farmId));
+    for (let read = 0; read < 2; read++) {
+      const after = await Effect.runPromise(getNpcRequests(db, f.playerId));
+      expect(after.visitCompleted).toBe(true);
+      expect(after.nextOpensAt).toBe(before.nextOpensAt);
+      expect(after.closesAt).toBe(before.closesAt);
+    }
   });
 
   it("does not change offers mid-window when a brewery is completed", async () => {

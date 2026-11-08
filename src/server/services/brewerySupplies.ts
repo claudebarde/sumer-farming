@@ -1,3 +1,4 @@
+import { productionMealMultiplier } from "../../game-data/kitchen";
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { setStoredQuantity } from "./physicalStorage";
 import { productionOutputFits, OUTPUT_FULL_MESSAGE } from "../../game-core/farm/productionOutputCapacity";
@@ -115,7 +116,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           const preparation = planProductionJourney(snapshot, brewery.id, now.getTime(), input, "brewing");
           if (!preparation) return new BrewerySupplyRuleError({ type: "brewery_unavailable", message: "The brewery needs an accessible loading tile." });
           const arrivedAt = productionArrivalAt(preparation);
-          const startedAt = arrivedAt + BREWING_PREPARATION_MS;
+          const startedAt = arrivedAt + Math.ceil(BREWING_PREPARATION_MS * productionMealMultiplier(snapshot.farm.production.mealBenefit, now.getTime()));
           const completesAt = startedAt + Math.round(BEER_RECIPE.durationMs * buildingProductionMultiplier("brewery", buildingLevel(farm.production.buildingUpgrades, brewery.id, now.getTime())));
           production = { ...production, brewing: { ...production.brewing, [brewery.id]: { preparation, arrivedAt: new Date(arrivedAt).toISOString(), startedAt: new Date(startedAt).toISOString(), completesAt: new Date(completesAt).toISOString() } } };
           await setStoredQuantity(transaction, farm.id, "brewersGroats", groats - BEER_RECIPE.groats, now);

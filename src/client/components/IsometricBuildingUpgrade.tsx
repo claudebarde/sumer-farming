@@ -61,7 +61,7 @@ export default function IsometricBuildingUpgrade({ snapshot, buildingId, now, on
     {error && <p role="alert">{error}</p>}
     <button className={styles.button} disabled={pending || reason !== null} onClick={() => void upgrade()}>
       <BuildingActionIcon kind="upgrade" />
-      <span>{pending ? "Starting upgrade…" : reason ?? `Upgrade to level ${level + 1} · ${next?.cost} shekels`}</span>
+      <span>{pending ? "Starting upgrade…" : reason === "Not enough shekels." ? `Not enough shekels · ${next.cost} required` : reason ?? `Upgrade to level ${level + 1} · ${next.cost} shekels`}</span>
     </button>
   </>;
 }

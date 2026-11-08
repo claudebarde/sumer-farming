@@ -8,7 +8,12 @@ import type { HarvestGain } from "./isometricHarvesting";
 /** Confirmed live completions only. Initial snapshots and offline history never replay. */
 export const productionGains = (before: FarmSnapshot, after: FarmSnapshot, now: number): readonly HarvestGain[] => {
   if (before.farm.id !== after.farm.id) return [];
+  const meal = before.farm.production.cooking;
   const completed = [
+    ...(meal && after.farm.production.cooking?.id !== meal.id &&
+      after.farm.production.mealBenefit?.startedAt === Date.parse(meal.completesAt) &&
+      after.farm.production.mealBenefit.meal === meal.meal
+      ? [{ id: meal.buildingId, at: Date.parse(meal.completesAt), points: ACTION_POINTS.cookMeal }] : []),
     ...millingJobs(before.farm).filter(job => !millingJobs(after.farm).some(next =>
       next.buildingId === job.buildingId && next.startedAt === job.startedAt)).map(job => ({
       id: job.buildingId, at: Date.parse(job.completesAt), points: ACTION_POINTS[job.worker === "donkey" ? "millDonkey" : "millFarmer"]
@@ -26,6 +31,7 @@ export const productionGains = (before: FarmSnapshot, after: FarmSnapshot, now: 
     if (job.at > now || now - job.at > 10_000) return [];
     const building = after.buildings.find(b => b.id === job.id);
     if (!building) return [];
+    if (building.type === "kitchen") return [{ cell: { column: building.column, row: building.row }, at: now, quantity: job.points, offsetY: -64 }];
     const cell = (building.type === "brewery" ? breweryOutputPlacement(building)
       : roadsideOutputPlacement(building, after.farm.roads, now)).tile;
     // Output sprites sit 16px below the tile centre; begin just above their chips.

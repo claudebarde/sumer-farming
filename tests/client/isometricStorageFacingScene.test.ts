@@ -4,6 +4,7 @@ import { IsometricFarmScene } from "../../src/client/game/phaser/scenes/Isometri
 import { FarmSnapshotSchema, type FarmSnapshot } from "../../src/schemas/farm";
 
 const image = () => ({
+  setAlpha() { return this; },
   x: 0, y: 0, depth: 0, flipX: false, texture: "",
   setPosition(x: number, y: number) { this.x = x; this.y = y; return this; },
   setDepth(value: number) { this.depth = value; return this; },

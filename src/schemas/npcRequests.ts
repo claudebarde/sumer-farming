@@ -10,6 +10,7 @@ export const NpcRequestsSchema = z.object({
   serverNow: z.iso.datetime(),
   cycle: z.int().nonnegative(),
   open: z.boolean(),
+  visitCompleted: z.boolean().optional(),
   closesAt: z.iso.datetime(),
   nextOpensAt: z.iso.datetime(),
   stock: z.object({ ...extraGoods, barley: z.int().nonnegative(), beer: z.int().nonnegative() }),

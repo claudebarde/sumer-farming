@@ -11,7 +11,8 @@ type Position = { column: number; row: number };
 export const planProductionJourney = (
   snapshot: FarmSnapshot, targetId: string, now: number,
   hints: { farmerPosition?: Position; donkeyPosition?: Position },
-  kind: "baking" | "brewing" | "milling" | "donkeyMilling"
+  kind: "baking" | "brewing" | "milling" | "donkeyMilling" | "cooking",
+  cookingIngredients: Partial<Record<"flour" | "oil" | "dates" | "sesame" | "brewersGroats", number>> = {}
 ): ProductionJourney | null => {
   const buildings = snapshot.buildings.map(b => ({ ...b, completesAt: Date.parse(b.completesAt) }));
   const obstacles = [...snapshot.objects, ...snapshot.improvements.filter(i =>
@@ -46,23 +47,26 @@ export const planProductionJourney = (
   }
   const carried = snapshot.farm.carriedItem?.itemKey === "barley" ? snapshot.farm.carriedItem.quantity : 0;
   const supplyStops: NonNullable<ProductionJourney["supplyStops"]> = [];
-  if (target.type === "oilMill" || kind === "baking" || kind === "brewing") {
+  if (kind === "cooking" || target.type === "oilMill" || kind === "baking" || kind === "brewing") {
     const item = target.type === "oilMill" ? "sesame" : kind === "baking" ? "flour" : "brewersGroats";
-    const locations = storedLocations(snapshot.inventory.find(i => i.itemKey === item), snapshot.buildings, now);
-    let remaining = target.type === "oilMill" ? (kind === "donkeyMilling" ? 9 : 3) : 2;
-    for (const id of ["farm", ...Object.keys(locations).filter(id => id !== "farm").sort()]) {
-      const quantity = Math.min(remaining, locations[id] ?? 0);
-      if (!quantity) continue;
-      const source = buildings.find(b => b.id === id);
-      const sourceStop = id === "farm" ? home : source && stop(source);
-      if (!sourceStop || !append(sourceStop)) return null;
-      supplyStops.push({ index: path.length - 1, quantity, buildingId: source?.id ?? null,
-        column: source?.column ?? INITIAL_FARM_CONFIG.buildingBounds.minimumColumn,
-        row: source?.row ?? INITIAL_FARM_CONFIG.buildingBounds.minimumRow });
-      remaining -= quantity;
-      if (!remaining) break;
+    const ingredients = kind === "cooking" ? cookingIngredients : { [item]: target.type === "oilMill" ? (kind === "donkeyMilling" ? 9 : 3) : 2 };
+    for (const [ingredient, required] of Object.entries(ingredients)) {
+      const locations = storedLocations(snapshot.inventory.find(i => i.itemKey === ingredient), snapshot.buildings, now);
+      let remaining = required;
+      for (const id of ["farm", ...Object.keys(locations).filter(id => id !== "farm").sort()]) {
+        const quantity = Math.min(remaining, locations[id] ?? 0);
+        if (!quantity) continue;
+        const source = buildings.find(b => b.id === id);
+        const sourceStop = id === "farm" ? home : source && stop(source);
+        if (!sourceStop || !append(sourceStop)) return null;
+        supplyStops.push({ index: path.length - 1, quantity, itemKey: ingredient as "flour" | "oil" | "dates" | "sesame" | "brewersGroats", buildingId: source?.id ?? null,
+          column: source?.column ?? INITIAL_FARM_CONFIG.buildingBounds.minimumColumn,
+          row: source?.row ?? INITIAL_FARM_CONFIG.buildingBounds.minimumRow });
+        remaining -= quantity;
+        if (!remaining) break;
+      }
+      if (remaining > 0) return null;
     }
-    if (remaining > 0) return null;
   } else {
     let remaining = Math.max(0, (kind === "donkeyMilling" ? 6 : 2) - carried);
     for (const source of buildings.filter(b => (b.type === "granary" || b.type === "warehouse") && b.storedBarley > 0 && b.completesAt <= now)) {

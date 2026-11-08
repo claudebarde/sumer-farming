@@ -16,7 +16,7 @@ export const buildingProgressPosition = (bounds: Bounds, view: Bounds, zoom: num
 };
 
 const tops = new WeakMap<object, number>();
-const artworkBounds = (image: Phaser.GameObjects.Image): Bounds => {
+export const artworkBounds = (image: Phaser.GameObjects.Image): Bounds => {
   const bounds = image.getBounds();
   const source = image.texture.getSourceImage() as HTMLImageElement | HTMLCanvasElement;
   let top = tops.get(source);

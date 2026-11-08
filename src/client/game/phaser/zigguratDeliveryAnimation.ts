@@ -102,8 +102,8 @@ export const createZigguratDeliveryAnimation = (scene: Phaser.Scene,
         .setFlipX(dt.x>df.x).setPosition(dp.x,dp.y+8).setDepth(depth(pose.donkey.position));
     // Stand beside the donkey while handling bags; a small reaching lean keeps feet planted.
     const beside=!pose.farmer.moving && !pose.donkey.moving;
-    worker.setVisible(true).setTexture(farmerTravelTexture(pose.farmer.travelledTiles*Math.hypot(ISO_WIDTH/2,ISO_HEIGHT/2),0,pose.farmer.moving&&!reduced)).setDisplaySize(64,64)
-      .setFlipX(pose.working?true:ft.x<ff.x).setPosition(fp.x+(beside?27:0),fp.y)
+    worker.setVisible(true).setTexture(farmerTravelTexture(pose.farmer.travelledTiles*Math.hypot(ISO_WIDTH/2,ISO_HEIGHT/2),0,pose.working || (pose.farmer.moving&&!reduced))).setDisplaySize(64,64)
+      .setFlipX(ft.x<ff.x).setPosition(fp.x+(beside?27:0),fp.y)
       .setAngle(pose.working&&!reduced?Math.sin(elapsed/300)*3:0).setDepth(depth(pose.farmer.position)+1);
     shadows[0]!.setPosition(dp.x,dp.y).setDepth(dp.y);
     shadows[1]!.setVisible(true).setPosition(worker.x,fp.y).setDepth(fp.y);

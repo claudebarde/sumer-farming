@@ -1,5 +1,18 @@
 import { expect, it } from "vitest";
-import { zigguratPresentation } from "../../src/client/game/phaser/zigguratPresentation";
+import { constructionRevealAt, zigguratPresentation } from "../../src/client/game/phaser/zigguratPresentation";
+import { deliveryPlan } from "../../src/game-data/zigguratDelivery";
+it.each([0, 1, 2, 3])("delays stage %i until the final queued delivery arrives, but not after reload", (stage) => {
+  const previous = { type: "fundraising" as const, stage, openedAt: new Date(0).toISOString() };
+  const next = { state: { type: "building" as const, stage, startedAt: new Date(1000).toISOString(), completesAt: new Date(999999).toISOString() },
+    deliveries: [
+      { id: "first", slot: 1, startsAt: new Date(1000).toISOString(), completesAt: new Date(50000).toISOString() },
+      { id: "last", slot: 2, startsAt: new Date(50000).toISOString(), completesAt: new Date(100000).toISOString() },
+    ] };
+  expect(constructionRevealAt(previous, next)).toBe(50000 + deliveryPlan(2).legs.slice(0, 4).reduce((sum, leg) => sum + leg.duration, 0));
+  expect(constructionRevealAt(undefined, next)).toBeNull();
+  expect(constructionRevealAt(next.state, next)).toBeNull();
+  expect(constructionRevealAt(previous, { ...next, deliveries: [] })).toBeNull();
+});
 it("presents saved foundations work and catches up after time away", () => {
   const start = 1_000_000, end = start + 6 * 3600000;
   const job = { type: "building" as const, stage: 0, startedAt: new Date(start).toISOString(), completesAt: new Date(end).toISOString() };
@@ -21,4 +34,16 @@ it("shows every approved stage and the completed monument after each deadline", 
     expect(zigguratPresentation(job,1000)).toEqual({stage:after[stage],fraction:null});
   }
   expect(zigguratPresentation({type:"complete",completedAt:new Date(0).toISOString()},1000)).toEqual({stage:"completed",fraction:null});
+});
+
+it("keeps donation markers available on return and hides them during every building stage", async () => {
+  const { zigguratStatusLabel } = await import("../../src/client/game/phaser/zigguratPresentation");
+  expect(zigguratStatusLabel({ type: "interest" }, 0)).toBeNull();
+  for (let stage = 0; stage < 4; stage++) {
+    expect(zigguratStatusLabel({ type: "fundraising", stage, openedAt: new Date(0).toISOString() }, 99999)).toBe("Materials needed");
+    const job = { type: "building" as const, stage, startedAt: new Date(0).toISOString(), completesAt: new Date(1000).toISOString() };
+    expect(zigguratStatusLabel(job, 999)).toBeNull();
+    expect(zigguratStatusLabel(job, 1000)).toBe(stage === 3 ? "Ziggurat complete" : "Materials needed");
+  }
+  expect(zigguratStatusLabel({ type: "complete", completedAt: new Date(0).toISOString() }, 99999)).toBe("Ziggurat complete");
 });

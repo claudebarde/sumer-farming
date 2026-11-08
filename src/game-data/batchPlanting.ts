@@ -6,6 +6,7 @@ export const LEGACY_BATCH_HARVEST_FIELDS = 4;
 // Kept in the original planting JSON slot for backwards-compatible saved jobs.
 export const BatchPlantingSchema = z.object({
   cropKey: z.enum(["barley", "sesame"]).optional(),
+  harvestDurationMs: z.number().positive().optional(),
   decayEligible: z.boolean().optional(),
   mode: z.enum(["plant", "harvest"]).optional(),
   id: z.uuid(),
@@ -21,6 +22,7 @@ export const BatchPlantingSchema = z.object({
   collectionPath: z.array(FieldCoordinateSchema).min(1).optional(),
   // Walking time only; any remaining collection phase is a stationary pause.
   collectionTravelMs: z.number().nonnegative().optional(),
+  seedPickups: z.array(z.object({ storageId: z.string(), quantity: z.int().positive(), pickupAt: z.number() })).optional(),
   travelStartedAt: z.iso.datetime().optional(),
   lastHarvested: FieldCoordinateSchema.optional(),
   source: FieldCoordinateSchema.extend({ type: z.enum(["farm", "granary"]) }),

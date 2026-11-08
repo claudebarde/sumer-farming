@@ -5,6 +5,18 @@ import { MERCHANT_TRAVEL_MS, REQUEST_CYCLE_MS, REQUEST_OPEN_MS } from "../../src
 const anchor = 100_000;
 const board = { cycle: 0, closesAt: new Date(anchor + REQUEST_OPEN_MS).toISOString() };
 describe("merchant visit", () => {
+  it("holds the final confirmation, departs on close, and stays away after reload", () => {
+    const completed = { ...board, visitCompleted: true };
+    const departureAt = anchor + 10000;
+    expect(getMerchantVisit(completed, departureAt, { holdCompleted: true })).toEqual({ phase: "stopped" });
+    expect(getMerchantVisit(completed, departureAt, { departureAt })).toEqual({ phase: "departing", progress: 0 });
+    expect(getMerchantVisit(completed, departureAt + MERCHANT_TRAVEL_MS / 2, { departureAt })).toEqual({ phase: "departing", progress: 0.5 });
+    expect(getMerchantVisit(completed, departureAt + MERCHANT_TRAVEL_MS, { departureAt })).toEqual({ phase: "away" });
+    expect(getMerchantVisit(completed, departureAt)).toEqual({ phase: "away" });
+    expect(getMerchantVisit(completed, anchor + REQUEST_OPEN_MS)).toEqual({ phase: "away" });
+    expect(getMerchantVisit(completed, anchor + REQUEST_CYCLE_MS - MERCHANT_TRAVEL_MS)).toEqual({ phase: "arriving", progress: 0 });
+    expect(getMerchantVisit(completed, anchor + REQUEST_CYCLE_MS)).toEqual({ phase: "stopped" });
+  });
   it("arrives during the 15 seconds before opening", () => {
     expect(getMerchantVisit(board, anchor - MERCHANT_TRAVEL_MS - 1)).toEqual({ phase: "away" });
     expect(getMerchantVisit(board, anchor - MERCHANT_TRAVEL_MS)).toEqual({ phase: "arriving", progress: 0 });

@@ -5,3 +5,9 @@ export const countdownLabel = (remainingMs: number): string => {
   const minutes = Math.floor(seconds / 60) % 60;
   return `${hours > 0 ? `${hours}h ` : ""}${hours > 0 || minutes > 0 ? `${minutes}m ` : ""}${seconds % 60}s`;
 };
+
+/** Minute-precision countdowns use the same no-zero-hours convention. */
+export const minuteCountdownLabel = (remainingMinutes: number): string => {
+  const minutes = Math.max(0, Math.ceil(remainingMinutes));
+  return `${minutes >= 60 ? `${Math.floor(minutes / 60)}h ` : ""}${minutes % 60}m`;
+};

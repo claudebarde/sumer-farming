@@ -1,3 +1,4 @@
+import { productionMealMultiplier } from "../../game-data/kitchen";
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { planProductionJourney, productionArrivalAt } from "../../game-core/farm/productionJourney";
 import { physicalDeliveryStop } from "../../game-core/farm/physicalStorage";
@@ -107,7 +108,7 @@ export const startMilling = (database: Database, input: Extract<GameCommand, { t
       const fromFarm = Math.min(remaining, stored);
       if (fromFarm > 0) await tx.update(farmInventory).set({ quantity: stored - fromFarm }).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "barley")));
       const job = { preparation, buildingId: mill.id, recipe: input.recipe, worker: input.worker ?? "farmer" as const, barley: recipe.barley, output: recipe.output,
-        startedAt: new Date(startsAt).toISOString(), completesAt: new Date(startsAt + recipe.durationMs).toISOString() };
+        startedAt: new Date(startsAt).toISOString(), completesAt: new Date(startsAt + Math.ceil(recipe.durationMs * (input.worker === "donkey" ? 1 : productionMealMultiplier(snapshot.farm.production.mealBenefit, now)))).toISOString() };
       // Promote a saved donkey job when the farmer starts in the other mill.
       // Keep the existing slot format for single jobs and older saves.
       const [updated] = await tx.update(farms).set({

@@ -44,6 +44,47 @@ rules and saved-job compatibility remain in use.
 
 ## Interface styling
 
+Countdowns must omit zero leading hours: show `57m`, never `0h 57m`.
+Keep explicit units for all displayed values. Use `countdownLabel` for seconds
+precision and `minuteCountdownLabel` for minute precision; apply the same rule
+to circular meters and accessible countdown labels throughout the UI.
+
+Reuse existing UI elements for new action states. Cooking uses the shared
+harvesting-style `WorkProgress`: resource/meal icon on the left, action and
+seconds remaining in the middle, and the existing circular progress meter on
+the right. Avoid introducing a separate visual pattern for equivalent actions.
+
+Popup headers must remain fixed when content overflows. Keep the title, level/stage
+badges and close/visibility controls outside the scrolling body. Use a constrained
+flex-column shell with overflow hidden, a non-shrinking header and a body with
+min-height: 0 and overflow-y: auto. Apply this even to short popups so future
+content scrolls correctly. Map popups use popupBody/popupScrollableContent;
+modal dialogs use market-dialog-header/market-dialog-body. Drawer titles and
+navigation also remain fixed.
+
+Building shadows have two approved design options (November 4):
+
+- **Building silhouette:** project the shape of the building artwork.
+- **Cone:** approximate the building as an upright cone, with a circular base
+  fitted to its width and an apex at its height. Project the base disk and apex
+  onto the ground, with soft edges and a contact shadow.
+
+The user chooses the shadow style for each building. Ask which style to use
+when discussing every new building; do not choose automatically from its shape.
+The brewery (both courtyard orientations) and small shrine use the approved
+cone style in `coneBuildingShadow.ts`. Other buildings retain their existing
+projection. The level-11 kitchen uses the building-silhouette style. Keep both styles consistent in colour, opacity and sun direction.
+Shadow timing is cosmetic only and must never affect production or progression.
+The temporary Shadow preview selector was removed after visual approval.
+The approved brewery cone replaces the historical morning farmhouse proxy.
+
+Quantity inputs default to a horizontal minus button, centred editable number,
+and plus button, using the game's sand buttons and existing disabled styling.
+Reuse `QuantityInput` for new quantity inputs. Keep integer steps and enforce the
+action's minimum/maximum on typing and button presses; disable step buttons at
+their bounds and all controls while submission is pending. Avoid standalone
+native number spinners. This is the standard for future and revised quantity UI.
+
 Destroy building buttons use the shared `BuildingActionButton` danger style:
 muted terracotta `#C58A70`, border `#985B46`, dark brown text, and hover
 `#B97A60`. Apply it in building popups and demolition confirmations; preserve
@@ -1746,7 +1787,7 @@ only intended casting parts. Cache pixel analysis, respect visibility/alpha,
 release generated textures on redraw/shutdown, and do not upload them every frame.
 Verify all time presets, ground corners, map-edge clipping, construction opacity
 and active/idle visibility before requesting player approval. The temporary
-Shadows time selector remains until the user asks to remove it.
+Shadows time selector has been removed after visual approval.
 The mill casts from its body and idle bags only, excluding bowl and lever.
 Its midday and evening settings are approved. Its morning uses simple ellipses
 with the shared sun-length scale and visible artwork height (excluding transparent
@@ -1920,3 +1961,35 @@ a farmer starts a second mill while a donkey is working, the donkey job moves
 to `production.donkeyMilling` and the farmer job uses `farm.milling`. Both are
 server-timed jobs. Never test the original slot alone to infer whether a mill
 or donkey is busy. The farmer is required during either job’s preparation.
+
+## Player rules page
+
+`/rules` is a standalone React entry, loaded independently of the game. Rules
+links open a separate tab and use stable section anchors from
+`src/client/features/rules/links.ts`. Add a matching contextual link when adding
+a popup. Keep player guide copy in `features/rules/guide.ts` aligned with root
+`game-rules.md`; derive numeric tables from game-data where practical. No
+Phaser scene, game identity or simulation polling should start on this page.
+
+## House interior layout review
+
+HomeInterior is an independent full-viewport React view with Radix focus containment, Escape/Back navigation, fixed centred camera and button-controlled zoom, using the courtyard-empty artwork. Entry is from the farmhouse popup and HomeDrawer Interior tab. It leaves the farm mounted and simulation intact. The view lazily mounts HomeInteriorScene for local click-to-walk movement, reusing the approved farmer walking frames and texture sharpening. interiorNavigation registers floor polygons to the artwork and routes through doorways; wall layers occlude the actor according to which side he occupies. Clicks redirect movement, dragging never pans, and closing destroys the interior renderer. No inventory or server changes are made. The interior footprint is independent of the exterior 2×2 building. The furnished courtyard-interior.png is retained as reference. Separate furniture assets live in home-interior/furniture; they are not placed or added to player inventory yet. Approval sequence: empty shell and furniture, then click-to-walk farmer, then furniture placement, then object interactions; obtain user approval at each step. Movement starts at the entrance on each visit and does not persist or change the outdoor farmer position. Furniture placement is now implemented; object interactions remain deferred until placement is approved.
+
+Home entry reuses the approved sleep doorway approach and fade before opening the interior. This is a local presentation transition, not a sleep command or production prerequisite. Busy farmers must finish their work first; already sleeping farmers can open the interior directly.
+
+Back to farm (including Escape) completes a local route to INTERIOR_ENTRY before unmounting the interior, then reuses the sleep exit fade outside. Repeat exit requests and click-to-walk redirection are ignored during this transition. Loading failures still allow immediate exit. Existing server sleep sessions are not changed by a house visit.
+
+The home interior sits on a decorative ground-tile diamond with the outdoor earth-edge palette and soft shadow, sparse grass and side bushes. The platform is not walkable. Fit prioritizes the house with a small margin, allowing decorative ground corners and plants to crop at the viewport edges; mouse/touch dragging never moves the camera.
+
+Interior furniture uses the shared pure `game-core/home` navigation and placement checks, with artwork/UI in `client/game/home`. Fixed free starter inventory: one sleeping mat, stool and table, two baskets, one large plain clay jar and two small clay bowls; no bed. Each basket has a distinct saved key; placements must preserve room access. `/api/home-furniture` updates only the nested furniture layout/revision in the existing home appearance JSON under a farm row lock. Exterior writes preserve furniture; stale interior revisions reject instead of overwriting another tab. No economic benefits or animation-dependent server work. Furnish uses the existing drawer palette, fixed header/scrolling catalogue, and green/red placement with Place/Cancel. Saved objects can be moved or put away; unsaved placement never alters the stored layout.
+
+## Shared game top bar
+
+Every game view, including the home interior and future scenes, must reuse `GameTopBar` and the existing toolbar styles. Keep the left farm level/icon/objective progress and +/−/Fit controls identical, and the right shekels/barley/farmer-happiness counters identical. Disable the farmer shortcut outside the farm. Only the centre action buttons vary by view; reuse the standard square icon buttons with labels and Radix tooltips. The interior has Furniture, Your farm, Settings and Guide. Do not create a separate header design for new scenes.
+
+Interior furniture has separate room-floor placement polygons from the farmer's
+walking margins. Partial wall occlusion is allowed; shared server/preview validation
+requires at least 20% of sampled opaque artwork and a 16×12-world-pixel visible
+extent. Masonry polygons are shared from game-core/home/interiorWalls.ts. Regenerate
+homeFurnitureSilhouettes.ts with scripts/generate-furniture-silhouettes.mjs after
+artwork or display-size changes. Every copy remains selectable through Furniture.

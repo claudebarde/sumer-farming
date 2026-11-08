@@ -64,10 +64,21 @@ describe("market listing pages", () => {
     expect(await page(buyer, "buy", first.nextCursor!)).toEqual(second);
   });
 
+  it("combines a stand's resources while preserving ownership and pagination", async () => {
+    const { buyer } = await fixture();
+    await db.insert(marketOrders).values({ playerId: buyer, idempotencyKey: randomUUID(), side: "sell", itemKey: "bakingTools", unitPrice: 2, originalQuantity: 3, remainingQuantity: 2 });
+    const result = MarketListingsPageSchema.parse(await Effect.runPromise(getMarketListings(db, buyer, { itemKey, itemKeys: [itemKey, "bakingTools"], action: "sell" })));
+    expect(result.orders.map(order => order.itemKey)).toEqual([itemKey, "bakingTools"]);
+    expect(result.orders[1]!.remainingQuantity).toBe(2);
+    expect(result.orders[1]!.originalQuantity).toBe(3);
+    expect(result.nextCursor).toBeNull();
+  });
+
   it("shows only the requesting player's orders on Sell", async () => {
     const { buyer, seller } = await fixture();
     const own = await page(buyer, "sell");
     expect(own.orders).toHaveLength(1);
+    expect(Number.isFinite(Date.parse(own.orders[0]!.createdAt!))).toBe(true);
     expect(own.nextCursor).toBeNull();
     const sellers = await page(seller, "sell");
     expect(sellers.orders).toHaveLength(5);

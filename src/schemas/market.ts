@@ -24,6 +24,7 @@ export const MarketQuotesSchema = z.object({
         weightedAverageSellPrice: z.number().positive().nullable(),
         recentTradeAveragePrice: z.number().positive().nullable(),
         totalSellQuantity: z.int().nonnegative(),
+        recentTradeQuantity: z.int().nonnegative().optional(),
         suggestedSellPrice: UnitPriceSchema
       })
     })

@@ -1,10 +1,15 @@
+import { HOME_TABLET_PLACEMENT } from "../homeTablets";
+import { drawMapBase } from "../mapBase";
+import { createZigguratCelebration } from "../zigguratCelebration";
+import { createZigguratStatusBadge, preloadZigguratStatusBadge } from "../zigguratStatusBadge";
+import { neighbourhoodAudio } from "../neighbourhoodAudio";
 import { savedMapZoom, saveMapZoom } from "../zoomPreference";
 import { deliveryPlan } from "../../../../game-data/zigguratDelivery";
 import { preloadZigguratDonkey } from "../zigguratDonkeyPreview";
 import { createZigguratDeliveryAnimation, preloadZigguratFarmer } from "../zigguratDeliveryAnimation";
 import Phaser from "phaser";
 import type { Ziggurat } from "../../../../schemas/ziggurat";
-import { zigguratPresentation } from "../zigguratPresentation";
+import { constructionRevealAt, zigguratPresentation, zigguratStatusLabel } from "../zigguratPresentation";
 import { drawBuildingProgress } from "../buildingProgressBar";
 import { preloadZigguratPlacement, createZigguratPlacementPreview } from "../zigguratPlacementPreview";
 import { farmAppearance } from "../farmEvolution";
@@ -16,13 +21,28 @@ import type { Neighbourhood } from "../../../../schemas/neighbourhood";
 
 /** Read-only composition using already prepared farm artwork. No gameplay commands. */
 export class NeighbourhoodScene extends Phaser.Scene {
+  private celebration?: ReturnType<typeof createZigguratCelebration>;
+  celebrateZiggurat() {
+    if (!this.sys.isActive() || !this.ziggurat || this.celebration) return;
+    this.celebration = createZigguratCelebration(this, this.ziggurat.building);
+  }
+  private stopCelebration = () => { this.celebration?.destroy(); this.celebration = undefined; };
   onZigguratClick: () => void = () => {};
   private zigguratState: Ziggurat["state"] = { type: "interest" };
+  private zigguratBadge?: ReturnType<typeof createZigguratStatusBadge>;
   private zigguratProgress?: Phaser.GameObjects.Graphics;
   private displayedZigguratStage: string | null = null;
   private delivery?: ReturnType<typeof createZigguratDeliveryAnimation>;
   private latestZiggurat?: Ziggurat;
-  setZigguratState(data: Ziggurat) { this.zigguratState = data.state; this.latestZiggurat=data; this.delivery?.receive(data); }
+  private constructionReveal: { at: number; previous: Ziggurat["state"] } | null = null;
+  private zigguratClockOffset = 0;
+  setZigguratState(data: Ziggurat) {
+    const at = constructionRevealAt(this.latestZiggurat?.state, data);
+    if (at !== null && this.latestZiggurat) this.constructionReveal = { at, previous: this.latestZiggurat.state };
+    if (data.state.type !== "building") this.constructionReveal = null;
+    this.zigguratClockOffset = Date.parse(data.serverTime) - Date.now();
+    this.zigguratState = data.state; this.latestZiggurat=data; this.delivery?.receive(data);
+  }
   previewDelivery(active: boolean) {
     const home=neighbourhoodPlots(this.members).find(p=>p.type==="self");
     this.delivery?.preview(active && home ? home.slot+1 : null);
@@ -34,9 +54,14 @@ export class NeighbourhoodScene extends Phaser.Scene {
         .centerOn((minX+maxX)/2,(minY+maxY)/2);
     }
   }
+  audioState(now: number) {
+    return this.delivery && this.sys.isActive() && this.sys.isVisible()
+      ? neighbourhoodAudio(this.latestZiggurat, now, this.zigguratClockOffset)
+      : { walking: false, pickup: null };
+  }
   private baseZoom = 1;
   private ziggurat?: ReturnType<typeof createZigguratPlacementPreview>;
-  preload() { preloadZigguratPlacement(this); preloadZigguratDonkey(this); preloadZigguratFarmer(this); }
+  preload() { preloadZigguratStatusBadge(this); preloadZigguratPlacement(this); preloadZigguratDonkey(this); preloadZigguratFarmer(this); }
   private shadows?: ReturnType<typeof createShadowLayer>;
   private clouds?: ReturnType<typeof createAmbientCloudLayer>;
   private members: Neighbourhood["members"] = [];
@@ -49,6 +74,7 @@ export class NeighbourhoodScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor("#f4e5c7");
     this.drawMap();
     this.focusHome();
+    this.events.on("sleep", this.stopCelebration);
     this.events.on("wake", this.redraw, this);
     this.scale.on("resize", this.restoreZoomAfterResize, this);
     let last: { x: number; y: number } | null = null;
@@ -61,9 +87,12 @@ export class NeighbourhoodScene extends Phaser.Scene {
     });
     this.input.on("pointerup", () => { last = null; });
     this.events.once("shutdown", () => {
+      this.stopCelebration();
+      this.events.off("sleep", this.stopCelebration);
       this.delivery?.destroy(); this.delivery=undefined;
       this.ziggurat = undefined;
       this.zigguratProgress = undefined;
+    this.zigguratBadge = undefined;
       this.clouds?.destroy(); this.clouds = undefined;
       this.shadows?.destroy(); this.shadows = undefined;
       this.scale.off("resize", this.restoreZoomAfterResize, this);
@@ -71,9 +100,11 @@ export class NeighbourhoodScene extends Phaser.Scene {
     });
   }
   private redraw() {
+    this.stopCelebration();
     this.delivery?.destroy(); this.delivery=undefined;
     this.ziggurat = undefined;
     this.zigguratProgress = undefined;
+    this.zigguratBadge = undefined;
     this.clouds?.destroy(); this.shadows?.destroy(); this.children.removeAll(true); this.drawMap(); this.focusHome();
   }
   private focusHome() {
@@ -85,6 +116,7 @@ export class NeighbourhoodScene extends Phaser.Scene {
     this.cameras.main.setZoom(savedMapZoom("neighbourhood", this.baseZoom, zoom)).centerOn(home.x, home.y);
   }
   private drawMap() {
+    drawMapBase(this, neighbourhoodBounds);
     const plots = neighbourhoodPlots(this.members);
     const farmers=new Map<number,Phaser.GameObjects.Image>();
     const buildings:{sprite:Phaser.GameObjects.Image;column:number;row:number;columns:number;rows:number}[]=[];
@@ -119,9 +151,14 @@ export class NeighbourhoodScene extends Phaser.Scene {
     for (const plot of plots) {
       const front = footprintFront({ column: plot.column + 1, row: plot.row + 1 }, 2, 2);
       if (plot.type !== "empty") {
-        const building = this.add.image(front.x, front.y + 19, farmAppearance(plot.level!).texture)
+        const building = this.add.image(front.x, front.y + 19, plot.level! >= 9 ? plot.homeStyle : farmAppearance(plot.level!).texture)
           .setOrigin(0.5, 1).setDisplaySize(232, 232).setDepth(front.y - 24);
         this.shadows.addBuilding(building);
+        if (plot.level! >= 9 && plot.wallTablet !== "none") {
+          const tablet = this.add.image(front.x + HOME_TABLET_PLACEMENT.x, front.y + HOME_TABLET_PLACEMENT.y, plot.wallTablet)
+            .setOrigin(0.5).setDepth(building.depth + HOME_TABLET_PLACEMENT.depth);
+          tablet.setDisplaySize(HOME_TABLET_PLACEMENT.width, HOME_TABLET_PLACEMENT.width * tablet.height / tablet.width);
+        }
         buildings.push({sprite:building,column:plot.column+1,row:plot.row+1,columns:2,rows:2});
         // One shared actor texture now; this slot can later resolve public custom appearances.
         const farmer = this.add.image(front.x + 35, front.y + 16, "farmer-idle")
@@ -131,7 +168,10 @@ export class NeighbourhoodScene extends Phaser.Scene {
       }
       const caption = plot.type === "empty" ? `Plot ${plot.slot + 1} · Empty lot`
         : `${plot.name} · Lvl ${plot.level}${plot.type === "self" ? " · You" : ""}`;
-      this.add.text(plot.x, front.y + 55, caption, {
+      // Overlay the roof using the same level-specific anchor as the farm storage chip.
+      // Empty plots use their ground-plane centre instead of the front edge.
+      const labelY = plot.type === "empty" ? plot.y : front.y + farmAppearance(plot.level!).storageChipY;
+      this.add.text(plot.x, labelY, caption, {
         fontFamily: "Georgia, serif", fontSize: "18px",
         color: plot.type === "self" ? "#49652b" : "#513821",
         backgroundColor: plot.type === "self" ? "#e4e7c3" : "#fff7e8",
@@ -143,13 +183,10 @@ export class NeighbourhoodScene extends Phaser.Scene {
     const marketImage = this.add.image(market.x, market.y, "market-preview").setOrigin(0.5, 5 / 6).setDisplaySize(232, 232).setDepth(neighbourhoodMarketDepth);
     this.shadows.addBuilding(marketImage);
     buildings.push({sprite:marketImage,...neighbourhoodMarket});
-    this.add.text(market.x, market.y + 30, "Neighbourhood market", {
-      fontFamily: "Georgia, serif", fontSize: "26px", color: "#513821",
-      backgroundColor: "#fff7e8", padding: { x: 16, y: 8 },
-    }).setOrigin(0.5).setDepth(2000).setResolution(2);
     this.ziggurat = createZigguratPlacementPreview(this, "site");
     this.displayedZigguratStage = null;
     this.zigguratProgress = this.add.graphics();
+    this.zigguratBadge = createZigguratStatusBadge(this, this.ziggurat.building, () => this.onZigguratClick());
     this.ziggurat.building.setInteractive({ pixelPerfect: true, alphaTolerance: 32 })
       .on("pointerup", (pointer: Phaser.Input.Pointer) => {
         if (pointer.getDistance() < 8) this.onZigguratClick();
@@ -171,14 +208,18 @@ export class NeighbourhoodScene extends Phaser.Scene {
     if (persist) saveMapZoom("neighbourhood", "fit");
   }
   update(_time: number, delta: number) {
+    if (this.celebration && !this.celebration.update()) this.celebration = undefined;
     this.delivery?.update(delta);
     this.shadows?.render("local"); this.clouds?.update(delta);
     if (this.ziggurat && this.zigguratProgress) {
-      const presentation = zigguratPresentation(this.zigguratState, Date.now());
+      const now = Date.now() + this.zigguratClockOffset;
+      if (this.constructionReveal && now >= this.constructionReveal.at) this.constructionReveal = null;
+      const presentation = zigguratPresentation(this.constructionReveal?.previous ?? this.zigguratState, now);
       if (this.displayedZigguratStage !== presentation.stage) {
         this.ziggurat.setStage(presentation.stage);
         this.displayedZigguratStage = presentation.stage;
       }
+      this.zigguratBadge?.update(zigguratStatusLabel(this.zigguratState, now));
       this.zigguratProgress.clear();
       if (presentation.fraction !== null) drawBuildingProgress(this.zigguratProgress, this.ziggurat.building, presentation.fraction);
     }

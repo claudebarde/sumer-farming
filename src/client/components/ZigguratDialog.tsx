@@ -1,3 +1,4 @@
+import RulesLink from "./RulesLink";
 import { randomId } from "../randomId";
 import { useEffect, useId, useRef, useState } from "react";
 import { Checkbox, Dialog } from "radix-ui";
@@ -10,6 +11,7 @@ import { farmStore } from "../stores/farmStore";
 import { requestZiggurat, sendZigguratDonation, DonationRejected } from "../api/ziggurat";
 import BuildingActionIcon from "./BuildingActionIcon";
 import InfoAlert from "./InfoAlert";
+import QuantityInput from "./QuantityInput";
 import common from "../styles/GameCanvas.module.scss";
 import actions from "../styles/BuildingActionButton.module.scss";
 import styles from "../styles/ZigguratDialog.module.scss";
@@ -86,6 +88,7 @@ export default function ZigguratDialog({ open, onOpenChange, farmId, onState }: 
       if (!controller.signal.aborted) {
         setData(result.data); onState(result.data); setQuantities(emptyMaterials());
         setReceipt(`Donated ${ZIGGURAT_RESOURCES.filter(key => result.receipt[key] > 0).map(key => `${result.receipt[key]} ${ZIGGURAT_LABELS[key].toLowerCase()}`).join(", ")} · +${result.receipt.points} points`);
+        onOpenChange(false);
       }
       void fetchDevelopmentFarm().then(snapshot => farmStore.getState().setReady(snapshot)).catch(() => undefined);
     } catch (cause) {
@@ -102,6 +105,7 @@ export default function ZigguratDialog({ open, onOpenChange, farmId, onState }: 
       <Dialog.Content className={`${common["market-dialog-content"]} ${styles.dialog}`}>
         <header className={common["market-dialog-header"]}>
           <Dialog.Title>Build our neighbourhood ziggurat</Dialog.Title>
+          <RulesLink section="ziggurat" />
           <Dialog.Close asChild><button className={common["market-dialog-close"]} aria-label="Close ziggurat"><Cross2Icon /></button></Dialog.Close>
         </header>
         <div className={`${common["market-dialog-body"]} ${styles.body}`}>
@@ -140,34 +144,40 @@ export default function ZigguratDialog({ open, onOpenChange, farmId, onState }: 
           </div>}
           {data?.state.type === "fundraising" && <section className={styles.interest}>
             <h3>Contribute to the fundraising</h3>
-            <p>{stage.name}</p>
-            {data.participantCount > 0 && <small>Equal split · {data.participantCount} participants · optional</small>}
+            <div className={styles.stageHeading}>
+              <p>{stage.name} · {data.state.stage + 1}/{ZIGGURAT_STAGES.length}</p>
+              {data.participantCount > 0 && <small>{data.participantCount} {data.participantCount === 1 ? "participant" : "participants"}</small>}
+            </div>
             {ZIGGURAT_RESOURCES.filter(key => stage.materials[key] > 0).map(item => ({ item, name: ZIGGURAT_LABELS[item] })).map(resource =>
               <div className={styles.material} key={resource.item}>
                 <BuildingActionIcon kind={resource.item} />
                 <div><strong>{resource.name} · {data.funded[resource.item]}/{stage.materials[resource.item]}</strong>
-                  <progress aria-label={`${resource.name} donated`} max={stage.materials[resource.item]} value={data.funded[resource.item]} />
+                  <progress aria-label={`${resource.name} donation preview`}
+                    aria-valuetext={`${data.funded[resource.item]} donated, ${Math.min(quantities[resource.item], materialLimit(resource.item))} selected, ${stage.materials[resource.item]} required`}
+                    max={stage.materials[resource.item]}
+                    value={data.funded[resource.item] + Math.min(quantities[resource.item], materialLimit(resource.item))} />
                   <div className={styles.materialMeta}>
                     <span>You have {data.stock[resource.item]}</span>
-                    {data.participantCount > 0 && <span>Equal share <strong>{stage.materials[resource.item] % data.participantCount !== 0 ? "≈" : ""}{new Intl.NumberFormat("en", { maximumFractionDigits: 1 }).format(stage.materials[resource.item] / data.participantCount)}</strong></span>}
+                    {data.participantCount > 0 && <span>Equal share <strong>{Math.ceil(stage.materials[resource.item] / data.participantCount)}</strong></span>}
                   </div></div>
-                {data.canParticipate && <label>Donate
-                  <input type="number" aria-label={`${resource.name} to donate`} min={0} max={materialLimit(resource.item)} step={1}
+                {data.canParticipate && <section className={styles.donationQuantity}><span>Donate</span>
+                  <QuantityInput label={`${resource.name} to donate`} min={0} max={materialLimit(resource.item)}
                     disabled={pending || unconfirmed !== null} value={quantities[resource.item]}
-                    onChange={event => setQuantities(value => ({ ...value, [resource.item]: Math.max(0, Math.min(materialLimit(resource.item), Math.floor(Number(event.target.value) || 0))) }))} />
-                </label>}
+                    onChange={quantity => setQuantities(value => ({ ...value, [resource.item]: quantity }))} />
+                </section>}
               </div>)}
             {data.state.stage === 1 && <small>Keep at least one stored barley for planting.</small>}
             {data.canParticipate && !unconfirmed && <>
               <small>Only materials still needed will be accepted. Donations cannot be withdrawn.</small>
               <button className={actions.button} disabled={!canDonate || pending} onClick={() => void donate()}>
-                <BuildingActionIcon kind="confirm" /><span>{pending ? "Donating…" : "Confirm donation"}</span>
+                {ZIGGURAT_RESOURCES.filter(item => quantities[item] > 0).map(item => <BuildingActionIcon key={item} kind={item} />)}
+                <span>{pending ? "Donating…" : "Confirm donation"}</span>
               </button>
             </>}
             {!data.canParticipate && <InfoAlert>Reach level 10 to contribute.</InfoAlert>}
           </section>}
           {data?.state.type === "building" && <section className={styles.interest}>
-            <h3>Building: {stage.name}</h3>
+            <h3>Building: {stage.name} · {data.state.stage + 1}/{ZIGGURAT_STAGES.length}</h3>
             <ProductionProgress job={data.state} now={now} label={`${stage.name} construction`} />
             <p>Your farmer remains available.</p>
           </section>}

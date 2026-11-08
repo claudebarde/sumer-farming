@@ -1,3 +1,4 @@
+import { minuteCountdownLabel } from "./countdownLabel";
 import { randomId } from "../randomId";
 import { useRef, useState } from "react";
 import type { FarmSnapshot } from "../../schemas/farm";
@@ -39,7 +40,7 @@ export default function PorterPanel({ snapshot, now, marketRoad }: { snapshot: F
     <small>For {PORTER_HIRE_MS / 3600000} hours · No automatic renewal</small>
     {error && <small role="alert">{error}</small>}
     <button disabled={pending || active || !unlocked || snapshot.player.shekelBalance < PORTER_COST} onClick={() => void hire()}>
-      {!unlocked ? "Unlock at level 5" : active ? minutes > 0 ? `${Math.floor(minutes / 60)}h ${minutes % 60}m remaining` : "Finishing his last delivery" : pending ? "Hiring…" : snapshot.player.shekelBalance < PORTER_COST ? "Not enough shekels" : "Hire porter"}
+      {!unlocked ? "Unlock at level 5" : active ? minutes > 0 ? `${minuteCountdownLabel(minutes)} remaining` : "Finishing his last delivery" : pending ? "Hiring…" : snapshot.player.shekelBalance < PORTER_COST ? "Not enough shekels" : "Hire porter"}
     </button>
     </div>
   </section></div></section>;

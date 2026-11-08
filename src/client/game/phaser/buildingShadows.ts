@@ -1,8 +1,8 @@
 import type Phaser from "phaser";
+import { drawConeBuildingShadow, usesConeBuildingShadow } from "./coneBuildingShadow";
 import { isoPoint } from "./isometricProjection";
 import { buildingShadowBottom, buildingShadowContourBottom, buildingShadowTransform, middayBuildingOval, middayShadowWeight, morningMillOval, opaqueTop, opaqueBaseContour, opaqueBottom, usesBuildingBaseContour, usesMorningMillOval } from "./buildingShadowProjection";
 import { daylightShadow, type ShadowBounds } from "./daylightShadows";
-import { breweryFarmShadowPlacement, usesBreweryFarmShadow } from "./buildingShadowProjection";
 
 // Prepared frame silhouettes survive scene redraws, without retaining destroyed textures.
 const silhouettes = new WeakMap<Phaser.Textures.Frame, { canvas: HTMLCanvasElement; top: number; bottom: number; contour: readonly number[] }>();
@@ -64,6 +64,10 @@ export const createBuildingShadows = (scene: Phaser.Scene, bounds: ShadowBounds)
       for (const building of buildings) {
         if (!building.visible || building.alpha === 0) continue;
         const { canvas, top: artworkTop, bottom, contour } = silhouette(building.frame);
+        if (usesConeBuildingShadow(building.texture.key)) {
+          drawConeBuildingShadow(context, sampledHour, building, { width: canvas.width, height: canvas.height, top: artworkTop, bottom, contour });
+          continue;
+        }
         if (midday > 0) {
           const oval = middayBuildingOval(building, { width: canvas.width, height: canvas.height, bottom, contour });
           if (oval) {
@@ -73,21 +77,6 @@ export const createBuildingShadows = (scene: Phaser.Scene, bounds: ShadowBounds)
             context.fill(); context.restore();
           }
           if (midday === 1) continue;
-        }
-        if (usesBreweryFarmShadow(building.texture.key, sampledHour)) {
-          const farm = buildings.find(b => b.texture.key.startsWith("farm-level-"));
-          if (farm) {
-            const source = silhouette(farm.frame);
-            const frame = { width: source.canvas.width, height: source.canvas.height, bottom: source.bottom, contour: source.contour };
-            const proxy = breweryFarmShadowPlacement(building, { width: canvas.width, height: canvas.height, bottom, contour }, farm, frame);
-            if (proxy) {
-              const m = buildingShadowTransform(sun, proxy, frame);
-              context.save(); context.globalAlpha = sun.alpha * building.alpha * (1 - midday);
-              context.transform(m.a, m.b, m.c, m.d, m.e, m.f);
-              context.drawImage(source.canvas, 0, 0); context.restore();
-              continue;
-            }
-          }
         }
         if (usesMorningMillOval(building.texture.key, sampledHour)) {
           const oval = morningMillOval(sun, building, { width: canvas.width, height: canvas.height, top: artworkTop, bottom, contour });

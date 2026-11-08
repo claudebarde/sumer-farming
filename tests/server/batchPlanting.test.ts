@@ -50,6 +50,24 @@ const catchUp = (farmId: string, now: number) => db.transaction(async tx => {
 });
 
 describe("batch barley planting", () => {
+  it("records each reserved seed source and visits them before sowing", async () => {
+    const f = await fixture(1);
+    const [granary] = await db.insert(farmBuildings).values({ farmId: f.farmId, type: 'granary', column: 7, row: 2,
+      loadingTile: { column: 7, row: 4 }, storedBarley: 6, startedAt: new Date(0), completesAt: new Date(1000) }).returning();
+    const started = await Effect.runPromise(f.start());
+    const batch = started.farm.production.planting!;
+    expect(batch.seedPickups?.map(({ storageId, quantity }) => ({ storageId, quantity }))).toEqual([
+      { storageId: 'farm', quantity: 1 }, { storageId: granary!.id, quantity: 1 }
+    ]);
+    expect(batch.collectionPath?.at(-1)).toEqual({ column: 7, row: 4 });
+    expect(batch.seedPickups![1]!.pickupAt).toBe(Date.parse(batch.travelStartedAt!) + batch.collectionTravelMs!);
+    expect(started.buildings.find(b => b.id === granary!.id)?.storedBarley).toBe(5);
+    await catchUp(f.farmId, Date.parse(batch.nextStepAt!) + 60000);
+    await catchUp(f.farmId, Date.parse(batch.nextStepAt!) + 60000);
+    const [saved] = await db.select().from(farmBuildings).where(eq(farmBuildings.id, granary!.id));
+    expect(saved!.storedBarley).toBe(5);
+    expect(await db.select().from(farmCrops).where(eq(farmCrops.farmId, f.farmId))).toHaveLength(2);
+  });
   it.each([9, 10])("records decay eligibility at level %i and consumes seeds once", async level => {
     const f = await fixture(3);
     await db.update(farms).set({ level }).where(eq(farms.id, f.farmId));
@@ -340,4 +358,20 @@ describe("batch sesame planting", () => {
     const stock = await db.select().from(farmInventory).where(eq(farmInventory.farmId, f.farmId));
     expect(stock.find(i => i.itemKey === "sesame")?.quantity).toBe(2);
   });
+});
+
+
+it("locks the harvest meal rate for the whole barley queue, including after expiry", async () => {
+  const f = await fixture(3), now = Date.now();
+  const [saved] = await db.select().from(farms).where(eq(farms.id, f.farmId));
+  await db.update(farms).set({ level: 11, production: { ...saved!.production, mealBenefit: { meal: "barleyCakes", startedAt: now - 1000, expiresAt: now + 1000 } } }).where(eq(farms.id, f.farmId));
+  await db.insert(farmCrops).values(targets.map(target => ({ farmId: f.farmId, ...target, cropKey: "barley" as const,
+    sowingStartedAt: new Date(now - 200000), plantedAt: new Date(now - 100000), growthCompletesAt: new Date(now - 1000) })));
+  const accepted = await Effect.runPromise(batchPlantingAction(db, { type: "start_batch_harvesting", targets, playerId: f.playerId, expectedFarmVersion: 1 }));
+  expect(accepted.farm.production.planting!.harvestDurationMs).toBe(Math.ceil(CROP_DEFINITIONS.barley.harvestDurationMs / 1.2));
+  const next = await catchUp(f.farmId, Date.parse(accepted.farm.production.planting!.nextStepAt!) + 1);
+  expect(next.production.planting!.phase.type).toBe("harvesting");
+  const crops = await db.select().from(farmCrops).where(eq(farmCrops.farmId, f.farmId));
+  const working = crops.find(c => c.harvestStartedAt)!;
+  expect(working.harvestCompletesAt!.getTime() - working.harvestStartedAt!.getTime()).toBe(Math.ceil(CROP_DEFINITIONS.barley.harvestDurationMs / 1.2));
 });

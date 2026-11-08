@@ -48,6 +48,7 @@ export const getNpcRequests = (database: Database, playerId: string) => Effect.g
       }
       return {
         serverNow: now.toISOString(), cycle: window.cycle, open: window.open,
+        visitCompleted: (board.requests ?? NPC_REQUESTS[board.brewer ? "brewer" : "starter"]).every((_, slot) => board.completed.includes(slot)),
         closesAt: new Date(window.closesAt).toISOString(), nextOpensAt: new Date(window.nextOpensAt).toISOString(),
         stock,
         requests: window.open ? (board.requests ?? NPC_REQUESTS[board.brewer ? "brewer" : "starter"]).map((request, slot) => ({

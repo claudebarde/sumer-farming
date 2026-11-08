@@ -6,6 +6,15 @@ import { sharedStorageAllocation } from "../../src/game-core/farm/storageDisplay
 import { ESTATE_STORAGE_LIMITS } from "../../src/game-data/storage";
 
 describe("building storage displays", () => {
+  it("keeps reserved ingredients in the source display until pickup without mutating inventory", () => {
+    const inventory = [{ itemKey: 'brewersGroats' as const, quantity: 3, locations: { warehouse: 3 } }];
+    const props = { location: 'warehouse' as const, warehouseId: 'warehouse', inventory, barley: 0, warehouseComplete: true, visual: true };
+    const before = renderToStaticMarkup(createElement(BuildingStorageTables, { ...props, awaitingPickup: { brewersGroats: 2 } }));
+    const after = renderToStaticMarkup(createElement(BuildingStorageTables, props));
+    expect(before).toContain('aria-label="Groats storage" aria-valuetext="5 of 10"');
+    expect(after).toContain('aria-label="Groats storage" aria-valuetext="3 of 10"');
+    expect(inventory[0]!.quantity).toBe(3);
+  });
   it("shows warehouse-local stock in visual rows, including unlocked dates", () => {
     const html = renderToStaticMarkup(createElement(BuildingStorageTables, {
       location: "warehouse", visual: true, showDates: true, barley: 7, warehouseComplete: true,

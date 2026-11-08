@@ -152,6 +152,8 @@ export const readFarmSnapshot = async (
     created,
     player: { ...player, points: await readPlayerPoints(transaction, currentFarm.playerId), constructionAwards: await readConstructionAwards(transaction, currentFarm.playerId) },
     farm: {
+      homeAppearance: currentFarm.homeAppearance,
+      sleep: currentFarm.sleep,
       farmerProfile: currentFarm.farmerProfile,
       roads: currentFarm.roads.map(road => ({ ...road, approachPath: road.approachPath ? [...road.approachPath] : undefined })),
       milling: currentFarm.milling,

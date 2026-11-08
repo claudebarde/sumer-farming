@@ -219,7 +219,11 @@ Each plot has a one-tile arable border around a 2×2 centre. The overview uses t
 farm's ground and connected-road tiles, building/character scale and local-time
 shadows. A connected road loop runs directly beside the market footprint, keeping traffic outside the building. It opens focused on your farm at the farm view's initial magnification.
 Drag to pan, use zoom or Fit to see the whole neighbourhood, and choose
-**Back to your farm** to return. Production continues on saved
+**Back to your farm** to return. The farmer must be free and empty-handed to
+enter the neighbourhood. Unattended donkey milling and beer fermentation do not
+prevent entry once the farmer finishes preparing them. While your farmer has a
+queued or active ziggurat delivery or interest visit, wait for his return before
+switching back to the farm. Production continues on saved
 server timers. Loading failures leave you on the farm with a retry message.
 Custom farmer appearances and farm visits remain future work.
 
@@ -275,6 +279,8 @@ deferred in this view; the fetch controls described below are legacy flat-view o
 - Routes avoid buildings, fields, canals, ground items, the signpost, and canvas edges. Changes to the route or resizing cancel the round safely. Fetch is local entertainment; no score or round is persisted.
 
 ### Initial estate
+
+At level 9, **Customize home** opens the home drawer. Its Exterior tab offers Natural earth, Pale plaster, Reed house and Red clay, plus pottery, baskets, a stool, a reed mat, or None. All doorstep decorations sit along the front wall: pottery left of the entrance, and the other decorations right of the doorway. Choices are saved with the farm and restored after reloading. The neighbourhood map shows each player’s saved house style and wall tablet; younger farms retain their level-specific appearance. A separate Wall tablet selector adds a Barley, Sky, Beer, or Cook clay tablet to the right-facing wall, clear of the ladder, or removes it with None. It is saved independently of the doorstep decoration. Decorations are cosmetic and do not consume resources or change storage. Interior options are not implemented yet.
 
 In the isometric view, the farmhouse appearance evolves with the claimed farm
 level: low open walls at levels 1–2, a simple roofed home at level 3, a striped
@@ -378,16 +384,25 @@ A barley offering is blocked if it would leave you with no usable barley **and**
 ### Level 10 feature direction and later levels
 
 See [Features and economy by estate level](game-progression.md) for the separate
-planning reference. Its proposed level 11–20 features are not playable unlocks.
+planning reference. Level 11 is available; the proposed level 12–20 features remain plans.
 Sesame cultivation and oil milling are available at level 10. Sheep and wool production are
-being considered for level 11 or 12, and flax is retained as a later idea.
+planned with processing for level 12, and flax is retained as a later idea.
+Level 11 introduces kitchen meals using sesame oil. The four meal recipes and temporary benefits are defined in the Kitchen meals section below. NPC-market cedar resin and the scented-oil
+workshop are deferred to a later level, not yet assigned. Cedar growing/imports
+and furniture production also remain future ideas. These additions are not playable.
 
-Level 10 is currently the highest claimable level.
+Level 11 is currently the highest claimable level.
 
 - Level 10 is the intended milestone for access to most game systems, including the full core farm and social experience. Existing neighbourhood features remain available from level 7. Cooperative/social expansion remains planned. Barley withering applies to new planting jobs started at level 10; claiming level 10 does not activate unimplemented systems. Selected buildings, upgrades and additional features may unlock above level 10.
-- Level 11's final progression requirements are not implemented.
+- Reaching level 11 requires a completed oil mill,
+  a level-3 flour mill, 12 sesame fields harvested during level 10 and 12 oil jars
+  produced during level 10. Claiming consumes 5 stored oil jars and 4 date baskets.
+  Purchased goods may supply the offering, but activity objectives require the
+  player's own work. Existing saves receive credit from verifiable saved history;
+  otherwise the missing counters start at zero. The kitchen unlocks afterward
+  and is not a prerequisite. Ziggurat construction is never required.
 
-These future levels cannot be claimed yet, even if their previewed milestones have been met.
+Levels above 11 cannot be claimed yet.
 
 ## Barley, irrigation, and storage
 
@@ -517,7 +532,7 @@ Building levels are separate from estate levels. The Mill, Bread Oven and Brewer
 | Bread Oven | 9 | 11 |
 | Brewery | 9 | 11 |
 
-Estate progression currently reaches level 10, unlocking the level-3 mill upgrade. Level-3 bread oven and brewery upgrades require estate level 11 and remain locked in normal play. Previously purchased mill upgrades, including upgrades already in progress, are retained regardless of the new gates.
+Estate progression currently reaches level 11. The level-3 mill upgrade unlocks at estate level 10; level-3 bread oven and brewery upgrades unlock at estate level 11. Previously purchased mill upgrades, including upgrades already in progress, are retained regardless of the new gates.
 
 | Mill level | Upgrade price | Upgrade time | Farmer batch | Donkey batch |
 |---|---:|---:|---:|---:|
@@ -633,8 +648,9 @@ Normal level, material, ownership and farmer-availability requirements apply.
 Cancel or Escape exits placement without spending materials.
 
 - Above 50, happiness loses 1 point every **12 minutes**.
-- At or below 50, it loses 1 point every **6 hours**.
-- Without food or treats changing the score, 100 drops to 50 in 10 hours, then to 49 after another 6 hours.
+- At or below 50, it loses 1 point every **6 hours at levels 4–9**, and every **2 hours from level 10 onward**. Shrine and sleep reductions still apply.
+- Reaching level 10 starts a fresh decay interval so earlier-level time is not charged at the faster rate.
+- Without food or treats changing the score, 100 drops to 50 in 10 hours, then to 49 after another 6 hours at levels 4–9, or another 2 hours from level 10.
 - Decay continues while offline. Refreshing or reopening the game does not restart the clock.
 - An Unhappy farmer walks at 90% of normal speed. Hunger makes movement take 1.75 times as long. If both apply, only the stronger slowdown is used; they do not multiply together.
 
@@ -1045,13 +1061,22 @@ Prices below are from the player's perspective.
 
 The brewing-jar purchase section is hidden when the player already has the two required jars; buying extras beyond the current requirement is not allowed. Empty jars are bought at Supplies and equipment; filled beer jars are bought at the beer stand. Filled beer purchases unlock at level 6 and go directly into estate inventory, without using barley storage or counting as beer produced.
 
+The player-market Sell panel shows the resource and quantity, a per-unit asking
+price, and current player asking prices alongside it. Market supply is the number
+of units currently listed; recent activity is the quantity traded in the last
+24 hours, not a prediction of future demand. With no listings, a starting price
+suggestion is shown instead of a market price. Each stand combines your active listings for all its resources in one section
+below the selling controls. These listings show remaining and originally listed
+units, price per unit and how long they have been listed. Cancelling still requires
+space to return the unsold goods to storage.
+
 Players can also list barley, filled beer and bread for other players to buy. Listings are not completed sales until someone purchases them. Bread and beer share a five-shekel initial suggested listing price; players choose their own asking prices and market suggestions respond to listings. Only bread already delivered to estate inventory can be sold or listed, not baskets waiting at the oven or in transit. Bread does not use barley storage. Brewing equipment and empty jars are not available for player listings in this version.
 
 The ground-barley Sell button is currently a placeholder, not a working shortcut. Use the barley market for actual sales after unlocking it.
 
 Market stand dialogs cannot open before their unlock level. The barley stand opens at level 3; the beer and baking stands open at level 5 for groats and flour trading. Finished beer, bread, and their production supplies remain unavailable until level 6 in all Buy/Sell tabs. Food stands have NPC and player-market Buy/Sell tabs scoped to their goods. Supplies and equipment has NPC purchases only and opens at level 6. Clicking a locked stand shows its unlock level in the white communication bubble at the bottom of the canvas instead of opening its dialog. The stand's label stays unchanged.
 
-Market goods show their unit price, your available stock and shekels, and a live preview of balances after the selected transaction. Stored tradable stock excludes goods already reserved or carried. NPC purchases add stock and spend shekels; sales subtract stock and earn shekels. Player listings reserve stock immediately but earn nothing until sold, so their preview distinguishes listing creation from potential proceeds. Player purchases preview each listing's actual price. Previews do not bypass stock, storage, funds or unlock validation.
+Market goods show their unit price, your available stock and shekels, and a live preview of balances after the selected transaction. Stored tradable stock excludes goods already reserved or carried. NPC purchases add stock and spend shekels; sales subtract stock and earn shekels. Player listings reserve stock immediately but earn nothing until sold; the Sell panel shows the total asking value, not guaranteed proceeds. Player purchases preview each listing's actual price. Previews do not bypass stock, storage, funds or unlock validation.
 
 Clicking the estate's market building makes the farmer walk to the road tile beside it before entering the market scene. Clicking the farm building in the market likewise waits for arrival at its adjacent road entrance before returning home. Scene changes are based on arrival, not a fixed timer; a blocked route does not transport the farmer.
 
@@ -1254,8 +1279,9 @@ Costs stay fixed regardless of neighbourhood size. The fundraising popup shows
 an optional equal-share reference for each material: the full current stage cost
 divided by current level-10 neighbours who expressed interest or have contributed
 at any stage, counting each neighbour once. Joining participants update the split;
-existing donations do not reduce this reference. Uneven shares are approximate,
-shown to one decimal place. This is guidance, not a quota or reserved share.
+existing donations do not reduce this reference. Each share is rounded up to a whole unit because resources are indivisible.
+This is guidance, not a quota or reserved share; rounding does not increase the
+actual stage requirements.
 Mixed donations are accepted
 atomically and capped to what the current stage still needs. Barley donations
 leave at least one stored barley across the estate for planting. Carried barley
@@ -1264,6 +1290,9 @@ barley 3, bread 6, beer 8, dates 10 and shekels 1. Points accumulate across stag
 Construction runs offline; returning never restarts a timer or charges materials
 again. Donations for a previous stage cannot accidentally fund a new one.
 After the final 24-hour timer, the completed ziggurat remains visible.
+A clickable **Materials needed** marker above the site indicates that donations
+are open, including between stages and after returning to the neighbourhood.
+It disappears during construction; the final stage shows **Ziggurat complete**.
 Festival benefits remain planned;
 registering interest consumes no resources.
 The popup summarises contribution rewards and festival access; the full tie
@@ -1342,7 +1371,8 @@ stored sesame. Each field costs one basket; all selected seeds are deducted once
 when the queue is confirmed. No sesame reserve is required. The farmer collects
 seeds from the warehouse and sows each field for ten seconds in sequence.
 The saved queue continues while away or after reloading.
-Growth takes 60 minutes after sowing: seedlings for minutes 0–15, leafy plants
+Growth takes 60 minutes after sowing: seed holes for the first 10 seconds,
+then seedlings until minute 15, leafy plants
 for 15–35, and flowering plants with developing pods for 35–60.
 
 ### Harvesting multiple sesame fields
@@ -1448,3 +1478,139 @@ actions and cannot be hunted or selected.
 
 Walking uses left/right paths matching the available artwork. Rear-facing walking
 sprites are needed before enabling full diagonal roaming.
+
+### Kitchen — level 11
+
+At level 11, build one kitchen per estate from Manage estate → Buildings. It costs
+2 reeds and 4 clay and takes 2 minutes, with no shekel cost. Place its single-tile
+footprint on empty non-arable building ground next to a completed road connected
+to the main road. Its orientation follows the adjoining road; free building
+ground on either side of the main road can be used.
+
+Construction consumes materials once at the start. Its saved timer continues
+while the game is closed; the farmer's animation only displays that work. The
+completed kitchen opens a recipe drawer with a fixed header and scrollable recipes.
+It has no transparency control; Destroy building remains last when available.
+Cooking and automatic consumption are available at level 11 as described below.
+
+Neighbourhood farmer walks use the same walking sound as farm travel, including
+ziggurat deliveries and interest visits. Footsteps stop while loading, unloading
+or reading the tablet. The shared donkey brays once when collected for a delivery.
+These sounds follow the existing audio controls, stop when leaving the view or
+hiding the tab, and do not replay missed pickups after reloading or returning.
+
+## Farmer sleep
+
+From the first level, an idle farmer with empty hands can sleep. Use **Have a rest** below his status indicators, and **Wake farmer** in the farmhouse
+popup to interrupt sleep at any time.
+
+- Sleep slows happiness decay by 50%; it does not restore happiness.
+- The server allows at most eight hours of sleep in any rolling 24 hours.
+  Earlier sleep still counts after waking, reloading, or closing the game.
+- Each sleep session lasts up to the allowance available when the farmer reaches
+  bed. He wakes automatically when that session ends.
+- Starting another action wakes him. Entry and exit animations are visual;
+  production and ingredient reservation never wait for them.
+- Meals, crops, porter deliveries, and independent production continue normally.
+- Shrine protection and sleep multiply their reductions in happiness decay.
+
+
+### Kitchen meals — level 11
+
+Meals are cooked for the farmer and eaten immediately. They are never stored,
+traded or collected as an output pile. Each completed kitchen meal awards **30 points** when the farmer consumes it, including offline completion. Live completion shows **+30** above the kitchen; reloading does not replay old awards.
+
+The farmer works at the stove with visible flames and steam while cooking. Each meal takes **30 seconds of cooking**
+after the farmer reaches the kitchen. Ingredients are taken from estate storage
+as soon as the cooking order is accepted, including supplies held in different
+storage buildings; the journey does not delay ingredient reservation.
+
+| Meal | Ingredients per meal | Benefit | Duration after eating |
+|---|---|---|---|
+| Oil-fried barley cakes | 1 flour + 1 oil | Harvest barley and sesame 20% faster | 20 minutes |
+| Date cakes | 1 flour + 1 basket of dates | Select 2 additional fields when planting barley or sesame | 20 minutes |
+| Sesame cakes | 1 flour + 1 sesame + 1 oil | Farmer-operated flour, groats and oil milling, and beer preparation, are 15% faster | 20 minutes |
+| Date and sesame porridge | 1 groats + 1 basket of dates + 1 sesame | Hunger progresses 50% more slowly | 1 hour |
+
+- The farmer must have empty hands and be available. He stays occupied during
+  the journey and cooking. An independently working donkey may continue milling.
+- Cooking has a progress bar and remaining-time counter. The farmer eats
+  automatically at completion; there is no separate eating or collection action.
+- Only one meal benefit is active. A new meal replaces it when eaten, not when
+  cooking begins. Benefits never stack. Cooking a replacement spends its ingredients.
+- Bonus timers continue while away. Cooking, eating and expiry use saved server
+  times and never wait for the animation or an open browser tab.
+- Accepted planting selections keep all selected fields after a benefit expires.
+  Seeds are still required for every field. The +2 applies to planting, not harvesting.
+- Harvest and production speed bonuses are captured when the work is accepted;
+  a queued batch keeps its bonus through completion. Travel speed, yields,
+  ingredient costs, donkey work, baking and beer fermentation are unchanged.
+- Faster work means increased work per second (base duration divided by 1.20 or
+  1.15). All four kitchen meals still take 30 seconds to cook.
+- Porridge postpones automatic barley meals; it does not cure existing hunger,
+  restore happiness or replace the need for stored barley. Replacing it retains
+  protection already earned but removes its remaining protection.
+- Recipes are game-design adaptations, not exact historical reconstructions.
+
+Claim level 11 after completing its objectives and offering to unlock these meals.
+
+### Ziggurat completion celebration
+
+The first time each player visits their neighbourhood after the ziggurat is
+complete, five musicians follow the existing roads around it for 25 seconds.
+If completion happens while the player is already visiting, the procession starts
+there. It is recorded as seen when it starts: leaving, refreshing or switching
+browsers does not replay it. Each neighbour gets their own first-view celebration.
+It is cosmetic and never delays construction completion, rewards or other play.
+
+## In-game rules reference
+
+The Guide button beside Settings opens `/rules` in a separate browser tab from
+all three map views. Book controls in tile/building popups and the kitchen,
+merchant, market, level, ziggurat and leaderboard interfaces open the matching
+section. The game remains in its original tab; opening Rules does not start a
+second game session or change any saved work.
+
+The guide has a searchable contents list and covers playable levels, objectives,
+crops, storage, production, upgrades, points, happiness, meals, trade and the
+ziggurat. Player-facing copy lives in `src/client/features/rules/guide.ts`;
+points, construction, upgrade, recipe, NPC price and contribution tables read
+shared game configuration. Keep its explanatory copy aligned with this reference
+when changing rules. Do not expose development notes or unimplemented features
+as playable rules.
+
+## Planned warehouse improvements — level 14 (not playable)
+
+At level 14, players will be able to pay for two warehouse resource improvements,
+each adding 50% of the base storage capacity for a different resource. Exact
+prices, fractional-capacity rounding, upgrade timing and reassignment rules are
+not yet decided. Current warehouse capacities remain unchanged.
+
+### Production ingredient pickup display
+
+Production reserves its ingredients when the player confirms the job, so they
+cannot be spent twice and production continues while offline. Farm, warehouse
+and granary storage displays keep those reserved ingredients at their source
+until the farmer reaches it on the saved pickup journey. This applies to flour
+and groats milling, oil pressing, baking, brewing and cooking, including pickups
+split between storage buildings and either mill operator. Available inventory
+already excludes reserved ingredients. Reloading uses the saved pickup times;
+production never waits for the animation.
+
+Barley and sesame planting follow the same pickup display rule. Seeds are
+reserved on confirmation, and the farmer visits the storage locations supplying
+them before sowing. Each source count drops at its saved pickup time, including
+after a reload; seeds already carried by the farmer are not counted in storage.
+
+### Merchant departure after completed requests
+
+When every request for a visit is fulfilled, the merchant leaves early. The final
+confirmation remains visible until the requests popup is closed, then the boat
+sails away. Reloading does not bring a completed visit back. The next visit keeps
+its original scheduled time; finishing early does not shorten the wait.
+
+### Inside your home
+
+Choose **Enter house** in the farmhouse popup, or in Customize home → Interior, to view the courtyard and adjoining rooms. The popup closes and the available farmer walks to the farmhouse and fades through its doorway before the interior opens. A farmer already resting inside can open the interior directly. Entering the house does not start a rest or grant sleep benefits. Use +, − and Fit to inspect the interior, and Back to farm to return. When leaving, the farmer walks to the interior entrance before the farm view returns, then fades out through the farmhouse doorway. Farm work continues while you view the house.
+
+The house interior starts empty. Click an open floor to walk the farmer through the courtyard and adjoining rooms. He uses the doorways, and another click changes his destination. The house stays centred; dragging does not move the view. The soil border and plants outside are decorative. Each visit starts at the entrance; this interior movement does not change outdoor jobs or the farmer’s saved farm position. The home uses the same top bar as the other views: farm level and zoom controls on the left, view actions in the middle, and shekels, barley and happiness on the right. The farmer shortcut is disabled inside; Settings and Guide remain available. Open **Furniture** in the home toolbar to choose furniture. Your free starter set contains one sleeping mat, one stool, one table, two woven baskets, one large plain clay jar and two small clay bowls. Each is reusable; putting it away does not create extra copies. Beds are not part of this set. Select an item, choose a green placement on the floor, then confirm **Place**. Red previews mark blocked positions. Furniture bases must stay inside the rooms, clear of doorways, other items and the farmer. Items may sit partly behind walls when enough remains visible to select; room access must remain clear. Every placed item can also be selected from the Furniture drawer to move it or put it away. Click placed furniture to **Move** it or **Put away**; putting it away makes it available again. While placing or moving the sleeping mat or table, **Rotate** switches between two orientations. The orientation is saved with the item. Cancel leaves the saved arrangement unchanged. Arrangements are saved per player and remain after reloading. Furniture is decorative for now; object interactions and purchases are not available. Decorative jars and baskets do not add estate storage.

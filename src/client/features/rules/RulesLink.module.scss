@@ -1,0 +1,6 @@
+.icon { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 40px; flex-shrink: 0; box-sizing: border-box; color: #392518; background: #dabc80; border: 1px solid #e5c995; border-radius: 4px; text-decoration: none; }
+.toolbar { text-decoration: none; color: inherit; box-sizing: border-box; }
+.icon:hover, .toolbar:hover { filter: brightness(.95); }
+.icon:focus-visible, .toolbar:focus-visible { outline: 3px solid #65451f; outline-offset: 3px; }
+
+.artwork { display: block; object-fit: contain; flex-shrink: 0; }

@@ -49,21 +49,23 @@ it("keeps the map read-only with a level-seven entry and return navigation", () 
   expect(controls).toContain('<div className={styles.manageButtonRow}>');
   expect(controls).toContain('aria-label="Manage"><BuildingActionIcon kind="manage" />');
   expect(controls).toContain('Manage your estate<Tooltip.Arrow');
-  expect(controls).toContain('View your neighbourhood<Tooltip.Arrow');
+  expect(controls).toContain('"View your neighbourhood"}<Tooltip.Arrow');
   expect(controls).not.toContain('title="Manage"');
   expect(controls).not.toContain('title="Neighbourhood"');
   expect(controls).toContain('<BuildingActionIcon kind="neighbourhood" />');
   expect(controls.indexOf('aria-label="Manage"')).toBeLessThan(controls.indexOf('aria-label="Neighbourhood"'));
-  expect(controls.indexOf('aria-label="Neighbourhood"')).toBeLessThan(ui.indexOf("<ShekelBalance"));
+  const topBar = readFileSync(new URL("../../src/client/components/GameTopBar.tsx", import.meta.url), "utf8");
+  expect(ui).toContain("<GameTopBar snapshot={snapshot}");
+  expect(topBar.indexOf("{children}")).toBeLessThan(topBar.indexOf("<ShekelBalance"));
   expect(ui).toContain('scene.switch("neighbourhood")');
   expect(ui).toContain('neighbourhoodScene.current?.scene.switch("isometric-farm")');
-  const neighbourhoodControls = ui.slice(ui.indexOf('{neighbourhoodOpen && <div className={styles.manageControls}>'), ui.indexOf('<div className={styles.toolbar}>'));
+  const neighbourhoodControls = ui.slice(ui.indexOf('{neighbourhoodOpen && <div className={styles.manageControls}>'), ui.indexOf('</GameTopBar>'));
   expect(neighbourhoodControls.match(/styles.manageIconButton/g)).toHaveLength(2);
   expect(neighbourhoodControls).toContain('<div className={styles.manageButtonRow}>');
   expect(neighbourhoodControls).toContain('<BuildingActionIcon kind="leaderboard" />');
   expect(neighbourhoodControls).toContain('<BuildingActionIcon kind="farm" />');
   expect(neighbourhoodControls).toContain('View the leaderboard<Tooltip.Arrow');
-  expect(neighbourhoodControls).toContain('Back to your farm<Tooltip.Arrow');
+  expect(neighbourhoodControls).toContain('"Back to your farm"}<Tooltip.Arrow');
   expect(neighbourhoodControls.indexOf('aria-label="Leaderboard"')).toBeLessThan(neighbourhoodControls.indexOf('aria-label="Back to your farm"'));
 });
 

@@ -34,6 +34,7 @@ export const advancePerennialCropWork = async (tx: DatabaseTransaction, farm: Fa
   }
   const [updated] = await tx.update(farms).set({
     ...(job.action === "harvest" && job.cropKey === "datePalm" ? { progressionStats: { ...farm.progressionStats, datesStored: (farm.progressionStats.datesStored ?? 0) + job.quantity } } : {}),
+    ...(job.action === "harvest" && job.cropKey === "sesame" && farm.level === 10 ? { progressionStats: { ...farm.progressionStats, level10Work: { sesameHarvests: (farm.progressionStats.level10Work?.sesameHarvests ?? 0) + 1, oilProduced: farm.progressionStats.level10Work?.oilProduced ?? 0 } } } : {}),
     production: { ...farm.production, cropYields, palmCycles, cropWork: farm.production.cropWorkQueue?.[0] ?? { ...job, settled: true }, cropWorkQueue: farm.production.cropWorkQueue?.slice(1) },
     version: sql`${farms.version} + 1`, updatedAt: now }).where(eq(farms.id, farm.id)).returning();
   farm = updated!;

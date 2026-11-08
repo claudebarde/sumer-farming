@@ -80,9 +80,11 @@ export const deliveryPose = (plan: ReturnType<typeof deliveryPlan>, elapsed: num
   for (const candidate of plan.legs) { leg=candidate; if(remaining<candidate.duration) break; remaining-=candidate.duration; }
   if(elapsed>=plan.duration) remaining=leg.duration;
   const steps=remaining/DELIVERY_STEP_MS;
-  const farmer=samplePath(leg.route,steps);
-  const donkey=leg.escort ? samplePath(leg.route,steps-0.7) : samplePath([
-    leg.phase==="fetch" || leg.phase==="walk-home" ? DONKEY_HITCH : leg.route[0]!],0);
+  const approachLeg = leg.phase === "unload" ? plan.legs[3] : leg.phase === "load" ? plan.legs[1] : undefined;
+  const stationaryPose = approachLeg ? samplePath(approachLeg.route, approachLeg.route.length - 1) : undefined;
+  const farmer=stationaryPose ?? samplePath(leg.route,steps);
+  const donkey=stationaryPose ?? (leg.escort ? samplePath(leg.route,steps-0.7) : samplePath([
+    leg.phase==="fetch" || leg.phase==="walk-home" ? DONKEY_HITCH : leg.route[0]!],0));
   const load=leg.phase==="load" ? remaining/leg.duration : leg.phase==="deliver" ? 1 : leg.phase==="unload" ? 1-remaining/leg.duration : 0;
   return {phase:leg.phase,farmer,donkey,load:Math.max(0,Math.min(1,load)),working:leg.phase==="load" || leg.phase==="unload"};
 };
