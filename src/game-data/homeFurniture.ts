@@ -1,6 +1,7 @@
 // Sizes frame the visible artwork, excluding its transparent source margins.
 // The interior farmer is approximately 110 world pixels tall.
 export const HOME_FURNITURE = [
+  { key: "indoor-kitchen", name: "Kitchen", width: 250, height: 195, rx: 98, ry: 48 },
   { key: "reed-mat", name: "Sleeping mat", width: 150, height: 85, rx: 60, ry: 28 },
   { key: "wooden-stool", name: "Wooden stool", width: 68, height: 68, rx: 28, ry: 19 },
   { key: "wooden-table", name: "Wooden table", width: 190, height: 138, rx: 80, ry: 38 },
@@ -11,7 +12,7 @@ export const HOME_FURNITURE = [
   { key: "clay-bowl-2", name: "Small clay bowl", width: 36, height: 27, rx: 16, ry: 10 },
 ] as const;
 export type FurnitureKey = typeof HOME_FURNITURE[number]["key"];
-export type FurniturePlacement = { readonly key: FurnitureKey; readonly x: number; readonly y: number; readonly orientation?: "original" | "mirrored" };
+export type FurniturePlacement = { readonly key: FurnitureKey; readonly x: number; readonly y: number; readonly orientation?: "original" | "mirrored"; readonly surface?: "table" };
 export const furnitureDefinition = (key: FurnitureKey) => HOME_FURNITURE.find(item => item.key === key)!;
 
-export const canRotateFurniture = (key: FurnitureKey) => key === "reed-mat" || key === "wooden-table";
+export const canRotateFurniture = (key: FurnitureKey) => key === "reed-mat" || key === "wooden-table" || key === "indoor-kitchen";

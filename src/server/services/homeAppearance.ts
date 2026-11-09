@@ -11,7 +11,7 @@ export const saveHomeAppearance = (db: Database, playerId: string, input: HomeAp
   if (!farm) return { ok: false as const, message: "Farm not found." };
   const snapshot = await readFarmSnapshot(tx, farm, false);
   if ((snapshot.farm.progression?.level ?? 1) < 9) return { ok: false as const, message: "Home customization unlocks at level 9." };
-  const [updated] = await tx.update(farms).set({ homeAppearance: { ...appearance, furniture: farm.homeAppearance.furniture, furnitureRevision: farm.homeAppearance.furnitureRevision }, version: sql`${farms.version}+1`, updatedAt: new Date() }).where(eq(farms.id, farm.id)).returning();
+  const [updated] = await tx.update(farms).set({ homeAppearance: { ...appearance, visibility: farm.homeAppearance.visibility, furniture: farm.homeAppearance.furniture, furnitureRevision: farm.homeAppearance.furnitureRevision }, version: sql`${farms.version}+1`, updatedAt: new Date() }).where(eq(farms.id, farm.id)).returning();
   return { ok: true as const, snapshot: await readFarmSnapshot(tx, updated!, false) };
 });
 
@@ -23,6 +23,10 @@ export const saveHomeFurniture = (db: Database, playerId: string, input: unknown
   if (invalid) return { ok: false as const, message: invalid };
   const [farm] = await tx.select().from(farms).where(eq(farms.playerId, playerId)).for("update");
   if (!farm) return { ok: false as const, message: "Farm not found." };
+  if (command.items.some(item => item.key === "indoor-kitchen")) {
+    const snapshot = await readFarmSnapshot(tx, farm, false);
+    if ((snapshot.farm.progression?.level ?? 1) < 11) return { ok: false as const, message: "The kitchen unlocks at level 11." };
+  }
   if ((farm.homeAppearance.furnitureRevision ?? 0) !== command.revision) return { ok: false as const, message: "Your furniture changed in another tab. Reopen the house and try again." };
   const [updated] = await tx.update(farms).set({
     homeAppearance: { ...farm.homeAppearance, furniture: command.items, furnitureRevision: command.revision + 1 },

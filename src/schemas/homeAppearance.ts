@@ -1,6 +1,9 @@
 import { FurnitureLayoutSchema } from "./homeFurniture";
 import { z } from "zod";
+export const HomeVisibilitySchema = z.enum(["everyone", "private"]);
+export type HomeVisibility = z.infer<typeof HomeVisibilitySchema>;
 export const HomeAppearanceSchema = z.object({
+  visibility: HomeVisibilitySchema.optional(),
   // Retire the former starter jar without discarding the rest of a saved room.
   furniture: z.preprocess(value => Array.isArray(value)
     ? value.filter(item => !(item && typeof item === "object" && item.key === "painted-jar"))

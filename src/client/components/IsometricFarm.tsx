@@ -1,3 +1,4 @@
+import PlayerProfileDialog from "./PlayerProfileDialog";
 import GameTopBar from "./GameTopBar";
 import type { HomeTabletKey } from "../game/phaser/homeTablets";
 import { sendHomeAppearance } from "../api/homeAppearance";
@@ -113,6 +114,7 @@ export default function IsometricFarm() {
   }, []);
   const scene = useRef<IsometricFarmScene | null>(null);
   const marketScene = useRef<IsometricMarketScene | null>(null);
+  const [profilePlayer, setProfilePlayer] = useState<string | null>(null);
   const neighbourhoodScene = useRef<NeighbourhoodScene | null>(null);
   const celebrationPending = useRef(false);
   const [neighbourhoodSlot, setNeighbourhoodSlot] = useState<number | null>(null);
@@ -600,6 +602,7 @@ export default function IsometricFarm() {
         scene.current = renderer;
         marketScene.current = market; activeScene.current = renderer;
         const neighbourhood = new NeighbourhoodScene();
+        neighbourhood.onPlayerClick = setProfilePlayer;
         neighbourhood.onZigguratClick = () => setZigguratOpen(true);
         neighbourhoodScene.current = neighbourhood;
         game = new Phaser.Game({ type: Phaser.AUTO, parent: parent.current, transparent: true, scene: [renderer, market, neighbourhood, BackgroundMusicScene],
@@ -970,7 +973,8 @@ export default function IsometricFarm() {
         decorationsContent={snapshot && <><DecorationsPanel snapshot={snapshot} pending={pending} onPlace={placeDecoration} onStore={id=>void changeDecoration(id)}/>
           {decorationError&&<p role="alert">{decorationError}</p>}</>} />
     </Dialog.Root>
-    {homeOpen && snapshot && <HomeDrawer onEnter={enterHome} selectedTablet={homeTablet} onTablet={tablet => { void saveHome(homeStyle, homeDecoration, tablet); }} selectedDecoration={homeDecoration} onDecoration={decoration => { void saveHome(homeStyle, decoration); }} selectedStyle={homeStyle} onStyle={style => { void saveHome(style, homeDecoration); }} level={snapshot.farm.progression?.level ?? 1} onClose={() => setHomeOpen(false)} />}
+    {profilePlayer && <PlayerProfileDialog playerId={profilePlayer} onClose={() => setProfilePlayer(null)} />}
+    {homeOpen && snapshot && <HomeDrawer furniture={snapshot.farm.homeAppearance.furniture ?? []} visibility={snapshot.farm.homeAppearance.visibility ?? "everyone"} onSaved={next => accept.current(next)} onEnter={enterHome} selectedTablet={homeTablet} onTablet={tablet => { void saveHome(homeStyle, homeDecoration, tablet); }} selectedDecoration={homeDecoration} onDecoration={decoration => { void saveHome(homeStyle, decoration); }} selectedStyle={homeStyle} onStyle={style => { void saveHome(style, homeDecoration); }} level={snapshot.farm.progression?.level ?? 1} onClose={() => setHomeOpen(false)} />}
     {interiorOpen && snapshot && <HomeInterior snapshot={snapshot} clock={clock} onSaved={next => accept.current(next)} onClose={() => { setInteriorOpen(false); scene.current?.endHomeEntry(); }} />}
     <div ref={mountMap} className={styles.canvas} />
     {neighbourhoodOpen && (snapshot?.farm.progression?.level ?? 1) >= 7 &&

@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { BACKGROUND_MUSIC_KEY, BACKGROUND_MUSIC_URL, backgroundMusicAction, backgroundMusicFade, tryMusicAutoplay } from "../backgroundMusic";
 import { musicSettingsStore } from "../../../stores/musicSettingsStore";
+import { interiorAudioStore } from "../../../stores/interiorAudioStore";
 import { createWindAmbience, WIND_GUST_KEY, WIND_GUST_URL } from "../windAmbience";
 import { HARVEST_AUDIO_KEY, HARVEST_AUDIO_URL, syncHarvestingAudio } from "../harvestingAudio";
 import type { IsometricFarmScene } from "./IsometricFarmScene";
@@ -67,10 +68,11 @@ export class BackgroundMusicScene extends Phaser.Scene {
       const now = Date.now();
       const neighbourhoodState = neighbourhood?.audioState(now);
       const allowed = !document.hidden && enabled && (context ? context.state === "running" : !this.sound.locked);
-      const harvesting = !document.hidden && !!farm?.isHarvestingForAudio(Date.now());
+      const interior = interiorAudioStore.getState();
+      const harvesting = !interior.active && !document.hidden && !!farm?.isHarvestingForAudio(Date.now());
       if (harvestSound) syncHarvestingAudio(harvestSound, harvesting, allowed, volume);
       if (walkingSound) syncActionLoopAudio(walkingSound,
-        !harvesting && (!!farm?.isWalkingForAudio() || !!market?.isWalkingForAudio() || !!neighbourhoodState?.walking), allowed, volume);
+        interior.active ? interior.walking : !harvesting && (!!farm?.isWalkingForAudio() || !!market?.isWalkingForAudio() || !!neighbourhoodState?.walking), allowed, volume);
       const inNeighbourhood = !!neighbourhood?.sys.isActive() && !!neighbourhood?.sys.isVisible();
       brayAudio?.(inNeighbourhood ? neighbourhoodState?.pickup ?? null : donkeyPickupCue(farm?.donkeyMillingForAudio()), now,
         allowed && (inNeighbourhood || (!!farm?.sys.isActive() && !!farm?.sys.isVisible())), volume);

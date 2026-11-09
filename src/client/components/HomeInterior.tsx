@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { replaceFurniture, removeFurniture } from "../../game-core/home/furnitureSurfaces";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, Tooltip } from "radix-ui";
 import type { HomeInteriorScene } from "../game/home/HomeInteriorScene";
 import GameTopBar from "./GameTopBar";
+import GameLoadingScreen from "./GameLoadingScreen";
 import SettingsDrawer from "./SettingsDrawer";
 import RulesLink from "./RulesLink";
 import BuildingActionIcon from "./BuildingActionIcon";
@@ -13,15 +15,22 @@ import { HOME_FURNITURE, canRotateFurniture, furnitureDefinition, type Furniture
 import { FURNITURE_ARTWORK } from "../game/home/furnitureArtwork";
 import type { FurniturePreview } from "../game/home/HomeInteriorScene";
 import { sendHomeFurniture } from "../api/homeAppearance";
+import { interiorAudioStore } from "../stores/interiorAudioStore";
 import drawerStyles from "../styles/GameCanvas.module.scss";
 import kitchen from "../styles/Kitchen.module.scss";
 import styles from "../styles/HomeInterior.module.scss";
 
 /** Independent visual interior. Visiting does not alter farm jobs or resources. */
-export default function HomeInterior({ onClose, snapshot, clock, onSaved }: {
+export default function HomeInterior({ onClose, snapshot, clock, onSaved, visit }: {
+  readonly visit?: { readonly playerId: string; readonly name: string; readonly appearance: import("../../schemas/playerHome").PlayerHome["appearance"] };
   readonly onClose: () => void; readonly snapshot: FarmSnapshot; readonly clock: number; readonly onSaved: (snapshot: FarmSnapshot) => void;
 }) {
-  const appearance = snapshot.farm.homeAppearance;
+  const appearance = useMemo(() => visit ? { ...snapshot.farm.homeAppearance, ...visit.appearance } : snapshot.farm.homeAppearance, [snapshot.farm.homeAppearance, visit]);
+  const visiting = useRef(!!visit);
+  useEffect(() => {
+    interiorAudioStore.setState({ active: true, walking: false });
+    return () => { interiorAudioStore.setState({ active: false, walking: false }); };
+  }, []);
   const tooltip = useNavigationTooltip();
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   const scene = useRef<HomeInteriorScene | null>(null);
@@ -30,6 +39,7 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved }: {
   const [failed, setFailed] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [furnishOpen, setFurnishOpen] = useState(false);
+  const [cookingPreview, setCookingPreview] = useState(false);
   const [placing, setPlacing] = useState<FurnitureKey | null>(null);
   const [selected, setSelected] = useState<FurnitureKey | null>(null);
   const [preview, setPreview] = useState<FurniturePreview | null>(null);
@@ -37,14 +47,15 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved }: {
   const [error, setError] = useState<string | null>(null);
   const savingRef = useRef(false);
   const appearanceRef = useRef(appearance);
-  useEffect(() => { appearanceRef.current = appearance; scene.current?.setFurniture(appearance.furniture ?? []); }, [appearance]);
+  useEffect(() => { appearanceRef.current = appearance; scene.current?.setFurniture(appearance.furniture ?? []); scene.current?.setWallTablet(appearance.wallTablet ?? "none"); }, [appearance]);
   const cancelPlacement = () => { scene.current?.cancelPlacement(); setPlacing(null); setError(null); };
   const choose = (key: FurnitureKey) => {
+    if (visit) return;
     setFurnishOpen(false); setSelected(null); setError(null); setPlacing(key);
     scene.current?.lockFurniture(false); scene.current?.beginPlacement(key);
   };
   const save = async (items: readonly FurniturePlacement[]) => {
-    if (savingRef.current) return;
+    if (visit || savingRef.current) return;
     savingRef.current = true; setSaving(true); setError(null); scene.current?.lockFurniture(true);
     try {
       const next = await sendHomeFurniture(appearanceRef.current.furnitureRevision ?? 0, items);
@@ -69,8 +80,9 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved }: {
     let observer: ResizeObserver | undefined;
     void Promise.all([import("phaser"), import("../game/home/HomeInteriorScene")]).then(([{ default: Phaser }, { HomeInteriorScene }]) => {
       if (disposed || !host) return;
-      const interior = new HomeInteriorScene(() => { if (!disposed) setLoading(false); }, setPreview, key => { setSelected(key); setError(null); });
+      const interior = new HomeInteriorScene(() => { if (!disposed) setLoading(false); }, setPreview, key => { if (!visiting.current) { setSelected(key); setError(null); } });
       interior.setFurniture(appearanceRef.current.furniture ?? []);
+      interior.setWallTablet(appearanceRef.current.wallTablet ?? "none");
       scene.current = interior;
       game = new Phaser.Game({
         type: Phaser.AUTO, parent: host, width: host.clientWidth, height: host.clientHeight,
@@ -94,48 +106,56 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved }: {
         onOpenAutoFocus={event => { event.preventDefault(); interiorContent.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={event => event.preventDefault()}
         onEscapeKeyDown={event => { if (saving || placing || selected) { event.preventDefault(); if (!saving) { cancelPlacement(); setSelected(null); } } }}>
-        <Dialog.Title className={styles.accessibleTitle}>Your home</Dialog.Title>
+        <Dialog.Title className={styles.accessibleTitle}>{visit ? `${visit.name}’s home` : "Your home"}</Dialog.Title>
         <GameTopBar snapshot={snapshot} clock={clock} zoomDisabled={loading}
           onZoomIn={() => scene.current?.zoomBy(1.2)} onZoomOut={() => scene.current?.zoomBy(1 / 1.2)} onFit={() => scene.current?.fit()}>
           <div className={bar.manageControls}><div className={bar.manageButtonRow}>
             <Tooltip.Provider delayDuration={300}>
-              <Tooltip.Root {...tooltip("furniture")}>
+              {!visit && <Tooltip.Root {...tooltip("furniture")}>
                 <Tooltip.Trigger asChild>
-                  <button className={`${bar.manageButton} ${actions.button} ${bar.manageIconButton}`} disabled={loading || leaving || saving}
+                  <button className={`${bar.manageButton} ${actions.button} ${bar.manageIconButton}`} disabled={loading || leaving || saving || cookingPreview}
                     aria-label="Furniture" onClick={() => { cancelPlacement(); setSelected(null); scene.current?.lockFurniture(true); setFurnishOpen(true); }}>
                     <img className={styles.furnitureIcon} src={FURNITURE_ARTWORK["wooden-stool"]} alt="" />
                     <span className={bar.controlLabel}>Furniture</span>
                   </button>
                 </Tooltip.Trigger>
                 <Tooltip.Portal><Tooltip.Content className={bar.navigationTooltip} side="bottom" sideOffset={6}>Furnish your home<Tooltip.Arrow className={bar.navigationTooltipArrow} /></Tooltip.Content></Tooltip.Portal>
-              </Tooltip.Root>
+              </Tooltip.Root>}
               <Tooltip.Root {...tooltip("home-return")}>
                 <Tooltip.Trigger asChild>
-                  <button className={`${bar.manageButton} ${actions.button} ${bar.manageIconButton} ${bar.travelButton}`} disabled={leaving || saving} aria-label="Back to your farm" onClick={leave}>
-                    <BuildingActionIcon kind="farm" /><span className={bar.controlLabel}>Your farm</span>
+                  <button className={`${bar.manageButton} ${actions.button} ${bar.manageIconButton} ${bar.travelButton}`} disabled={leaving || saving} aria-label={visit ? "Back to profile" : "Back to your farm"} onClick={leave}>
+                    <BuildingActionIcon kind="farm" /><span className={bar.controlLabel}>{visit ? "Back" : "Your farm"}</span>
                   </button>
                 </Tooltip.Trigger>
-                <Tooltip.Portal><Tooltip.Content className={bar.navigationTooltip} side="bottom" sideOffset={6}>{leaving ? "Leaving home…" : "Back to your farm"}<Tooltip.Arrow className={bar.navigationTooltipArrow} /></Tooltip.Content></Tooltip.Portal>
+                <Tooltip.Portal><Tooltip.Content className={bar.navigationTooltip} side="bottom" sideOffset={6}>{leaving ? "Leaving home…" : visit ? "Back to profile" : "Back to your farm"}<Tooltip.Arrow className={bar.navigationTooltipArrow} /></Tooltip.Content></Tooltip.Portal>
               </Tooltip.Root>
               <SettingsDrawer layer={1400} onOpen={() => { if (!saving) { cancelPlacement(); setSelected(null); } }} />
               <RulesLink toolbar />
+              {!visit && appearance.furniture?.some(item => item.key === "indoor-kitchen") && <button disabled={loading || leaving || saving || !!placing || furnishOpen}
+                onClick={() => {
+                  setSelected(null); setError(null);
+                  if (cookingPreview) { scene.current?.stopCookingPreview(); setCookingPreview(false); }
+                  else if (scene.current?.startCookingPreview()) setCookingPreview(true);
+                  else setError("Leave clear floor in front of the kitchen table for the farmer.");
+                }}>{cookingPreview ? "Stop cooking preview" : "Start cooking preview"}</button>}
             </Tooltip.Provider>
           </div></div>
         </GameTopBar>
+        {visit && <p className={styles.visitTitle}>{visit.name}’s home</p>}
         <div className={styles.viewport} ref={setHost} role="region" aria-label="Home interior. Click the floor to walk.">
-          {loading && <p className={styles.loading} role="status">{failed ? "Unable to load your home. Please close it and try again." : "Loading your home…"}</p>}
+          {(loading || failed) && <GameLoadingScreen destination="home" homeOwnerName={visit && visit.playerId !== snapshot.farm.playerId ? visit.name : undefined} state={failed ? "error" : "loading"} retry={() => window.location.reload()} />}
         </div>
         {(placing || selected || error) && <div className={styles.actions}>
           <strong>{furnitureDefinition((placing ?? selected ?? "wooden-stool")).name}</strong>
           {error && <p role="alert">{error}</p>}
           {placing && <>
-            <div><button disabled={saving || !preview || !!preview.error} onClick={() => preview && void save([...(appearanceRef.current.furniture ?? []).filter(i => i.key !== placing), preview.item])}>{saving ? "Saving…" : "Place"}</button>
+            <div>{preview?.fixed && <button disabled={saving || !!preview.error} onClick={() => preview && void save(replaceFurniture(appearanceRef.current.furniture ?? [], preview.item))}>{saving ? "Saving…" : "Confirm"}</button>}
             {canRotateFurniture(placing) && <button disabled={saving} onClick={() => scene.current?.rotatePlacement()}>Rotate</button>}
             <button disabled={saving} onClick={cancelPlacement}>Cancel</button></div>
           </>}
           {selected && !placing && <div>
             <button disabled={saving} onClick={() => choose(selected)}>Move</button>
-            <button disabled={saving} onClick={() => void save((appearanceRef.current.furniture ?? []).filter(i => i.key !== selected))}>Put away</button>
+            <button disabled={saving} onClick={() => void save(removeFurniture(appearanceRef.current.furniture ?? [], selected))}>Put away</button>
             <button disabled={saving} onClick={() => { setSelected(null); setError(null); }}>Close</button>
           </div>}
         </div>}
@@ -145,10 +165,10 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved }: {
             <Dialog.Content className={`${drawerStyles["manage-dialog-content"]} ${kitchen.drawer} ${styles.furnitureDrawer}`} aria-describedby={undefined}>
               <header className={kitchen.drawerHeader}><Dialog.Title>Furnish your home</Dialog.Title><Dialog.Close asChild><button aria-label="Close furniture">×</button></Dialog.Close></header>
               <div className={`${kitchen.drawerBody} ${styles.items}`}>
-                {HOME_FURNITURE.map(item => {
+                {HOME_FURNITURE.filter(item => item.key !== "indoor-kitchen" || (snapshot.farm.progression?.level ?? 1) >= 11).map(item => {
                   const placed = appearance.furniture?.some(i => i.key === item.key);
                   const number = item.key.startsWith("woven-basket") || item.key.startsWith("clay-bowl") ? (item.key.endsWith("-2") ? " 2" : " 1") : "";
-                  return <button key={item.key} data-placed={placed ? "true" : undefined} aria-label={`${item.name}${number}${placed ? ", placed in your home" : ""}`} onClick={() => { setFurnishOpen(false); scene.current?.lockFurniture(false); if (placed) setSelected(item.key); else choose(item.key); }}><img src={FURNITURE_ARTWORK[item.key]} alt="" /><strong>{item.name}{number}</strong>{placed && <small>Select</small>}</button>;
+                  return <button key={item.key} data-placed={placed ? "true" : undefined} aria-label={`${item.name}${number}${placed ? ", placed in your home" : ""}`} onClick={() => { setFurnishOpen(false); scene.current?.lockFurniture(false); if (placed) setSelected(item.key); else choose(item.key); }}><img src={FURNITURE_ARTWORK[item.key]} alt="" /><strong>{item.name}{number}</strong></button>;
                 })}
               </div>
             </Dialog.Content>

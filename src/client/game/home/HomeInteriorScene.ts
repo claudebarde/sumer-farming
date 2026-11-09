@@ -1,8 +1,11 @@
+import { furnitureAtPointer, furniturePosition, furnitureDepth, replaceFurniture } from "../../../game-core/home/furnitureSurfaces";
+import { HOME_TABLETS, prepareWallTabletTexture, type HomeTabletKey } from "../phaser/homeTablets";
 import { HOME_FURNITURE, canRotateFurniture, furnitureDefinition, type FurnitureKey, type FurniturePlacement } from "../../../game-data/homeFurniture";
 import { furnitureObstacles } from "../../../game-core/home/furniture";
 import { FURNITURE_ARTWORK } from "./furnitureArtwork";
-import { prepareBuildingTexture } from "../phaser/buildingTexture";
-export type FurniturePreview = { readonly item: FurniturePlacement; readonly error: string | null };
+import { prepareFurnitureTexture, placedFurnitureTexture } from "./furnitureTexture";
+import { kitchenActorDepth } from "./kitchenActorDepth";
+export type FurniturePreview = { readonly item: FurniturePlacement; readonly error: string | null; readonly fixed: boolean };
 import Phaser from "phaser";
 import ground from "../../../assets/sprite_assets/pngs/v2/isometric-test/ground-non-arable.png";
 import bush from "../../../assets/sprite_assets/pngs/v2/isometric-test/bush-isometric-01.png";
@@ -13,27 +16,41 @@ import { FARMER_SHARPEN_AMOUNT, prepareFarmerTexture } from "../phaser/farmerTex
 import { FARMER_WALK_SOURCES, FARMER_WALK_BOUNDS, farmerWalkTexture } from "../phaser/farmerWalk";
 import { INTERIOR_ENTRY, interiorPath, distance, type InteriorPoint } from "./interiorNavigation";
 
-import { INTERIOR_WALLS, DOORWAY_HEADERS, insideDoorway, behindLeftInteriorWall, behindRightInteriorWall, type WallPolygon } from "./interiorWalls";
+import { COOKING_FRAMES, COOKING_BOUNDS, cookingFrame } from "../phaser/cookingAnimation";
+import { actorOccludingWalls } from "./interiorWalls";
+import { interiorAudioStore } from "../../stores/interiorAudioStore";
 
 export class HomeInteriorScene extends Phaser.Scene {
+  private cookingPreview: { kitchen: FurniturePlacement; elapsed: number; returnTo: InteriorPoint } | null = null;
+  private cookingFire?: Phaser.GameObjects.Graphics;
+  private cookingSteam?: Phaser.GameObjects.Graphics;
   private furniture: readonly FurniturePlacement[] = [];
+  private wallTablet: HomeTabletKey = "none";
+  private wallTabletImage?: Phaser.GameObjects.Image;
   private furnitureImages: Phaser.GameObjects.Image[] = [];
   private placing: FurnitureKey | null = null;
   private placementOrientation: "original" | "mirrored" = "original";
   private ghost?: Phaser.GameObjects.Image;
+  private carriedPreviews: { item: FurniturePlacement; image: Phaser.GameObjects.Image }[] = [];
   private footprint?: Phaser.GameObjects.Image;
   private preview: FurniturePreview | null = null;
+  private placementFixed = false;
+  private clickedValidation: number | null = null;
   private furnitureLocked = false;
   private validationWorker?: Worker;
   private validationBusy = false;
   private validationId = 0;
   private pendingValidation?: { id: number; items: FurniturePlacement[]; farmer: InteriorPoint };
   private actor?: Phaser.GameObjects.Image;
-  private leftWall?: Phaser.GameObjects.Image;
-  private rightWall?: Phaser.GameObjects.Image;
-  private doorwayHeaders: Phaser.GameObjects.Image[] = [];
+  private actorCanvas?: HTMLCanvasElement;
+  private actorTexture?: Phaser.Textures.CanvasTexture;
+  private actorFrameState = "";
+  private shadow?: Phaser.GameObjects.Image;
+  private shadowCanvas?: HTMLCanvasElement;
+  private shadowTexture?: Phaser.Textures.CanvasTexture;
+  private shadowPosition = "";
+  private facingLeft = false;
   private readonly reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  private shadow?: Phaser.GameObjects.Ellipse;
   private marker?: Phaser.GameObjects.Ellipse;
   private path: readonly InteriorPoint[] = [];
   private travelled = 0;
@@ -49,6 +66,8 @@ export class HomeInteriorScene extends Phaser.Scene {
     this.onReady = onReady; this.onPreview = onPreview; this.onSelect = onSelect;
   }
   preload() {
+    COOKING_FRAMES.forEach((url, i) => this.load.image(`cooking-source-${i}`, url));
+    HOME_TABLETS.forEach(tablet => this.load.image(`interior-tablet-source-${tablet.key}`, tablet.source));
     HOME_FURNITURE.forEach(item => this.load.image(`furniture-source-${item.key}`, FURNITURE_ARTWORK[item.key]));
     this.load.image("house", artwork);
     this.load.image("interior-ground", ground);
@@ -57,30 +76,15 @@ export class HomeInteriorScene extends Phaser.Scene {
     FARMER_WALK_SOURCES.forEach((url, i) => this.load.image(`walk-source-${i}`, url));
   }
   create() {
+    COOKING_FRAMES.forEach((_, i) => this.textures.addCanvas(`farmer-cooking-${i}`, prepareFarmerTexture(
+      this.textures.get(`cooking-source-${i}`).getSourceImage() as HTMLImageElement, FARMER_SHARPEN_AMOUNT, COOKING_BOUNDS, 256))?.setFilter(Phaser.Textures.FilterMode.LINEAR));
+    this.cookingFire = this.add.graphics();
+    this.cookingSteam = this.add.graphics();
+    HOME_TABLETS.forEach(tablet => this.textures.addCanvas(`interior-tablet-${tablet.key}`,
+      prepareWallTabletTexture(this.textures.get(`interior-tablet-source-${tablet.key}`).getSourceImage() as HTMLImageElement))?.setFilter(Phaser.Textures.FilterMode.LINEAR));
     HOME_FURNITURE.forEach(item => {
       const original = this.textures.get(`furniture-source-${item.key}`).getSourceImage() as HTMLImageElement;
-      const cropped = document.createElement("canvas");
-      cropped.width = original.naturalWidth; cropped.height = original.naturalHeight;
-      const context = cropped.getContext("2d")!;
-      context.drawImage(original, 0, 0);
-      const pixels = context.getImageData(0, 0, cropped.width, cropped.height).data;
-      let left = cropped.width, top = cropped.height, right = -1, bottom = -1;
-      // Ignore the faint baked glow when measuring the usable object's silhouette.
-      for (let y = 0; y < cropped.height; y++) for (let x = 0; x < cropped.width; x++) {
-        if (pixels[(y * cropped.width + x) * 4 + 3]! > 200) {
-          left = Math.min(left, x); right = Math.max(right, x);
-          top = Math.min(top, y); bottom = Math.max(bottom, y);
-        }
-      }
-      const frame = document.createElement("canvas");
-      frame.width = Math.max(1, right - left + 1); frame.height = Math.max(1, bottom - top + 1);
-      frame.getContext("2d")!.drawImage(original, left, top, frame.width, frame.height, 0, 0, frame.width, frame.height);
-      const source = prepareBuildingTexture(frame);
-      const canvas = document.createElement("canvas"); canvas.width = item.width; canvas.height = item.height;
-      const scale = Math.min(item.width / source.width, item.height / source.height);
-      const width = source.width * scale, height = source.height * scale;
-      // Preview and placed objects use exactly the same proportionate, normalized frame.
-      canvas.getContext("2d")!.drawImage(source, (item.width - width) / 2, (item.height - height) / 2, width, height);
+      const canvas = prepareFurnitureTexture(original, item.key);
       this.textures.addCanvas(`furniture-${item.key}`, canvas)?.setFilter(Phaser.Textures.FilterMode.LINEAR);
       // Cache a padded silhouette outline once; pointer movement only moves images.
       const mask = document.createElement("canvas"); mask.width = canvas.width; mask.height = canvas.height;
@@ -104,37 +108,42 @@ export class HomeInteriorScene extends Phaser.Scene {
     this.validationWorker.onmessage = (event: MessageEvent<{ id: number; error: string | null }>) => {
       this.validationBusy = false;
       if (event.data.id === this.validationId && this.preview && this.placing) {
-        this.preview = { item: this.preview.item, error: event.data.error };
-        this.footprint?.setTint(event.data.error ? 0xb75038 : 0x80a743);
+        if (this.clickedValidation === event.data.id) {
+          this.placementFixed = !event.data.error;
+          this.clickedValidation = null;
+        }
+        this.preview = { item: this.preview.item, error: event.data.error, fixed: this.placementFixed };
+        this.footprint?.setTint(event.data.error ? 0xb75038 : this.placementFixed ? 0xd9ad4d : 0x80a743);
         this.onPreview(this.preview);
       }
       this.validatePending();
     };
-    this.events.once("shutdown", () => { this.validationWorker?.terminate(); this.validationWorker = undefined; });
+    this.events.once("shutdown", () => {
+      this.validationWorker?.terminate(); this.validationWorker = undefined;
+      interiorAudioStore.setState({ walking: false });
+    });
     drawInteriorGround(this);
     this.add.image(0, 0, "house").setOrigin(0);
     this.textures.addCanvas("farmer-idle", prepareFarmerTexture(this.textures.get("idle-source").getSourceImage() as HTMLImageElement, FARMER_SHARPEN_AMOUNT, undefined, 256))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     FARMER_WALK_SOURCES.forEach((_, i) => this.textures.addCanvas(`farmer-walk-v2-${i}`, prepareFarmerTexture(this.textures.get(`walk-source-${i}`).getSourceImage() as HTMLImageElement, FARMER_SHARPEN_AMOUNT, FARMER_WALK_BOUNDS, 256))?.setFilter(Phaser.Textures.FilterMode.LINEAR));
-    this.shadow = this.add.ellipse(INTERIOR_ENTRY.x, INTERIOR_ENTRY.y, 42, 13, 0x624728, .2).setDepth(1);
     this.marker = this.add.ellipse(0, 0, 25, 12).setStrokeStyle(2, 0xd9ad4d).setDepth(1).setVisible(false);
     this.actor = this.add.image(INTERIOR_ENTRY.x, INTERIOR_ENTRY.y, "farmer-idle").setOrigin(.5, 120 / 128).setDisplaySize(125, 125).setDepth(2);
-    // Repaint the exact original wall pixels above the actor, leaving doorway openings clear.
-    const source = this.textures.get("house").getSourceImage() as HTMLImageElement;
-    
-    const layer = (key: string, polygons: readonly WallPolygon[]) => {
-      const wall = document.createElement("canvas"); wall.width = 1536; wall.height = 1024;
-      const ctx = wall.getContext("2d")!;
-      for (const points of polygons) {
-        ctx.save(); ctx.beginPath(); points.forEach(([x, y], i) => i ? ctx.lineTo(x!, y!) : ctx.moveTo(x!, y!)); ctx.closePath(); ctx.clip(); ctx.drawImage(source, 0, 0, 1536, 1024); ctx.restore();
-      }
-      this.textures.addCanvas(key, wall);
-      return this.add.image(0, 0, key).setOrigin(0).setDepth(3);
-    };
-    this.leftWall = layer("left-wall", INTERIOR_WALLS.left);
-    this.rightWall = layer("right-wall", INTERIOR_WALLS.right);
-    layer("front-walls", INTERIOR_WALLS.front);
-    this.doorwayHeaders = DOORWAY_HEADERS.map((door, i) =>
-      layer(`doorway-header-${i}`, [door.silhouette]).setDepth(4).setVisible(false));
+    // Furniture is clipped against its own walls. Clip the actor independently too:
+    // repainting whole walls above the actor also painted over unrelated furniture.
+    this.actorCanvas = document.createElement("canvas");
+    this.actorCanvas.width = this.actorCanvas.height = 256;
+    this.actorTexture = this.textures.addCanvas("farmer-clipped", this.actorCanvas) ?? undefined;
+    this.actorTexture?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    this.shadowCanvas = document.createElement("canvas");
+    this.shadowCanvas.width = 64; this.shadowCanvas.height = 32;
+    this.shadowTexture = this.textures.addCanvas("farmer-shadow-clipped", this.shadowCanvas) ?? undefined;
+    this.shadowTexture?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    this.shadow = this.add.image(INTERIOR_ENTRY.x, INTERIOR_ENTRY.y, "farmer-shadow-clipped").setDepth(1);
+    this.drawShadow();
+    // Outer face of the entrance's right-hand wall; artwork already has this perspective.
+    this.wallTabletImage = this.add.image(880, 900, "interior-tablet-home-tablet-sky")
+      .setDisplaySize(80, 80).setDepth(3.1).setVisible(false);
+    this.setWallTablet(this.wallTablet);
     this.fit();
     this.scale.on("resize", this.fit, this);
     this.events.once("shutdown", () => this.scale.off("resize", this.fit, this));
@@ -142,7 +151,7 @@ export class HomeInteriorScene extends Phaser.Scene {
       this.down = { x: p.x, y: p.y }; this.dragged = false;
     });
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
-      if (this.placing && !this.furnitureLocked) {
+      if (this.placing && !this.furnitureLocked && !this.placementFixed && this.clickedValidation === null) {
         this.previewAt(this.cameras.main.getWorldPoint(p.x, p.y));
       }
       if (!p.isDown || !this.down) return;
@@ -150,10 +159,21 @@ export class HomeInteriorScene extends Phaser.Scene {
 
     });
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => {
-      if (!this.exitComplete && !this.furnitureLocked && this.down && !this.dragged && this.actor) {
+      if (!this.cookingPreview && !this.exitComplete && !this.furnitureLocked && this.down && !this.dragged && this.actor) {
         const target = this.cameras.main.getWorldPoint(p.x, p.y);
-        if (this.placing) { this.previewAt(target); this.down = undefined; return; }
-        const item = [...this.furniture].sort((a,b) => b.y-a.y).find(item => this.hitFurniture(item, target));
+        if (this.placing) {
+          this.previewAt(target);
+          if (this.preview?.error === null) {
+            this.placementFixed = true;
+            this.footprint?.setTint(0xd9ad4d);
+            this.preview = { ...this.preview, fixed: true }; this.onPreview(this.preview);
+          } else if (this.preview?.error === "Checking placement…") {
+            // Freeze the clicked point until its exact worker validation returns.
+            this.clickedValidation = this.validationId;
+          }
+          this.down = undefined; return;
+        }
+        const item = [...this.furniture].sort((a,b) => furnitureDepth(b, this.furniture)-furnitureDepth(a, this.furniture)).find(item => this.hitFurniture(item, target));
         if (item) { this.path = []; this.onSelect(item.key); this.down = undefined; return; }
         const route = interiorPath(this.actor, target, furnitureObstacles(this.furniture));
         if (route.length) { this.path = route; this.marker?.setPosition(target.x, target.y).setVisible(true); }
@@ -166,6 +186,12 @@ export class HomeInteriorScene extends Phaser.Scene {
     this.drawFurniture();
     this.onReady();
   }
+  setWallTablet(tablet: HomeTabletKey) {
+    this.wallTablet = tablet;
+    if (!this.wallTabletImage) return;
+    this.wallTabletImage.setVisible(tablet !== "none");
+    if (tablet !== "none") this.wallTabletImage.setTexture(`interior-tablet-${tablet}`).setDisplaySize(80, 80);
+  }
   setFurniture(items: readonly FurniturePlacement[]) {
     if (JSON.stringify(items) === JSON.stringify(this.furniture)) return;
     this.furniture = items;
@@ -173,18 +199,24 @@ export class HomeInteriorScene extends Phaser.Scene {
       const destination = this.path.at(-1);
       if (destination) this.path = interiorPath(this.actor, destination, furnitureObstacles(items));
       this.drawFurniture();
-      const point = this.preview?.item;
+      const point = this.preview ? furniturePosition(this.preview.item, replaceFurniture(this.furniture, this.preview.item)) : undefined;
       this.preview = null;
       if (point) this.previewAt(point);
     }
   }
   lockFurniture(locked: boolean) { this.furnitureLocked = locked; if (locked) this.path = []; }
   beginPlacement(key: FurnitureKey) {
+    this.placementFixed = false; this.clickedValidation = null;
     this.validationId++; this.pendingValidation = undefined;
     this.placementOrientation = this.furniture.find(item => item.key === key)?.orientation ?? "original";
     this.placing = key; this.path = []; this.preview = null; this.onPreview(null);
     this.drawFurniture();
     this.ghost?.destroy(); this.footprint?.destroy();
+    this.carriedPreviews.forEach(({image}) => image.destroy());
+    this.carriedPreviews = key === "wooden-table" ? this.furniture.filter(i => i.surface === "table").map(item => {
+      const d = furnitureDefinition(item.key);
+      return { item, image: this.add.image(0, 0, `furniture-${item.key}`).setOrigin(.5, .78).setDisplaySize(d.width, d.height).setAlpha(.65).setDepth(2.6).setVisible(false) };
+    }) : [];
     const item = furnitureDefinition(key);
     this.footprint = this.add.image(0, 0, `furniture-halo-${key}`)
       .setOrigin(.5, (item.height * .78 + 6) / (item.height + 12))
@@ -196,28 +228,35 @@ export class HomeInteriorScene extends Phaser.Scene {
     this.placementOrientation = this.placementOrientation === "original" ? "mirrored" : "original";
     this.ghost?.setFlipX(this.placementOrientation === "mirrored");
     this.footprint?.setFlipX(this.placementOrientation === "mirrored");
-    const point = this.preview?.item;
+    const point = this.preview ? furniturePosition(this.preview.item, replaceFurniture(this.furniture, this.preview.item)) : undefined;
     this.preview = null;
-    this.validationId++; this.pendingValidation = undefined; this.onPreview(null);
+    this.validationId++; this.pendingValidation = undefined;
     if (point) this.previewAt(point);
   }
   cancelPlacement() {
+    this.placementFixed = false; this.clickedValidation = null;
     this.validationId++; this.pendingValidation = undefined;
+    this.carriedPreviews.forEach(({image}) => image.destroy()); this.carriedPreviews = [];
     this.placing = null; this.preview = null; this.ghost?.destroy(); this.ghost = undefined;
     this.footprint?.destroy(); this.footprint = undefined; this.onPreview(null); this.drawFurniture();
   }
   private previewAt(point: InteriorPoint) {
     if (!this.placing) return;
-    const item = { key: this.placing, x: point.x, y: point.y, orientation: this.placementOrientation };
-    if (this.preview?.item.x === item.x && this.preview.item.y === item.y) return;
-    this.preview = { item, error: "Checking placement…" };
-    this.ghost?.setPosition(item.x, item.y).setVisible(true);
-    this.footprint?.setPosition(item.x, item.y).setVisible(true);
+    const item = furnitureAtPointer(this.placing, point, this.placementOrientation, this.furniture);
+    const layout = replaceFurniture(this.furniture, item);
+    const position = furniturePosition(item, layout);
+    if (this.preview?.item.x === item.x && this.preview.item.y === item.y && this.preview.item.surface === item.surface && this.preview.item.orientation === item.orientation) return;
+    this.preview = { item, error: "Checking placement…", fixed: this.placementFixed };
+    this.ghost?.setPosition(position.x, position.y).setVisible(true);
+    this.footprint?.setPosition(position.x, position.y).setVisible(true);
+    this.carriedPreviews.forEach(({item: child, image}) => {
+      const p = furniturePosition(child, layout); image.setPosition(p.x, p.y).setVisible(true);
+    });
     // Disable confirmation until this exact position passes validation, without
     // putting path searches or React renders in the pointer's rendering loop.
-    this.onPreview(null);
+    this.onPreview(this.placementFixed ? this.preview : null);
     this.pendingValidation = { id: ++this.validationId,
-      items: [...this.furniture.filter(i => i.key !== item.key), item],
+      items: [...layout],
       farmer: { x: this.actor!.x, y: this.actor!.y } };
     this.validatePending();
   }
@@ -229,7 +268,8 @@ export class HomeInteriorScene extends Phaser.Scene {
   }
   private hitFurniture(item: FurniturePlacement, point: InteriorPoint) {
     const definition = furnitureDefinition(item.key);
-    const x = Math.floor(point.x - item.x + definition.width / 2), y = Math.floor(point.y - item.y + definition.height * .78);
+    const position = furniturePosition(item, this.furniture);
+    const x = Math.floor(point.x - position.x + definition.width / 2), y = Math.floor(point.y - position.y + definition.height * .78);
     if (x < 0 || y < 0 || x >= definition.width || y >= definition.height) return false;
     const canvas = this.textures.get(`placed-${item.key}`).getSourceImage() as HTMLCanvasElement;
     return (canvas.getContext("2d")?.getImageData(x,y,1,1).data[3] ?? 0) > 80;
@@ -237,28 +277,120 @@ export class HomeInteriorScene extends Phaser.Scene {
   private drawFurniture() {
     this.furnitureImages.forEach(image => image.destroy()); this.furnitureImages = [];
     for (const item of this.furniture) {
-      if (item.key === this.placing) continue;
-      const definition = furnitureDefinition(item.key);
-      // Clip each item against its own room walls, independently of the farmer's room.
-      const canvas = document.createElement("canvas"); canvas.width = definition.width; canvas.height = definition.height;
-      const ctx = canvas.getContext("2d")!;
-      ctx.save();
-      if (item.orientation === "mirrored") { ctx.translate(canvas.width, 0); ctx.scale(-1, 1); }
-      ctx.drawImage(this.textures.get(`furniture-${item.key}`).getSourceImage() as HTMLCanvasElement, 0, 0, canvas.width, canvas.height);
-      ctx.restore();
-      ctx.globalCompositeOperation = "destination-out";
-      const walls = [...INTERIOR_WALLS.front, ...(behindLeftInteriorWall(item) ? INTERIOR_WALLS.left : []), ...(behindRightInteriorWall(item) ? INTERIOR_WALLS.right : [])];
-      for (const points of walls) {
-        ctx.beginPath(); points.forEach(([x,y], i) => { const px = x - item.x + canvas.width / 2, py = y - item.y + canvas.height * .78; if (i) ctx.lineTo(px,py); else ctx.moveTo(px,py); }); ctx.closePath(); ctx.fill();
-      }
+      if (item.key === this.placing || (this.placing === "wooden-table" && item.surface)) continue;
+      const position = furniturePosition(item, this.furniture);
+      const canvas = placedFurnitureTexture(this.textures.get(`furniture-${item.key}`).getSourceImage() as HTMLCanvasElement, item, this.furniture);
       const key = `placed-${item.key}`;
       if (this.textures.exists(key)) this.textures.remove(key);
       this.textures.addCanvas(key, canvas);
-      this.furnitureImages.push(this.add.image(item.x, item.y, key).setOrigin(.5,.78).setDepth(1 + item.y / 2000));
+      this.furnitureImages.push(this.add.image(position.x, position.y, key).setOrigin(.5,.78).setDepth(furnitureDepth(item, this.furniture)));
+    }
+  }
+  private drawShadow() {
+    if (!this.actor || !this.shadow || !this.shadowCanvas || !this.shadowTexture) return;
+    const { x, y } = this.actor;
+    const position = `${x}:${y}`;
+    if (position === this.shadowPosition) return;
+    this.shadowPosition = position;
+    this.shadow.setPosition(x, y);
+    const ctx = this.shadowCanvas.getContext("2d")!;
+    ctx.clearRect(0, 0, 64, 32);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.fillStyle = "rgba(98,71,40,0.2)";
+    ctx.beginPath(); ctx.ellipse(32, 16, 21, 6.5, 0, 0, Math.PI * 2); ctx.fill();
+    // The background artwork already contains the walls. Remove shadow pixels
+    // over their silhouettes instead of repainting walls over other furniture.
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.fillStyle = "#000";
+    for (const polygon of actorOccludingWalls({ x, y })) {
+      ctx.beginPath();
+      polygon.forEach(([px, py], i) => {
+        if (i) ctx.lineTo(px - x + 32, py - y + 16);
+        else ctx.moveTo(px - x + 32, py - y + 16);
+      });
+      ctx.closePath(); ctx.fill();
+    }
+    this.shadowTexture.refresh();
+  }
+  private drawActor(frame: string) {
+    if (!this.actor || !this.actorCanvas || !this.actorTexture) return;
+    const { x, y } = this.actor;
+    const state = `${frame}:${x}:${y}:${this.facingLeft}`;
+    if (state === this.actorFrameState) return;
+    this.actorFrameState = state;
+    const ctx = this.actorCanvas.getContext("2d")!;
+    ctx.clearRect(0, 0, 256, 256);
+    ctx.globalCompositeOperation = "source-over";
+    ctx.save();
+    if (this.facingLeft) { ctx.translate(256, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(this.textures.get(frame).getSourceImage() as HTMLCanvasElement, 0, 0, 256, 256);
+    ctx.restore();
+    ctx.globalCompositeOperation = "destination-out";
+    const walls = actorOccludingWalls({ x, y });
+    for (const polygon of walls) {
+      ctx.beginPath();
+      polygon.forEach(([px, py], i) => {
+        const tx = (px - x) * 256 / 125 + 128;
+        const ty = (py - y) * 256 / 125 + 240;
+        if (i) ctx.lineTo(tx, ty); else ctx.moveTo(tx, ty);
+      });
+      ctx.closePath(); ctx.fill();
+    }
+    this.actorTexture.refresh();
+    this.actor.setTexture("farmer-clipped").setFlipX(false).setDisplaySize(125, 125);
+  }
+  startCookingPreview(): boolean {
+    const kitchen = this.furniture.find(item => item.key === "indoor-kitchen");
+    if (!kitchen || !this.actor || this.exitComplete) return false;
+    const sign = kitchen.orientation === "mirrored" ? -1 : 1;
+    const feet = { x: kitchen.x + sign * 10, y: kitchen.y + 30 };
+    const route = interiorPath(this.actor, feet, furnitureObstacles(this.furniture.filter(item => item.key !== "indoor-kitchen")));
+    if (!route.length) return false;
+    this.cancelPlacement();
+    this.cookingPreview = { kitchen, elapsed: 0, returnTo: { x: this.actor.x, y: this.actor.y } };
+    this.path = route;
+    return true;
+  }
+  stopCookingPreview() {
+    const preview = this.cookingPreview;
+    this.cookingPreview = null;
+    this.cookingFire?.clear(); this.cookingSteam?.clear();
+    if (preview && this.actor) this.path = interiorPath(this.actor, preview.returnTo,
+      furnitureObstacles(this.furniture.filter(item => item.key !== "indoor-kitchen")));
+  }
+  private drawCookingPreview(delta: number) {
+    const preview = this.cookingPreview;
+    if (!preview || !this.actor || !this.cookingFire || !this.cookingSteam) return;
+    preview.elapsed += Math.min(delta, 50);
+    const sign = preview.kitchen.orientation === "mirrored" ? -1 : 1;
+    const pot = { x: preview.kitchen.x - sign * 58, y: preview.kitchen.y - 78 };
+    this.facingLeft = sign < 0;
+    this.drawActor(cookingFrame(preview.elapsed, this.reducedMotion));
+    const depth = Math.max(this.actor.depth, furnitureDepth(preview.kitchen, this.furniture) + .002);
+    this.actor.setDepth(depth);
+    this.cookingFire.clear().setDepth(depth - .0005);
+    this.cookingSteam.clear().setDepth(depth + .0005);
+    for (const side of [-1, 1]) {
+      const x = pot.x + side * 17;
+      const flicker = this.reducedMotion ? 0 : Math.sin(preview.elapsed / 110 + side) * 3;
+      // Anchor both flames at the pot's underside, above the stone supports.
+      // Ellipses are centre-positioned: subtract half their height so flicker
+      // grows upward without pushing the flame base down onto the stove.
+      const baseY = pot.y - 6;
+      const outerHeight = (14 + flicker) * 1.4;
+      const innerHeight = (8 + flicker) * 1.4;
+      this.cookingFire.fillStyle(0xed7a20, .85).fillEllipse(x, baseY - outerHeight / 2, 20, outerHeight);
+      this.cookingFire.fillStyle(0xffd468, .95).fillEllipse(x, baseY - innerHeight / 2, 8, innerHeight);
+    }
+    if (!this.reducedMotion) for (let i = 0; i < 4; i++) {
+      const t = ((preview.elapsed + i * 650) % 2600) / 2600;
+      this.cookingSteam.fillStyle(0xfff7e8, Math.sin(t * Math.PI) * .4)
+        .fillEllipse(pot.x + Math.sin(t * 5 + i) * 4, pot.y - 37 - t * 60, (7 + t * 11) * 1.5, (5 + t * 8) * 1.5);
     }
   }
   /** Finish the local walk before React removes the interior. */
   leave(onComplete: () => void) {
+    this.stopCookingPreview();
     if (this.exitComplete) return;
     if (!this.actor) { onComplete(); return; }
     const route = interiorPath(this.actor, INTERIOR_ENTRY, furnitureObstacles(this.furniture));
@@ -281,18 +413,23 @@ export class HomeInteriorScene extends Phaser.Scene {
       const next = this.path[0]!, length = distance(this.actor, next);
       if (length < .01) { this.path = this.path.slice(1); continue; }
       const step = Math.min(length, remaining), dx = next.x - this.actor.x;
-      if (Math.abs(dx) > .2) this.actor.setFlipX(dx < 0);
+      if (Math.abs(dx) > .2) this.facingLeft = dx < 0;
       this.actor.setPosition(this.actor.x + dx / length * step, this.actor.y + (next.y - this.actor.y) / length * step);
       this.travelled += step * .5; remaining -= step;
       if (step >= length) this.path = this.path.slice(1);
     }
+    const walking = this.path.length > 0;
+    this.drawShadow();
+    if (interiorAudioStore.getState().walking !== walking) interiorAudioStore.setState({ walking });
     this.actor.setDepth(1 + this.actor.y / 2000 + .001);
-    this.leftWall?.setDepth(behindLeftInteriorWall(this.actor) ? 3 : .5);
-    this.rightWall?.setDepth(behindRightInteriorWall(this.actor) ? 3 : .5);
-    this.actor.setTexture(this.path.length && !this.reducedMotion ? farmerWalkTexture(this.travelled) : "farmer-idle");
-    this.doorwayHeaders.forEach((header, i) => header.setVisible(insideDoorway(this.actor!, DOORWAY_HEADERS[i]!)));
-    this.shadow?.setPosition(this.actor.x, this.actor.y);
+    // Use the full sloping front edge, including the stove, in either orientation.
+    const kitchen = this.furniture.find(item => item.key === "indoor-kitchen");
+    if (kitchen) {
+      this.actor.setDepth(kitchenActorDepth(this.actor, kitchen, this.actor.depth, furnitureDepth(kitchen, this.furniture)));
+    }
+    this.drawActor(this.path.length && !this.reducedMotion ? farmerWalkTexture(this.travelled) : "farmer-idle");
     if (!this.path.length) {
+      if (this.cookingPreview) this.drawCookingPreview(delta);
       this.marker?.setVisible(false);
       const complete = this.exitComplete;
       this.exitComplete = null;

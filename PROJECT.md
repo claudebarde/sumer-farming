@@ -1993,3 +1993,36 @@ requires at least 20% of sampled opaque artwork and a 16×12-world-pixel visible
 extent. Masonry polygons are shared from game-core/home/interiorWalls.ts. Regenerate
 homeFurnitureSilhouettes.ts with scripts/generate-furniture-silhouettes.mjs after
 artwork or display-size changes. Every copy remains selectable through Furniture.
+
+Home entry finishes the doorway animation before mounting the interior renderer.
+Do not boot a hidden second Phaser game during the walk: synchronous canvas texture
+preparation and renderer setup share the main thread and caused visible stuttering.
+Keep the existing interior loading/error state after entry. Any future preload
+must keep expensive preparation off the animation thread and be measured for
+smoothness before adoption. This is presentation only; never delay server production.
+
+## Home visits
+
+Level-10 players can visit level-10 homes via leaderboard profiles and neighbourhood
+farmhouse/label clicks. Homes default to Everyone; owners may choose Private in
+Customize home → Interior. See [docs/home-visits.md](docs/home-visits.md).
+Use the read-only player-home DTO, never an owner's farm snapshot. Server checks
+both levels and privacy; ongoing visits revalidate every 15 seconds and on tab
+return. Privacy writes lock the current player's farm; other appearance writes
+preserve visibility. Visitors have local walking only, no furniture editing or
+owner-state mutations. Reuse HomeInterior, GameTopBar and GameLoadingScreen.
+
+Tabletop furniture: only clay-bowl and clay-bowl-2 may use surface: "table". Their x/y coordinates are local to the original table artwork, transformed with its saved position/orientation. Shared furnitureSurfaces helpers resolve rendering, pointer targeting, bounds and bowl separation; server layout validation rejects unsupported/orphan attachments. Attached bowls are not floor path obstacles. Moving/rotating the table previews and saves attached bowls together; putting it away returns its attached bowls to inventory.
+
+Interior occlusion: each placed furniture texture clips against walls using its own
+ground anchor. The farmer uses a separate 256px clipped canvas frame, refreshed
+only when his position, facing or animation frame changes. Never repaint whole
+wall layers at a depth driven by the farmer’s room: that hides furniture in other
+rooms during both owner and guest walks. Preserve ordinary farmer/furniture depth
+sorting and doorway-header clipping independently.
+
+Indoor kitchen placement trial uses `kitchen-interior-matched.png` through the shared furniture renderer and saved layout. `indoor-kitchen` unlocks at level 11 (client catalogue and server save gate), has one copy, and supports the same mirrored orientation control as the table and mat. Outdoor kitchen production/artwork remain active pending indoor cooking integration.
+
+Indoor cooking visual review: the interior toolbar exposes Start/Stop cooking preview when the indoor kitchen is placed. It routes the local farmer to a mirrored working position at the front edge of the preparation table, reuses the approved cooking frames/sharpening and hand-motion timing, and draws fire below the farmer with steam above the pot. Stop returns him to his pre-preview position; leaving the home clears the preview. This is visual only: no production jobs, ingredients or meal effects. Outdoor cooking remains playable pending approval and migration.
+
+The interior farmer has a subtle ground shadow during walking and cooking. Its canvas is clipped against the same position-dependent wall silhouettes as the farmer, so it never paints over wall caps. Keep it below furniture and refresh only when the farmer moves. Outdoor character shadows are unchanged.

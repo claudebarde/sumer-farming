@@ -3,7 +3,6 @@
 .viewport { flex: 1; min-height: 0; overflow: hidden; position: relative; touch-action: none;
   canvas { display: block; }
 }
-.loading { position: absolute; inset: 40% 0 auto; text-align: center; pointer-events: none; }
 .accessibleTitle { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .furnitureIcon { width: 40px; height: 40px; flex-shrink: 0; object-fit: contain; transform: scale(1.5); }
 .drawerOverlay { z-index: 1300; }
@@ -18,3 +17,5 @@
   p { margin: 6px 0; font-size: 16px; }
   > div { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 8px; }
 }
+
+.visitTitle { flex-shrink: 0; align-self: center; margin: 6px 0; padding: 4px 16px; border-radius: 8px; background: #fff7e8; font-size: 20px; }

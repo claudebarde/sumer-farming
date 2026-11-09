@@ -20,6 +20,11 @@
 }
 
 .decorations { margin-top: 24px; }
+.interiorPreview {
+  display: flex; flex-direction: column; align-items: center; gap: 16px; margin-top: 24px;
+  canvas { display: block; width: 100%; max-width: 400px; height: auto; object-fit: contain; }
+  button { width: 100%; }
+}
 .noneChoice { grid-column: 1 / -1; font-size: 14px;
   &[data-state="on"] { background-color: #f3e3c8; border: 2px solid #684328; }
 }

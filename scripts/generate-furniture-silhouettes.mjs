@@ -7,7 +7,8 @@ for (const match of definitions.matchAll(/key: "([^"]+)".*?width: (\d+), height:
   const [, key, width, height] = match;
   const w = Number(width), h = Number(height);
   const asset = key.replace(/-2$/, "");
-  const { data, info } = await sharp(new URL(`../src/assets/sprite_assets/pngs/v2/isometric-test/home-interior/furniture/${asset}.png`, import.meta.url).pathname).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  const path = key === "indoor-kitchen" ? "kitchen/kitchen-interior-matched.png" : `home-interior/furniture/${asset}.png`;
+  const { data, info } = await sharp(new URL(`../src/assets/sprite_assets/pngs/v2/isometric-test/${path}`, import.meta.url).pathname).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   let left = info.width, top = info.height, right = -1, bottom = -1;
   for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) {
     if (data[(y * info.width + x) * 4 + 3] > 200) {

@@ -1,3 +1,6 @@
+import HomeVisibilityControl from "./HomeVisibilityControl";
+import type { FarmSnapshot } from "../../schemas/farm";
+import type { HomeVisibility } from "../../schemas/homeAppearance";
 import { HOME_TABLETS, type HomeTabletKey } from "../game/phaser/homeTablets";
 import { HOME_DECORATIONS, type HomeDecorationKey } from "../game/phaser/homeDecorations";
 import { FARM_STYLES, type FarmStyleKey } from "../game/phaser/farmStyles";
@@ -7,9 +10,14 @@ import { farmAppearance, FARM_EVOLUTION_SOURCES } from "../game/phaser/farmEvolu
 import drawer from "../styles/GameCanvas.module.scss";
 import kitchen from "../styles/Kitchen.module.scss";
 import styles from "../styles/HomeDrawer.module.scss";
+import HomeInteriorPreview from "./HomeInteriorPreview";
+import type { FurniturePlacement } from "../../game-data/homeFurniture";
 
-export default function HomeDrawer({ level, selectedStyle, onStyle, selectedDecoration, onDecoration, selectedTablet, onTablet, onEnter, onClose }: {
+export default function HomeDrawer({ level, selectedStyle, onStyle, selectedDecoration, onDecoration, selectedTablet, onTablet, onEnter, onClose, visibility, onSaved, furniture }: {
   readonly level: number;
+  readonly furniture: readonly FurniturePlacement[];
+  readonly visibility: HomeVisibility;
+  readonly onSaved: (snapshot: FarmSnapshot) => void;
   readonly onEnter: () => void;
   readonly selectedTablet: HomeTabletKey;
   readonly onTablet: (tablet: HomeTabletKey) => void;
@@ -88,7 +96,11 @@ export default function HomeDrawer({ level, selectedStyle, onStyle, selectedDeco
             </section>}
           </Tabs.Content>
           <Tabs.Content value="interior" className={`${drawer["manage-tabs-content"]} ${styles.body}`}>
-            <button onClick={onEnter}>Enter house</button>
+            {level >= 10 && <HomeVisibilityControl visibility={visibility} onSaved={onSaved} />}
+            <div className={styles.interiorPreview}>
+              <HomeInteriorPreview furniture={furniture} tablet={selectedTablet} />
+              <button onClick={onEnter}>Enter house</button>
+            </div>
           </Tabs.Content>
         </Tabs.Root>
       </Dialog.Content>

@@ -27,9 +27,9 @@ it("permits an empty house and rejects invalid saves", () => {
   expect(SaveFurnitureSchema.safeParse({ revision: 0, items: [{ ...stool, x: Infinity }] }).success).toBe(false);
   expect(SaveFurnitureSchema.safeParse({ revision: 0, items: [{ ...stool, key: "paid-throne" }] }).success).toBe(false);
 });
-it("offers only the approved starter set, with two distinct baskets", async () => {
+it("offers the approved starter set plus the indoor kitchen, with two distinct baskets", async () => {
   const { HOME_FURNITURE } = await import("../../src/game-data/homeFurniture");
-  expect(HOME_FURNITURE).toHaveLength(8);
+  expect(HOME_FURNITURE).toHaveLength(9);
   expect(HOME_FURNITURE.filter(item => item.key.startsWith("woven-basket"))).toHaveLength(2);
   expect(SaveFurnitureSchema.safeParse({ revision: 0, items: [{ key: "reed-bed", x: 500, y: 350 }] }).success).toBe(false);
   expect(SaveFurnitureSchema.safeParse({ revision: 0, items: [{ key: "painted-jar", x: 850, y: 700 }] }).success).toBe(false);
@@ -43,8 +43,8 @@ it("keeps saved furniture when retiring the painted jar", async () => {
   expect(SaveFurnitureSchema.safeParse({ revision: 0, items: [{ key: "clay-bowl", x: 850, y: 700 }, { key: "clay-bowl-2", x: 950, y: 700 }] }).success).toBe(true);
 });
 
-it("preserves both mat/table orientations and rejects unsupported rotations", () => {
-  for (const key of ["reed-mat", "wooden-table"]) {
+it("preserves both mat/table/kitchen orientations and rejects unsupported rotations", () => {
+  for (const key of ["reed-mat", "wooden-table", "indoor-kitchen"]) {
     const items = [{ key, x: 850, y: 700, orientation: "mirrored" }];
     expect(SaveFurnitureSchema.parse({ revision: 0, items }).items).toEqual(items);
   }

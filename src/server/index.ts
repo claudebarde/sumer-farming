@@ -1,3 +1,6 @@
+import { PlayerHomeQuerySchema } from "../schemas/playerHome";
+import { HomeVisibilitySchema } from "../schemas/homeAppearance";
+import { readPlayerHome, saveHomeVisibility } from "./services/playerHome";
 import { SaveFurnitureSchema } from "../schemas/homeFurniture";
 import { HomeAppearanceSchema } from "../schemas/homeAppearance";
 import { saveHomeAppearance, saveHomeFurniture } from "./services/homeAppearance";
@@ -255,6 +258,38 @@ app.post("/api/market/presence", async c => {
     console.error("Market presence connection failed", error);
     return c.json({ error: { message: "Live neighbours are temporarily unavailable." } }, 503);
   } finally { await client.end().catch(error => console.error("Closing presence connection failed", error)); }
+});
+
+
+for (const route of ["player-profile", "player-home"] as const) {
+  app.get(`/api/${route}`, async c => {
+    c.header("Cache-Control", "no-store");
+    const query = PlayerHomeQuerySchema.safeParse(c.req.query());
+    if (!query.success) return c.json({ error: { message: "Choose a valid farmer." } }, 400);
+    const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+    try {
+      await client.connect();
+      const result = await readPlayerHome(createDatabase(client), c.get("developmentPlayer").id, query.data.playerId, route === "player-home");
+      return result.ok ? c.json(result.data) : c.json({ error: { message: result.message } }, 403);
+    } catch (error) {
+      console.error("Home visit failed", error);
+      return c.json({ error: { message: "This home could not be loaded. Please try again." } }, 503);
+    } finally { await client.end().catch(error => console.error("Closing home visit connection failed", error)); }
+  });
+}
+app.post("/api/home-visibility", async c => {
+  c.header("Cache-Control", "no-store");
+  const command = HomeVisibilitySchema.safeParse(await c.req.json().catch(() => null));
+  if (!command.success) return c.json({ error: { message: "Choose a valid home visibility." } }, 400);
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await saveHomeVisibility(createDatabase(client), c.get("developmentPlayer").id, command.data);
+    return result.ok ? c.json(result.snapshot) : c.json({ error: { message: result.message } }, 409);
+  } catch (error) {
+    console.error("Home visibility failed", error);
+    return c.json({ error: { message: "Could not change home visibility. Please try again." } }, 503);
+  } finally { await client.end().catch(error => console.error("Closing visibility connection failed", error)); }
 });
 
 app.post("/api/home-appearance", async c => {

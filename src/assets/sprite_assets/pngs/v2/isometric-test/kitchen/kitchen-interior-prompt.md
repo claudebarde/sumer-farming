@@ -1,0 +1,7 @@
+# Indoor kitchen artwork trial
+
+Generated with the built-in image generation tool, using `kitchen-single-tile-test.png` as reference. Output: `kitchen-interior-test.png`. Awaiting visual approval; not wired into gameplay.
+
+## Prompt
+
+Create one new transparent PNG game sprite based closely on the supplied kitchen reference. Isometric indoor kitchen for Fields of Sumer. Keep the exact warm cartoon rendering style, thick clean dark brown contours, terracotta lidded pot with two handles atop stones, sandy mudbrick stove with arched firewood recess and visible logs. Make the kitchen longer horizontally by extending a wooden preparation table to the RIGHT of the stove, beside it rather than across its front. Stove left, longer modest table right, one cohesive kitchen furniture asset, roughly twice as long as deep. Table holds a small clay mixing bowl with wooden spoon, a wooden ladle and a small shallow clay dish, neatly separated and readable. Preserve reference isometric camera angle, parallel edges of stove/table in same isometric axes, no perspective vanishing point; table at suitable working height slightly below stove top. Same pot/stove proportions as reference, do not enlarge the pot excessively. Crisp polished game sprite, warm ochre, terracotta and honey wood. Full object uncropped with comfortable transparent padding. No floor tile, ground, background glow, shadow cloud, walls, people, fire, smoke, text or border. Genuine alpha transparency. This is a static idle kitchen sprite for later animation, not a scene or sprite sheet.

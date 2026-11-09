@@ -27,9 +27,9 @@ afterAll(async () => {
 });
 it("returns only real members of the viewer's home, including offline and lower-level farms", async () => {
   expect(await readNeighbourhood(db, ids[0]!)).toEqual({ members: [
-    { homeStyle: "farm-level-9", wallTablet: "none", slot: 2, name: "Farmer 1", level: 7, isYou: false },
-    { homeStyle: "farm-level-9", wallTablet: "none", slot: 6, name: "Farmer 0", level: 7, isYou: true },
-    { homeStyle: "farm-level-9", wallTablet: "none", slot: 9, name: "Farmer", level: 3, isYou: false },
+    { playerId: ids[1], homeStyle: "farm-level-9", wallTablet: "none", slot: 2, name: "Farmer 1", level: 7, isYou: false },
+    { playerId: ids[0], homeStyle: "farm-level-9", wallTablet: "none", slot: 6, name: "Farmer 0", level: 7, isYou: true },
+    { playerId: ids[2], homeStyle: "farm-level-9", wallTablet: "none", slot: 9, name: "Farmer", level: 3, isYou: false },
   ] });
 });
 it("keeps positions consistent for another viewer without changing membership", async () => {

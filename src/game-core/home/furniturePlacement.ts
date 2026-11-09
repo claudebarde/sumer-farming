@@ -1,4 +1,5 @@
 import { furnitureDefinition, type FurniturePlacement } from "../../game-data/homeFurniture";
+import { TABLE_TOP } from "./furnitureSurfaces";
 import { FURNITURE_SILHOUETTES } from "../../game-data/homeFurnitureSilhouettes";
 import { containsPoint, type InteriorPoint } from "./interiorNavigation";
 import { INTERIOR_WALLS, behindLeftInteriorWall, behindRightInteriorWall } from "./interiorWalls";
@@ -11,13 +12,27 @@ const floors = [
 ].map(points => points.map(([x,y]) => ({ x: x!, y: y! })));
 export const furnitureFloorContains = (point: InteriorPoint) => floors.some(floor => containsPoint(point, floor));
 /** Sample the opaque artwork against the same masonry polygons used to render it. */
-export const furnitureVisibleEnough = (item: FurniturePlacement) => {
+export const furnitureVisibleEnough = (item: FurniturePlacement, groundAnchor: InteriorPoint = item) => {
   const definition = furnitureDefinition(item.key);
-  const walls = [...INTERIOR_WALLS.front, ...(behindLeftInteriorWall(item) ? INTERIOR_WALLS.left : []), ...(behindRightInteriorWall(item) ? INTERIOR_WALLS.right : [])]
+  const walls = [...INTERIOR_WALLS.front, ...(behindLeftInteriorWall(groundAnchor) ? INTERIOR_WALLS.left : []), ...(behindRightInteriorWall(groundAnchor) ? INTERIOR_WALLS.right : [])]
     .map(wall => wall.map(([x,y]) => ({ x, y })));
   const samples = FURNITURE_SILHOUETTES[item.key];
   const visible = samples.filter(([x,y]) => !walls.some(wall => containsPoint({ x: item.x + ((item.orientation === "mirrored" ? 1 - x : x) - .5) * definition.width, y: item.y + (y - .78) * definition.height }, wall)));
   if (visible.length / samples.length < .2) return false;
   const xs = visible.map(([x]) => x * definition.width), ys = visible.map(([,y]) => y * definition.height);
   return Math.max(...xs) - Math.min(...xs) >= 16 && Math.max(...ys) - Math.min(...ys) >= 12;
+};
+
+/** Check the table's full top face projected onto the floor, not just its
+ * smaller elliptical foot clearance. Keep a gap from every room boundary. */
+export const tableHasWallClearance = (item: FurniturePlacement): boolean => {
+  if (item.key !== "wooden-table") return true;
+  const { width, height } = furnitureDefinition(item.key);
+  const floorCorners = TABLE_TOP.map(point => ({
+    x: item.x + (item.orientation === "mirrored" ? width - point.x : point.x) - width / 2,
+    y: item.y + point.y - height * .78 + 38,
+  }));
+  return floors.some(floor => floorCorners.every(point =>
+    Array.from({ length: 16 }, (_, step) => step * Math.PI / 8).every(angle =>
+      containsPoint({ x: point.x + Math.cos(angle) * 12, y: point.y + Math.sin(angle) * 12 }, floor))));
 };

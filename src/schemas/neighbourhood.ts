@@ -2,6 +2,7 @@ import { HomeAppearanceSchema } from "./homeAppearance";
 import { z } from "zod";
 
 export const NeighbourhoodMemberSchema = z.object({
+  playerId: z.string().uuid().optional(),
   slot: z.number().int().min(1).max(10),
   wallTablet: HomeAppearanceSchema.shape.wallTablet,
   homeStyle: HomeAppearanceSchema.shape.style.optional(),

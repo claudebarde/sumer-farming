@@ -4,10 +4,14 @@ import styles from "../styles/IsometricTest.module.scss";
 
 export default function GameLoadingScreen({
   state,
-  retry
+  retry,
+  destination = "farm",
+  homeOwnerName
 }: {
   state: Exclude<GameLoadingState, "ready">;
   retry: () => void;
+  destination?: "farm" | "home";
+  homeOwnerName?: string;
 }) {
   const [slow, setSlow] = useState(false);
   useEffect(() => {
@@ -15,6 +19,10 @@ export default function GameLoadingScreen({
     return () => window.clearTimeout(timer);
   }, []);
   const failed = state === "error";
+  const place = destination === "home" ? "home" : "farm";
+  const visitingHome = destination === "home" && homeOwnerName;
+  const target = visitingHome ? `${homeOwnerName}’s home` : `your ${place}`;
+  const sentenceTarget = visitingHome ? target : `Your ${place}`;
   return (
     <div className={styles.loadingScreen}>
       <div
@@ -30,15 +38,15 @@ export default function GameLoadingScreen({
         </span>
         <h2>
           {failed
-            ? "Your farm couldn’t load"
+            ? `${sentenceTarget} couldn’t load`
             : state === "recovering"
-              ? "Returning to your farm"
-              : "Preparing your farm"}
+              ? `Returning to ${target}`
+              : `Preparing ${target}`}
         </h2>
         <p>
           {failed
             ? "Check your connection and try again."
-            : "Your estate will appear in a moment."}
+            : destination === "home" ? `${sentenceTarget} will appear in a moment.` : "Your estate will appear in a moment."}
         </p>
         {!failed && (
           <div className={styles.loadingTrack} aria-hidden="true">

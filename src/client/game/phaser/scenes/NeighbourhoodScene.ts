@@ -27,6 +27,7 @@ export class NeighbourhoodScene extends Phaser.Scene {
     this.celebration = createZigguratCelebration(this, this.ziggurat.building);
   }
   private stopCelebration = () => { this.celebration?.destroy(); this.celebration = undefined; };
+  onPlayerClick: (playerId: string) => void = () => {};
   onZigguratClick: () => void = () => {};
   private zigguratState: Ziggurat["state"] = { type: "interest" };
   private zigguratBadge?: ReturnType<typeof createZigguratStatusBadge>;
@@ -153,6 +154,10 @@ export class NeighbourhoodScene extends Phaser.Scene {
       if (plot.type !== "empty") {
         const building = this.add.image(front.x, front.y + 19, plot.level! >= 9 ? plot.homeStyle : farmAppearance(plot.level!).texture)
           .setOrigin(0.5, 1).setDisplaySize(232, 232).setDepth(front.y - 24);
+        if (plot.playerId) building.setInteractive({ pixelPerfect: true, alphaTolerance: 32 })
+          .on("pointerup", (pointer: Phaser.Input.Pointer) => {
+            if (pointer.getDistance() < 8) this.onPlayerClick(plot.playerId!);
+          });
         this.shadows.addBuilding(building);
         if (plot.level! >= 9 && plot.wallTablet !== "none") {
           const tablet = this.add.image(front.x + HOME_TABLET_PLACEMENT.x, front.y + HOME_TABLET_PLACEMENT.y, plot.wallTablet)
@@ -171,12 +176,15 @@ export class NeighbourhoodScene extends Phaser.Scene {
       // Overlay the roof using the same level-specific anchor as the farm storage chip.
       // Empty plots use their ground-plane centre instead of the front edge.
       const labelY = plot.type === "empty" ? plot.y : front.y + farmAppearance(plot.level!).storageChipY;
-      this.add.text(plot.x, labelY, caption, {
+      const label = this.add.text(plot.x, labelY, caption, {
         fontFamily: "Georgia, serif", fontSize: "18px",
         color: plot.type === "self" ? "#49652b" : "#513821",
         backgroundColor: plot.type === "self" ? "#e4e7c3" : "#fff7e8",
         padding: { x: 12, y: 8 },
       }).setOrigin(0.5).setDepth(2000).setResolution(2);
+      if (plot.playerId) label.setInteractive().on("pointerup", (pointer: Phaser.Input.Pointer) => {
+        if (pointer.getDistance() < 8) this.onPlayerClick(plot.playerId!);
+      });
     }
     const market = footprintFront(neighbourhoodMarket, neighbourhoodMarket.columns, neighbourhoodMarket.rows);
     // Match the farm market: anchor the visible base, not the transparent bottom margin.
