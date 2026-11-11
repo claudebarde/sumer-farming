@@ -23,6 +23,7 @@ export const saveHomeFurniture = (db: Database, playerId: string, input: unknown
   if (invalid) return { ok: false as const, message: invalid };
   const [farm] = await tx.select().from(farms).where(eq(farms.playerId, playerId)).for("update");
   if (!farm) return { ok: false as const, message: "Farm not found." };
+  if (farm.production.cooking?.interior && Date.parse(farm.production.cooking.completesAt) > Date.now()) return { ok: false as const, message: "Finish cooking before moving furniture." };
   if (command.items.some(item => item.key === "indoor-kitchen")) {
     const snapshot = await readFarmSnapshot(tx, farm, false);
     if ((snapshot.farm.progression?.level ?? 1) < 11) return { ok: false as const, message: "The kitchen unlocks at level 11." };

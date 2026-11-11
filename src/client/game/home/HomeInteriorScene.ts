@@ -1,3 +1,10 @@
+import type { InteriorSleepPhase } from "./interiorSleep";
+import sittingDogArtwork from "../../../assets/sprite_assets/pngs/v2/isometric-test/dog-idle-sitting.png";
+import sleepingArtwork from "../../../assets/sprite_assets/pngs/v2/isometric-test/home-interior/farmer-sleeping.png";
+import { sleepingFarmerTexture } from "./sleepingFarmer";
+import { drawCookingSteam } from "../phaser/cookingSteam";
+import type { Cooking } from "../../../game-data/kitchen";
+import { indoorCookingPose } from "../../../game-core/home/indoorCooking";
 import { furnitureAtPointer, furniturePosition, furnitureDepth, replaceFurniture } from "../../../game-core/home/furnitureSurfaces";
 import { HOME_TABLETS, prepareWallTabletTexture, type HomeTabletKey } from "../phaser/homeTablets";
 import { HOME_FURNITURE, canRotateFurniture, furnitureDefinition, type FurnitureKey, type FurniturePlacement } from "../../../game-data/homeFurniture";
@@ -14,14 +21,22 @@ import artwork from "../../../assets/sprite_assets/pngs/v2/isometric-test/home-i
 import { FARM_SPRITES } from "../../../assets/farmSprites";
 import { FARMER_SHARPEN_AMOUNT, prepareFarmerTexture } from "../phaser/farmerTexture";
 import { FARMER_WALK_SOURCES, FARMER_WALK_BOUNDS, farmerWalkTexture } from "../phaser/farmerWalk";
-import { INTERIOR_ENTRY, interiorPath, distance, type InteriorPoint } from "./interiorNavigation";
+import { INTERIOR_ENTRY, interiorPath, distance, insideObstacle, type InteriorPoint } from "./interiorNavigation";
 
 import { COOKING_FRAMES, COOKING_BOUNDS, cookingFrame } from "../phaser/cookingAnimation";
 import { actorOccludingWalls } from "./interiorWalls";
 import { interiorAudioStore } from "../../stores/interiorAudioStore";
 
 export class HomeInteriorScene extends Phaser.Scene {
-  private cookingPreview: { kitchen: FurniturePlacement; elapsed: number; returnTo: InteriorPoint } | null = null;
+  private sleepPhase: InteriorSleepPhase = "awake";
+  private readonly onWakeRequest: (point: InteriorPoint) => void;
+  private sleepingDog?: Phaser.GameObjects.Image;
+  private sleepingFarmer?: Phaser.GameObjects.Image;
+  private sleepLetters: Phaser.GameObjects.Text[] = [];
+  private sleepElapsed = 0;
+  private sleepHead = { x: 0, y: 0 };
+  private cookingJob: Cooking | null = null;
+  private cookingVisual: { kitchen: FurniturePlacement; elapsed: number } | null = null;
   private cookingFire?: Phaser.GameObjects.Graphics;
   private cookingSteam?: Phaser.GameObjects.Graphics;
   private furniture: readonly FurniturePlacement[] = [];
@@ -61,11 +76,14 @@ export class HomeInteriorScene extends Phaser.Scene {
   private readonly onReady: () => void;
   private readonly onPreview: (preview: FurniturePreview | null) => void;
   private readonly onSelect: (key: FurnitureKey) => void;
-  constructor(onReady: () => void, onPreview: (preview: FurniturePreview | null) => void, onSelect: (key: FurnitureKey) => void) {
+  constructor(onReady: () => void, onPreview: (preview: FurniturePreview | null) => void, onSelect: (key: FurnitureKey) => void, onWakeRequest: (point: InteriorPoint) => void) {
     super("home-interior");
+    this.onWakeRequest = onWakeRequest;
     this.onReady = onReady; this.onPreview = onPreview; this.onSelect = onSelect;
   }
   preload() {
+    this.load.image("sleeping-farmer-source", sleepingArtwork);
+    this.load.image("sleeping-dog-source", sittingDogArtwork);
     COOKING_FRAMES.forEach((url, i) => this.load.image(`cooking-source-${i}`, url));
     HOME_TABLETS.forEach(tablet => this.load.image(`interior-tablet-source-${tablet.key}`, tablet.source));
     HOME_FURNITURE.forEach(item => this.load.image(`furniture-source-${item.key}`, FURNITURE_ARTWORK[item.key]));
@@ -159,7 +177,7 @@ export class HomeInteriorScene extends Phaser.Scene {
 
     });
     this.input.on("pointerup", (p: Phaser.Input.Pointer) => {
-      if (!this.cookingPreview && !this.exitComplete && !this.furnitureLocked && this.down && !this.dragged && this.actor) {
+      if (!this.cookingJob && !this.exitComplete && !this.furnitureLocked && this.down && !this.dragged && this.actor) {
         const target = this.cameras.main.getWorldPoint(p.x, p.y);
         if (this.placing) {
           this.previewAt(target);
@@ -174,8 +192,12 @@ export class HomeInteriorScene extends Phaser.Scene {
           this.down = undefined; return;
         }
         const item = [...this.furniture].sort((a,b) => furnitureDepth(b, this.furniture)-furnitureDepth(a, this.furniture)).find(item => this.hitFurniture(item, target));
-        if (item) { this.path = []; this.onSelect(item.key); this.down = undefined; return; }
-        const route = interiorPath(this.actor, target, furnitureObstacles(this.furniture));
+        if (item && this.sleepPhase === "awake") { this.path = []; this.onSelect(item.key); this.down = undefined; return; }
+        if (this.sleepPhase !== "awake") {
+          if (interiorPath(this.actor, target, this.walkingObstacles()).length) this.onWakeRequest(target);
+          this.down = undefined; return;
+        }
+        const route = interiorPath(this.actor, target, this.walkingObstacles());
         if (route.length) { this.path = route; this.marker?.setPosition(target.x, target.y).setVisible(true); }
       }
       this.down = undefined;
@@ -185,6 +207,63 @@ export class HomeInteriorScene extends Phaser.Scene {
     // Notify React here, once assets, rendering and input are ready.
     this.drawFurniture();
     this.onReady();
+    if (this.sleepPhase !== "awake") this.renderSleepingFarmer();
+  }
+  setSleepPhase(phase: InteriorSleepPhase) {
+    if (this.sleepPhase === phase) return;
+    this.sleepPhase = phase;
+    this.renderSleepingFarmer();
+  }
+  walkTo(point: InteriorPoint) {
+    if (!this.actor || this.sleepPhase !== "awake") return;
+    this.path = interiorPath(this.actor, point, this.walkingObstacles());
+  }
+  /** Presentation only: sleep starts/ends exclusively through server state. */
+  private renderSleepingFarmer() {
+    this.sleepingFarmer?.destroy(); this.sleepingFarmer = undefined;
+    this.sleepingDog?.destroy(); this.sleepingDog = undefined;
+    this.sleepLetters.forEach(letter => letter.destroy()); this.sleepLetters = [];
+    this.actor?.setVisible(true); this.shadow?.setVisible(true);
+    if (this.sleepPhase === "awake" || !this.actor) return;
+    this.path = []; this.marker?.setVisible(false);
+    interiorAudioStore.setState({ walking: false });
+    this.actor.setVisible(false); this.shadow?.setVisible(false);
+    if (this.sleepPhase !== "sleeping") return;
+    const mat = this.furniture.find(item => item.key === "reed-mat");
+    if (!mat) return;
+    this.cancelPlacement(); this.path = []; this.marker?.setVisible(false);
+    interiorAudioStore.setState({ walking: false });
+    const key = "sleeping-farmer";
+    if (this.textures.exists(key)) this.textures.remove(key);
+    this.textures.addCanvas(key, sleepingFarmerTexture(this.textures.get("sleeping-farmer-source").getSourceImage() as HTMLImageElement, mat))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    this.sleepingFarmer = this.add.image(mat.x, mat.y - 30, key).setDisplaySize(140, 100).setDepth(furnitureDepth(mat, this.furniture) + .001);
+    // Guard the entrance, facing outward. Clip against the same walls as the actor.
+    const dogKey = "sleeping-dog-clipped";
+    if (this.textures.exists(dogKey)) this.textures.remove(dogKey);
+    // Supersample first, then average down near the on-screen size. Strong
+    // sharpening and GPU-only minification made the dark outline look jagged.
+    const dogSource = prepareFarmerTexture(this.textures.get("sleeping-dog-source").getSourceImage() as HTMLImageElement, .05, undefined, 512);
+    const dogResolution = 160;
+    const dogCanvas = document.createElement("canvas"); dogCanvas.width = dogCanvas.height = dogResolution;
+    const ctx = dogCanvas.getContext("2d")!;
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = "high";
+    ctx.save(); ctx.translate(dogResolution, 0); ctx.scale(-1, 1);
+    ctx.drawImage(dogSource, 0, 0, dogResolution, dogResolution); ctx.restore();
+    ctx.globalCompositeOperation = "destination-out";
+    for (const polygon of actorOccludingWalls(INTERIOR_ENTRY)) {
+      ctx.beginPath(); polygon.forEach(([x, y], i) => {
+        const px = (x - INTERIOR_ENTRY.x) * dogResolution / 80 + dogResolution / 2;
+        const py = (y - INTERIOR_ENTRY.y) * dogResolution / 80 + dogResolution * 120 / 128;
+        if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py);
+      }); ctx.closePath(); ctx.fill();
+    }
+    this.textures.addCanvas(dogKey, dogCanvas)?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    this.sleepingDog = this.add.image(INTERIOR_ENTRY.x, INTERIOR_ENTRY.y, dogKey)
+      .setOrigin(.5, 120 / 128).setDisplaySize(80, 80).setDepth(1 + INTERIOR_ENTRY.y / 2000 + .001);
+    this.actor.setVisible(false); this.shadow?.setVisible(false);
+    this.sleepElapsed = 0;
+    this.sleepHead = { x: mat.x + (mat.orientation === "mirrored" ? -37 : 37), y: mat.y - 62 };
+    this.sleepLetters = [0, 1, 2].map(() => this.add.text(0, 0, "Z", { fontFamily: "Georgia", fontSize: "18px", fontStyle: "bold", color: "#73502f", stroke: "#fff5df", strokeThickness: 2 }).setOrigin(.5).setDepth(4).setAlpha(0));
   }
   setWallTablet(tablet: HomeTabletKey) {
     this.wallTablet = tablet;
@@ -199,6 +278,7 @@ export class HomeInteriorScene extends Phaser.Scene {
       const destination = this.path.at(-1);
       if (destination) this.path = interiorPath(this.actor, destination, furnitureObstacles(items));
       this.drawFurniture();
+      if (this.sleepPhase !== "awake") this.renderSleepingFarmer();
       const point = this.preview ? furniturePosition(this.preview.item, replaceFurniture(this.furniture, this.preview.item)) : undefined;
       this.preview = null;
       if (point) this.previewAt(point);
@@ -339,27 +419,17 @@ export class HomeInteriorScene extends Phaser.Scene {
     this.actorTexture.refresh();
     this.actor.setTexture("farmer-clipped").setFlipX(false).setDisplaySize(125, 125);
   }
-  startCookingPreview(): boolean {
-    const kitchen = this.furniture.find(item => item.key === "indoor-kitchen");
-    if (!kitchen || !this.actor || this.exitComplete) return false;
-    const sign = kitchen.orientation === "mirrored" ? -1 : 1;
-    const feet = { x: kitchen.x + sign * 10, y: kitchen.y + 30 };
-    const route = interiorPath(this.actor, feet, furnitureObstacles(this.furniture.filter(item => item.key !== "indoor-kitchen")));
-    if (!route.length) return false;
-    this.cancelPlacement();
-    this.cookingPreview = { kitchen, elapsed: 0, returnTo: { x: this.actor.x, y: this.actor.y } };
-    this.path = route;
-    return true;
+  farmerPosition() { return this.actor ? { x: this.actor.x, y: this.actor.y } : INTERIOR_ENTRY; }
+  setCookingJob(job: Cooking | null) {
+    if (this.cookingJob?.id !== job?.id) {
+      this.path = [];
+      this.cookingFire?.clear(); this.cookingSteam?.clear();
+      this.cookingVisual = null;
+    }
+    this.cookingJob = job?.interior ? job : null;
   }
-  stopCookingPreview() {
-    const preview = this.cookingPreview;
-    this.cookingPreview = null;
-    this.cookingFire?.clear(); this.cookingSteam?.clear();
-    if (preview && this.actor) this.path = interiorPath(this.actor, preview.returnTo,
-      furnitureObstacles(this.furniture.filter(item => item.key !== "indoor-kitchen")));
-  }
-  private drawCookingPreview(delta: number) {
-    const preview = this.cookingPreview;
+  private drawCooking(delta: number) {
+    const preview = this.cookingVisual;
     if (!preview || !this.actor || !this.cookingFire || !this.cookingSteam) return;
     preview.elapsed += Math.min(delta, 50);
     const sign = preview.kitchen.orientation === "mirrored" ? -1 : 1;
@@ -382,18 +452,20 @@ export class HomeInteriorScene extends Phaser.Scene {
       this.cookingFire.fillStyle(0xed7a20, .85).fillEllipse(x, baseY - outerHeight / 2, 20, outerHeight);
       this.cookingFire.fillStyle(0xffd468, .95).fillEllipse(x, baseY - innerHeight / 2, 8, innerHeight);
     }
-    if (!this.reducedMotion) for (let i = 0; i < 4; i++) {
-      const t = ((preview.elapsed + i * 650) % 2600) / 2600;
-      this.cookingSteam.fillStyle(0xfff7e8, Math.sin(t * Math.PI) * .4)
-        .fillEllipse(pot.x + Math.sin(t * 5 + i) * 4, pot.y - 37 - t * 60, (7 + t * 11) * 1.5, (5 + t * 8) * 1.5);
-    }
+    drawCookingSteam(this.cookingSteam, { x: pot.x, y: pot.y - 37 }, preview.elapsed, this.reducedMotion);
+  }
+
+  private walkingObstacles() {
+    return furnitureObstacles(this.furniture).filter(obstacle =>
+      obstacle.key !== "indoor-kitchen" || !this.actor || !insideObstacle(this.actor, obstacle, 12));
   }
   /** Finish the local walk before React removes the interior. */
   leave(onComplete: () => void) {
-    this.stopCookingPreview();
+    if (this.sleepPhase !== "awake") { onComplete(); return; }
+    if (this.cookingJob) { onComplete(); return; }
     if (this.exitComplete) return;
     if (!this.actor) { onComplete(); return; }
-    const route = interiorPath(this.actor, INTERIOR_ENTRY, furnitureObstacles(this.furniture));
+    const route = interiorPath(this.actor, INTERIOR_ENTRY, this.walkingObstacles());
     // Keep Back usable if artwork/navigation changes ever leave an actor stranded.
     if (!route.length) { onComplete(); return; }
     this.exitComplete = onComplete;
@@ -408,6 +480,26 @@ export class HomeInteriorScene extends Phaser.Scene {
   }
   update(_time: number, delta: number) {
     if (!this.actor) return;
+    if (this.sleepPhase !== "awake") {
+      this.sleepElapsed += Math.min(delta, 50);
+      this.sleepLetters.forEach((letter, i) => {
+        const t = ((this.sleepElapsed + i * 900) % 2700) / 2700;
+        letter.setPosition(this.sleepHead.x + (this.reducedMotion ? 0 : t * 12), this.sleepHead.y - (this.reducedMotion ? 14 : t * 55))
+          .setAlpha(this.reducedMotion ? (i === 0 ? .8 : 0) : Math.sin(t * Math.PI) * .85);
+      });
+      return;
+    }
+    const activeJob = this.cookingJob;
+    const pose = activeJob ? indoorCookingPose(activeJob, Date.now()) : null;
+    if (pose && activeJob?.interior) {
+      this.path = [];
+      this.actor.setPosition(pose.x, pose.y);
+      this.facingLeft = pose.facingLeft;
+      this.travelled = pose.distance * .5;
+      this.cookingVisual = !pose.walking && Date.now() < Date.parse(activeJob.completesAt)
+        ? { kitchen: activeJob.interior.kitchen, elapsed: Math.max(0, Date.now() - Date.parse(activeJob.startedAt)) } : null;
+      if (!this.cookingVisual) { this.cookingFire?.clear(); this.cookingSteam?.clear(); }
+    }
     let remaining = Math.min(delta, 50) * .255; // 255 artwork pixels/s: 50% faster than the original 170.
     while (this.path.length && remaining > 0) {
       const next = this.path[0]!, length = distance(this.actor, next);
@@ -418,7 +510,7 @@ export class HomeInteriorScene extends Phaser.Scene {
       this.travelled += step * .5; remaining -= step;
       if (step >= length) this.path = this.path.slice(1);
     }
-    const walking = this.path.length > 0;
+    const walking = pose?.walking ?? this.path.length > 0;
     this.drawShadow();
     if (interiorAudioStore.getState().walking !== walking) interiorAudioStore.setState({ walking });
     this.actor.setDepth(1 + this.actor.y / 2000 + .001);
@@ -427,9 +519,9 @@ export class HomeInteriorScene extends Phaser.Scene {
     if (kitchen) {
       this.actor.setDepth(kitchenActorDepth(this.actor, kitchen, this.actor.depth, furnitureDepth(kitchen, this.furniture)));
     }
-    this.drawActor(this.path.length && !this.reducedMotion ? farmerWalkTexture(this.travelled) : "farmer-idle");
+    this.drawActor(walking && !this.reducedMotion ? farmerWalkTexture(this.travelled) : "farmer-idle");
     if (!this.path.length) {
-      if (this.cookingPreview) this.drawCookingPreview(delta);
+      if (this.cookingVisual) this.drawCooking(delta);
       this.marker?.setVisible(false);
       const complete = this.exitComplete;
       this.exitComplete = null;

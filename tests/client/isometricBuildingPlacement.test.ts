@@ -10,6 +10,14 @@ const snapshot = () => FarmSnapshotSchema.parse({ created: false, player: { shek
 const farmer = { column: 1, row: 5 };
 const target = { column: 4, row: 3 };
 
+it.each(["rock", "bush", "reeds", "miniatureZiggurat"] as const)("handles %s inside a building footprint", type => {
+  const s = snapshot();
+  s.objects = [{ id, type, ...target }];
+  expect(mockGranaryPlacement(s, target, farmer, 1000).rule.type)
+    .toBe(type === "rock" || type === "bush" ? "valid" : "footprint_occupied");
+  expect(s.objects).toHaveLength(1); // Preview never clears scenery.
+});
+
 it("connects level-8 warehouse placement to the existing cost, footprint and command", () => {
   const s = snapshot();
   expect(buildingBuildBlocker(s, 1000, "warehouse")).toBe("Unlock at level 8");

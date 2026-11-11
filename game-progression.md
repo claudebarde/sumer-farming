@@ -131,7 +131,7 @@ Older unrecorded work is not needed to reach either target.
 
 ## Levels 11–20: proposed progression for discussion
 
-The level-11 kitchen construction and production upgrades below are configured in code.
+The level-11 indoor kitchen and production upgrades below are configured in code.
 The playable cap is level 11. The approved objectives and offering above are enforced by the server and shown in the level popup.
 Level 11 uses the kitchen to give players an optional use for their sesame oil.
 Cedar resin and the scented-oil workshop are deferred to a later, undecided level.
@@ -141,7 +141,7 @@ Flax is retained as a later idea, without an approved unlock level.
 
 | Estate level | Suggested additions | Status | Economic purpose |
 | --- | --- | --- | --- |
-| 11 | One-tile farm kitchen using sesame oil; bread oven and brewery upgrades to building level 3 | Kitchen construction: implemented; approved 1×1 artwork, road-based orientation and silhouette shadow. Four 30-second meals, automatic consumption and temporary benefits implemented; see game-rules.md. Upgrades: available. Scented-oil workshop deferred to a later level. | Give sesame oil an optional recurring use in farm meals before introducing livestock. |
+| 11 | Indoor kitchen using sesame oil; bread oven and brewery upgrades to building level 3 | Indoor kitchen: available from Furniture; no outdoor construction or road required. Four 30-second meals, automatic consumption and temporary benefits implemented; see game-rules.md. Upgrades: available. Scented-oil workshop deferred to a later level. | Give sesame oil an optional recurring use in farm meals before introducing livestock. |
 | 12 | Introduce sheep and processing: purchasing/caring for sheep, collecting wool and turning it into a saleable product | Level and sheep-processing direction: approved, planned. Sheep pen and a combined spinning/weaving workshop producing cloth: proposed implementation | Introduce livestock with an immediate processing outlet. Decide feed, care, yields, storage and buyers together. |
 | 13 | Potter's workshop producing empty jars from clay | Proposed | Let players manufacture packaging that they currently buy; retain buying as an alternative. |
 | 14 | Paid warehouse specialisation: +50% capacity for two different resources; reed workshop producing baskets or mats remains a separate proposal | Warehouse direction approved, not implemented; reed workshop proposed | Let players expand storage for their preferred production. Material and shekel costs remain to be balanced. |
@@ -275,17 +275,13 @@ Discussion recorded November 4; no later unlock level or forestry feature approv
 
 ## Level-11 farm kitchen — approved design
 
-The kitchen is a separate 1×1 building, with a stove, cooking pot and preparation
-surface. Its two approved sprites follow the axis of the adjoining completed
-road connected to the main road. It can occupy free non-arable building ground
-on either side of the main road. The approved placement scale is retained.
-
-The placement preview has been approved and removed. Construction is wired to
-the Buildings drawer at level 11: 2 reeds and 4 clay, 2 minutes, one kitchen per
-estate. Materials are consumed once when the saved construction job starts.
-The kitchen uses a building-silhouette shadow and the standard construction
-animation, progress bar, transparency and demolition controls. Four kitchen recipes and their costs, 30-second cooking times and temporary benefits are implemented; see the Kitchen meals section in game-rules.md. Estate level 11 is now claimable through its approved objectives and offering.
-
+The level-11 kitchen is now furniture inside the house, using the approved
+`kitchen-interior-matched.png` artwork. Players have one copy and can place,
+rotate or put it away. Clicking it opens the recipe drawer; the farmer walks to
+the table and cooks. No construction materials or road connection are required.
+The outdoor kitchen and its construction option have been removed without refunds.
+The four recipes, 30-second cooking times, automatic consumption and temporary
+benefits remain implemented; see game-rules.md.
 
 Kitchen meals approved November 5, 2026: oil-fried barley cakes (1 flour + 1 oil,
 20% faster harvesting for 20 min); date cakes (1 flour + 1 dates, +2 planting

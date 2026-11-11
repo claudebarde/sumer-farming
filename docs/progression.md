@@ -28,7 +28,7 @@ Its gold label shows the current farm level, replaced by `+` whenever `evaluateP
 | --- | --- | --- | --- |
 | 2 | Complete a river-connected canal; plant a barley field; harvest 5 barley yourself; have 5 on the ground | 5 ground barley | First granary |
 | 3 | Complete a granary; have 10 barley in granaries | 10 granary barley | Barley market |
-| 4 | Sell 5 barley; finish 50 crop harvests during level 3; have a full granary and ground barley or an already-planted field | 15 barley from the full granary | Fishing |
+| 4 | Sell 5 barley; finish 20 crop harvests during level 3; have a full granary and ground barley or an already-planted field | 15 barley from the full granary | Fishing |
 | 5 | Store 3 fish and 15 barley in completed granaries; feed the farmer a fish; retain spare seed or a planted field | 3 stored fish and 15 granary barley | Mill and barley processing |
 | 6 | Complete a Mill; harvest 50 crop plantings during level 5; process 4 barley using either recipe; hold 2 processed goods in any combination | 2 Flour / Brewer's Groats combined, Flour first | Brewery, Bread Oven, brewing supplies, bread making, beer and bread trading |
 | 7 | During level 6, produce 15 bread or beer combined; sell 10 bread or beer combined; hold 5 stored bread/beer combined | 5 bread/beer combined, bread first | Merchant requests; each granary automatically stores 20 barley instead of 15; mill donkey (30 shekels, NPC Baking market) |

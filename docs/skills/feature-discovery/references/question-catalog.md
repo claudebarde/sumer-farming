@@ -18,6 +18,10 @@ feature discussions reveal new needs.
   another action starts, an entity disappears or state changes mid-process?
 - **Presentation and interaction:** What is visible/clickable, what minimal
   feedback is needed, and which existing UI or artwork should be reused?
+- **Timed-action UI:** Reuse the approved horizontal `WorkProgress` lower
+  container (icon, description/countdown, circular progress). Is the matching
+  icon and action duration already approved? Ask about missing essentials before
+  implementing; do not invent a replacement layout or duration.
 - **Lifetime:** What survives scene changes, hiding the tab, reloads and returning
   later? For gameplay changes, identify server-authoritative state.
 - **Acceptance:** Which normal and boundary scenarios should be tested? Which

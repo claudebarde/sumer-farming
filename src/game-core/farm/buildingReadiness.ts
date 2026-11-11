@@ -10,7 +10,7 @@ export const readyBuildings = (snapshot: {
   groundItems: readonly { itemKey: string; quantity: number }[];
   buildings: readonly { type: FarmBuildingType }[];
 }, level: number): readonly FarmBuildingType[] => {
-  const unlocks = { kitchen: 11, oilMill: 10, granary: 2, mill: 5, brewery: 6, breadOven: 6, warehouse: 8, smallShrine: 8 } as const;
+  const unlocks = { oilMill: 10, granary: 2, mill: 5, brewery: 6, breadOven: 6, warehouse: 8, smallShrine: 8 } as const;
   const available = [...snapshot.inventory, ...snapshot.groundItems];
   return (Object.keys(unlocks) as FarmBuildingType[]).filter(building => level >= unlocks[building] &&
     !snapshot.buildings.some(b => b.type === building) &&

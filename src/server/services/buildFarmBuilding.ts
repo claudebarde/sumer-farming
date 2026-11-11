@@ -2,7 +2,8 @@ import { assertFarmerAvailable, FarmerUnavailableError } from "./farmerAvailabil
 import { setStoredQuantity } from "./physicalStorage";
 import { findLoadingTile } from "../../game-core/farm/roads";
 import { granaryLimitForLevel } from "../../game-data/progression";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { farmDecorationTypes, isClearableScenery } from "../../game-data/farmObjects";
 import { Clock, Data, Effect } from "effect";
 import { match } from "ts-pattern";
 
@@ -191,7 +192,7 @@ export const buildFarmBuilding = (
                 .from(farmImprovements)
                 .where(eq(farmImprovements.farmId, farm.id));
           const objects = await transaction
-                .select({ column: farmObjects.column, row: farmObjects.row })
+                .select({ type: farmObjects.type, column: farmObjects.column, row: farmObjects.row })
                 .from(farmObjects)
                 .where(eq(farmObjects.farmId, farm.id));
           const buildings = await transaction
@@ -210,7 +211,7 @@ export const buildFarmBuilding = (
             ...groundItems,
             ...crops,
             ...improvements,
-            ...objects
+            ...objects.filter(object => !isClearableScenery(object.type))
           ]) {
             occupiedCoordinates.add(coordinateKey(occupant));
           }
@@ -278,6 +279,14 @@ export const buildFarmBuilding = (
               type: "rule_error",
               rule: { type: "footprint_occupied" }
             };
+          }
+
+          // Clear only accepted building footprints, atomically with construction.
+          for (const tile of getBuildingFootprint(buildingType, input.target)) {
+            await transaction.delete(farmObjects).where(and(
+              eq(farmObjects.farmId, farm.id), eq(farmObjects.column, tile.column),
+              eq(farmObjects.row, tile.row), inArray(farmObjects.type, [...farmDecorationTypes])
+            ));
           }
 
           for (const [itemKey, quantity] of Object.entries(

@@ -25,7 +25,7 @@ export default function GameTopBar({ snapshot, clock, children, onLevel, onFarme
         <FarmLevelIcon level={snapshot?.farm.progression?.level ?? 1} />
         <span className={styles.levelDetails}>
           <strong>Farm level {snapshot?.farm.progression?.level ?? 1}</strong>
-          <span>{levelProgress?.upcoming ? "Highest level reached" : `${completedObjectives}/${levelProgress?.requirements.length ?? 0} objectives fulfilled`}</span>
+          <span>{levelProgress?.upcoming ? "New levels coming soon" : `${completedObjectives}/${levelProgress?.requirements.length ?? 0} objectives fulfilled`}</span>
           <span className={styles.levelTrack} role="progressbar" aria-label="Level objectives" aria-valuemin={0} aria-valuemax={levelProgress?.upcoming ? 1 : Math.max(1, levelProgress?.requirements.length ?? 0)} aria-valuenow={levelProgress?.upcoming ? 1 : completedObjectives}>
             <span style={{ width: `${levelProgress?.upcoming ? 100 : 100 * completedObjectives / Math.max(1, levelProgress?.requirements.length ?? 0)}%` }} />
           </span>

@@ -11,7 +11,7 @@ export const DOG_SOURCES = Object.fromEntries<string>([
   ...Object.entries(import.meta.glob("../../../assets/sprite_assets/pngs/v2/isometric-test/dog-walk-*.webp", { eager: true, query: "?url", import: "default" }))
     .sort(([a], [b]) => a.localeCompare(b)).map(([, url], index): [string, string] => [String(index), url as string]),
 ]);
-export type DogState = Readonly<{ position: IsoCell; target: IsoCell | null; elapsed: number; walking: boolean; flip: boolean; checkIn: number;
+export type DogState = Readonly<{ position: IsoCell; target: IsoCell | null; elapsed: number; walking: boolean; flip: boolean; checkIn: number; idleMs?: number;
   constructionExit?: Readonly<{ footprint: readonly IsoCell[]; path: readonly IsoCell[] }> }>;
 export const dogClear = (snapshot: FarmSnapshot, cell: IsoCell, now: number) =>
   previewWalkable(snapshot, cell, now) && !snapshot.crops.some(c => sameCell(c, cell)) && !snapshot.groundItems.some(i => sameCell(i, cell));
@@ -44,7 +44,9 @@ export const stepDog = (state: DogState, snapshot: FarmSnapshot, farmer: IsoCell
       target = next ? { column: next.x - 0.5, row: next.y - 0.5 } : null;
     }
   }
-  else if (Math.hypot(state.position.column - farmer.column, state.position.row - farmer.row) <= 1) target = null;
+  // A resting dog waits until the farmer is clearly farther away before
+  // following again, rather than toggling at the same one-tile boundary.
+  else if (Math.hypot(state.position.column - farmer.column, state.position.row - farmer.row) <= (state.walking ? 1 : 1.25)) target = null;
   else if (!target && checkIn === 0) {
     const point = (cell: IsoCell) => ({ x: cell.column + 0.5, y: cell.row + 0.5 });
     const path = planDogFollow(point(state.position), point(farmer), { column: -4, row: 0, columns: 16, rows: config.riverRow },
@@ -59,11 +61,17 @@ export const stepDog = (state: DogState, snapshot: FarmSnapshot, farmer: IsoCell
 export const moveDog = (state: DogState, delta: number, mouseX: number | null): DogState => {
   const dt = Math.max(0, Math.min(delta, 50));
   const { target, checkIn } = state;
-  if (!target) return { ...state, target: null, checkIn, walking: false, elapsed: 0, flip: dogFacingMouse(isoPoint(state.position).x, mouseX, state.flip) };
+  if (!target) {
+    const idleMs = Math.min(500, (state.idleMs ?? 0) + dt);
+    // Brief pauses between walking segments must not turn the dog toward
+    // the pointer, then immediately back toward its destination.
+    return { ...state, target: null, checkIn, walking: false, elapsed: 0, idleMs,
+      flip: idleMs < 500 ? state.flip : dogFacingMouse(isoPoint(state.position).x, mouseX, state.flip) };
+  }
   const dc = target.column - state.position.column, dr = target.row - state.position.row;
   const distance = Math.hypot(dc, dr), step = Math.min(distance, dt * 0.12 / 64);
   const position = distance ? { column: state.position.column + dc / distance * step, row: state.position.row + dr / distance * step } : target;
   const dx = isoPoint(target).x - isoPoint(state.position).x;
-  return { position, target: step >= distance ? null : target, checkIn: 0, elapsed: state.elapsed + dt, walking: step > 0, flip: dx === 0 ? state.flip : dx < 0 };
+  return { position, idleMs: 0, target: step >= distance ? null : target, checkIn: 0, elapsed: state.elapsed + dt, walking: step > 0, flip: Math.abs(dx) < 0.01 ? state.flip : dx < 0 };
 };
 export const dogTexture = (state: DogState) => `dog-${state.walking ? Math.floor(state.elapsed / 120) % 6 : "sit"}`;

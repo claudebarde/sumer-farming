@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { Client } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase } from "../../src/server/db/client";
-import { farmBuildings, farmInventory, farms, players } from "../../src/server/db/schema";
+import { farmBuildings, farmInventory, farmObjects, farms, players } from "../../src/server/db/schema";
 import { buildFarmBuilding } from "../../src/server/services/buildFarmBuilding";
 import { readFarmSnapshot } from "../../src/server/services/farmSnapshot";
 import { loadMarketItemStorage } from "../../src/server/services/marketItemStorage";
@@ -31,6 +31,24 @@ const fixture = async () => {
   return { farm: farm!, refresh };
 };
 describe("warehouse and finite storage", () => {
+  it("clears only footprint scenery after accepting construction, preserving it on failed placement", async () => {
+    const f = await fixture();
+    await db.insert(farmInventory).values([
+      { farmId: f.farm.id, itemKey: "reed", quantity: 4 },
+      { farmId: f.farm.id, itemKey: "clay", quantity: 6 },
+    ]);
+    await db.insert(farmObjects).values([
+      { farmId: f.farm.id, type: "rock", column: 5, row: 3 },
+      { farmId: f.farm.id, type: "bush", column: 6, row: 4 },
+      { farmId: f.farm.id, type: "rock", column: 5, row: 0 },
+    ]);
+    const input = { playerId: f.farm.playerId, building: "warehouse" as const, target: { column: 5, row: 3 }, expectedFarmVersion: 1 };
+    await Effect.runPromise(Effect.flip(buildFarmBuilding(db, { ...input, target: { column: 5, row: 0 } })));
+    expect((await f.refresh()).objects).toHaveLength(3);
+    const built = await Effect.runPromise(buildFarmBuilding(db, input));
+    expect(built.objects).toMatchObject([{ type: "rock", column: 5, row: 0 }]);
+    expect((await f.refresh()).objects).toEqual(built.objects);
+  });
   it("splits bread delivery between warehouse and farm and persists the remaining cargo", async () => {
     const f = await fixture(); const buildingId = randomUUID();
     const [warehouse] = await db.insert(farmBuildings).values({ farmId: f.farm.id, type: "warehouse", column: 5, row: 3, startedAt: new Date(0), completesAt: new Date(1) }).returning();

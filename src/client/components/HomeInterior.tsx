@@ -1,3 +1,9 @@
+import { interiorSleepPhase } from "../game/home/interiorSleep";
+import type { InteriorPoint } from "../game/home/interiorNavigation";
+import KitchenDrawer from "./KitchenDrawer";
+import CookingProgress from "./CookingProgress";
+import { executeGameCommand } from "../api/gameActions";
+import type { MealKey } from "../../game-data/kitchen";
 import { replaceFurniture, removeFurniture } from "../../game-core/home/furnitureSurfaces";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, Tooltip } from "radix-ui";
@@ -38,8 +44,31 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved, visit 
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const sleepPhase = interiorSleepPhase(snapshot.farm.sleep, clock, !!visit);
+  const sleepRef = useRef(sleepPhase);
+  const [wakeTarget, setWakeTarget] = useState<InteriorPoint | null>(null);
+  const [waking, setWaking] = useState(false);
+  const wakingRef = useRef(false);
+  useEffect(() => { sleepRef.current = sleepPhase; scene.current?.setSleepPhase(sleepPhase); }, [sleepPhase]);
   const [furnishOpen, setFurnishOpen] = useState(false);
-  const [cookingPreview, setCookingPreview] = useState(false);
+  const [kitchenOpen, setKitchenOpen] = useState(false);
+  const [startingMeal, setStartingMeal] = useState(false);
+  const mealPending = useRef(false);
+  const cookingJob = !visit && snapshot.farm.production.cooking?.interior ? snapshot.farm.production.cooking : null;
+  const jobRef = useRef(cookingJob);
+  useEffect(() => { jobRef.current = cookingJob; scene.current?.setCookingJob(cookingJob); }, [cookingJob]);
+  const cook = async (meal: MealKey) => {
+    if (visit || mealPending.current || !scene.current) return;
+    mealPending.current = true; setStartingMeal(true); setError(null);
+    scene.current.lockFurniture(true);
+    try {
+      const next = await executeGameCommand({ type: "cook_meal", meal, buildingId: snapshot.farm.id,
+        interiorPosition: scene.current.farmerPosition(), expectedFarmVersion: snapshot.farm.version });
+      scene.current.setCookingJob(next.farm.production.cooking ?? null);
+      onSaved(next); setKitchenOpen(false); setSelected(null);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not start cooking."); }
+    finally { mealPending.current = false; setStartingMeal(false); scene.current?.lockFurniture(false); }
+  };
   const [placing, setPlacing] = useState<FurnitureKey | null>(null);
   const [selected, setSelected] = useState<FurnitureKey | null>(null);
   const [preview, setPreview] = useState<FurniturePreview | null>(null);
@@ -50,12 +79,12 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved, visit 
   useEffect(() => { appearanceRef.current = appearance; scene.current?.setFurniture(appearance.furniture ?? []); scene.current?.setWallTablet(appearance.wallTablet ?? "none"); }, [appearance]);
   const cancelPlacement = () => { scene.current?.cancelPlacement(); setPlacing(null); setError(null); };
   const choose = (key: FurnitureKey) => {
-    if (visit) return;
+    if (visit || cookingJob) return;
     setFurnishOpen(false); setSelected(null); setError(null); setPlacing(key);
     scene.current?.lockFurniture(false); scene.current?.beginPlacement(key);
   };
   const save = async (items: readonly FurniturePlacement[]) => {
-    if (visit || savingRef.current) return;
+    if (visit || savingRef.current || mealPending.current) return;
     savingRef.current = true; setSaving(true); setError(null); scene.current?.lockFurniture(true);
     try {
       const next = await sendHomeFurniture(appearanceRef.current.furnitureRevision ?? 0, items);
@@ -65,9 +94,19 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved, visit 
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save your furniture."); }
     finally { savingRef.current = false; setSaving(false); scene.current?.lockFurniture(false); }
   };
+  const confirmWake = async () => {
+    if (!wakeTarget || wakingRef.current || visit) return;
+    wakingRef.current = true; setWaking(true); setError(null);
+    try {
+      const next = await executeGameCommand({ type: "farmer_sleep", action: "wake", expectedFarmVersion: snapshot.farm.version });
+      onSaved(next); scene.current?.setSleepPhase("awake"); scene.current?.walkTo(wakeTarget); setWakeTarget(null);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not wake the farmer."); }
+    finally { wakingRef.current = false; setWaking(false); }
+  };
   const exitRequested = useRef(false);
   const leave = () => {
-    if (exitRequested.current || savingRef.current) return;
+    if (exitRequested.current || savingRef.current || mealPending.current || wakingRef.current) return;
+    setWakeTarget(null);
     cancelPlacement(); setSelected(null);
     exitRequested.current = true;
     setLeaving(true);
@@ -80,7 +119,9 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved, visit 
     let observer: ResizeObserver | undefined;
     void Promise.all([import("phaser"), import("../game/home/HomeInteriorScene")]).then(([{ default: Phaser }, { HomeInteriorScene }]) => {
       if (disposed || !host) return;
-      const interior = new HomeInteriorScene(() => { if (!disposed) setLoading(false); }, setPreview, key => { if (!visiting.current) { setSelected(key); setError(null); } });
+      const interior = new HomeInteriorScene(() => { if (!disposed) { interior.setCookingJob(jobRef.current); interior.setSleepPhase(sleepRef.current); setLoading(false); } }, setPreview, key => {
+        if (!visiting.current) { if (key === "indoor-kitchen") setKitchenOpen(true); else setSelected(key); setError(null); }
+      }, setWakeTarget);
       interior.setFurniture(appearanceRef.current.furniture ?? []);
       interior.setWallTablet(appearanceRef.current.wallTablet ?? "none");
       scene.current = interior;
@@ -105,7 +146,7 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved, visit 
       <Dialog.Content ref={interiorContent} tabIndex={-1} className={styles.scene} aria-describedby={undefined}
         onOpenAutoFocus={event => { event.preventDefault(); interiorContent.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={event => event.preventDefault()}
-        onEscapeKeyDown={event => { if (saving || placing || selected) { event.preventDefault(); if (!saving) { cancelPlacement(); setSelected(null); } } }}>
+        onEscapeKeyDown={event => { if (wakeTarget) { event.preventDefault(); if (!waking) { setWakeTarget(null); setError(null); } return; } if (saving || placing || selected) { event.preventDefault(); if (!saving) { cancelPlacement(); setSelected(null); } } }}>
         <Dialog.Title className={styles.accessibleTitle}>{visit ? `${visit.name}’s home` : "Your home"}</Dialog.Title>
         <GameTopBar snapshot={snapshot} clock={clock} zoomDisabled={loading}
           onZoomIn={() => scene.current?.zoomBy(1.2)} onZoomOut={() => scene.current?.zoomBy(1 / 1.2)} onFit={() => scene.current?.fit()}>
@@ -113,7 +154,7 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved, visit 
             <Tooltip.Provider delayDuration={300}>
               {!visit && <Tooltip.Root {...tooltip("furniture")}>
                 <Tooltip.Trigger asChild>
-                  <button className={`${bar.manageButton} ${actions.button} ${bar.manageIconButton}`} disabled={loading || leaving || saving || cookingPreview}
+                  <button className={`${bar.manageButton} ${actions.button} ${bar.manageIconButton}`} disabled={loading || leaving || saving || !!cookingJob || startingMeal || sleepPhase !== "awake"}
                     aria-label="Furniture" onClick={() => { cancelPlacement(); setSelected(null); scene.current?.lockFurniture(true); setFurnishOpen(true); }}>
                     <img className={styles.furnitureIcon} src={FURNITURE_ARTWORK["wooden-stool"]} alt="" />
                     <span className={bar.controlLabel}>Furniture</span>
@@ -131,13 +172,7 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved, visit 
               </Tooltip.Root>
               <SettingsDrawer layer={1400} onOpen={() => { if (!saving) { cancelPlacement(); setSelected(null); } }} />
               <RulesLink toolbar />
-              {!visit && appearance.furniture?.some(item => item.key === "indoor-kitchen") && <button disabled={loading || leaving || saving || !!placing || furnishOpen}
-                onClick={() => {
-                  setSelected(null); setError(null);
-                  if (cookingPreview) { scene.current?.stopCookingPreview(); setCookingPreview(false); }
-                  else if (scene.current?.startCookingPreview()) setCookingPreview(true);
-                  else setError("Leave clear floor in front of the kitchen table for the farmer.");
-                }}>{cookingPreview ? "Stop cooking preview" : "Start cooking preview"}</button>}
+
             </Tooltip.Provider>
           </div></div>
         </GameTopBar>
@@ -145,7 +180,16 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved, visit 
         <div className={styles.viewport} ref={setHost} role="region" aria-label="Home interior. Click the floor to walk.">
           {(loading || failed) && <GameLoadingScreen destination="home" homeOwnerName={visit && visit.playerId !== snapshot.farm.playerId ? visit.name : undefined} state={failed ? "error" : "loading"} retry={() => window.location.reload()} />}
         </div>
-        {(placing || selected || error) && <div className={styles.actions}>
+        {wakeTarget && <aside className={bar.planting}>
+          <p>Wake the farmer?</p>
+          {error && <p role="alert">{error}</p>}
+          <div><button disabled={waking} onClick={() => void confirmWake()}>Confirm</button>
+          <button disabled={waking} onClick={() => { setWakeTarget(null); setError(null); }}>Cancel</button></div>
+        </aside>}
+        {cookingJob && <aside className={bar.planting} aria-label="Cooking"><CookingProgress job={cookingJob} now={clock} /></aside>}
+        {kitchenOpen && <KitchenDrawer snapshot={snapshot} now={clock}
+          layer={1400} pending={startingMeal} error={error} onClose={() => setKitchenOpen(false)} onCook={meal => void cook(meal)} />}
+        {(placing || selected || (error && !kitchenOpen && !wakeTarget)) && <div className={styles.actions}>
           <strong>{furnitureDefinition((placing ?? selected ?? "wooden-stool")).name}</strong>
           {error && <p role="alert">{error}</p>}
           {placing && <>

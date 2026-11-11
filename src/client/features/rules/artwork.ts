@@ -15,7 +15,7 @@ import oven from '../../../assets/sprite_assets/pngs/v2/isometric-test/bread-ove
 import brewery from '../../../assets/sprite_assets/pngs/v2/isometric-test/brewery-isometric.webp';
 import shrine from '../../../assets/sprite_assets/pngs/v2/isometric-test/small-shrine-isometric.webp';
 import warehouse from '../../../assets/sprite_assets/pngs/v2/isometric-test/warehouse-isometric.webp';
-import kitchen from '../../../assets/sprite_assets/pngs/v2/isometric-test/kitchen/kitchen-single-tile-test.png';
+import kitchen from '../../../assets/sprite_assets/pngs/v2/isometric-test/kitchen/kitchen-interior-matched.png';
 import market from '../../../assets/sprite_assets/pngs/v2/isometric-test/market-isometric-test.webp';
 import merchantBoat from '../../../assets/sprite_assets/pngs/v2/isometric-test/merchant-boat/merchant-reed-boat-idle.png';
 import ziggurat from '../../../assets/sprite_assets/pngs/v2/isometric-test/ziggurat/ziggurat-completed.png';

@@ -1,3 +1,4 @@
+import MealIcon from "./MealIcon";
 import RulesLink from "./RulesLink";
 import { buildingRuleSections, tileRuleSection } from "../features/rules/links";
 import { isFarmerSleeping } from "../../game-data/farmerSleep";
@@ -82,6 +83,7 @@ export default function IsometricTilePopup({
   onSleep,
   onCustomizeHome,
   onEnterHome,
+  onCookMeal,
   onWalk,
   onDrop,
   onPickup,
@@ -114,6 +116,7 @@ export default function IsometricTilePopup({
   onClose: () => void;
   onCustomizeHome?: () => void;
   onEnterHome?: () => void;
+  onCookMeal?: () => void;
   buildingTransparent?: boolean;
   onToggleBuildingTransparency?: () => void;
   getFarmerPosition?: () => IsometricTileAnchor["cell"] | undefined;
@@ -1195,9 +1198,10 @@ export default function IsometricTilePopup({
                     </>
                   )}
                 </div>
-                {content.home && (onCustomizeHome || onEnterHome) && <div className={styles.homeActions}>
-                  {onCustomizeHome && <button className={buildingActionStyles.button} onClick={onCustomizeHome}><BuildingActionIcon kind="farm" /><span>Customize house</span></button>}
-                  {onEnterHome && <button className={buildingActionStyles.button} onClick={onEnterHome}><BuildingActionIcon kind="farm" /><span>Enter house</span></button>}
+                {content.home && (onCookMeal || onCustomizeHome || onEnterHome) && <div className={styles.homeActions}>
+                  {onCustomizeHome && <button className={buildingActionStyles.button} onClick={onCustomizeHome}><BuildingActionIcon kind="farm" /><span>Customize</span></button>}
+                  {onEnterHome && <button className={buildingActionStyles.button} onClick={onEnterHome}><BuildingActionIcon kind="farm" /><span>Enter</span></button>}
+                  {onCookMeal && <button className={buildingActionStyles.button} onClick={onCookMeal}><MealIcon meal="porridge" size={36} /><span>Cook</span></button>}
                 </div>}
                 {content.home && isFarmerSleeping(snapshot.farm.sleep, now) && <button className={`${buildingActionStyles.button} ${styles.wakeButton}`} onClick={() => onSleep("wake")}><BuildingActionIcon kind="farm" /><span>Wake farmer</span></button>}
               </>

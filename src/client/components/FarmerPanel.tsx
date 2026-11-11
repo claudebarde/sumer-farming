@@ -7,7 +7,6 @@ import { datesTreatErrors, validateDatesTreat } from "../../game-core/farm/wellb
 import { DATES_HAPPINESS_BOOST, DATES_TREAT_INTERVAL_MS } from "../../game-data/household";
 import { shrineBlessingActive } from "../../game-data/shrine";
 import { useRef, useState } from "react";
-import { Popover } from "radix-ui";
 import { useStore } from "zustand";
 import { farmerCommandStore } from "../stores/farmerCommandStore";
 import type { FarmSnapshot } from "../../schemas/farm";
@@ -61,7 +60,7 @@ export default function FarmerPanel({
   const busy =
     (status !== "idle" && status !== "failed") ||
     !!(
-      farmerProductionJob(snapshot.farm) ||
+      farmerProductionJob(snapshot.farm, now) ||
       cropWorkActive(snapshot) ||
       snapshot.farm.production.planting ||
       snapshot.farm.production.materialDelivery ||
@@ -202,30 +201,21 @@ export default function FarmerPanel({
               : { ...fishTreatErrors, ...breadTreatErrors, ...datesTreatErrors }[rule];
           const button = (
             <button
-              aria-label={!locked && pending === null && remainingMinutes === 0 && quantity > 0 ? (item === "dates" ? "Give one basket of dates" : `Give one ${item} to the farmer`) : undefined}
-              disabled={locked || pending !== null || rule !== null}
-              aria-disabled={busy || undefined}
+              aria-label={!busy && !locked && pending === null && remainingMinutes === 0 && quantity > 0 ? (item === "dates" ? "Give one basket of dates" : `Give one ${item} to the farmer`) : undefined}
+              disabled={busy || locked || pending !== null || rule !== null}
               onClick={() => {
                 void giveTreat(item);
               }}
             >
               {pending === item
                 ? "Giving treat…"
-                : remainingMinutes > 0 && !locked
+                : busy
+                  ? "Farmer is busy"
+                  : remainingMinutes > 0 && !locked
                   ? `Wait ${minuteCountdownLabel(remainingMinutes)}`
                   : item === "dates" ? "Give one basket of dates" : `Give ${item}`}
             </button>
           );
-          const action = busy ? (
-            <Popover.Root>
-              <Popover.Trigger asChild>{button}</Popover.Trigger>
-              <Popover.Portal>
-                <Popover.Content className={styles["farmer-busy-popover"]} side="top" sideOffset={8} collisionPadding={12} aria-label="Farmer availability">
-                  The farmer is busy
-                </Popover.Content>
-              </Popover.Portal>
-            </Popover.Root>
-          ) : button;
           {
             const boost = item === "dates" ? DATES_HAPPINESS_BOOST : item === "fish" ? FISH_HAPPINESS_BOOST : item === "bread" ? BREAD_HAPPINESS_BOOST : BEER_HAPPINESS_BOOST;
             const name = item === "dates" ? "Dates" : item === "fish" ? "Fish" : item === "bread" ? "Bread" : "Beer";
@@ -243,9 +233,9 @@ export default function FarmerPanel({
                 <small>Every {interval / 3600000}h</small>
               </div>
               <div className={treatStyles.action}>
-                {remainingMinutes > 0 && !locked && <small>Ready in</small>}
+                {remainingMinutes > 0 && !locked && !busy && <small>Ready in</small>}
                 {reason && (locked || remainingMinutes === 0) && (locked || !rule?.startsWith("no_")) && <small>{reason}</small>}
-                {action}
+                {button}
               </div>
               {message?.item === item && <p className={treatStyles.message} role="status">{message.text}</p>}
             </section>;

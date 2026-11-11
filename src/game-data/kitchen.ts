@@ -1,3 +1,4 @@
+import { FurniturePlacementSchema } from "../schemas/homeFurniture";
 import { z } from "zod";
 import { ProductionJourneySchema } from "./productionJourney";
 
@@ -11,8 +12,16 @@ export const MEALS = {
   sesameCakes: { name: "Sesame cakes", ingredients: { flour: 1, sesame: 1, oil: 1 }, benefit: "Farmer milling and beer preparation 15% faster", durationMs: 20 * 60_000 },
   porridge: { name: "Date and sesame porridge", ingredients: { brewersGroats: 1, dates: 1, sesame: 1 }, benefit: "Hunger progresses 50% slower", durationMs: 60 * 60_000 }
 } as const;
-export const CookingSchema = z.object({ id: z.uuid(), buildingId: z.uuid(), meal: MealKeySchema,
-  preparation: ProductionJourneySchema, startedAt: z.iso.datetime(), completesAt: z.iso.datetime() });
+export const InteriorPositionSchema = z.object({ x: z.number().finite().min(0).max(1536), y: z.number().finite().min(0).max(1024) });
+const CookingBaseSchema = z.object({ id: z.uuid(), buildingId: z.uuid(), meal: MealKeySchema,
+  startedAt: z.iso.datetime(), completesAt: z.iso.datetime() });
+export const CookingSchema = z.union([
+  CookingBaseSchema.extend({ preparation: ProductionJourneySchema, interior: z.undefined().optional() }),
+  CookingBaseSchema.extend({ preparation: z.undefined().optional(), interior: z.object({
+    farmApproach: z.object({ departedAt: z.number(), path: z.array(z.object({ column: z.int(), row: z.int() })).min(1) }).optional(),
+    kitchen: FurniturePlacementSchema, departedAt: z.number(), path: z.array(InteriorPositionSchema).min(2)
+  }) })
+]);
 export const MealBenefitSchema = z.object({ meal: MealKeySchema, startedAt: z.number(), expiresAt: z.number() });
 export type MealBenefit = z.infer<typeof MealBenefitSchema>;
 export type Cooking = z.infer<typeof CookingSchema>;

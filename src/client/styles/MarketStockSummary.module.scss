@@ -1,0 +1,15 @@
+.panel {
+  width: min(94%, 800px);
+  padding: 8px 12px;
+  overflow-x: auto;
+  > p { font-weight: bold; }
+  .columns {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(155px, 1fr);
+    align-items: start;
+    gap: 8px;
+  }
+  table { table-layout: auto; }
+  col { width: auto; }
+}

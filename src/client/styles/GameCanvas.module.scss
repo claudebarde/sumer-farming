@@ -1,14 +1,5 @@
 @use "./variables" as *;
 
-.farmer-busy-popover {
-  z-index: 1100;
-  padding: 0.5rem 0.75rem;
-  border: 2px solid $color-sand;
-  border-radius: 6px;
-  background: $color-parchment-light;
-  color: $color-ink;
-  max-width: calc(100vw - 24px);
-}
 
 .requirement-status {
   display: inline-block;

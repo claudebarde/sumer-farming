@@ -297,8 +297,8 @@ building uses the same stage. Intermediate visual upgrades are not implemented y
 - While the confirmed road queue is being built, hide the cursor ghost and all lower-container buttons, showing only “Building roads…”. When the last saved deadline passes, automatically exit road-building mode, close the lower container and restore normal building visibility and controls. Returning after time away reconciles the saved deadlines rather than waiting for animations.
 - Click a selected green road tile again to remove it from the unconfirmed plan, provided every remaining selected tile still has an edge-connected path to an existing completed road connected to the main road. That path may use other selected tiles. Removing the only tile is allowed; removing a necessary connection is refused with an explanation. The ghost is green for an allowed removal and red for a blocked one. The remaining steps are reordered when needed to build outward from their surviving road connections; no extra tiles are added.
 - Dirt roads are free. With the farmer available and empty-handed, the entire plan is validated and saved atomically. The farmer walks to each site at his normal 180 ms per tile, then uses his pickaxe for five seconds per tile, in the displayed numbered order. Saved travel and work deadlines continue while the tab is hidden or closed; returning never restarts the queue. Roads stay within the farm map above the river and cannot replace fields, canals, buildings (including the market), reeds, or ground items. Decorative rocks and bushes are cleared when the plan is accepted.
-- Completed player-built roads offer **Destroy** when the farmer is available and empty-handed. The main road is permanent. Removal is refused with an explanatory toast if any remaining road would lose its edge-connected route to the main road, or if a building would lose its reserved loading tile. The server checks these rules too. The farmer walks to the road, then uses his pickaxe for five seconds; saved removal completes even after reloading. Free roads provide no refund.
-- Roads and irrigation canals can replace decorative rocks and bushes/trees: construction clears that scenery permanently. Reeds still block both, as do planted crops (including date palms). Normal connectivity and other placement requirements still apply; failed construction does not clear scenery.
+- Completed player-built roads offer **Destroy** only when removal is allowed and the farmer is available and empty-handed. The button is hidden if removal would disconnect remaining roads from the main road, remove a building's reserved loading access, or affect the porter's active delivery or return route. The main road is permanent. The server checks these rules too. The farmer walks to the road, then uses his pickaxe for five seconds; saved removal completes even after reloading. Road and irrigation-canal removal provides no refund of materials or shekels.
+- Buildings, roads and irrigation canals can replace decorative rocks and bushes/trees: confirmed construction clears scenery inside its footprint permanently. There is no standalone scenery-removal action and clearing gives no resources. Reeds, planted crops (including date palms), and placed decorations remain protected. Normal connectivity and other placement requirements still apply; cancelled or failed construction does not clear scenery.
 - Newly created farms start with 6–8 randomly placed decorations, including at least 3 rocks and 3 bushes, plus two riverbank reed sources. All occupy distinct non-arable tiles above the river, avoiding the main road and permanent buildings. Reeds, bushes and rocks cannot occupy farmland. On existing farms, scenery displaced by the expanded southern farmland moves to vacant non-arable ground; reeds remain beside the river. Existing goods, buildings and work are preserved; cleared scenery does not respawn.
 - New buildings can occupy ordinary **non-arable ground on either side of the main road**. Every tile of their footprint must be non-arable, empty and inside the map; even partial overlap with farmland, roads or water is forbidden. The building's footprint must border a completed connected road with an unobstructed access tile. Multiple buildings may share that tile; placement highlights it. Each building keeps its saved access point for routing and orientation. Access tiles remain walkable, and roads required by any building remain protected from removal. New canals cannot replace access points or player-built roads. Existing saved buildings are not moved by this placement rule.
 - Finished flour/groats bags and bread baskets choose B or C inside the producing building's 2×2 footprint, whichever is nearest a connected adjacent road (ties prefer saved loading access, then B). Beer jars retain their bottom-left position. Goods show a quantity chip and do not occupy roads. Mill bags and bread are collected from the chosen nearby road; beer retains its saved loading tile.
@@ -326,7 +326,7 @@ Leveling up is **manual**, not automatic. Meet every listed requirement, then pr
 | 1 — First plot | Starting level | None | Irrigation, barley cultivation, farm storage |
 | 2 — Grain keeper | Complete a river-connected irrigation canal; plant your first barley field; harvest at least 5 barley yourself; have 5 usable barley on the ground | 5 ground barley | First granary |
 | 3 — Grain trader | Complete a granary; have 10 barley stored in granaries | 10 granary barley | Market entry and barley trading |
-| 4 — River provider | Sell at least 5 barley; complete at least 50 crop harvests during level 3; have a full granary (15 barley), plus at least 1 unexpired ground barley or an already-planted barley field | 15 barley from the full granary | Fishing, fish storage, and normal happiness management |
+| 4 — River provider | Sell at least 5 barley; complete at least 20 crop harvests during level 3; have a full granary (15 barley), plus at least 1 unexpired ground barley or an already-planted barley field | 15 barley from the full granary | Fishing, fish storage, and normal happiness management |
 | 5 — Caring household | Have 3 stored fish and 15 barley in completed granaries; have fed the farmer at least 1 fish; retain spare seed or an already-planted barley field | 3 stored fish and 15 granary barley | Mill, barley processing and hired porter |
 | 6 — Brewer or Baker? | Complete a Mill; harvest 50 crop plantings during level 5; process 4 barley into either output; hold 2 processed goods in any combination | 2 Flour or Brewer's Groats, combined (Flour used first) | Brewery, Bread Oven, brewing supplies, bread making, beer and bread trading |
 | 7 — Trusted supplier | During level 6, produce at least 15 bread or beer combined and sell at least 10 bread or beer combined; have 5 stored bread/beer combined | 5 bread/beer in any combination (bread used first) | Merchant requests, 20-barley capacity per granary, and the mill donkey (30 shekels) |
@@ -663,7 +663,7 @@ Cancel or Escape exits placement without spending materials.
 - From level 4, a food shortage can lower happiness to 50, but the shortage itself cannot lower it further or create an Unhappy mood. Independent natural decay can still take happiness below that point over time.
 - Feeding does not instantly erase all lost happiness; it adds its normal boost.
 
-Treat buttons show “The farmer is busy” when clicked during farmer work, without spending a treat. Feedback appears beside the corresponding treat. When no fish are stored, the fish button reads “No fish available”; an active cooldown still takes priority.
+While the farmer is busy, all four treat buttons (fish, bread, beer and dates) are gray and disabled, with “Farmer is busy” inside the button. No treat is spent. Once work ends, stock, happiness and each treat’s cooldown determine availability again.
 
 ### Farmer treats
 
@@ -963,6 +963,8 @@ Unlike baking, **15-minute beer brewing does not occupy the farmer**. Start beer
 or perform other tasks while it brews.
 
 ## Markets and shekels
+
+The market view shows a compact estate-stock summary for unlocked tradeable crops, ingredients, food and drink, including zero stock. Counts combine estate stores (including granaries for barley); carried goods and unfinished output are excluded. The summary is informational: normal trade limits still apply, including the barley seed reserve.
 
 Neighbourhood and global leaderboards show a **Badges** column between Farmer
 and the selected ranking score (Estate level by default). Reaching estate level
@@ -1481,17 +1483,12 @@ sprites are needed before enabling full diagonal roaming.
 
 ### Kitchen — level 11
 
-At level 11, build one kitchen per estate from Manage estate → Buildings. It costs
-2 reeds and 4 clay and takes 2 minutes, with no shekel cost. Place its single-tile
-footprint on empty non-arable building ground next to a completed road connected
-to the main road. Its orientation follows the adjoining road; free building
-ground on either side of the main road can be used.
-
-Construction consumes materials once at the start. Its saved timer continues
-while the game is closed; the farmer's animation only displays that work. The
-completed kitchen opens a recipe drawer with a fixed header and scrollable recipes.
-It has no transparency control; Destroy building remains last when available.
-Cooking and automatic consumption are available at level 11 as described below.
+At level 11, place one indoor kitchen from the Furniture drawer inside your home.
+It is included with your furniture, needs no construction materials or road, and
+can be rotated or put away when not cooking. Click it to open the recipe drawer.
+The former outdoor kitchen is retired and no longer occupies farm ground or
+appears in the building catalogue. Cooking and automatic consumption are
+available as described below.
 
 Neighbourhood farmer walks use the same walking sound as farm travel, including
 ziggurat deliveries and interest visits. Footsteps stop while loading, unloading
@@ -1513,6 +1510,13 @@ popup to interrupt sleep at any time.
   production and ingredient reservation never wait for them.
 - Meals, crops, porter deliveries, and independent production continue normally.
 - Shrine protection and sleep multiply their reductions in happiness decay.
+- After the farmer enters the house to rest, a placed sleeping mat shows him asleep
+  with rising Zs and his dog guarding the entrance. Without a mat, he remains
+  hidden indoors. A mat is not required to receive the existing sleep benefit.
+- Viewing or leaving the interior does not wake him. Clicking the interior floor
+  asks **Wake the farmer?**: **Confirm** wakes him and walks to that spot; **Cancel**
+  leaves him resting. Reloading preserves the server's remaining sleep time.
+- Beds are planned for later and are not currently available.
 
 
 ### Kitchen meals — level 11
@@ -1520,7 +1524,7 @@ popup to interrupt sleep at any time.
 Meals are cooked for the farmer and eaten immediately. They are never stored,
 traded or collected as an output pile. Each completed kitchen meal awards **30 points** when the farmer consumes it, including offline completion. Live completion shows **+30** above the kitchen; reloading does not replay old awards.
 
-The farmer works at the stove with visible flames and steam while cooking. Each meal takes **30 seconds of cooking**
+Indoors, the farmer prepares food at the kitchen table while flames and steam rise from the stove. Each meal takes **30 seconds of cooking**
 after the farmer reaches the kitchen. Ingredients are taken from estate storage
 as soon as the cooking order is accepted, including supplies held in different
 storage buildings; the journey does not delay ingredient reservation.
@@ -1613,7 +1617,7 @@ its original scheduled time; finishing early does not shorten the wait.
 
 Choose **Enter house** in the farmhouse popup, or in Customize home → Interior, to view the courtyard and adjoining rooms. The popup closes and the available farmer walks to the farmhouse and fades through its doorway before the interior opens. A farmer already resting inside can open the interior directly. Entering the house does not start a rest or grant sleep benefits. Use +, − and Fit to inspect the interior, and Back to farm to return. When leaving, the farmer walks to the interior entrance before the farm view returns, then fades out through the farmhouse doorway. Farm work continues while you view the house.
 
-The house interior starts without furniture. If you select an exterior cuneiform tablet, the same tablet also appears on the wall to the right of the interior entrance. Removing the exterior tablet removes it here too. Click an open floor to walk the farmer through the courtyard and adjoining rooms. He uses the doorways, and another click changes his destination. The house stays centred; dragging does not move the view. The soil border and plants outside are decorative. Each visit starts at the entrance; this interior movement does not change outdoor jobs or the farmer’s saved farm position. The home uses the same top bar as the other views: farm level and zoom controls on the left, view actions in the middle, and shekels, barley and happiness on the right. The farmer shortcut is disabled inside; Settings and Guide remain available. Open **Furniture** in the home toolbar to choose furniture. Your free starter set contains one sleeping mat, one stool, one table, two woven baskets, one large plain clay jar and two small clay bowls. Each is reusable; putting it away does not create extra copies. Beds are not part of this set. Select an item and click a valid green spot on the floor to fix its transparent preview in place. Its outline turns yellow while awaiting confirmation. Then choose **Confirm** to save it. Moving the pointer to the controls does not move a fixed preview. Before choosing a spot, **Cancel** is shown, along with **Rotate** for the mat and table. Red previews mark blocked positions. Furniture bases must stay inside the rooms, clear of doorways, other items and the farmer. Items may sit partly behind walls when enough remains visible to select; room access must remain clear. Every placed item can also be selected from the Furniture drawer to move it or put it away. Click placed furniture to **Move** it or **Put away**; putting it away makes it available again. While placing or moving a sleeping mat or table, **Rotate** switches between two orientations. The orientation is saved with the item. Cancel leaves the saved arrangement unchanged. Arrangements are saved per player and remain after reloading. Tables need a small gap from the walls, including clearance for the full tabletop in either orientation. Clay bowls may also be placed on the table. Each bowl must fit fully on the tabletop without overlapping the other bowl. Moving or rotating the table carries its bowls with it; putting the table away returns those bowls to the Furniture drawer. Other furniture cannot be stacked. Furniture is decorative for now; object interactions and purchases are not available. Decorative jars and baskets do not add estate storage.
+The house interior starts without furniture. If you select an exterior cuneiform tablet, the same tablet also appears on the wall to the right of the interior entrance. Removing the exterior tablet removes it here too. Click an open floor to walk the farmer through the courtyard and adjoining rooms. He uses the doorways, and another click changes his destination. The house stays centred; dragging does not move the view. The soil border and plants outside are decorative. Each visit starts at the entrance; this interior movement does not change outdoor jobs or the farmer’s saved farm position. The home uses the same top bar as the other views: farm level and zoom controls on the left, view actions in the middle, and shekels, barley and happiness on the right. The farmer shortcut is disabled inside; Settings and Guide remain available. Open **Furniture** in the home toolbar to choose furniture. Your free starter set contains one sleeping mat, one stool, one table, two woven baskets, one large plain clay jar and two small clay bowls. Each is reusable; putting it away does not create extra copies. Beds are not part of this set. Select an item and click a valid green spot on the floor to fix its transparent preview in place. Its outline turns yellow while awaiting confirmation. Then choose **Confirm** to save it. Moving the pointer to the controls does not move a fixed preview. Before choosing a spot, **Cancel** is shown, along with **Rotate** for the mat and table. Red previews mark blocked positions. Furniture bases must stay inside the rooms, clear of doorways, other items and the farmer. Items may sit partly behind walls when enough remains visible to select; room access must remain clear. Every placed item can also be selected from the Furniture drawer to move it or put it away. Click placed furniture to **Move** it or **Put away**; putting it away makes it available again. While placing or moving a sleeping mat or table, **Rotate** switches between two orientations. The orientation is saved with the item. Cancel leaves the saved arrangement unchanged. Arrangements are saved per player and remain after reloading. Tables need a small gap from the walls, including clearance for the full tabletop in either orientation. Clay bowls may also be placed on the table. Each bowl must fit fully on the tabletop without overlapping the other bowl. Moving or rotating the table carries its bowls with it; putting the table away returns those bowls to the Furniture drawer. Other furniture cannot be stacked. The sleeping mat reflects an active rest, and the kitchen supports cooking. Other furniture interactions and purchases are not available. Decorative jars and baskets do not add estate storage.
 
 
 ## Visiting homes
@@ -1629,6 +1633,10 @@ offline. You can walk around but cannot move furniture or change their farm.
 visit, access is removed at the next check (within about 15 seconds while the tab
 is active, or when you return to it).
 
-### Indoor kitchen placement trial
+### Indoor kitchen
 
-From level 11, the Furniture drawer includes one indoor kitchen for placement testing. Place, move, rotate and put it away using the same controls as other furniture. Its position and orientation are saved. It must leave the entrance and room walkways clear. This is currently decorative: cooking still uses the outdoor kitchen. Moving cooking indoors and the farm-popup cooking shortcut are planned, not yet playable.
+From level 11, the Furniture drawer includes one indoor kitchen. Place, move, rotate and put it away using the same controls as other furniture. Its position and orientation are saved. Leave the entrance, room walkways and the front of the preparation table clear.
+
+In your own home, click the kitchen to open the recipe drawer. Select a meal: its ingredients are reserved immediately from estate storage, the farmer walks to the table, then cooks for 30 seconds. The meal is consumed automatically and grants its usual benefit and 30 points. The existing circular countdown shows travel and cooking progress. You cannot cook in someone else’s home or rearrange furniture while cooking.
+
+Cooking continues on the server if you leave, reload or close the game; returning shows the saved progress without consuming ingredients again. You can also click **Cook meal** in the farm building popup when your indoor kitchen is placed. Choose a recipe without entering the interior view: the farmer walks through the farmhouse doorway, cooks inside, and exits when the meal is ready. Smoke rises from the doorway during cooking, and the usual meal icon, countdown and circular progress appear below the map. Both entry points use the same ingredients, travel-before-cooking schedule, 30-second cooking time and automatic benefit. The server saves the entire schedule when you select the meal; animations never postpone it.

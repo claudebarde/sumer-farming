@@ -55,15 +55,14 @@ describe("Farmer management tab", () => {
     expect(html.match(/aria-label="\+15 happiness"/g)).toHaveLength(2);
     expect(html).not.toContain("Filled beer jars");
   });
-  it.each(["harvesting", "planting", "moving", "milling", "baking", "gathering", "building"] as const)("offers busy popovers for all treats while %s", type => {
+  it.each(["harvesting", "planting", "moving", "milling", "baking", "gathering", "building"] as const)("disables all four treats with an inline busy message while %s", type => {
     vi.spyOn(farmerCommandStore, "getInitialState").mockReturnValue({
       ...farmerCommandStore.getState(), status: { type, commandId: "test" }
     });
-    const html = render(6);
-    expect(html.match(/aria-haspopup="dialog"/g)).toHaveLength(3);
-    expect(html.match(/aria-disabled="true"/g)).toHaveLength(3);
-    // Busy triggers remain clickable to explain why the action is unavailable.
-    expect(html).not.toContain('disabled=""');
+    const html = render(9);
+    expect(html.match(/disabled="">Farmer is busy<\/button>/g)).toHaveLength(4);
+    expect(html).not.toContain('aria-haspopup="dialog"');
+    expect(html).not.toContain('aria-label="Give one');
   });
   it("labels empty fish stock without hiding an active cooldown", () => {
     expect(render(6, 70, 0)).toContain("No fish available");

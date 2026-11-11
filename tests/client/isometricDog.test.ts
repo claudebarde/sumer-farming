@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { FarmSnapshotSchema } from "../../src/schemas/farm";
-import { DOG_SOURCES, initialDog, stepDog, dogTexture, dogClear } from "../../src/client/game/phaser/isometricDog";
+import { DOG_SOURCES, initialDog, stepDog, moveDog, dogTexture, dogClear } from "../../src/client/game/phaser/isometricDog";
 import { SWEEP_TILES } from "../../src/client/game/phaser/farmerSweeping";
 import { initialWandering, stepWandering } from "../../src/client/game/phaser/dogWandering";
 import { bakingDogArea } from "../../src/client/game/phaser/isometricBaking";
@@ -198,4 +198,28 @@ it("loads each lossless walking frame once in stride order", () => {
     expect(DOG_SOURCES[String(frame)]).toContain(`dog-walk-0${frame + 1}.webp`);
   }
   expect(DOG_SOURCES.sit).toContain("dog-idle-sitting.png");
+});
+
+
+it.each([16, 33, 50])("does not restart following for small movements at the stopping boundary (%ims)", delta => {
+  const s = snapshot();
+  let dog = { ...initialDog(s, { column: 5, row: 5 }, 0), position: { column: 4, row: 5 } };
+  for (let i = 0; i < 60; i++) {
+    dog = stepDog(dog, s, { column: i % 2 ? 5.05 : 4.95, row: 5 }, delta, i * delta, null);
+    expect(dog.walking).toBe(false);
+    expect(dog.position).toEqual({ column: 4, row: 5 });
+  }
+  expect(stepDog(dog, s, { column: 6, row: 5 }, delta, 10000, null).walking).toBe(true);
+});
+it("keeps walking facing through brief stops before eventually looking toward the mouse", () => {
+  const s = snapshot();
+  let dog = { ...initialDog(s, { column: 6, row: 5 }, 0), position: { column: 4, row: 5 } };
+  for (let i = 0; i < 12; i++) {
+    dog = moveDog({ ...dog, target: { column: 6, row: 5 } }, 50, -10000);
+    expect(dog.flip).toBe(false);
+    dog = moveDog({ ...dog, target: null }, 50, -10000);
+    expect(dog.flip).toBe(false);
+  }
+  for (let i = 0; i < 10; i++) dog = moveDog(dog, 50, -10000);
+  expect(dog.flip).toBe(true);
 });

@@ -3,23 +3,19 @@ import { Dialog } from "radix-ui";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { MealKey } from "../../game-data/kitchen";
-import { buildingDemolitionReason } from "../../game-core/farm/buildingDemolition";
 import KitchenContent from "./KitchenContent";
 import MapCuneiformLabel from "./MapCuneiformLabel";
-import BuildingActionIcon from "./BuildingActionIcon";
 import drawer from "../styles/GameCanvas.module.scss";
 import styles from "../styles/Kitchen.module.scss";
-import action from "../styles/BuildingActionButton.module.scss";
 
-export default function KitchenDrawer({ snapshot, buildingId, now, onClose, onCook, onDestroy }: {
-  readonly snapshot: FarmSnapshot; readonly buildingId: string; readonly now: number;
-  readonly onClose: () => void; readonly onCook: (meal: MealKey) => void; readonly onDestroy: () => void;
+export default function KitchenDrawer({ snapshot, now, onClose, onCook, layer, pending, error }: {
+  readonly snapshot: FarmSnapshot; readonly now: number;
+  readonly onClose: () => void; readonly onCook: (meal: MealKey) => void; readonly layer?: number; readonly pending?: boolean; readonly error?: string | null;
 }) {
-  const canDestroy = buildingDemolitionReason(snapshot, buildingId, now) === null;
   return <Dialog.Root open onOpenChange={open => { if (!open) onClose(); }}>
     <Dialog.Portal>
-      <Dialog.Overlay className={drawer["manage-dialog-overlay"]} />
-      <Dialog.Content className={`${drawer["manage-dialog-content"]} ${styles.drawer}`} aria-describedby={undefined}
+      <Dialog.Overlay style={layer ? { zIndex: layer } : undefined} className={drawer["manage-dialog-overlay"]} />
+      <Dialog.Content style={layer ? { zIndex: layer + 1 } : undefined} className={`${drawer["manage-dialog-content"]} ${styles.drawer}`} aria-describedby={undefined}
         onCloseAutoFocus={event => event.preventDefault()}>
         <header className={styles.drawerHeader}>
           <Dialog.Title><MapCuneiformLabel element="Kitchen" /><span>Kitchen</span></Dialog.Title>
@@ -27,10 +23,9 @@ export default function KitchenDrawer({ snapshot, buildingId, now, onClose, onCo
           <Dialog.Close asChild><button aria-label="Close kitchen"><Cross2Icon /></button></Dialog.Close>
         </header>
         <div className={styles.drawerBody}>
-          <KitchenContent snapshot={snapshot} now={now} onCook={onCook} />
-          {canDestroy && <button className={`${action.button} ${action.danger} ${styles.destroy}`} onClick={onDestroy}>
-            <BuildingActionIcon kind="destroy" /><span>Destroy the building</span>
-          </button>}
+          {error && <p role="alert">{error}</p>}
+          <KitchenContent pending={pending} snapshot={snapshot} now={now} onCook={onCook} />
+
         </div>
       </Dialog.Content>
     </Dialog.Portal>

@@ -19,11 +19,11 @@ const setup = async (level = 11) => {
   const playerId = randomUUID(); ids.push(playerId);
   await db.insert(players).values({ id: playerId, displayName: "Meal test" });
   const [farm] = await db.insert(farms).values({ playerId, level }).returning();
-  const [kitchen] = await db.insert(farmBuildings).values({ farmId: farm!.id, type: "kitchen", column: -1, row: 6,
-    loadingTile: { column: -1, row: 5 }, startedAt: new Date(0), completesAt: new Date(1000) }).returning();
+  await db.update(farms).set({ homeAppearance: { ...farm!.homeAppearance,
+    furniture: [{ key: "indoor-kitchen", x: 850, y: 700 }] } }).where(eq(farms.id, farm!.id));
   await db.insert(farmBuildings).values({ farmId: farm!.id, type: "warehouse", column: 7, row: 3, startedAt: new Date(0), completesAt: new Date(1000) });
   for (const itemKey of ["flour", "oil", "dates", "sesame", "brewersGroats"] as const) await db.insert(farmInventory).values({ farmId: farm!.id, itemKey, quantity: 4 });
-  const command = (meal: MealKey, version = 1) => ({ type: "cook_meal" as const, meal, buildingId: kitchen!.id, expectedFarmVersion: version, playerId });
+  const command = (meal: MealKey, version = 1) => ({ type: "cook_meal" as const, meal, buildingId: farm!.id, interiorPosition: { x: 705, y: 940 }, expectedFarmVersion: version, playerId });
   const advance = (at: number) => db.transaction(async tx => {
     const [saved] = await tx.select().from(farms).where(eq(farms.id, farm!.id)).for("update");
     return advanceFarmLifecycle(tx, saved!, new Date(at));
@@ -34,12 +34,6 @@ it.each(MEAL_KEYS)("cooks %s once, consumes automatically offline and never stor
   const { farm, command, advance } = await setup();
   const started = await Effect.runPromise(cookMeal(db, command(meal)));
   const job = started.farm.production.cooking!;
-  for (const [item, quantity] of Object.entries(MEALS[meal].ingredients)) {
-    const stops = job.preparation.supplyStops!.filter(stop => stop.itemKey === item);
-    expect(stops.reduce((sum, stop) => sum + stop.quantity, 0)).toBe(quantity);
-    if (item === 'oil' || item === 'dates' || item === 'sesame') expect(stops.every(stop => stop.buildingId !== null)).toBe(true);
-    expect(stops.every(stop => stop.index < job.preparation.path.length)).toBe(true);
-  }
   expect(Date.parse(job.completesAt) - Date.parse(job.startedAt)).toBe(COOKING_MS);
   for (const item of started.inventory) expect(item.quantity).toBe(4 - ((MEALS[meal].ingredients as Record<string, number>)[item.itemKey] ?? 0));
   expect(started.farm.production.mealBenefit).toBeUndefined();
@@ -102,4 +96,73 @@ it("settles porridge ration timing identically online and offline", async () => 
   expect(results[0]).toEqual(results[1]);
   expect(results[0]!.deadline).toBe(start + (48 * 60 + 40) * minute);
   expect(results[0]!.barley).toBe(8);
+});
+
+it.each(["original", "mirrored"] as const)("cooks indoors in %s orientation without an outdoor kitchen, and completes exactly once offline", async orientation => {
+  const { farm, command, advance } = await setup();
+  await db.delete(farmBuildings).where(eq(farmBuildings.farmId, farm.id));
+  const kitchen = { key: "indoor-kitchen" as const, x: 850, y: 700, orientation };
+  await db.update(farms).set({ homeAppearance: { ...farm.homeAppearance, furniture: [kitchen] } }).where(eq(farms.id, farm.id));
+  const input = { ...command("barleyCakes"), buildingId: farm.id, interiorPosition: { x: 705, y: 940 } };
+  const started = await Effect.runPromise(cookMeal(db, input));
+  const job = started.farm.production.cooking!;
+  expect(job.preparation).toBeUndefined();
+  expect(job.interior?.kitchen).toEqual(kitchen);
+  expect(job.interior?.path.at(-1)).toEqual({ x: 850 + (orientation === "mirrored" ? -10 : 10), y: 730 });
+  expect(Date.parse(job.startedAt)).toBeGreaterThan(job.interior!.departedAt);
+  expect(Date.parse(job.completesAt) - Date.parse(job.startedAt)).toBe(30_000);
+  await expect(Effect.runPromise(cookMeal(db, { ...input, expectedFarmVersion: started.farm.version }))).rejects.toThrow();
+  const { saveHomeFurniture } = await import("../../src/server/services/homeAppearance");
+  expect((await saveHomeFurniture(db, farm.playerId, { revision: 0, items: [] })).ok).toBe(false);
+  const end = Date.parse(job.completesAt);
+  const completed = await advance(end + 1000);
+  expect(completed.production.cooking).toBeNull();
+  expect(completed.production.mealBenefit?.startedAt).toBe(end);
+  await advance(end + 2000);
+  const awards = await db.select().from(pointAwards).where(eq(pointAwards.playerId, farm.playerId));
+  expect(awards.filter(a => a.action === "cookMeal")).toHaveLength(1);
+  const inventory = await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id));
+  expect(inventory.find(item => item.itemKey === "flour")?.quantity).toBe(3);
+  expect(inventory.find(item => item.itemKey === "oil")?.quantity).toBe(3);
+});
+
+it("rejects missing indoor kitchens and invalid routes without consuming ingredients", async () => {
+  const { farm, command } = await setup();
+  const input = { ...command("barleyCakes"), buildingId: farm.id, interiorPosition: { x: 0, y: 0 } };
+  await db.update(farms).set({ homeAppearance: { ...farm.homeAppearance, furniture: [] } }).where(eq(farms.id, farm.id));
+  await expect(Effect.runPromise(cookMeal(db, input))).rejects.toThrow("kitchen");
+  await db.update(farms).set({ homeAppearance: { ...farm.homeAppearance, furniture: [{ key: "indoor-kitchen", x: 850, y: 700 }] } }).where(eq(farms.id, farm.id));
+  await expect(Effect.runPromise(cookMeal(db, input))).rejects.toThrow("clear floor");
+  const inventory = await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id));
+  expect(inventory.every(item => item.quantity === 4)).toBe(true);
+});
+
+it("starts farmhouse cooking immediately with saved travel, and finishes once without animation callbacks", async () => {
+  const { farm, command, advance } = await setup();
+  const { SLEEP_HOME, SLEEP_ENTRY_MS } = await import("../../src/game-data/farmerSleep");
+  const { WORKER_MOVE_DURATION_PER_TILE } = await import("../../src/game-data/movement");
+  const base = { ...command("dateCakes"), interiorPosition: undefined };
+  const input = { ...base, fromFarm: true, farmerPosition: { column: SLEEP_HOME.column + 2, row: SLEEP_HOME.row } };
+  const started = await Effect.runPromise(cookMeal(db, input));
+  const job = started.farm.production.cooking!, indoor = job.interior!;
+  expect(indoor.farmApproach?.path.at(-1)).toEqual(SLEEP_HOME);
+  expect(indoor.departedAt - indoor.farmApproach!.departedAt).toBe(
+    (indoor.farmApproach!.path.length - 1) * WORKER_MOVE_DURATION_PER_TILE + SLEEP_ENTRY_MS);
+  expect(Date.parse(job.startedAt)).toBeGreaterThan(indoor.departedAt);
+  expect(Date.parse(job.completesAt) - Date.parse(job.startedAt)).toBe(COOKING_MS);
+  expect(started.inventory.find(i => i.itemKey === "dates")?.quantity).toBe(3);
+  await expect(Effect.runPromise(cookMeal(db, { ...input, expectedFarmVersion: started.farm.version }))).rejects.toThrow("busy");
+  const end = Date.parse(job.completesAt);
+  const done = await advance(end + 5000);
+  expect(done.production.cooking).toBeNull();
+  expect(done.production.mealBenefit).toEqual({ meal: "dateCakes", startedAt: end, expiresAt: end + MEALS.dateCakes.durationMs });
+  await advance(end + 10_000);
+  const awards = await db.select().from(pointAwards).where(eq(pointAwards.playerId, farm.playerId));
+  expect(awards.filter(a => a.action === "cookMeal")).toHaveLength(1);
+});
+
+it("requires a placed kitchen for the farm shortcut too", async () => {
+  const { farm, command } = await setup();
+  await db.update(farms).set({ homeAppearance: { ...farm.homeAppearance, furniture: [] } }).where(eq(farms.id, farm.id));
+  await expect(Effect.runPromise(cookMeal(db, { ...command("barleyCakes"), fromFarm: true }))).rejects.toThrow("Place a kitchen");
 });

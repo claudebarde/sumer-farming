@@ -2,14 +2,14 @@ import { z } from "zod";
 
 import type { InventoryItemKey } from "./inventoryItems";
 
-export const farmBuildingTypes = ["granary", "brewery", "mill", "oilMill", "breadOven", "smallShrine", "warehouse", "kitchen"] as const;
+export const farmBuildingTypes = ["granary", "brewery", "mill", "oilMill", "breadOven", "smallShrine", "warehouse"] as const;
 
 export const FarmBuildingTypeSchema = z.enum(farmBuildingTypes);
 
 export type FarmBuildingType = z.infer<typeof FarmBuildingTypeSchema>;
 
 // Estate-level caps; future progression can supply higher limits here.
-export const FARM_BUILDING_LIMITS: Readonly<Partial<Record<FarmBuildingType, number>>> = { granary: 1, smallShrine: 1, warehouse: 1, kitchen: 1 };
+export const FARM_BUILDING_LIMITS: Readonly<Partial<Record<FarmBuildingType, number>>> = { granary: 1, smallShrine: 1, warehouse: 1 };
 
 // Shared construction balance for both level-6 processing buildings.
 const PROCESSING_BUILDING_CONSTRUCTION = {
@@ -25,7 +25,6 @@ export const BREAD_OVEN_DEFINITION = {
 } as const;
 
 export const FARM_BUILDING_DEFINITIONS = {
-  kitchen: { footprint: { columns: 1, rows: 1 }, constructionDurationMs: 2 * 60_000, barleyStorageBonus: 0, materials: { reed: 2, clay: 4 } },
   warehouse: {
     footprint: { columns: 2, rows: 2 },
     constructionDurationMs: 3 * 60_000,

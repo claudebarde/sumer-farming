@@ -49,10 +49,15 @@ Keep explicit units for all displayed values. Use `countdownLabel` for seconds
 precision and `minuteCountdownLabel` for minute precision; apply the same rule
 to circular meters and accessible countdown labels throughout the UI.
 
-Reuse existing UI elements for new action states. Cooking uses the shared
-harvesting-style `WorkProgress`: resource/meal icon on the left, action and
-seconds remaining in the middle, and the existing circular progress meter on
-the right. Avoid introducing a separate visual pattern for equivalent actions.
+All new timed player actions must reuse the approved compact lower container:
+`WorkProgress` inside the shared `IsometricTest.module.scss` `planting` wrapper,
+as used by harvesting and cooking. Keep the resource/meal icon on the left,
+a short action description and countdown in the middle, and the circular
+progress meter on the right, in one horizontal row. Reuse both the component
+and its container styles; do not create a separate wrapper or stacked layout.
+If the matching icon, action duration or another essential display detail is
+missing or undecided, ask the user before implementing that UI. Reuse previously
+approved icons and durations when available.
 
 Popup headers must remain fixed when content overflows. Keep the title, level/stage
 badges and close/visibility controls outside the scrolling body. Use a constrained
@@ -73,7 +78,7 @@ The user chooses the shadow style for each building. Ask which style to use
 when discussing every new building; do not choose automatically from its shape.
 The brewery (both courtyard orientations) and small shrine use the approved
 cone style in `coneBuildingShadow.ts`. Other buildings retain their existing
-projection. The level-11 kitchen uses the building-silhouette style. Keep both styles consistent in colour, opacity and sun direction.
+projection. Keep both styles consistent in colour, opacity and sun direction.
 Shadow timing is cosmetic only and must never affect production or progression.
 The temporary Shadow preview selector was removed after visual approval.
 The approved brewery cone replaces the historical morning farmhouse proxy.
@@ -2021,8 +2026,25 @@ wall layers at a depth driven by the farmer’s room: that hides furniture in ot
 rooms during both owner and guest walks. Preserve ordinary farmer/furniture depth
 sorting and doorway-header clipping independently.
 
-Indoor kitchen placement trial uses `kitchen-interior-matched.png` through the shared furniture renderer and saved layout. `indoor-kitchen` unlocks at level 11 (client catalogue and server save gate), has one copy, and supports the same mirrored orientation control as the table and mat. Outdoor kitchen production/artwork remain active pending indoor cooking integration.
+Indoor kitchen uses `kitchen-interior-matched.png`, the saved furniture layout and mirrored orientation. Clicking it in an owned home opens the shared KitchenDrawer. `cook_meal` accepts a validated interior start position and checks the owner's level-11 kitchen; the server calculates an obstacle-aware route at 255 artwork pixels/second, reserves ingredients atomically and saves travel/start/completion timestamps. The Cooking schema retains the outdoor preparation variant for existing jobs and adds an indoor variant with a frozen kitchen placement and path. Lifecycle completion and points remain shared, offline and exactly once.
 
-Indoor cooking visual review: the interior toolbar exposes Start/Stop cooking preview when the indoor kitchen is placed. It routes the local farmer to a mirrored working position at the front edge of the preparation table, reuses the approved cooking frames/sharpening and hand-motion timing, and draws fire below the farmer with steam above the pot. Stop returns him to his pre-preview position; leaving the home clears the preview. This is visual only: no production jobs, ingredients or meal effects. Outdoor cooking remains playable pending approval and migration.
+HomeInteriorScene presents the saved route and approved cooking animation using elapsed time, including after reload. Furniture edits are blocked server-side while indoor cooking is active. Visitors cannot cook. The preview controls are removed; outdoor kitchens are retired by migration 0067, with no refunds; farm tiles are released. Walking and cooking shadows, flame layering and texture sharpening use the approved settings.
 
 The interior farmer has a subtle ground shadow during walking and cooking. Its canvas is clipped against the same position-dependent wall silhouettes as the farmer, so it never paints over wall caps. Keep it below furniture and refresh only when the farmer moves. Outdoor character shadows are unchanged.
+
+Farmhouse cooking shortcut: the farm popup exposes Cook meal only at level 11 with a placed indoor kitchen. It reuses KitchenDrawer and the shared lower WorkProgress container. The cook_meal command's fromFarm flag uses the same locked ingredient reservation and completion lifecycle, adding a server-planned road route to SLEEP_HOME plus the approved doorway entry time before the interior route and 30-second cook. Saved interior.farmApproach drives the existing doorway pose; completion drives the exit. Doorway smoke reuses drawCookingSteam from the indoor pot at farm scale. Never gate production on entry/exit or smoke callbacks, and never replay an old exit after offline completion.
+
+The farmhouse cooking preview was approved and removed. Real cooking retains the
+approved entry/exit animation, enlarged doorway smoke and shared countdown UI.
+The approved interior sleep animation is driven by the server sleep session:
+`requestedAt`/`sleepsAt`/`sleepEnd` distinguish entry, rest and waking. It uses
+`home-interior/farmer-sleeping.png` on the placed reed mat, following its orientation,
+with rising Zs and the sitting dog at INTERIOR_ENTRY. Without a mat, the resting
+actor stays hidden; future beds will need a matching resting pose/anchor. Visiting
+another home does not apply the visitor's sleep to its local walking character.
+The preview button and preview-only state are removed. Closing the interior during
+rest does not walk the farmer out or wake him. Floor clicks request Confirm/Cancel
+in the standard lower container; only Confirm sends the existing server wake command,
+then walks to the selected destination. Server limits and happiness rules are unchanged.
+The approved dog rendering uses 0.05 sharpening at 512px, high-quality downsampling
+to 160px for the 80px display, linear filtering and independent wall clipping.

@@ -1,9 +1,9 @@
+import { drawCookingSteam } from "../cookingSteam";
 import { HOME_TABLET_PLACEMENT, HOME_TABLET_SOURCES, prepareWallTabletTexture } from "../homeTablets";
 import { HOME_DECORATIONS, HOME_DECORATION_SOURCES, type HomeDecorationKey } from "../homeDecorations";
 import { FARM_STYLE_SOURCES, type FarmStyleKey } from "../farmStyles";
 import { drawMapBase } from "../mapBase";
 import { millingBarleyAwaitingPickup } from "../millingReservedBarley";
-import { COOKING_FRAMES, COOKING_BOUNDS, COOKING_FRONT_FRAMES, COOKING_FRONT_BOUNDS, renderCookingAnimation } from "../cookingAnimation";
 import { sleepEnd, SLEEP_HOME } from "../../../../game-data/farmerSleep";
 import { farmerSleepPose, farmerHomeEntryDuration, type FarmerSleepPlan } from "../farmerSleepAnimation";
 import { FARMER_REED_SOURCES, FARMER_REED_BOUNDS, farmerReedCarryTexture } from "../farmerReedCarry";
@@ -56,9 +56,6 @@ import { WORKER_MOVE_DURATION_PER_TILE } from "../../../../game-data/movement";
 import { FARM_BUILDING_DEFINITIONS } from "../../../../game-data/buildings";
 import { FARM_SPRITES } from "../../../../assets/farmSprites";
 import { FARM_EVOLUTION_SOURCES, farmAppearance } from "../farmEvolution";
-import kitchenHorizontalUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/kitchen/kitchen-single-tile-test.png";
-import kitchenVerticalUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/kitchen/kitchen-single-tile-vertical-test.png";
-import { kitchenAppearance } from "../kitchenAppearance";
 import { LYRE_SOURCES, PROCESSION_COUNT, PROCESSION_DURATION_MS, processionPose } from "../lyreProcession";
 import { DOG_SOURCES, initialDog, dogTexture, type DogState } from "../isometricDog";
 import { stepDogConstructionEscape } from "../dogConstructionEscape";
@@ -197,6 +194,8 @@ export class IsometricFarmScene extends Phaser.Scene {
   private palmProgress?: Phaser.GameObjects.Graphics;
   private palmPlantingSeen: string | null = null;
   private sleepAnimation: { plan: FarmerSleepPlan; elapsed: number; wake: { elapsed: number; alpha: number; x: number; y: number } | null } | null = null;
+  private homeCookingSmoke?: Phaser.GameObjects.Graphics;
+  private homeCookingExit: { plan: FarmerSleepPlan; at: number } | null = null;
   private homeEntry: { plan: FarmerSleepPlan; startedAt: number; exitingAt?: number } | null = null;
   private sleepLetters: Phaser.GameObjects.Text[] = [];
   private sleepSessionSeen: string | null = null;
@@ -257,10 +256,6 @@ export class IsometricFarmScene extends Phaser.Scene {
     });
     return true;
   }
-  private kitchenImage?: Phaser.GameObjects.Image;
-  private cookingProgress?: Phaser.GameObjects.Graphics;
-  private cookingEffects?: Phaser.GameObjects.Graphics;
-  private cookingSteam?: Phaser.GameObjects.Graphics;
 
   private harvestPreviewOriginal: FarmSnapshot | null = null;
   private harvestPreviewFarmer: IsoCell | null = null;
@@ -510,10 +505,6 @@ export class IsometricFarmScene extends Phaser.Scene {
     for (const [key, url] of Object.entries(FISHING_SOURCES)) this.load.image(`source-${key}`, url);
     LYRE_SOURCES.forEach(({ key, url }) => this.load.image(`source-${key}`, url));
     for (const [key, url] of Object.entries({ ...FARM_EVOLUTION_SOURCES, ...FARM_STYLE_SOURCES, ...HOME_DECORATION_SOURCES, ...HOME_TABLET_SOURCES })) this.load.image(`source-${key}`, url);
-    COOKING_FRAMES.forEach((url, i) => this.load.image(`source-farmer-cooking-${i}`, url));
-    COOKING_FRONT_FRAMES.forEach((url, i) => this.load.image(`source-farmer-cooking-front-${i}`, url));
-    this.load.image("source-kitchen-horizontal", kitchenHorizontalUrl);
-    this.load.image("source-kitchen-vertical", kitchenVerticalUrl);
     this.load.image("source-granary", granaryUrl);
     this.load.image("source-mill-output-bags", millOutputBagsUrl);
     this.load.image(`source-${OIL_MILL_SOURCE.key}`, OIL_MILL_SOURCE.url);
@@ -569,16 +560,6 @@ export class IsometricFarmScene extends Phaser.Scene {
       const pole = this.textures.get("source-merchant-pole").getSourceImage() as HTMLImageElement;
       this.textures.addCanvas("merchant-pole", prepareMerchantBoatTexture(pole))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
-    COOKING_FRONT_FRAMES.forEach((_, i) => {
-      this.textures.addCanvas(`farmer-cooking-front-${i}`, prepareFarmerTexture(
-        this.textures.get(`source-farmer-cooking-front-${i}`).getSourceImage() as HTMLImageElement,
-        undefined, COOKING_FRONT_BOUNDS))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
-    });
-    COOKING_FRAMES.forEach((_, i) => {
-      this.textures.addCanvas(`farmer-cooking-${i}`, prepareFarmerTexture(
-        this.textures.get(`source-farmer-cooking-${i}`).getSourceImage() as HTMLImageElement,
-        undefined, COOKING_BOUNDS))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
-    });
     for (const key of Object.keys(DONKEY_SOURCES)) {
       if (this.textures.exists(key)) continue;
       const source = this.textures.get(`source-${key}`).getSourceImage() as HTMLImageElement;
@@ -692,7 +673,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       this.textures.get("source-mill-output-bags").getSourceImage() as HTMLImageElement,
       { maxSize: 96, sharpen: 0.45 }
     ))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
-    for (const key of [...Object.keys(FARM_EVOLUTION_SOURCES), ...Object.keys(FARM_STYLE_SOURCES), "kitchen-horizontal", "kitchen-vertical"]) {
+    for (const key of [...Object.keys(FARM_EVOLUTION_SOURCES), ...Object.keys(FARM_STYLE_SOURCES)]) {
       this.textures.addCanvas(key, prepareBuildingTexture(this.textures.get(`source-${key}`).getSourceImage() as HTMLImageElement))
         ?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
@@ -927,13 +908,6 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.mockFootprint = this.add.graphics().setDepth(10000);
     for (const cell of preview.footprint) this.diamond(this.mockFootprint, cell, colour, 0.55);
     if (preview.loading) this.diamond(this.mockFootprint, preview.loading, 0xffd45a, 0.75);
-    if (this.placementBuilding === "kitchen") {
-      const appearance = kitchenAppearance(this.mockPlacement, preview.loading);
-      this.mockBuilding = this.add.image(appearance.x, appearance.y, appearance.texture)
-        .setOrigin(0.5, 0.86).setDisplaySize(128, 128 * 2 / 3)
-        .setDepth(10001).setTint(colour).setAlpha(0.65);
-      return;
-    }
     const size = FARM_BUILDING_DEFINITIONS[this.placementBuilding].footprint;
     const shrine = this.placementBuilding === "smallShrine";
     // The shrine's ground contact is the centre of its pedestal, not the
@@ -1007,7 +981,17 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.suppressDeliveryGains = !visible;
     if (this.ready) this.harvestGainEffect.sample(this.snapshot, Date.now(), !document.hidden && this.sys.isActive());
     if (activeBrewingPreparation(snapshot, Date.now())) { this.walkPath = []; this.walkProgress = 0; }
-    if (this.snapshot.farm.production.cooking && !snapshot.farm.production.cooking) this.farmerCell = this.snapshot.farm.production.cooking.preparation.path.at(-1) ?? this.farmerCell;
+    const previousCooking = this.snapshot.farm.production.cooking;
+    if (previousCooking?.interior?.farmApproach && !snapshot.farm.production.cooking) {
+      const at = Date.parse(previousCooking.completesAt);
+      const front = footprintFront(farmOrigin, 2, 2);
+      this.farmerCell = SLEEP_HOME;
+      this.homeCookingExit = visible && Date.now() - at < 1600
+        ? { at, plan: { path: previousCooking.interior.farmApproach.path, doorway: { x: front.x - 40, y: front.y - 34 } } } : null;
+    }
+    if (snapshot.farm.production.cooking?.interior?.farmApproach) {
+      this.walkPath = []; this.walkProgress = 0; this.idlePosition = null; this.idleWalking = false;
+    }
     for (const [id, job] of Object.entries(this.snapshot.farm.production.baking)) {
       if (!snapshot.farm.production.baking[id]) this.farmerCell = job.preparation?.path.at(-1) ?? this.farmerCell;
     }
@@ -1183,6 +1167,7 @@ export class IsometricFarmScene extends Phaser.Scene {
   beginHomeEntry(): number | null {
     if (!this.ready || this.homeEntry || this.marketTrip || this.commandPending) return null;
     if (this.sleepAnimation && !this.sleepAnimation.wake) return 0;
+    if (this.snapshot.farm.production.cooking?.interior) return 0;
     if (transferBlocker(this.snapshot, Date.now())) return null;
     const path = previewWalkPath(this.snapshot, this.farmerCell, SLEEP_HOME, Date.now());
     if (!path.length && !sameCell(this.farmerCell, SLEEP_HOME)) return null;
@@ -1195,6 +1180,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     return farmerHomeEntryDuration(plan);
   }
   endHomeEntry() {
+    if (this.snapshot.farm.production.cooking?.interior) { this.homeEntry = null; return; }
     if (!this.homeEntry) return;
     this.homeEntry = { ...this.homeEntry, exitingAt: Date.now() };
     if (this.ready) this.renderFarmer();
@@ -1258,10 +1244,6 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.ovens.forEach(o => o.animation.destroy()); this.ovens = [];
     this.daylightShadows?.destroy();
     this.children.removeAll(true);
-    this.kitchenImage = undefined;
-    this.cookingProgress = undefined;
-    this.cookingEffects = undefined;
-    this.cookingSteam = undefined;
     this.sleepLetters = [];
     this.roadGhost = undefined; this.roadGhostFootprint = undefined; this.roadGhostKey = "";
     this.roadPlanOverlay = undefined;
@@ -1444,13 +1426,6 @@ export class IsometricFarmScene extends Phaser.Scene {
           this.daylightShadows.add(() => ({ x: sprite.x, y: sprite.y + 12, visible: sprite.visible }), 32, 24);
           if (this.selectedMillBags && this.selected && sameCell(outputTile, this.selected)) this.outlineItem(sprite);
         }
-      } else if (building.type === "kitchen") {
-        const appearance = kitchenAppearance(building, building.loadingTile);
-        this.buildingImages.push(this.add.image(appearance.x, appearance.y, appearance.texture)
-          .setOrigin(0.5, 0.86).setDisplaySize(128, 128 * 2 / 3).setDepth(appearance.y)
-          .setAlpha(Date.parse(building.completesAt) > now ? 0.5 : 1)
-          .setData("tile", { column: building.column, row: building.row }).setInteractive({ pixelPerfect: true }));
-        this.kitchenImage = this.buildingImages[this.buildingImages.length - 1];
       } else this.buildingImages.push(this.add.image(p.x, p.y + (granary ? -12 : 0), building.type === "brewery" ? breweryVesselTexture(breweryOrientationTexture(building, snapshot.farm.roads, now) === "brewery-right-top", breweryVesselCount(snapshot.inventory)) : building.type).setOrigin(0.5, shrine ? 840 / 1024 : granary ? 1 : 120 / 128)
         .setDisplaySize(displaySize, displaySize).setDepth(p.y - 24)
         .setAlpha(Date.parse(building.completesAt) > now ? 0.5 : 1).setData("tile", { column: building.column, row: building.row }).setInteractive({ pixelPerfect: true }));
@@ -1671,22 +1646,41 @@ export class IsometricFarmScene extends Phaser.Scene {
   }
 
 
-  private renderCookingProgress() {
-    if (this.cookingProgress?.scene) this.cookingProgress.clear();
-    const cooking = this.snapshot.farm.production.cooking;
-    const progress = bakingProgress(cooking ? { ...cooking, output: 1 } : undefined, Date.now());
-    if (!progress || !this.kitchenImage?.scene) return;
-    if (!this.cookingProgress?.scene) this.cookingProgress = this.add.graphics();
-    drawBuildingProgress(this.cookingProgress, this.kitchenImage, progress.fraction);
+  private renderHomeCooking(): boolean {
+    if (this.homeCookingSmoke?.scene) this.homeCookingSmoke.clear();
+    const job = this.snapshot.farm.production.cooking;
+    const indoor = job?.interior;
+    if (!indoor && !this.homeCookingExit) return false;
+    const now = Date.now(), front = footprintFront(farmOrigin, 2, 2);
+    const doorway = { x: front.x - 40, y: front.y - 34 };
+    const approach = indoor?.farmApproach;
+    const plan = this.homeCookingExit?.plan ?? { path: approach?.path ?? [SLEEP_HOME], doorway };
+    const endsAt = job ? Date.parse(job.completesAt) : this.homeCookingExit!.at;
+    const exiting = !!this.homeCookingExit || (!!approach && now >= endsAt);
+    const pose = farmerSleepPose(plan, approach ? now - approach.departedAt : Infinity,
+      exiting ? { elapsed: now - endsAt, alpha: 0, ...doorway } : null);
+    if (pose.done) { this.homeCookingExit = null; this.farmerCell = SLEEP_HOME; }
+    this.walkingForAudio = pose.walking;
+    const atDoor = !approach || now - approach.departedAt >= (plan.path.length - 1) * WORKER_MOVE_DURATION_PER_TILE;
+    this.actor.setPosition(pose.x, pose.y).setAlpha(pose.alpha).setVisible(pose.alpha > 0)
+      .setOrigin(.5, 120 / 128).setDisplaySize(64, 64)
+      .setDepth(atDoor ? Math.max(walkingCharacterDepth(pose.y), front.y - 22) : walkingCharacterDepth(pose.y))
+      .setFlipX(pose.facingLeft).setTexture(farmerTravelTexture(pose.distance, 0, pose.walking));
+    this.actorShadow.setPosition(pose.x, pose.y).setDepth(pose.y).setAlpha(pose.alpha).setVisible(pose.alpha > 0);
+    this.heldMaterial.setVisible(false); this.cargo.setVisible(false); this.cargoBackground.setVisible(false);
+    if (job && now >= Date.parse(job.startedAt) && now < endsAt) {
+      if (!this.homeCookingSmoke?.scene) this.homeCookingSmoke = this.add.graphics();
+      this.homeCookingSmoke.setDepth(front.y + 2);
+      drawCookingSteam(this.homeCookingSmoke, { x: doorway.x, y: doorway.y - 8 }, now - Date.parse(job.startedAt), !!this.reducedMotion?.matches, .9, 1.2);
+    }
+    return true;
   }
 
   private renderFarmer() {
     this.walkingForAudio = false;
     this.renderMills();
-    this.renderCookingProgress();
     this.actor.setVisible(true).setAlpha(1); this.actorShadow.setVisible(true).setAlpha(1);
-    if (this.cookingEffects?.scene) this.cookingEffects.clear();
-    if (this.cookingSteam?.scene) this.cookingSteam.clear();
+    if (this.renderHomeCooking()) return;
     if (this.renderSleepAnimation()) return;
     const cropJob = currentCropWork(this.snapshot.farm.production, Date.now());
     if (this.palmProgress?.scene) this.palmProgress.clear();
@@ -1787,28 +1781,6 @@ export class IsometricFarmScene extends Phaser.Scene {
       // including the walk and the wait at the brewery's loading point.
       const carriedWater = this.snapshot.farm.carriedItem;
       if (carriedWater?.itemKey === "water") this.renderCargo(point.x, point.y - 62, carriedWater.quantity, "water");
-      return;
-    }
-    const cooking = this.snapshot.farm.production.cooking;
-    if (cooking) {
-      const now = Date.now();
-      const trip = bakingJourneyPose({ ...cooking, output: 1 }, now);
-      const cell = trip?.position ?? cooking.preparation.path.at(-1)!;
-      const point = isoPoint(cell);
-      const kitchen = this.snapshot.buildings.find(b => b.id === cooking.buildingId);
-      this.farmerCell = cell;
-      this.walkingForAudio = trip?.walking ?? false;
-      this.actor.setTexture(trip?.walking ? farmerTravelTexture(trip.distance, 0, true) : "farmer-idle")
-        .setOrigin(0.5, 120 / 128).setDisplaySize(64, 64).setPosition(point.x, point.y).setDepth(walkingCharacterDepth(point.y))
-        .setFlipX(trip?.facingLeft ?? (kitchen ? isoPoint(kitchen).x < point.x : false));
-      this.actorShadow.setPosition(point.x, point.y).setDepth(point.y);
-      this.heldMaterial.setVisible(false); this.cargo.setVisible(false); this.cargoBackground.setVisible(false);
-      if (!trip && now < Date.parse(cooking.completesAt) && kitchen?.loadingTile) {
-        if (!this.cookingEffects?.scene) this.cookingEffects = this.add.graphics();
-        if (!this.cookingSteam?.scene) this.cookingSteam = this.add.graphics();
-        renderCookingAnimation(this.actor, this.actorShadow, this.cookingEffects, this.cookingSteam,
-          kitchen, kitchen.loadingTile, Math.max(0, now - Date.parse(cooking.startedAt)), !!this.reducedMotion?.matches);
-      }
       return;
     }
     const brewing = activeBrewingPreparation(this.snapshot, Date.now());
@@ -2189,7 +2161,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     }
   }
   private sweepEligible(now: number) {
-    return !this.homeEntry && !this.sleepAnimation && isometricIdleEligible(this.snapshot, now) && !this.walkPath.length && !this.marketTrip &&
+    return !this.homeEntry && !this.homeCookingExit && !this.sleepAnimation && isometricIdleEligible(this.snapshot, now) && !this.walkPath.length && !this.marketTrip &&
       !this.pickup && !this.constructionApproach && !this.millDeliveryLeg && !this.commandPending && !this.mockPlacement &&
       this.plantingSelection === null && !this.selected && !this.reducedMotion?.matches;
   }
@@ -2329,7 +2301,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       this.cloudState = advanceClouds(this.cloudState, Math.min(delta, 80));
     }
     this.farmerIdle?.update({ now: Date.now(), version: this.snapshot.farm.version,
-      eligible: !this.homeEntry && !this.sleepAnimation && !this.sweeping && isometricIdleEligible(this.snapshot, Date.now()) && !this.walkPath.length && !this.marketTrip &&
+      eligible: !this.homeEntry && !this.homeCookingExit && !this.sleepAnimation && !this.sweeping && isometricIdleEligible(this.snapshot, Date.now()) && !this.walkPath.length && !this.marketTrip &&
         !this.pickup && !this.constructionApproach && !this.commandPending && !this.mockPlacement &&
         this.plantingSelection === null && !this.selected && !this.reducedMotion?.matches,
       visible: document.visibilityState === "visible", position: this.farmerCell,

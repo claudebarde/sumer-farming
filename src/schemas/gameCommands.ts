@@ -1,3 +1,4 @@
+import { InteriorPositionSchema } from "../game-data/kitchen";
 import { MealKeySchema } from "../game-data/kitchen";
 import { z } from "zod";
 import { WorkerPositionSchema } from "../game-data/productionJourney";
@@ -31,11 +32,10 @@ export const GameCommandSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("hire_porter"), marketRoad: WorkerPositionSchema.optional(), idempotencyKey: z.uuid(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("upgrade_building"), buildingId: z.uuid(), targetLevel: z.int().min(2), idempotencyKey: z.uuid(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("mill_delivery"), action: z.enum(["pickup", "store"]), millId: z.uuid(), expectedFarmVersion: z.int().positive() }),
-  z.object({ type: z.literal("build_kitchen"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("build_oil_mill"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("build_mill"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("build_bread_oven"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),
-  z.object({ type: z.literal("cook_meal"), meal: MealKeySchema, buildingId: z.uuid(), farmerPosition: WorkerPositionSchema.optional(), expectedFarmVersion: z.int().positive() }),
+  z.object({ type: z.literal("cook_meal"), fromFarm: z.boolean().optional(), interiorPosition: InteriorPositionSchema.optional(), meal: MealKeySchema, buildingId: z.uuid(), farmerPosition: WorkerPositionSchema.optional(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("start_baking"), farmerPosition: WorkerPositionSchema.optional(), buildingId: z.uuid(), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("shrine_offering"), buildingId: z.uuid(), item: z.enum(["bread", "beer"]), expectedFarmVersion: z.int().positive() }),
   z.object({ type: z.literal("build_small_shrine"), target: FarmCoordinateSchema, expectedFarmVersion: z.int().positive() }),

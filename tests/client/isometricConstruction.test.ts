@@ -25,16 +25,32 @@ describe("construction work presentation", () => {
     expect(isometricConstructionPose(s, 1360)?.position).toEqual(path.at(-1));
     expect(savedRoadApproach(s, 6360)).toBeNull();
   });
-  it("keeps blocked road removal selectable for an explanatory toast", async () => {
+  it("hides blocked road removal and offers removal at a free branch end", async () => {
     const { isometricTilePopup } = await import("../../src/client/game/phaser/isometricTilePopup");
     const s = snapshot();
     s.farm.roads = [{ column: 5, row: 4 }, { column: 5, row: 3 }];
-    expect(isometricTilePopup(s, s.farm.roads[0]!, 1000).actions.destroyRoad).toBe(true);
+    expect(isometricTilePopup(s, s.farm.roads[0]!, 1000).actions.destroyRoad).toBe(false);
+    expect(isometricTilePopup(s, s.farm.roads[1]!, 1000).actions.destroyRoad).toBe(true);
     expect(isometricTilePopup(s, { column: 5, row: 5 }, 1000).actions.destroyRoad).toBe(false);
     s.farm.roads[0] = { column: 5, row: 4, removing: true, completesAt: 6000, approachPath: [{ column: 5, row: 5 }] };
     expect(isometricTilePopup(s, s.farm.roads[0], 1000).actions.destroyRoad).toBe(false);
     expect(isometricConstructionPose(s, 2000)?.position).toEqual({ column: 5, row: 5 });
     expect(activeConstruction(s, 6000)).toBeNull();
+  });
+  it.each(["delivery", "return"])("hides removal along the porter's %s route", async phase => {
+    const { isometricTilePopup } = await import("../../src/client/game/phaser/isometricTilePopup");
+    const s = snapshot();
+    const road = { column: 5, row: 4 };
+    s.farm.roads = [road];
+    s.farm.production.porter = {
+      hiredAt: 0, expiresAt: 10000, checkedAt: 1000, position: road,
+      job: phase === "delivery" ? { buildingId: id, itemKey: "bread", quantity: 1,
+        startedAt: 0, pickupAt: 1500, completesAt: 3000, path: [road], pickupIndex: 0 } : null,
+      returnTrip: phase === "return" ? { path: [road], startedAt: 0, completesAt: 3000 } : null,
+    };
+    expect(isometricTilePopup(s, road, 1000).actions.destroyRoad).toBe(false);
+    s.farm.production.porter = null;
+    expect(isometricTilePopup(s, road, 1000).actions.destroyRoad).toBe(true);
   });
   it("resumes canal demolition with the same work pose and stops at its saved deadline", () => {
     const s = snapshot();

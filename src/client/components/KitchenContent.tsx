@@ -12,7 +12,7 @@ export function MealBenefitStatus({ snapshot, now }: { snapshot: FarmSnapshot; n
   const meal = activeMeal(benefit, now);
   return meal && benefit ? <p className={styles.benefit} role="status"><MealIcon meal={meal} size={48} /><span>{MEALS[meal].benefit} · {countdownLabel(benefit.expiresAt - now)}</span></p> : null;
 }
-export default function KitchenContent({ snapshot, now, onCook }: { snapshot: FarmSnapshot; now: number; onCook: (meal: MealKey) => void }) {
+export default function KitchenContent({ snapshot, now, onCook, pending }: { pending?: boolean; snapshot: FarmSnapshot; now: number; onCook: (meal: MealKey) => void }) {
   const job = snapshot.farm.production.cooking;
   const reason = farmerSleepBlocker(snapshot, now);
   const busy = reason !== null && reason !== "No sleep time available yet.";
@@ -27,7 +27,7 @@ export default function KitchenContent({ snapshot, now, onCook }: { snapshot: Fa
         return <div className={styles.recipe} key={key}>
           <div className={styles.mealHeading}><MealIcon meal={key} /><div><strong>{meal.name}</strong><small>{meal.benefit} · {meal.durationMs / 60_000} min</small></div></div>
           <div className={styles.ingredients}>{ingredients.map(([item, amount]) => <span key={item} aria-label={`${amount} ${item}`}><BuildingActionIcon kind={item === "brewersGroats" ? "groats" : item as "flour" | "oil" | "dates" | "sesame"} />{amount}</span>)}</div>
-          <button disabled={busy || !enough} onClick={() => onCook(key)}>Cook · 30s</button>
+          <button disabled={pending || busy || !enough} onClick={() => onCook(key)}>Cook · 30s</button>
         </div>;
       })}
     </>}

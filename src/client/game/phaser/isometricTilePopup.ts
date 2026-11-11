@@ -16,6 +16,8 @@ import { previewWalkable } from "./isometricWalking";
 import { gatherableResource, transferBlocker } from "./isometricGathering";
 import { canStartIsometricFishing } from "./isometricFishing";
 import { buildingLevel } from "../../../game-data/buildingUpgrades";
+import { roadRemovalReason } from "../../../game-core/farm/roads";
+import { porterRoadRemovalReason } from "../../../game-core/farm/porter";
 
 /** Household status is available even when the farmer's hands are empty. */
 export const hasFarmerPopup = (snapshot: FarmSnapshot): boolean =>
@@ -98,7 +100,9 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
   const roadDisabled = roadBuildBlocker(snapshot, cell, now);
   const actions = {
     destroyRoad: cell.row !== INITIAL_FARM_CONFIG.roadRow && snapshot.farm.roads.some(r => sameCell(r, cell) && !r.removing && (r.completesAt ?? 0) <= now) &&
-      !snapshot.farm.carriedItem && !plantingBlocker(snapshot, now),
+      !snapshot.farm.carriedItem && !plantingBlocker(snapshot, now) &&
+      !porterRoadRemovalReason(snapshot.farm.production.porter, cell) &&
+      !roadRemovalReason(cell, snapshot.farm.roads, snapshot.buildings.flatMap(b => b.loadingTile ? [b.loadingTile] : []), now),
     destroyIrrigation: canDestroyIrrigation(snapshot, cell, now),
     destroyMaterial: !!groundItem && (groundItem.itemKey === "reed" || groundItem.itemKey === "clay") &&
       !transferBlocker(snapshot, now) && !snapshot.farm.carriedItem && !snapshot.farm.production.materialDelivery,

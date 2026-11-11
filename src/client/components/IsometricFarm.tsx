@@ -1,3 +1,6 @@
+import MarketStockSummary from "./MarketStockSummary";
+import KitchenDrawer from "./KitchenDrawer";
+import type { MealKey } from "../../game-data/kitchen";
 import PlayerProfileDialog from "./PlayerProfileDialog";
 import GameTopBar from "./GameTopBar";
 import type { HomeTabletKey } from "../game/phaser/homeTablets";
@@ -6,7 +9,6 @@ import type { HomeDecorationKey } from "../game/phaser/homeDecorations";
 import type { FarmStyleKey } from "../game/phaser/farmStyles";
 import RulesLink from "./RulesLink";
 import { claimZigguratCelebration } from "../api/ziggurat";
-import { type MealKey } from "../../game-data/kitchen";
 import CookingProgress from "./CookingProgress";
 import { isFarmerSleeping } from "../../game-data/farmerSleep";
 import { millingJobs } from "../../game-data/millingJobs";
@@ -37,7 +39,6 @@ import { barleyStoragePlan, materialStoragePlan } from "../game/phaser/isometric
 import { transferBlocker } from "../game/phaser/isometricGathering";
 import { farmOrigin } from "../game/phaser/isometricFarm";
 import { IsometricFarmScene, type IsometricTileAnchor } from "../game/phaser/scenes/IsometricFarmScene";
-import KitchenDrawer from "./KitchenDrawer";
 import HomeDrawer from "./HomeDrawer";
 import HomeInterior from "./HomeInterior";
 import IsometricTilePopup from "./IsometricTilePopup";
@@ -131,6 +132,8 @@ export default function IsometricFarm() {
       .finally(() => { celebrationPending.current = false; });
   }, []);
   const [neighbourhoodOpen, setNeighbourhoodOpen] = useState(false);
+  const [kitchenOpen, setKitchenOpen] = useState(false);
+  const [cookingError, setCookingError] = useState<string | null>(null);
   const [homeOpen, setHomeOpen] = useState(false);
   const [interiorOpen, setInteriorOpen] = useState(false);
   const homeEntryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -420,20 +423,16 @@ export default function IsometricFarm() {
       if (mounted.current) { setPending(false); renderer.setPlantingSelection(null, false); refresh.current(); }
     }
   };
-  const startCooking = async (meal: MealKey) => {
+  const startHomeCooking = async (meal: MealKey) => {
     const farm = current.current, renderer = scene.current;
-    if (!farm || !renderer || !information || submitting.current) return;
-    const kitchen = buildingAt(farm, information.cell);
-    if (kitchen?.type !== "kitchen") return;
-    submitting.current = true; setPending(true); setError(null);
-    const farmerPosition = renderer.farmerPosition();
-    renderer.clearSelection();
+    if (!farm || !renderer || submitting.current) return;
+    submitting.current = true; setPending(true); setCookingError(null);
     try {
-      const next = await executeGameCommand({ type: "cook_meal", meal, buildingId: kitchen.id, farmerPosition, expectedFarmVersion: farm.farm.version });
-      if (mounted.current) accept.current(next);
-    } catch (cause) {
-      if (mounted.current) setError(cause instanceof Error ? cause.message : "Could not start cooking.");
-    } finally { submitting.current = false; if (mounted.current) { setPending(false); refresh.current(); } }
+      const next = await executeGameCommand({ type: "cook_meal", meal, buildingId: farm.farm.id,
+        fromFarm: true, farmerPosition: renderer.farmerPosition(), expectedFarmVersion: farm.farm.version });
+      accept.current(next); setKitchenOpen(false); renderer.clearSelection(); setInformation(null);
+    } catch (cause) { setCookingError(cause instanceof Error ? cause.message : "Could not start cooking."); }
+    finally { submitting.current = false; setPending(false); refresh.current(); }
   };
   const startBaking = async () => {
     const farm = current.current, renderer = scene.current;
@@ -915,6 +914,7 @@ export default function IsometricFarm() {
             </Tooltip.Root>
             <SettingsDrawer onOpen={() => { setManageOpen(false); scene.current?.clearSelection(); setInformation(null); }} />
           <RulesLink toolbar />
+
           </Tooltip.Provider>
         </div>
         {neighbourhoodLoad === "loading" && <small role="status">Loading neighbours…</small>}
@@ -974,12 +974,15 @@ export default function IsometricFarm() {
           {decorationError&&<p role="alert">{decorationError}</p>}</>} />
     </Dialog.Root>
     {profilePlayer && <PlayerProfileDialog playerId={profilePlayer} onClose={() => setProfilePlayer(null)} />}
+    {kitchenOpen && snapshot && <KitchenDrawer snapshot={snapshot} now={clock} pending={pending} error={cookingError}
+      onClose={() => setKitchenOpen(false)} onCook={meal => void startHomeCooking(meal)} />}
     {homeOpen && snapshot && <HomeDrawer furniture={snapshot.farm.homeAppearance.furniture ?? []} visibility={snapshot.farm.homeAppearance.visibility ?? "everyone"} onSaved={next => accept.current(next)} onEnter={enterHome} selectedTablet={homeTablet} onTablet={tablet => { void saveHome(homeStyle, homeDecoration, tablet); }} selectedDecoration={homeDecoration} onDecoration={decoration => { void saveHome(homeStyle, decoration); }} selectedStyle={homeStyle} onStyle={style => { void saveHome(style, homeDecoration); }} level={snapshot.farm.progression?.level ?? 1} onClose={() => setHomeOpen(false)} />}
     {interiorOpen && snapshot && <HomeInterior snapshot={snapshot} clock={clock} onSaved={next => accept.current(next)} onClose={() => { setInteriorOpen(false); scene.current?.endHomeEntry(); }} />}
     <div ref={mountMap} className={styles.canvas} />
     {neighbourhoodOpen && (snapshot?.farm.progression?.level ?? 1) >= 7 &&
       <NeighbourhoodLeaderboardDialog open={neighbourhoodLeaderboardOpen} onOpenChange={setNeighbourhoodLeaderboardOpen} />}
     {neighbourhoodOpen && snapshot && <ZigguratDialog key={snapshot.farm.id} farmId={snapshot.farm.id} open={zigguratOpen} onOpenChange={setZigguratOpen} onState={updateZiggurat} />}
+    {location === "market" && !neighbourhoodOpen && snapshot && <MarketStockSummary snapshot={snapshot} now={clock} />}
     <MarketDialog />
     <FarmLevelDialog onLevelClaimed={(farmId, level) => {
       const renderer = scene.current;
@@ -1026,6 +1029,7 @@ export default function IsometricFarm() {
       <aside className={styles.planting} aria-label={snapshot.farm.production.cropWork.cropKey === "sesame" ? "Sesame planting" : snapshot.farm.production.cropWork.action === "tend" ? "Date palm tending" : "Date palm planting"}>
         <PalmPlantingProgress job={snapshot.farm.production.cropWork} now={clock} />
       </aside>}
+
     {!neighbourhoodOpen && location === "farm" && snapshot?.farm.production.cooking && <aside className={styles.planting} aria-label="Cooking">
       <CookingProgress job={snapshot.farm.production.cooking} now={clock} />
     </aside>}
@@ -1053,12 +1057,7 @@ export default function IsometricFarm() {
           if (information.kind === "farmReturn") marketScene.current?.goBackToFarm();
           else void wakeThen(() => { if (!scene.current?.goToMarket()) setError("Cannot reach the market right now."); });
         }} />
-      : buildingAt(snapshot, information.cell)?.type === "kitchen" && Date.parse(buildingAt(snapshot, information.cell)!.completesAt) <= clock && information.kind !== "farmer"
-      ? <KitchenDrawer snapshot={snapshot} buildingId={buildingAt(snapshot, information.cell)!.id} now={clock}
-          onClose={() => { scene.current?.clearSelection(); setInformation(null); }}
-          onCook={meal => void startCooking(meal)}
-          onDestroy={() => { const id = buildingAt(snapshot, information.cell)!.id; scene.current?.clearSelection(); setInformation(null); setDemolitionId(id); }} />
-      : <IsometricTilePopup mapElement={mapElement} buildingTransparent={transparentBuildings.has(buildingAt(snapshot, information.cell)?.id ?? "farm")} onToggleBuildingTransparency={buildingAt(snapshot, information.cell)?.type === "kitchen" ? undefined : () => {
+      : <IsometricTilePopup mapElement={mapElement} buildingTransparent={transparentBuildings.has(buildingAt(snapshot, information.cell)?.id ?? "farm")} onToggleBuildingTransparency={() => {
         const id = buildingAt(snapshot, information.cell)?.id ?? "farm";
         const next = new Set(transparentBuildings);
         if (next.has(id)) next.delete(id); else next.add(id);
@@ -1078,6 +1077,8 @@ export default function IsometricFarm() {
       }}
       onDestroyBuilding={id => { scene.current?.clearSelection(); setInformation(null); setDemolitionId(id); }}
       onEnterHome={enterHome}
+      onCookMeal={(snapshot.farm.progression?.level ?? 1) >= 11 && snapshot.farm.homeAppearance.furniture?.some(item => item.key === "indoor-kitchen")
+        ? () => { scene.current?.clearSelection(); setInformation(null); setCookingError(null); setKitchenOpen(true); } : undefined}
       onCustomizeHome={(snapshot.farm.progression?.level ?? 1) >= 9 ? () => { scene.current?.clearSelection(); setInformation(null); setHomeOpen(true); } : undefined}
       onStore={storageId => void storeBarley(storageId)}
       onGather={itemKey => void gather(itemKey)}
