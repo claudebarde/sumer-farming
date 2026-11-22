@@ -63,3 +63,14 @@ describe("porter brewery supplies", () => {
     expect(advancePorter({ ...base, porter: { ...base.porter, expiresAt: 0 } }).porter.job).toBeNull();
   });
 });
+
+it("fills four brewery slots at level 12 and refunds excess if another delivery arrives first", () => {
+  const first = advancePorter({ ...base, farmLevel: 12 });
+  expect(first.porter.job?.quantity).toBe(4);
+  const done = advancePorter({ ...base, ...first, farmLevel: 12, buildings: [{ ...brewery, emptyBeerJars: 1 }], now: 50000 });
+  expect(done.breweryJars.brewery).toBe(4);
+  expect(done.inventory.emptyBeerJar).toBe(1);
+  const again = advancePorter({ ...base, ...done, farmLevel: 12, buildings: [{ ...brewery, emptyBeerJars: 4 }], now: 60000 });
+  expect(again.breweryJars.brewery).toBe(4);
+  expect(again.inventory.emptyBeerJar).toBe(1);
+});

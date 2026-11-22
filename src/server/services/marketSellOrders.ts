@@ -159,13 +159,13 @@ export const createMarketSellOrder = (
                 };
           }
 
-          if (farm.version !== input.expectedFarmVersion) {
+          if (loadedFarm.version !== input.expectedFarmVersion) {
             return {
               type: "rule_error",
               rule: {
                 type: "version_conflict",
                 expectedVersion: input.expectedFarmVersion,
-                actualVersion: farm.version
+                actualVersion: loadedFarm.version
               }
             };
           }
@@ -308,13 +308,13 @@ export const cancelMarketSellOrder = (
             };
           }
 
-          if (farm.version !== input.expectedFarmVersion) {
+          if (loadedFarm.version !== input.expectedFarmVersion) {
             return {
               type: "rule_error",
               rule: {
                 type: "version_conflict",
                 expectedVersion: input.expectedFarmVersion,
-                actualVersion: farm.version
+                actualVersion: loadedFarm.version
               }
             };
           }

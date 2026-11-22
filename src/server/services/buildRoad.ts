@@ -23,8 +23,8 @@ export const buildRoad = (database: Database, input: Extract<GameCommand, { type
       const fail = (message: string) => new RoadRuleError({ message });
       const [farm] = await tx.select().from(farms).where(eq(farms.playerId, input.playerId)).for("update");
       if (!farm) return fail("The farm does not exist.");
+      if (farm.version !== input.expectedFarmVersion) return fail("The farm changed. Please try again.");
       const snapshot = await readFarmSnapshot(tx, farm, false);
-      if (snapshot.farm.version !== input.expectedFarmVersion) return fail("The farm changed. Please try again.");
       const now = Date.now();
       if (snapshot.farm.roads.some(r => !roadIsComplete(r, now))) return fail("Finish building the road first.");
       if (snapshot.farm.production.planting || snapshot.farm.production.materialDelivery ||

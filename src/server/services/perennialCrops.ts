@@ -25,7 +25,7 @@ export const tendPerennialCrop = (db: Database, input: Extract<GameCommand, { ty
     const [record] = await tx.select().from(farms).where(eq(farms.playerId, input.playerId)).for("update");
     if (!record) return new PerennialCropRuleError({ message: "Farm not found." });
     const farm = await advanceFarmLifecycle(tx, record, now);
-    if (farm.version !== input.expectedFarmVersion) return new PerennialCropRuleError({ message: "The farm changed. Please try again." });
+    if (record.version !== input.expectedFarmVersion) return new PerennialCropRuleError({ message: "The farm changed. Please try again." });
     assertFarmerAvailable(farm);
     const snapshot = await readFarmSnapshot(tx, farm, false);
     if (farm.gatheringItemKey || snapshot.crops.some(c => c.harvestStartedAt || Date.parse(c.plantedAt) > now.getTime()) ||
@@ -88,7 +88,7 @@ export const startSesameHarvest = (db: Database, input: Extract<GameCommand, { t
     const [record] = await tx.select().from(farms).where(eq(farms.playerId, input.playerId)).for("update");
     if (!record) return fail("Farm not found.");
     const farm = await advanceFarmLifecycle(tx, record, now);
-    if (farm.version !== input.expectedFarmVersion) return fail("The farm changed. Please try again.");
+    if (record.version !== input.expectedFarmVersion) return fail("The farm changed. Please try again.");
     assertFarmerAvailable(farm);
     const snapshot = await readFarmSnapshot(tx, farm, false);
     const limit = harvestFieldLimit(farm.happiness);

@@ -4,7 +4,7 @@ import { shrineOfferingBlocker } from "../game/phaser/isometricShrine";
 import { plantingBlocker } from "../game/phaser/isometricPlanting";
 import BuildingActionIcon from "./BuildingActionIcon";
 import styles from "../styles/BuildingActionButton.module.scss";
-import InfoAlert from "./InfoAlert";
+
 import beer from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-beer-single.png";
 import progressStyles from "../styles/ProductionProgress.module.scss";
 import { countdownLabel } from "./countdownLabel";
@@ -24,17 +24,16 @@ export default function IsometricShrineActions({ snapshot, buildingId, now, onOf
       <progress aria-label="Blessing progress" aria-valuetext={`${countdown} remaining`} max={100} value={percentage} />
     </div>;
   }
-  // Carrying goods alone is not work; keep its separate empty-hands explanation.
-  const busy = plantingBlocker({ ...snapshot, farm: { ...snapshot.farm, carriedItem: null } }, now) !== null;
+  const busy = !!snapshot.farm.carriedItem || plantingBlocker(snapshot, now) !== null;
   return <>
-    {busy ? <InfoAlert role="alert">The farmer is busy</InfoAlert> : (["bread", "beer"] as const).map(item => {
+    {(["bread", "beer"] as const).map(item => {
       const reason = shrineOfferingBlocker(snapshot, buildingId, item, now);
       return <div key={item}>
         <button className={styles.button} style={{ width: "100%" }} disabled={!onOffer || !!reason} onClick={() => onOffer?.(item)}>
           {item === "bread" ? <BuildingActionIcon kind="bread" /> : <span className={styles.icon} aria-hidden="true"><img src={beer} alt="" /></span>}
-          <span>Offer 2 {item}</span>
+          <span>{busy ? "The farmer is busy" : `Offer 2 ${item}`}</span>
         </button>
-        {reason && reason !== `Store 2 ${item} first.` && <p>{reason}</p>}
+        {!busy && reason && reason !== `Store 2 ${item} first.` && <p>{reason}</p>}
       </div>;
     })}
   </>;

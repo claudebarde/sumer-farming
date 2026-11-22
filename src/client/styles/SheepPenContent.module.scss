@@ -1,0 +1,49 @@
+.feedButton {
+  width: 100%;
+}
+
+.slots {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 8px;
+}
+.slot {
+  min-width: 0;
+  padding: 4px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  & + & { border-left: 1px solid #dec28d; }
+  small { font-size: .75em; }
+}
+.empty { width: 52px; height: 52px; flex: 0 0 52px; }
+.feeding {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+  margin-bottom: 8px;
+  border-top: 1px solid #dec28d;
+  font-size: .9em;
+}
+.animal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  img { width: 52px; height: 52px; flex: 0 0 52px; object-fit: contain; display: block; }
+}
+.number {
+  flex: 0 0 auto;
+  min-width: 20px;
+  padding: 0 5px;
+  border: 1px solid #a47a43;
+  border-radius: 10px;
+  background: #fff7e8;
+  color: #382419;
+  font-size: 12px;
+  font-weight: bold;
+  line-height: 18px;
+  text-align: center;
+}

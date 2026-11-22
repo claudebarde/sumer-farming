@@ -227,13 +227,13 @@ const executeFarmItemAction = (
           if (farm.gatheringItemKey) throw new FarmerUnavailableError({ message: "The farmer is gathering a resource." });
           assertFarmerAvailable(action.type === "deposit" || action.type === "drop" ? { ...farm, production: { ...farm.production, materialDelivery: false } } : farm);
 
-          if (farm.version !== action.input.expectedFarmVersion) {
+          if (loadedFarm.version !== action.input.expectedFarmVersion) {
             return {
               type: "rule_error",
               rule: {
                 type: "version_conflict",
                 expectedVersion: action.input.expectedFarmVersion,
-                actualVersion: farm.version
+                actualVersion: loadedFarm.version
               }
             };
           }

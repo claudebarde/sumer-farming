@@ -1,3 +1,6 @@
+import { isFarmerBusyMessage, farmerBusyLabel } from "./farmerBusyMessage";
+import SheepPenContent from "./SheepPenContent";
+import { Cross2Icon } from "@radix-ui/react-icons";
 import MealIcon from "./MealIcon";
 import RulesLink from "./RulesLink";
 import { buildingRuleSections, tileRuleSection } from "../features/rules/links";
@@ -383,7 +386,7 @@ export default function IsometricTilePopup({
             <div className={styles.popupHeaderControls}>
               <RulesLink section={farmer ? "farmer" : porter ? "porter" : content.building ? buildingRuleSections[content.building.type] : content.home ? "farm" : tileRuleSection(title)} />
               {(content.home || content.building) && !farmer && !porter && !bread && !bags && onToggleBuildingTransparency && <BuildingVisibilityButton transparent={buildingTransparent} onToggle={onToggleBuildingTransparency} />}
-              <Popover.Close className={styles.popupIconButton} aria-label="Close tile popup"><span aria-hidden="true">×</span></Popover.Close>
+              <Popover.Close className={styles.popupIconButton} aria-label="Close tile popup"><Cross2Icon aria-hidden="true" /></Popover.Close>
             </div>
             <div className={styles.popupScrollableContent}>
             {decoration ? (
@@ -408,7 +411,7 @@ export default function IsometricTilePopup({
                       now={now}
                       walking={anchor.walking}
                     />
-                    <button className={`${buildingActionStyles.button} ${styles.restButton}`} disabled={farmerSleepBlocker(snapshot, now) !== null} onClick={() => onSleep("sleep")}><BuildingActionIcon kind="farm" /><span>{farmerSleepBlocker(snapshot, now) ?? "Have a rest"}</span></button>
+                    <button className={`${buildingActionStyles.button} ${styles.restButton}`} disabled={farmerSleepBlocker(snapshot, now) !== null} onClick={() => onSleep("sleep")}><BuildingActionIcon kind="farm" /><span>{farmerBusyLabel(farmerSleepBlocker(snapshot, now)) ?? "Have a rest"}</span></button>
 
                   </>
                 ) : (
@@ -499,6 +502,7 @@ export default function IsometricTilePopup({
                     </p>
                   </>
                 )}
+                {!farmer && content.building?.type === "sheepPen" && <SheepPenContent snapshot={snapshot} penId={content.building.id} now={now} getFarmerPosition={getFarmerPosition} onStarted={onClose} />}
                 {bakingJob && (
                   <ProductionProgress
                     job={bakingJob}
@@ -541,7 +545,7 @@ export default function IsometricTilePopup({
                           : undefined
                       }
                       showFish={(snapshot.farm.progression?.level ?? 1) >= 4}
-                      showSesame={(snapshot.farm.progression?.level ?? 1) >= 10}
+                      showWool={(snapshot.farm.progression?.level ?? 1) >= 12} showSesame={(snapshot.farm.progression?.level ?? 1) >= 10}
                       showDates={(snapshot.farm.progression?.level ?? 1) >= 9}
                     />
                   )}
@@ -697,7 +701,7 @@ export default function IsometricTilePopup({
                       )}
                       {bread && content.building && onStoreBread && (
                         <>
-                          {breadStorageReason && <p>{breadStorageReason}</p>}
+                          {breadStorageReason && !isFarmerBusyMessage(breadStorageReason) && <p>{breadStorageReason}</p>}
                           <button
                             className={buildingActionStyles.button}
                             disabled={breadStorageReason !== null}
@@ -712,7 +716,7 @@ export default function IsometricTilePopup({
                                   : "bread"
                               }
                             />
-                            <span>Store</span>
+                            <span>{isFarmerBusyMessage(breadStorageReason) ? "The farmer is busy" : "Store"}</span>
                           </button>
                         </>
                       )}
@@ -773,7 +777,7 @@ export default function IsometricTilePopup({
                         )}
                       {bags && content.building && onPickupMill && (
                         <>
-                          {millStorageReason && <p>{millStorageReason}</p>}
+                          {millStorageReason && !isFarmerBusyMessage(millStorageReason) && <p>{millStorageReason}</p>}
                           <button
                             className={buildingActionStyles.button}
                             disabled={millStorageReason !== null}
@@ -785,7 +789,7 @@ export default function IsometricTilePopup({
                             {(millOutput?.brewersGroats ?? 0) > 0 && (
                               <BuildingActionIcon kind="groats" />
                             )}
-                            <span>Store</span>
+                            <span>{isFarmerBusyMessage(millStorageReason) ? "The farmer is busy" : "Store"}</span>
                           </button>
                         </>
                       )}

@@ -16,7 +16,7 @@ export const waterPourTarget = (snapshot: FarmSnapshot, position: IsoCell, now: 
   for (let row = bounds.minimumRow; row <= bounds.maximumRow; row++) {
     for (let column = bounds.minimumColumn; column <= bounds.maximumColumn; column++) {
       const target = { column, row };
-      if (!validateBrewerySupply({ ...snapshot, target, action: "pour_water", now, carriedItem: snapshot.farm.carriedItem })) candidates.push(target);
+      if (!validateBrewerySupply({ farmLevel: snapshot.farm.progression?.level ?? 1, ...snapshot, target, action: "pour_water", now, carriedItem: snapshot.farm.carriedItem })) candidates.push(target);
     }
   }
   return candidates.sort((a, b) => (a.column - position.column) ** 2 + (a.row - position.row) ** 2
@@ -31,7 +31,7 @@ export const breweryOutputPlacement = (building: IsoCell & { loadingTile?: IsoCe
 
 export const canSupplyBrewery = (snapshot: FarmSnapshot, target: IsoCell, action: BrewerySupplyAction, now: number) => {
   if ((snapshot.farm.progression?.level ?? 1) < 6 || plantingBlocker({ ...snapshot, farm: { ...snapshot.farm, carriedItem: null } }, now)) return false;
-  if (validateBrewerySupply({ ...snapshot, target, action, now, carriedItem: snapshot.farm.carriedItem })) return false;
+  if (validateBrewerySupply({ farmLevel: snapshot.farm.progression?.level ?? 1, ...snapshot, target, action, now, carriedItem: snapshot.farm.carriedItem })) return false;
   if (action !== "start_brewing") return true;
   const building = snapshot.buildings.find(b => b.type === "brewery" && b.column === target.column && b.row === target.row);
   return !!building && !snapshot.farm.carriedItem && productionOutputFits(snapshot.farm, building.id, BEER_RECIPE.output) &&

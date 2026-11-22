@@ -23,8 +23,9 @@ export const deliverMillGoods = (database: Database, input: Extract<GameCommand,
     try: () => database.transaction(async tx => {
       const [farm] = await tx.select().from(farms).where(eq(farms.playerId, input.playerId)).for("update");
       if (!farm) return new MillingRuleError({ message: "The farm does not exist." });
+      // Validate the locked revision before reconciliation advances timed jobs.
+      if (farm.version !== input.expectedFarmVersion) return new MillingRuleError({ message: "The farm changed. Please try again." });
       const snapshot = await readFarmSnapshot(tx, farm, false);
-      if (snapshot.farm.version !== input.expectedFarmVersion) return new MillingRuleError({ message: "The farm changed. Please try again." });
       const now = Date.now();
       const goods = snapshot.farm.millGoods;
       if (snapshot.farm.production.planting) return new MillingRuleError({ message: "Finish or stop planting or harvesting the selected fields first." });
@@ -75,8 +76,9 @@ export const startMilling = (database: Database, input: Extract<GameCommand, { t
     try: () => database.transaction(async tx => {
       const [farm] = await tx.select().from(farms).where(eq(farms.playerId, input.playerId)).for("update");
       if (!farm) return new MillingRuleError({ message: "The farm does not exist." });
+      // Validate the locked revision before reconciliation advances timed jobs.
+      if (farm.version !== input.expectedFarmVersion) return new MillingRuleError({ message: "The farm changed. Please try again." });
       const snapshot = await readFarmSnapshot(tx, farm, false);
-      if (snapshot.farm.version !== input.expectedFarmVersion) return new MillingRuleError({ message: "The farm changed. Please try again." });
       const now = Date.now();
       const selectedMill = snapshot.buildings.find(b => b.type === (input.recipe === "oil" ? "oilMill" : "mill") && b.column === input.target.column && b.row === input.target.row);
       const reason = millingUnavailableReason(snapshot, input.recipe, now, input.worker, selectedMill?.id);

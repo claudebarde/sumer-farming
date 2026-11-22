@@ -19,6 +19,7 @@ export default function MerchantRequestCard({ request, stock, pending, onDeliver
   readonly onDeliver: () => void;
 }) {
   const enough = canDeliverRequest(request, stock);
+  const needsBarleyReserve = request.barley > 0 && stock.barley === request.barley;
   const goods = [
     { name: "Barley", image: FARM_SPRITES.harvestedBarley, needed: request.barley, stored: stock.barley },
     { name: "Beer", image: beer, needed: request.beer, stored: stock.beer },
@@ -40,18 +41,16 @@ export default function MerchantRequestCard({ request, stock, pending, onDeliver
       <div className={styles.goods}>
         {goods.map(good => <div className={styles.good} key={good.name}>
           <span className={styles.needed}><img src={good.image} alt="" width={28} height={28} /><strong>{good.name}</strong><span>{good.needed} needed</span></span>
-          <span className={styles.stock} data-enough={good.stored >= good.needed}>You have <strong>{good.stored}</strong></span>
+          <span className={styles.stock} data-enough={good.stored >= good.needed + (good.name === "Barley" ? 1 : 0)}>You have <strong>{good.stored}</strong></span>
         </div>)}
       </div>
-      {!request.completed && enough && request.barley > 0 && stock.barley - request.barley < 1 &&
-        <p className={styles.note} role="note">This delivery would leave no barley for the farmer’s next ration.</p>}
-      {!request.completed && !enough && <p className={styles.note}>Store the missing goods to deliver this request.</p>}
+      {!request.completed && !enough && !needsBarleyReserve && <p className={styles.note}>Store the missing goods to deliver this request.</p>}
       <div className={styles.footer}>
         <div className={styles.reward}><img src={shekels} alt="" width={36} height={36} /><span><small>Reward</small><strong>{request.reward} shekels</strong></span></div>
         {request.completed ? <strong className={styles.delivered}>Delivered ✓</strong> :
           <button className={actionStyles.button} disabled={!enough || pending} onClick={onDeliver}
             aria-label={`Deliver to ${request.customer} for ${request.reward} shekels`}>{goods.map(good => <span key={good.name} className={actionStyles.icon} aria-hidden="true"><img src={good.image} alt="" draggable={false} /></span>)}<span>
-            {pending ? "Delivering…" : "Deliver"}
+            {pending ? "Delivering…" : needsBarleyReserve ? "You must keep 1 barley in your farm" : "Deliver"}
           </span></button>}
       </div>
     </div>

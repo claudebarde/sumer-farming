@@ -6,12 +6,27 @@
 .accessibleTitle { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .furnitureIcon { width: 40px; height: 40px; flex-shrink: 0; object-fit: contain; transform: scale(1.5); }
 .drawerOverlay { z-index: 1300; }
-.furnitureDrawer { z-index: 1301; }
+.furnitureDrawer.furnitureDrawer { z-index: 1301; width: min(540px, 90vw); }
+.furnitureTabs { flex: 1; overflow: hidden; padding: 0 20px;
+  > [role="tablist"] { flex-shrink: 0; }
+  [role="tab"] { font-size: 16px; white-space: nowrap; overflow-wrap: normal; }
+  > [role="tablist"] { grid-auto-columns: minmax(max-content, 1fr); overflow-x: auto; }
+}
+.furnitureBody { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 20px; }
+.itemDetails { display: flex; align-items: center; justify-content: center; min-height: 28px; width: 100%; margin-top: auto; }
+.achievementRequirements { display: flex; flex-direction: column; gap: 4px; font-size: 14px; line-height: 1.35; text-align: center; }
+.items button.lockedFurniture:disabled { opacity: 1; background: #e5dccb; color: #746653; border-color: #c6bba8; cursor: not-allowed;
+  img { opacity: .7; }
+}
+.placementStatus { display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px; border-radius: 6px; font-size: 14px; background: #f3e3c8; color: #684328;
+  svg { width: 18px; height: 18px; flex-shrink: 0; }
+  &[data-placed="true"] { background: #e4e9cf; color: #4d602e; }
+}
 .items { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px;
-  button { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px; font-size: 18px; }
+  button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px; font-size: 18px; min-width: 0; height: 100%; box-sizing: border-box; }
   button[data-placed="true"] { border: 2px solid #684328; box-shadow: inset 0 0 0 1px #684328; }
-  img { width: 100%; height: 100px; object-fit: contain; }
-  small { font-size: 15px; }
+  img { width: 100%; height: 88px; object-fit: contain; object-position: center bottom; }
+  strong { margin-top: -2px; min-height: 1.2em; display: flex; align-items: center; justify-content: center; line-height: 1.2; }
 }
 .actions { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); width: min(600px, calc(100% - 32px)); box-sizing: border-box; padding: 16px; border: 3px solid #dcc08c; border-radius: 14px; background: #fff7e8; text-align: center;
   p { margin: 6px 0; font-size: 16px; }

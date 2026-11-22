@@ -13,12 +13,13 @@ import {
   type BuildingCoordinate,
   type BuildingPlacementRule
 } from "../../game-core/farm/buildings";
-import { FARM_BUILDING_DEFINITIONS, type FarmBuildingType } from "../../game-data/buildings";
+import { FARM_BUILDING_DEFINITIONS, buildingShekelCost, type FarmBuildingType } from "../../game-data/buildings";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import type { InventoryItemKey } from "../../game-data/inventoryItems";
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { Database } from "../db/client";
 import {
+  players, shekelTransactions,
   farmBuildings,
   farmInventory,
   farmCrops,
@@ -154,16 +155,18 @@ export const buildFarmBuilding = (
           );
           assertFarmerAvailable(farm);
 
-          if (farm.version !== input.expectedFarmVersion) {
+          if (loadedFarm.version !== input.expectedFarmVersion) {
             return {
               type: "rule_error",
               rule: {
                 type: "version_conflict",
                 expectedVersion: input.expectedFarmVersion,
-                actualVersion: farm.version
+                actualVersion: loadedFarm.version
               }
             };
           }
+
+          if (buildingType === "sheepPen" && farm.level < 12) return { type: "rule_error", rule: { type: "level_required", level: 12 } };
 
           if (farm.gatheringItemKey !== null) {
             return { type: "rule_error", rule: { type: "farmer_busy" } };
@@ -260,6 +263,12 @@ export const buildFarmBuilding = (
             return { type: "rule_error", rule: { type: "access_blocked" } };
           }
 
+          const shekelCost = buildingShekelCost(buildingType);
+          const [player] = shekelCost > 0 ? await transaction.select().from(players)
+            .where(eq(players.id, input.playerId)).for("update") : [];
+          if (shekelCost > 0 && (!player || player.shekelBalance < shekelCost))
+            return { type: "rule_error", rule: { type: "insufficient_shekels", required: shekelCost } };
+
           const [building] = await transaction
             .insert(farmBuildings)
             .values({
@@ -279,6 +288,13 @@ export const buildFarmBuilding = (
               type: "rule_error",
               rule: { type: "footprint_occupied" }
             };
+          }
+
+          if (player && shekelCost > 0) {
+            const balanceAfter = player.shekelBalance - shekelCost;
+            await transaction.update(players).set({ shekelBalance: balanceAfter, updatedAt: startedAt }).where(eq(players.id, player.id));
+            await transaction.insert(shekelTransactions).values({ playerId: player.id,
+              idempotencyKey: building.id, type: "building_construction", delta: -shekelCost, balanceAfter });
           }
 
           // Clear only accepted building footprints, atomically with construction.

@@ -1,6 +1,13 @@
+import { ProductionSpecialtySchema } from "./productionSpecialty";
 import { z } from "zod";
 import { FarmBuildingTypeSchema } from "../game-data/buildings";
 export const ProgressionStatsSchema = z.object({
+  attendance: z.object({ lastDay: z.int().nonnegative().optional(), streak: z.int().min(0).max(5), unlocked: z.boolean(), activeUntil: z.number().finite().optional() }).optional(),
+  achievementTreasures: z.array(z.enum(["golden-drinking-cup", "patterned-reed-chest", "fine-household-pottery-set", "painted-large-jar"])).readonly().optional(),
+  beerRequestsFulfilled: z.int().nonnegative().optional(),
+  productionSpecialty: ProductionSpecialtySchema.optional(),
+  level11StartedAt: z.string().datetime().optional(),
+  level11Work: z.object({ meals: z.int().nonnegative(), harvests: z.int().nonnegative() }).optional(),
   level10Work: z.object({ sesameHarvests: z.int().nonnegative(), oilProduced: z.int().nonnegative() }).optional(),
   datesStored: z.int().nonnegative().optional(),
   level9Baseline: z.object({ produced: z.int().nonnegative(), datesStored: z.int().nonnegative() }).optional(),
@@ -18,6 +25,6 @@ export const ProgressionStatsSchema = z.object({
 });
 export const ProgressionSchema = z.object({
   breadSold: z.int().nonnegative().default(0),
-  level: z.int().min(1).max(11), stats: ProgressionStatsSchema,
+  level: z.int().min(1).max(12), stats: ProgressionStatsSchema,
   barleySold: z.int().nonnegative(), beerSold: z.int().nonnegative(), requestsDelivered: z.int().nonnegative()
 });

@@ -3,6 +3,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 import { Client } from "pg";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { GameCommandSchema } from "../../src/schemas/gameCommands";
 import { INITIAL_PROGRESSION_STATS } from "../../src/game-data/progression";
 import { evaluateProgression } from "../../src/game-core/farm/progression";
 import { createDatabase } from "../../src/server/db/client";
@@ -49,7 +50,7 @@ describe("manual farm levels", () => {
     if (ready) {
       const result = await Effect.runPromise(claimFarmLevel(db, input));
       expect(result.farm.progression!.level).toBe(11);
-      expect(evaluateProgression(result, Date.now())).toMatchObject({ upcoming: true, canClaim: false });
+      expect(evaluateProgression(result, Date.now())).toMatchObject({ upcoming: false, canClaim: false });
       const retry = await Effect.runPromise(claimFarmLevel(db, input));
       expect(retry.farm.progression!.level).toBe(11);
       expect(retry.player.points).toBe(100);
@@ -59,6 +60,52 @@ describe("manual farm levels", () => {
       await expect(Effect.runPromise(claimFarmLevel(db, input))).rejects.toThrow();
       expect((await f.snapshot()).inventory).toEqual(before.inventory);
     }
+  });
+  it.each(["ready-oven", "ready-brewery", "kitchen", "meals", "harvests", "upgrade", "oil", "dates"])("validates level 12 with recovered activity and one-time offering: %s", async scenario => {
+    const f = await fixture();
+    const now = Date.now();
+    const [building] = await db.insert(farmBuildings).values({ farmId: f.farmId, type: scenario === "ready-brewery" ? "brewery" : "breadOven", column: 4, row: 0, startedAt: new Date(0), completesAt: new Date(1000) }).returning();
+    await db.insert(farmBuildings).values({ farmId: f.farmId, type: "warehouse", column: 8, row: 0, startedAt: new Date(0), completesAt: new Date(1000) });
+    await db.update(farms).set({
+      level: 11,
+      homeAppearance: { ...((await f.snapshot()).farm.homeAppearance), furniture: scenario === "kitchen" ? [] : [{ key: "indoor-kitchen", x: 700, y: 500 }] },
+      production: { pending: {}, delivery: null, baking: {}, buildingUpgrades: { [building!.id]: [{ level: 3, startedAt: new Date(0).toISOString(), completesAt: new Date(scenario === "upgrade" ? now + 60000 : 1000).toISOString(), idempotencyKey: randomUUID() }] } }
+    }).where(eq(farms.id, f.farmId));
+    const receipt = (source: string, action: string, time = now - 1000) => ({ playerId: f.input.playerId, source, action, points: 0, ruleVersion: 1, completedAt: new Date(time) });
+    await db.insert(pointAwards).values([
+      receipt("level:11", "farmLevel", now - 10000),
+      ...Array.from({ length: scenario === "meals" ? 4 : 5 }, (_, i) => receipt("meal:" + i, "cookMeal")),
+      ...Array.from({ length: scenario === "harvests" ? 19 : 20 }, (_, i) => receipt("field:" + i, i % 2 ? "harvestBarley" : "harvestSesame")),
+      receipt("old-meal", "cookMeal", now - 20000),
+      receipt("future-meal", "cookMeal", now + 60000)
+    ]);
+    await db.insert(farmInventory).values([{ farmId: f.farmId, itemKey: "oil", quantity: scenario === "oil" ? 4 : 5 }, { farmId: f.farmId, itemKey: "dates", quantity: scenario === "dates" ? 3 : 4 }]);
+    const before = await f.snapshot();
+    expect(before.farm.progression!.stats.level11Work).toEqual({ meals: scenario === "meals" ? 4 : 5, harvests: scenario === "harvests" ? 19 : 20 });
+    const ready = scenario.startsWith("ready");
+    expect(evaluateProgression(before, now).canClaim).toBe(ready);
+    const input = { ...f.input, expectedLevel: 11, expectedFarmVersion: before.farm.version };
+    expect(GameCommandSchema.safeParse({ type: "claim_farm_level", expectedLevel: 11, expectedFarmVersion: before.farm.version }).success).toBe(true);
+    if (ready) {
+      const result = await Effect.runPromise(claimFarmLevel(db, input));
+      expect(result.farm.progression!.level).toBe(12);
+      expect(evaluateProgression(result, now)).toMatchObject({ upcoming: true, canClaim: false });
+      const retry = await Effect.runPromise(claimFarmLevel(db, input));
+      expect(retry.farm.progression!.level).toBe(12);
+      expect((await f.snapshot()).inventory.filter(i => i.itemKey === "oil" || i.itemKey === "dates").every(i => i.quantity === 0)).toBe(true);
+      expect(retry.player.points).toBe(100);
+    } else {
+      await expect(Effect.runPromise(claimFarmLevel(db, input))).rejects.toThrow();
+      expect((await f.snapshot()).inventory).toEqual(before.inventory);
+    }
+  });
+  it("starts level-11 tracking now when no entry history exists and preserves it on reload", async () => {
+    const f = await fixture();
+    await db.update(farms).set({ level: 11 }).where(eq(farms.id, f.farmId));
+    await db.insert(pointAwards).values({ playerId: f.input.playerId, source: "unverifiable-meal", action: "cookMeal", points: 30, ruleVersion: 1, completedAt: new Date(0) });
+    const first = await f.snapshot();
+    expect(first.farm.progression!.stats.level11Work).toEqual({ meals: 0, harvests: 0 });
+    expect((await f.snapshot()).farm.progression!.stats.level11StartedAt).toBe(first.farm.progression!.stats.level11StartedAt);
   });
   it("counts a completed oil batch once even when its point receipt already exists", async () => {
     const f = await fixture();

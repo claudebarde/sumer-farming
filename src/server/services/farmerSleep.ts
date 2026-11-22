@@ -21,7 +21,7 @@ export const farmerSleepAction = (database: Database, input: Extract<GameCommand
     const now = Date.now();
     const farm = await advanceFarmLifecycle(tx, record, new Date(now));
     if (isFarmerSleeping(farm.sleep, now) && input.action === "sleep") return readFarmSnapshot(tx, farm, false);
-    if (farm.version !== input.expectedFarmVersion) return new ProductionRuleError({ message: "The farm changed. Please try again." });
+    if (record.version !== input.expectedFarmVersion) return new ProductionRuleError({ message: "The farm changed. Please try again." });
     if (input.action === "wake") {
       if (!isFarmerSleeping(farm.sleep, now)) return readFarmSnapshot(tx, farm, false);
       const [updated] = await tx.update(farms).set({ sleep: { ...farm.sleep, session: { ...farm.sleep.session!, wokeAt: now } }, version: sql`${farms.version} + 1` }).where(eq(farms.id, farm.id)).returning();

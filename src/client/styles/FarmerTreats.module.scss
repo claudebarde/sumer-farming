@@ -7,10 +7,10 @@
   font-size: 0.9rem;
 }
 .resource { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.artwork { width: 56px; height: 56px; flex-shrink: 0;
+.artwork { position: relative; width: 56px; height: 56px; flex-shrink: 0;
   img { width: 56px; height: 56px; object-fit: contain; }
+  &[data-unavailable="true"] img { opacity: 0.45; }
 }
-.unavailable { flex-basis: 100%; }
 .benefit { display: flex; flex-direction: column; gap: 3px;
   strong { color: #667b39; font-size: 1.25rem; }
 }

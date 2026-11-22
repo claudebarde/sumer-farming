@@ -1,4 +1,3 @@
-import { millingJobForBuilding } from "../../../game-data/millingJobs";
 import { barleyHasExpired, barleyHarvestYield, BARLEY_WITHERING_MS, BARLEY_CLEARING_MS } from "../../../game-core/farm/barleyDecay";
 import { countdownLabel } from "../../components/countdownLabel";
 import type { FarmSnapshot } from "../../../schemas/farm";
@@ -52,31 +51,24 @@ export const isometricTilePopup = (snapshot: FarmSnapshot, cell: IsoCell, now: n
     if (Date.parse(building.completesAt) > now) details.push("Under construction");
     else if (building.type === "oilMill") details.push(`${building.emptyBeerJars}/3 empty jars`);
     else if (building.type === "mill") {
-      const job = millingJobForBuilding(snapshot.farm, building.id);
-      if (job?.buildingId === building.id && Date.parse(job.startedAt) > now) details.push("Collecting barley…");
       const bags = snapshot.farm.millGoods.pending[building.id];
       if (bags?.flour) details.push(`${bags.flour} flour ${bags.flour === 1 ? "bag" : "bags"} ready`);
       if (bags?.brewersGroats) details.push(`${bags.brewersGroats} groats ${bags.brewersGroats === 1 ? "bag" : "bags"} ready`);
     }
     else if (building.type === "granary") details.push(`${building.storedBarley} / ${granaryCapacityForLevel(snapshot.farm.progression?.level ?? 1)} barley stored`);
     else if (building.type === "breadOven") {
-      const job = snapshot.farm.production.baking[building.id];
-      if (job && Date.parse(job.startedAt) > now) details.push("Collecting flour…");
       const bread = snapshot.farm.production.pending[building.id];
       if (bread) details.push(`${bread.quantity} bread ready`);
     }
     else if (building.type === "brewery") {
       const job = snapshot.farm.production.brewing?.[building.id];
-      if (job && now < Date.parse(job.startedAt)) details.push(now < Date.parse(job.arrivedAt) ? "Collecting groats…" : "Preparing beer…");
-      else if (!job && building.beerReadyAt) details.push(`Fermenting · ${Math.max(0, Math.ceil((Date.parse(building.beerReadyAt) - now) / 60000))}m`);
+      if (!job && building.beerReadyAt) details.push(`Fermenting · ${Math.max(0, Math.ceil((Date.parse(building.beerReadyAt) - now) / 60000))}m`);
       const beer = snapshot.farm.production.pending[building.id];
       if (beer) details.push(`${beer.quantity} beer ready`);
     }
   } else if (!home && !crop) {
     details.push(...tileInformation(snapshot, cell, now).split(" · ").slice(1));
   }
-  const showCarriedItem = home || !!building || !!crop;
-  if (showCarriedItem && snapshot.farm.carriedItem) details.push(`Carrying ${snapshot.farm.carriedItem.quantity} ${snapshot.farm.carriedItem.itemKey}`);
   const plant = !home && canPlantHere;
   const harvest = !home && canHarvestHere;
   const plantDisabled = plantingBlocker(snapshot, now) ?? (plantingSelectionLimit(snapshot, now) === 0 ? "No barley seeds" : !plantable.length ? "No irrigated fields" : null);

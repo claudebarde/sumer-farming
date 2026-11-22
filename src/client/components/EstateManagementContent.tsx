@@ -91,39 +91,17 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                 {farmState.type === "ready" ? (
                   <div className={styles["resource-sections"]}>
                     <section>
-                      <h3 className={styles["resource-title"]}>
-                        <img
-                          src={flourBagsImage}
-                          alt=""
-                          width={32}
-                          height={32}
-                          draggable={false}
-                        />
-                        Processed grain
-                      </h3>
                       <dl className={styles["resource-list"]}>
-                        {(farmState.snapshot.farm.progression?.level ?? 1) >= 10 && <div>
-                          <dt className={styles["resource-title"]}><img src={oilImage} alt="" width={32} height={32} draggable={false} />Sesame oil</dt>
-                          <dd>{farmState.snapshot.inventory.find(i => i.itemKey === "oil")?.quantity ?? 0}</dd>
-                        </div>}
                         <div>
-                          <dt>Flour</dt>
-                          <dd>
-                            {farmState.snapshot.inventory.find(
-                              i => i.itemKey === "flour"
-                            )?.quantity ?? 0}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className={styles["resource-title"]}><img src={groatsImage} alt="" width={32} height={32} draggable={false} />Brewer's Groats</dt>
-                          <dd>
-                            {farmState.snapshot.inventory.find(
-                              i => i.itemKey === "brewersGroats"
-                            )?.quantity ?? 0}
-                          </dd>
+                          <dt className={styles["resource-title"]}>
+                            <img src={barleyImage} alt="" width={32} height={32} draggable={false} />
+                            Barley
+                          </dt>
+                          <dd>{totalBarley}</dd>
                         </div>
                       </dl>
                     </section>
+
                     <section>
                       <dl className={styles["resource-list"]}>
                         <div>
@@ -143,24 +121,26 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                     </section>
 
                     <section>
-                      <h3 className={styles["resource-title"]}>
-                        <img
-                          src={barleyImage}
-                          alt=""
-                          width={32}
-                          height={32}
-                          draggable={false}
-                        />
-                        Barley
-                      </h3>
+                      <h3>Processed grain</h3>
                       <dl className={styles["resource-list"]}>
-                        <div className={styles["resource-total"]}>
-                          <dt>Total</dt>
-                          <dd>{totalBarley}</dd>
+                        <div>
+                          <dt className={styles["resource-title"]}><img src={groatsImage} alt="" width={32} height={32} draggable={false} />Brewer's Groats</dt>
+                          <dd>
+                            {farmState.snapshot.inventory.find(
+                              i => i.itemKey === "brewersGroats"
+                            )?.quantity ?? 0}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className={styles["resource-title"]}><img src={flourBagsImage} alt="" width={32} height={32} draggable={false} />Flour</dt>
+                          <dd>
+                            {farmState.snapshot.inventory.find(
+                              i => i.itemKey === "flour"
+                            )?.quantity ?? 0}
+                          </dd>
                         </div>
                       </dl>
                     </section>
-
                     <section>
                       <h3>Food and drink</h3>
                       <dl className={styles["resource-list"]}>
@@ -178,6 +158,7 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                             },
                             { key: "fish", label: "Fish", image: fishImage },
                             ...(farmLevel >= 10 ? [{ key: "sesame" as const, label: "Sesame", image: sesameImage }] : []),
+                            ...(farmLevel >= 10 ? [{ key: "oil" as const, label: "Sesame oil", image: oilImage }] : []),
                             ...(farmLevel >= 9
                               ? [
                                   {
@@ -188,7 +169,7 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                                 ]
                               : [])
                           ] as const
-                        ).map(item => (
+                        ).slice().sort((a, b) => a.label.localeCompare(b.label, "en")).map(item => (
                           <div key={item.key}>
                             <dt className={styles["resource-title"]}>
                               <img
@@ -214,6 +195,13 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                       <dl className={styles["resource-list"]}>
                         <div>
                           <dt className={styles["resource-title"]}>
+                            <img src={bakingToolsImage} alt="" width={32} height={32} draggable={false} />
+                            Baking tools
+                          </dt>
+                          <dd>{availableBakingTools}</dd>
+                        </div>
+                        <div>
+                          <dt className={styles["resource-title"]}>
                             <img src={brewingJarImage} alt="" width={32} height={32} draggable={false} />
                             Brewing jars
                           </dt>
@@ -225,13 +213,6 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                             Empty jars
                           </dt>
                           <dd>{availableEmptyBeerJars}</dd>
-                        </div>
-                        <div>
-                          <dt className={styles["resource-title"]}>
-                            <img src={bakingToolsImage} alt="" width={32} height={32} draggable={false} />
-                            Baking tools
-                          </dt>
-                          <dd>{availableBakingTools}</dd>
                         </div>
                       </dl>
                     </section>
@@ -263,23 +244,6 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                         <div>
                           <dt className={styles["resource-title"]}>
                             <img
-                              src={reedImage}
-                              alt=""
-                              width={32}
-                              height={32}
-                              draggable={false}
-                            />
-                            Reed
-                          </dt>
-                          <dd>
-                            {farmState.snapshot.inventory.find(
-                              i => i.itemKey === "reed"
-                            )?.quantity ?? 0}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className={styles["resource-title"]}>
-                            <img
                               src={clayImage}
                               alt=""
                               width={32}
@@ -291,6 +255,23 @@ export default function EstateManagementContent({ farmState, storageClock, manag
                           <dd>
                             {farmState.snapshot.inventory.find(
                               i => i.itemKey === "clay"
+                            )?.quantity ?? 0}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className={styles["resource-title"]}>
+                            <img
+                              src={reedImage}
+                              alt=""
+                              width={32}
+                              height={32}
+                              draggable={false}
+                            />
+                            Reed
+                          </dt>
+                          <dd>
+                            {farmState.snapshot.inventory.find(
+                              i => i.itemKey === "reed"
                             )?.quantity ?? 0}
                           </dd>
                         </div>

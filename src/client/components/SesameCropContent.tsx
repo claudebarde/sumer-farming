@@ -1,3 +1,4 @@
+import { isFarmerBusyMessage } from "./farmerBusyMessage";
 import { currentCropWork } from "../../game-data/cropWork";
 import { useRef, useState } from "react";
 import type { FarmSnapshot } from "../../schemas/farm";
@@ -37,10 +38,10 @@ export function SesameAction({ snapshot, target, now, getFarmerPosition, onStart
   };
   return <>
     {error && <InfoAlert>{error}</InfoAlert>}
-    {reason && <InfoAlert>{reason}</InfoAlert>}
+    {reason && !isFarmerBusyMessage(reason) && <InfoAlert>{reason}</InfoAlert>}
     <button className={actionStyles.button} disabled={pending || !!reason} onClick={() => void submit()}>
       <span className={actionStyles.icon} aria-hidden="true"><img src={basket} alt="" draggable={false} /></span>
-      <span>{pending ? "Starting…" : action === "plant" ? "Plant sesame" : "Harvest"}</span>
+      <span>{pending ? "Starting…" : isFarmerBusyMessage(reason) ? "The farmer is busy" : action === "plant" ? "Plant sesame" : "Harvest"}</span>
     </button>
   </>;
 }

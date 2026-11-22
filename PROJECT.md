@@ -95,6 +95,8 @@ muted terracotta `#C58A70`, border `#985B46`, dark brown text, and hover
 `#B97A60`. Apply it in building popups and demolition confirmations; preserve
 the shared disabled appearance while a request is pending.
 
+Popup farmer availability uses disabled actions with the concise label “The farmer is busy”. Do not add separate carried-item or worker-activity explanations to tile/building popups. Retain relevant storage warnings and the building’s own production progress.
+
 Keep popup text to a minimum. Show only information needed to make the current
 decision or understand a blocker; avoid routine explanatory sentences beneath
 action buttons. Keep detailed rules in the game rules documentation.
@@ -1731,6 +1733,16 @@ Farmer sprite rendering has a player-approved baseline and a reversible sharpeni
 trial documented in `docs/farmer-rendering.md`. Preserve that baseline when tuning
 artwork; do not replace it with direct full-resolution texture minification.
 
+Cross-view artwork consistency is the default: the same item must use the same
+approved sharpening, texture preparation resolution, smoothing and filtering in
+the farm, neighbourhood, market and home interior. Reuse the prepared texture
+when views share a Phaser texture manager; for separate renderers, reuse the same
+preparation helper and configuration. Do not load raw full-resolution artwork or
+introduce view-specific sharpening for an item that already has an approved
+prepared texture. Display size may follow the scene's scale, but its rendering
+style must remain consistent. Any necessary exception needs explicit visual
+review and approval; centralize settings so future adjustments apply everywhere.
+
 ## 37. Dropped-item positioning
 
 All dropped ground items use the approved barley/reed/clay position: project their
@@ -1990,6 +2002,8 @@ Interior furniture uses the shared pure `game-core/home` navigation and placemen
 
 ## Shared game top bar
 
+The shared `Header` (game title and account controls) stays visible above the top bar in every game view. Full-screen scene dialogs such as the home interior must render the same Header within their modal content; do not obscure it or introduce a separate design.
+
 Every game view, including the home interior and future scenes, must reuse `GameTopBar` and the existing toolbar styles. Keep the left farm level/icon/objective progress and +/−/Fit controls identical, and the right shekels/barley/farmer-happiness counters identical. Disable the farmer shortcut outside the farm. Only the centre action buttons vary by view; reuse the standard square icon buttons with labels and Radix tooltips. The interior has Furniture, Your farm, Settings and Guide. Do not create a separate header design for new scenes.
 
 Interior furniture has separate room-floor placement polygons from the farmer's
@@ -2048,3 +2062,52 @@ in the standard lower container; only Confirm sends the existing server wake com
 then walks to the selected destination. Server limits and happiness rules are unchanged.
 The approved dog rendering uses 0.05 sharpening at 512px, high-quality downsampling
 to 160px for the 80px display, linear filtering and independent wall clipping.
+
+## Neighbourhood production specialties
+
+`game-data/productionSpecialty.ts` is the catalogue of eligible products. The
+separate optional `progressionStats.productionSpecialty` JSON stores completed
+output quantities and the current leader, starting empty without importing old
+progression totals. `recordSpecialtyProduction` is pure; call it in the existing
+farm-locked completion transaction, never from deliveries, purchases or animation
+callbacks. Existing job removal makes lifecycle reconciliation exactly once.
+Keep the leader on ties. The public neighbourhood DTO exposes only the leader.
+To add a product, extend the catalogue, wire its completed output, and provide
+its artwork in the exhaustive `neighbourhoodSpecialty.ts` mapping. Phaser renders
+the icon; React provides the standard Radix tooltip. Rules live in game-rules.md.
+
+Farm command revision checks compare `expectedFarmVersion` with the farm record
+loaded under the transaction row lock, before lifecycle reconciliation. Reconciliation
+may advance the revision itself (porter deliveries, production completions, etc.);
+that must not invalidate the command. Validate ingredients, capacity and worker
+availability against reconciled state. Preserve stale-client and idempotency guards.
+
+### Sheep pen construction (level 12)
+
+The saved `sheepPen` building uses the approved 2×2 footprint, 196px pen artwork
+and decorative grass. Its saved loading tile selects the front/rear view and
+horizontal mirroring. Use the approved building-silhouette shadow. One pen per
+estate costs 60 shekels and 6 clay and takes 3 minutes; the server validates and
+charges atomically. Lamb purchases, feeding and growth are implemented below.
+
+### Lamb purchases and delivery
+
+Player approved the farmer/adult/lamb proportions in motion on November 18, 2026:
+64px farmer, 36px adult sheep and 30px lamb, retaining their existing foot anchors.
+The temporary comparison animation and its toolbar button have been removed.
+
+Level-12 lamb purchases use `/api/market/lambs`, a farm/player-locked transaction
+with an immutable `livestock_purchase` payment receipt keyed by the request UUID.
+`production.livestock` holds individual animals and the latest delivery timeline;
+all animals reserve pen capacity immediately. `arrivesAt` defines when the animal
+is in the pen, independently of browser callbacks. Individual care clocks are initialized without retroactive neglect.
+Both scenes sample the saved market/farm paths, using the existing sheep sprites,
+sharpening and wandering behaviour. Refreshes must never buy again or restart travel.
+Selling and adult purchases remain disabled. `/api/livestock/feed` locks the farm,
+reserves barley and saves a road-preferred pickup route plus a 3-second feeding stop.
+`productionIngredientsAwaitingPickup` keeps reserved barley visually at its source until
+pickup. Individual care stores accumulated fed growth and the current fed interval;
+`advanceLivestock` derives maturity and removes overdue animals in farm lifecycle,
+including offline catch-up. The flock shares a 12-hour schedule, with 48-hour grace.
+The pen table and shared WorkProgress present the saved state. First wool readiness
+is visible; shearing, wool storage/output and meat processing are separate future work.

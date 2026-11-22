@@ -59,10 +59,12 @@ it.each(["farmer", "donkey"] as const)("reserves %s ingredients immediately and 
   await expect(Effect.runPromise(startMilling(db, command))).rejects.toThrow();
   const completed = await f.advance(Date.parse(job.completesAt) + 1000);
   expect(completed.milling).toBeNull();
+  expect(completed.progressionStats.productionSpecialty).toEqual({ quantities: { oil: amount }, leader: "oil" });
   expect(completed.production.pending[f.mill.id]).toEqual({ itemKey: "oil", quantity: amount });
   const again = await f.advance(Date.parse(job.completesAt) + 2000);
   expect(again.production.pending[f.mill.id]?.quantity).toBe(amount);
   expect(again.progressionStats.processedBarley).toBe(0);
+  expect(again.progressionStats.productionSpecialty).toEqual(completed.progressionStats.productionSpecialty);
   const snapshot = await f.read();
   expect(snapshot.inventory.find(i => i.itemKey === "sesame")?.quantity).toBe(12 - amount * 3);
 });

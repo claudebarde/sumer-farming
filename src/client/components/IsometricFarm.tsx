@@ -1,3 +1,12 @@
+import { FEED_GRACE_MS } from "../../game-data/livestock";
+import { notifySheepLosses } from "../game/sheepLossNotifications";
+import { FARM_SPRITES } from "../../assets/farmSprites";
+import WorkProgress from "./WorkProgress";
+import lambIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/sheep/sheep-lamb-animations/sheep-lamb-lower-01.png";
+import IngredientCollectionStatus from "./IngredientCollectionStatus";
+import { ingredientCollection } from "../game/ingredientCollection";
+import { SPECIALTY_PRODUCTS } from "../../game-data/productionSpecialty";
+import type { SpecialtyHover } from "../game/phaser/neighbourhoodSpecialty";
 import MarketStockSummary from "./MarketStockSummary";
 import KitchenDrawer from "./KitchenDrawer";
 import type { MealKey } from "../../game-data/kitchen";
@@ -40,6 +49,7 @@ import { transferBlocker } from "../game/phaser/isometricGathering";
 import { farmOrigin } from "../game/phaser/isometricFarm";
 import { IsometricFarmScene, type IsometricTileAnchor } from "../game/phaser/scenes/IsometricFarmScene";
 import HomeDrawer from "./HomeDrawer";
+import woolIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/sheep/wool-bundle.png";
 import HomeInterior from "./HomeInterior";
 import IsometricTilePopup from "./IsometricTilePopup";
 import IsometricTravelPopup from "./IsometricTravelPopup";
@@ -52,7 +62,7 @@ import { canVisitIsometricMarket, isometricTradeScope, marketEntrance } from "..
 import styles from "../styles/IsometricTest.module.scss";
 import actionStyles from "../styles/BuildingActionButton.module.scss";
 import BuildingActionIcon from "./BuildingActionIcon";
-import MarketDialog from "./MarketDialog";
+
 import FarmLevelDialog from "./FarmLevelDialog";
 import { constructionCommands, constructionNames, constructionSummary } from "../game/phaser/isometricBuildingPlacement";
 import { claimFarmLevel } from "../api/claimFarmLevel";
@@ -99,6 +109,7 @@ import InfoAlert from "./InfoAlert";
 import GameLoadingScreen from "./GameLoadingScreen";
 import { monitorGameLoading, type GameLoadingState } from "../game/phaser/gameLoading";
 
+const MarketDialog = lazy(() => import("./MarketDialog"));
 const MaterialGatheringControls = lazy(() => import("./MaterialGatheringControls"));
 const MaterialGatheringProgress = lazy(() => import("./MaterialGatheringControls").then(module => ({ default: module.MaterialGatheringProgress })));
 
@@ -116,6 +127,7 @@ export default function IsometricFarm() {
   const scene = useRef<IsometricFarmScene | null>(null);
   const marketScene = useRef<IsometricMarketScene | null>(null);
   const [profilePlayer, setProfilePlayer] = useState<string | null>(null);
+  const [specialtyHover, setSpecialtyHover] = useState<SpecialtyHover>(null);
   const neighbourhoodScene = useRef<NeighbourhoodScene | null>(null);
   const celebrationPending = useRef(false);
   const [neighbourhoodSlot, setNeighbourhoodSlot] = useState<number | null>(null);
@@ -133,6 +145,7 @@ export default function IsometricFarm() {
   }, []);
   const [neighbourhoodOpen, setNeighbourhoodOpen] = useState(false);
   const [kitchenOpen, setKitchenOpen] = useState(false);
+
   const [cookingError, setCookingError] = useState<string | null>(null);
   const [homeOpen, setHomeOpen] = useState(false);
   const [interiorOpen, setInteriorOpen] = useState(false);
@@ -172,6 +185,7 @@ export default function IsometricFarm() {
   const [neighbourhoodLeaderboardOpen, setNeighbourhoodLeaderboardOpen] = useState(false);
   const activeScene = useRef<IsometricFarmScene | IsometricMarketScene | NeighbourhoodScene | null>(null);
   const [location, setLocation] = useState<"farm" | "market">("farm");
+
   useEffect(() => {
     marketUiStore.getState().setLocation(location);
     levelUiStore.getState().setOpen(false);
@@ -565,6 +579,10 @@ export default function IsometricFarm() {
         activeScene.current === marketScene.current && marketScene.current) {
         marketScene.current.showPurchasedDonkey();
       }
+      const lambDelivery = next.farm.production.livestock?.delivery;
+      if (lambDelivery && Date.now() < lambDelivery.completesAt && activeScene.current === marketScene.current)
+        marketScene.current?.showPurchasedLambs(lambDelivery);
+      notifySheepLosses(next);
       current.current = next; setSnapshot(next);
       setHomeTablet(next.farm.homeAppearance.wallTablet ?? "none");
       setHomeStyle(next.farm.homeAppearance.style); setHomeDecoration(next.farm.homeAppearance.decoration);
@@ -602,6 +620,7 @@ export default function IsometricFarm() {
         marketScene.current = market; activeScene.current = renderer;
         const neighbourhood = new NeighbourhoodScene();
         neighbourhood.onPlayerClick = setProfilePlayer;
+        neighbourhood.onSpecialtyHover = setSpecialtyHover;
         neighbourhood.onZigguratClick = () => setZigguratOpen(true);
         neighbourhoodScene.current = neighbourhood;
         game = new Phaser.Game({ type: Phaser.AUTO, parent: parent.current, transparent: true, scene: [renderer, market, neighbourhood, BackgroundMusicScene],
@@ -617,6 +636,9 @@ export default function IsometricFarm() {
         .filter((value): value is string => !!value).map(Date.parse), ...next.farm.roads.map(r => r.completesAt ?? 0),
         next.farm.production.porter?.job?.pickupAt ?? 0, next.farm.production.porter?.job?.completesAt ?? 0,
         next.farm.production.porter?.returnTrip?.completesAt ?? 0,
+        next.farm.production.livestock?.feeding?.completesAt ?? 0,
+        next.farm.production.livestock?.shearing?.completesAt ?? 0,
+        ...(next.farm.production.livestock?.animals ?? []).flatMap(a => a.care ? [a.arrivesAt, a.care.needsFeedAt, a.care.needsFeedAt + FEED_GRACE_MS] : [a.arrivesAt]),
         ...(next.farm.production.cropWorkQueue ?? []).flatMap(job => [job.workStartsAt, job.workEndsAt, job.completesAt]),
         next.farm.production.cropWork?.workStartsAt ?? 0, next.farm.production.cropWork?.workEndsAt ?? 0, next.farm.production.cropWork?.completesAt ?? 0].filter(time => time > now);
       if (due.length) deadline = setTimeout(() => refresh.current(), Math.max(100, Math.min(...due) - now + 25));
@@ -660,7 +682,7 @@ export default function IsometricFarm() {
   }, []);
 
   const batch = snapshot?.farm.production.planting;
-  const preparingBread = Object.values(snapshot?.farm.production.baking ?? {}).some(job => Date.parse(job.startedAt) > clock);
+  const collectingIngredient = snapshot ? ingredientCollection(snapshot, clock) : null;
   const fishingActive = location === "farm" && !!snapshot?.farm.fishing;
   const cropWork = snapshot ? currentCropWork(snapshot.farm.production, clock) : null;
   const harvesting = batch ? batch.mode === "harvest" : mode === "harvest" || mode === "harvestSesame";
@@ -915,6 +937,7 @@ export default function IsometricFarm() {
             <SettingsDrawer onOpen={() => { setManageOpen(false); scene.current?.clearSelection(); setInformation(null); }} />
           <RulesLink toolbar />
 
+
           </Tooltip.Provider>
         </div>
         {neighbourhoodLoad === "loading" && <small role="status">Loading neighbours…</small>}
@@ -966,12 +989,12 @@ export default function IsometricFarm() {
       </div>
     </div>}
     </GameTopBar>
-      <EstateManagementContent farmState={snapshot ? { type: "ready", snapshot } : { type: "loading" }}
+      {manageOpen && <EstateManagementContent farmState={snapshot ? { type: "ready", snapshot } : { type: "loading" }}
         marketRoad={marketEntrance}
         storageClock={clock} manageTab={manageTab} setManageTab={setManageTab}
         buildContent={snapshot && <IsometricBuildingCatalogue snapshot={snapshot} now={clock} onBuild={beginBuilding} />}
         decorationsContent={snapshot && <><DecorationsPanel snapshot={snapshot} pending={pending} onPlace={placeDecoration} onStore={id=>void changeDecoration(id)}/>
-          {decorationError&&<p role="alert">{decorationError}</p>}</>} />
+          {decorationError&&<p role="alert">{decorationError}</p>}</>} />}
     </Dialog.Root>
     {profilePlayer && <PlayerProfileDialog playerId={profilePlayer} onClose={() => setProfilePlayer(null)} />}
     {kitchenOpen && snapshot && <KitchenDrawer snapshot={snapshot} now={clock} pending={pending} error={cookingError}
@@ -979,11 +1002,35 @@ export default function IsometricFarm() {
     {homeOpen && snapshot && <HomeDrawer furniture={snapshot.farm.homeAppearance.furniture ?? []} visibility={snapshot.farm.homeAppearance.visibility ?? "everyone"} onSaved={next => accept.current(next)} onEnter={enterHome} selectedTablet={homeTablet} onTablet={tablet => { void saveHome(homeStyle, homeDecoration, tablet); }} selectedDecoration={homeDecoration} onDecoration={decoration => { void saveHome(homeStyle, decoration); }} selectedStyle={homeStyle} onStyle={style => { void saveHome(style, homeDecoration); }} level={snapshot.farm.progression?.level ?? 1} onClose={() => setHomeOpen(false)} />}
     {interiorOpen && snapshot && <HomeInterior snapshot={snapshot} clock={clock} onSaved={next => accept.current(next)} onClose={() => { setInteriorOpen(false); scene.current?.endHomeEntry(); }} />}
     <div ref={mountMap} className={styles.canvas} />
+    {neighbourhoodOpen && specialtyHover && <Tooltip.Provider><Tooltip.Root open>
+      <Tooltip.Trigger asChild><span aria-label={`Most produced: ${SPECIALTY_PRODUCTS[specialtyHover.product]}`}
+        style={{ position: "fixed", left: specialtyHover.x, top: specialtyHover.y, width: 1, height: 1, pointerEvents: "none" }} /></Tooltip.Trigger>
+      <Tooltip.Portal><Tooltip.Content className={styles.navigationTooltip} side="top" sideOffset={12}>
+        Most produced: {SPECIALTY_PRODUCTS[specialtyHover.product]}
+        <Tooltip.Arrow className={styles.navigationTooltipArrow} />
+      </Tooltip.Content></Tooltip.Portal>
+    </Tooltip.Root></Tooltip.Provider>}
     {neighbourhoodOpen && (snapshot?.farm.progression?.level ?? 1) >= 7 &&
       <NeighbourhoodLeaderboardDialog open={neighbourhoodLeaderboardOpen} onOpenChange={setNeighbourhoodLeaderboardOpen} />}
     {neighbourhoodOpen && snapshot && <ZigguratDialog key={snapshot.farm.id} farmId={snapshot.farm.id} open={zigguratOpen} onOpenChange={setZigguratOpen} onState={updateZiggurat} />}
-    {location === "market" && !neighbourhoodOpen && snapshot && <MarketStockSummary snapshot={snapshot} now={clock} />}
-    <MarketDialog />
+    {location === "market" && !neighbourhoodOpen && snapshot && !(snapshot.farm.production.livestock?.delivery && clock < snapshot.farm.production.livestock.delivery.completesAt) && <MarketStockSummary snapshot={snapshot} now={clock} />}
+    {!neighbourhoodOpen && snapshot?.farm.production.livestock?.shearing && clock < snapshot.farm.production.livestock.shearing.completesAt && <aside className={styles.planting} aria-label="Shearing flock">
+      <WorkProgress icon={woolIcon} label={clock < snapshot.farm.production.livestock.shearing.shearsAt ? "Going to the sheep pen…" : clock < snapshot.farm.production.livestock.shearing.shearedAt ? "Shearing flock…" : "Storing wool…"}
+        details={`${snapshot.farm.production.livestock.shearing.quantity} wool`}
+        remainingSeconds={Math.max(0, Math.ceil((snapshot.farm.production.livestock.shearing.completesAt - clock) / 1000))}
+        percentage={Math.max(0, Math.min(100, Math.floor(100 * (clock - snapshot.farm.production.livestock.shearing.startedAt) / (snapshot.farm.production.livestock.shearing.completesAt - snapshot.farm.production.livestock.shearing.startedAt))))} />
+    </aside>}
+    {!neighbourhoodOpen && snapshot?.farm.production.livestock?.feeding && clock < snapshot.farm.production.livestock.feeding.completesAt && <aside className={styles.planting} aria-label="Feeding flock">
+      <WorkProgress icon={FARM_SPRITES.harvestedBarley} label="Feeding the flock…"
+        remainingSeconds={Math.max(0, Math.ceil((snapshot.farm.production.livestock.feeding.completesAt - clock) / 1000))}
+        percentage={Math.max(0, Math.min(100, Math.floor(100 * (clock - snapshot.farm.production.livestock.feeding.startedAt) / (snapshot.farm.production.livestock.feeding.completesAt - snapshot.farm.production.livestock.feeding.startedAt))))} />
+    </aside>}
+    {!neighbourhoodOpen && snapshot?.farm.production.livestock?.delivery && clock < snapshot.farm.production.livestock.delivery.completesAt && <aside className={styles.planting} aria-label="Lamb delivery">
+      <WorkProgress icon={lambIcon} label="Bringing lambs home…" details={`${snapshot.farm.production.livestock.delivery.quantity} lamb${snapshot.farm.production.livestock.delivery.quantity === 1 ? "" : "s"}`}
+        remainingSeconds={Math.max(0, Math.ceil((snapshot.farm.production.livestock.delivery.completesAt - clock) / 1000))}
+        percentage={Math.max(0, Math.min(100, Math.floor(100 * (clock - snapshot.farm.production.livestock.delivery.startedAt) / (snapshot.farm.production.livestock.delivery.completesAt - snapshot.farm.production.livestock.delivery.startedAt))))} />
+    </aside>}
+    <Suspense fallback={null}><MarketDialog /></Suspense>
     <FarmLevelDialog onLevelClaimed={(farmId, level) => {
       const renderer = scene.current;
       if (!mounted.current || !renderer || activeScene.current !== renderer || current.current?.farm.id !== farmId) return;
@@ -1033,14 +1080,14 @@ export default function IsometricFarm() {
     {!neighbourhoodOpen && location === "farm" && snapshot?.farm.production.cooking && <aside className={styles.planting} aria-label="Cooking">
       <CookingProgress job={snapshot.farm.production.cooking} now={clock} />
     </aside>}
-    {!neighbourhoodOpen && (selection !== null || batch || error || fishingActive || preparingBread) && <aside className={styles.planting} aria-label={preparingBread ? "Preparing bread" : fishingActive ? "Fishing" : harvesting ? `${plantingCrop === "sesame" ? "Sesame" : "Barley"} harvesting` : `${plantingCrop === "sesame" ? "Sesame" : "Barley"} planting`}>
-      {preparingBread ? <p role="status">Collecting flour for baking…</p> : fishingActive ? <p role="status">{fishingMessage && `${fishingMessage} `}{fishingStatus}</p>
+    {!neighbourhoodOpen && (selection !== null || batch || error || fishingActive || collectingIngredient) && <aside className={styles.planting} aria-label={collectingIngredient ? "Collecting ingredients" : fishingActive ? "Fishing" : harvesting ? `${plantingCrop === "sesame" ? "Sesame" : "Barley"} harvesting` : `${plantingCrop === "sesame" ? "Sesame" : "Barley"} planting`}>
+      {collectingIngredient ? <IngredientCollectionStatus status={collectingIngredient} /> : fishingActive ? <p role="status">{fishingMessage && `${fishingMessage} `}{fishingStatus}</p>
         : batch && snapshot ? <BarleyWorkProgress crop={plantingCrop} action={harvesting ? "Harvesting" : "Sowing"} total={batch.total}
         progress={harvesting ? harvestingProgress(snapshot, clock) : sowingProgress(batch, clock)} delivering={batch.phase.type === "delivering"} />
         : <p role="status">{selection !== null ? `${selection.length} / ${selectionMaximum} fields${harvesting ? snapshot ? plantingCrop === "sesame" ? ` · Space for ${availableSesameHarvestStorage(snapshot, clock)} sesame baskets` : ` · Space for ${availableBarleyHarvestStorage(snapshot, clock)} barley` : "" : ` · ${snapshot ? availablePlantingSeeds(snapshot, clock, plantingCrop) : 0} ${plantingCrop} available`}` : ""}</p>}
       {error && <p role="alert">{error}</p>}
       {fishingActive ? <button disabled={pending} onClick={() => void fish(true)}>Stop fishing</button>
-        : !batch && !preparingBread && <div>
+        : !batch && !collectingIngredient && <div>
         {selection !== null && <button disabled={pending || !valid || !!blocker} onClick={() => void submit()}>
           {pending ? "Please wait…" : harvesting ? `Harvest ${plantingCrop}` : `Plant ${plantingCrop}`}
         </button>}

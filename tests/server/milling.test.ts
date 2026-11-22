@@ -48,6 +48,34 @@ const fixture = async (barley = 8) => {
 };
 
 describe("persistent single-farmer milling", () => {
+  it("settles an elapsed porter delivery before reserving milling ingredients exactly once", async () => {
+    const f = await fixture();
+    const before = await f.read();
+    const now = Date.now();
+    await db.update(farms).set({ production: { ...before.farm.production, porter: {
+      hiredAt: now - 20000, expiresAt: now - 1000, checkedAt: now - 10000,
+      position: { column: 0, row: 5 },
+      job: { buildingId: f.mill.id, itemKey: "flour", quantity: 1, storageId: "farm",
+        startedAt: now - 10000, pickupAt: now - 9000, completesAt: now - 5000,
+        path: [{ column: 0, row: 5 }], pickupIndex: 0 }
+    } } }).where(eq(farms.id, f.farm.id));
+    const command = { type: "start_milling" as const, playerId: f.playerId, target: f.mill,
+      recipe: "brewersGroats" as const, expectedFarmVersion: before.farm.version };
+    const started = await Effect.runPromise(startMilling(db, command));
+    expect(started.farm.milling?.recipe).toBe("brewersGroats");
+    expect(started.inventory.find(i => i.itemKey === "flour")?.quantity).toBe(1);
+    expect(started.inventory.find(i => i.itemKey === "barley")?.quantity).toBe(6);
+    await expect(Effect.runPromise(Effect.flip(startMilling(db, command))))
+      .resolves.toMatchObject({ message: "The farm changed. Please try again." });
+    const reloaded = await f.read();
+    expect(reloaded.farm.milling).toEqual(started.farm.milling);
+    expect(reloaded.inventory.find(i => i.itemKey === "flour")?.quantity).toBe(1);
+    expect(reloaded.inventory.find(i => i.itemKey === "barley")?.quantity).toBe(6);
+    const finished = await f.finish();
+    expect(finished.farm.millGoods.pending[f.mill.id]?.brewersGroats).toBe(1);
+    expect((await f.read()).farm.millGoods.pending[f.mill.id]?.brewersGroats).toBe(1);
+  });
+
   it.each([["farmer", 5, true], ["farmer", 6, false], ["donkey", 3, true], ["donkey", 4, false], ["donkey", 8, false]] as const)("enforces combined output capacity for %s with %i bags", async (worker, count, fits) => {
       const f = await fixture();
       await db.update(farms).set({ level: 7, millGoods: { pending: { [f.mill.id]: { flour: count - 1, brewersGroats: 1 } }, delivery: null } }).where(eq(farms.id, f.farm.id));

@@ -49,3 +49,14 @@ it.each(["home-tablet-barley", "home-tablet-sky", "home-tablet-beer", "home-tabl
   const roster = await readNeighbourhood(db, ids[1]!);
   expect(roster?.members.find(member => member.slot === 6)).toMatchObject({ homeStyle: "farm-style-clay", wallTablet });
 });
+
+it("exposes the specialty without exposing production totals or importing old progression", async () => {
+  const [before] = await db.select().from(farms).where(eq(farms.playerId, ids[0]!));
+  await db.update(farms).set({ progressionStats: { ...before!.progressionStats, breadProduced: 999,
+    productionSpecialty: { quantities: { oil: 3 }, leader: "oil" } } }).where(eq(farms.playerId, ids[0]!));
+  const roster = await readNeighbourhood(db, ids[1]!);
+  const member = roster!.members.find(m => m.playerId === ids[0])!;
+  expect(member.specialty).toBe("oil");
+  expect(member).not.toHaveProperty("productionSpecialty");
+  expect(member).not.toHaveProperty("stats");
+});

@@ -1,3 +1,4 @@
+@use "./closeButton" as close;
 .kitchen { display: grid; gap: 12px; }
 .recipe { display: grid; grid-template-columns: 1fr auto; gap: 8px 16px; padding: 12px; border-radius: 8px; background: #f3e3c8;
   small { display: block; margin-top: 4px; }
@@ -18,3 +19,5 @@
 }
 .drawerBody { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 20px; }
 .destroy { margin-top: 20px; width: 100%; }
+
+.drawerHeader button[aria-label^="Close"] { @include close.close-button; }

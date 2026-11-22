@@ -1,3 +1,4 @@
+import { syncSoundVolume } from "./soundSettings";
 import type { MillingJob } from "../../../game-data/milling";
 
 export const DONKEY_BRAY_KEY = "donkey-bray";
@@ -24,7 +25,7 @@ export const createDonkeyBrayAudio = (sound: {
   let handledId: string | undefined;
   return (cue: ReturnType<typeof donkeyPickupCue>, now: number, allowed: boolean, volume: number) => {
     const audible = allowed && volume > 0;
-    sound.setVolume(volume);
+    syncSoundVolume(sound, volume);
     if (!audible && sound.isPlaying) sound.stop();
     if (cue && now >= cue.at && handledId !== cue.id) {
       handledId = cue.id;

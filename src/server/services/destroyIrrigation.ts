@@ -99,10 +99,10 @@ export const destroyIrrigation = (
           );
           assertFarmerAvailable(farm);
 
-          if (farm.version !== input.expectedFarmVersion) {
+          if (loadedFarm.version !== input.expectedFarmVersion) {
             return {
               type: "version_conflict",
-              actualVersion: farm.version
+              actualVersion: loadedFarm.version
             };
           }
 

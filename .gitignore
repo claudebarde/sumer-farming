@@ -25,3 +25,7 @@ dist-ssr
 
 # Local Cloudflare runtime state
 .wrangler/state/
+
+# Intermediate landing-page renders over 100 MiB
+/landing/assets/motion/river-boats/homecoming-boats.mp4
+/landing/assets/motion/river-boats/homecoming-boats-brown.mp4

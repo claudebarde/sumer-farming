@@ -132,11 +132,11 @@ Older unrecorded work is not needed to reach either target.
 ## Levels 11–20: proposed progression for discussion
 
 The level-11 indoor kitchen and production upgrades below are configured in code.
-The playable cap is level 11. The approved objectives and offering above are enforced by the server and shown in the level popup.
+The playable cap is level 12. The approved objectives and offering above are enforced by the server and shown in the level popup.
 Level 11 uses the kitchen to give players an optional use for their sesame oil.
 Cedar resin and the scented-oil workshop are deferred to a later, undecided level.
 Sheep and their first processing chain remain approved for level 12; the care loop,
-recipes and buildings still need agreement. Other level assignments remain proposals.
+recipes and buildings remain under development. Other level assignments remain proposals.
 Flax is retained as a later idea, without an approved unlock level.
 
 | Estate level | Suggested additions | Status | Economic purpose |
@@ -304,3 +304,25 @@ Exact material and shekel costs remain undecided. Rounding fractional capacities
 upgrade duration, and whether/how choices can be reassigned need confirmation
 before implementation. The proposed rounding-up examples are dates 5 → 8,
 sesame 12 → 18, and oil 10 → 15; these are not yet final rules.
+
+## Reaching level 12 — implemented November 15, 2026
+
+| Objective | Target |
+| --- | --- |
+| Kitchen placed inside home | 1 |
+| Meals completed during level 11 | 5 |
+| Barley and sesame fields harvested during level 11, combined | 20 |
+| Bread oven or brewery | Completed building level 3 |
+| Offering | 5 oil jars + 4 date baskets |
+
+The server validates the objectives and consumes the offering once. Completed
+action receipts after the saved level-11 entry recover existing progress; if
+that history is unavailable, tracking starts now. Purchases do not count as work.
+The level-12 icon is the adult sheep's head. The pen preview is removed;
+pen construction is available for 60 shekels and 6 clay, takes 3 minutes and is limited to one 2×2 road-connected pen per estate. Sheep purchases and care remain the next implementation work.
+
+Level 12 now includes lamb purchases at the Supplies and equipment stand: 24 shekels each, up to three animals per pen, with a shared delivery trip. Shared feeding and individual growth are now playable: 2 barley per animal per 12-hour period, two fed periods to adulthood, 48-hour neglect grace. Shearing and wool collection are playable: one minute and two wool per ready adult, one warehouse delivery, 12-bundle capacity, and a shared 24-fed-hour regrowth cycle. Meat processing and wool trading/processing remain planned; live-animal sales are unavailable.
+
+### Level 12 brewery supplies
+
+At farm level 12, all existing and newly built breweries automatically gain space for **4 empty jars instead of 2**, without a separate building upgrade or payment. Manual stocking and porter restocking use this capacity. Water capacity and the two-jar brewing recipe remain unchanged.

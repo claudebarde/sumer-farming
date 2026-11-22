@@ -1,3 +1,4 @@
+import { Cross2Icon } from "@radix-ui/react-icons";
 import RulesLink from "./RulesLink";
 import BuildingActionIcon from "./BuildingActionIcon";
 import actionStyles from "../styles/BuildingActionButton.module.scss";
@@ -36,7 +37,7 @@ export default function DestroyBuildingDialog({ snapshot, buildingId, now, onClo
         <header className={styles["market-dialog-header"]}>
         <Dialog.Title>Are you sure you want to destroy {building ? buildingNames[building.type] : "this building"}?</Dialog.Title>
         <RulesLink section="construction" />
-          <Dialog.Close asChild><button className={styles["market-dialog-close"]} disabled={pending} aria-label="Close demolition confirmation">×</button></Dialog.Close>
+          <Dialog.Close asChild><button className={styles["market-dialog-close"]} disabled={pending} aria-label="Close demolition confirmation"><Cross2Icon aria-hidden="true" /></button></Dialog.Close>
         </header>
         <div className={styles["market-dialog-body"]}>
         <Dialog.Description>This cannot be undone. Construction materials and upgrades are lost; nothing is refunded.</Dialog.Description>

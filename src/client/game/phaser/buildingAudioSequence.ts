@@ -1,3 +1,4 @@
+import { syncSoundVolume, syncSoundLoop } from "./soundSettings";
 import type { BuildingAudioKey } from "./buildingAudio";
 import { createBubblingAudio } from "./bubblingAudio";
 import { syncActionLoopAudio } from "./actionLoopAudio";
@@ -37,7 +38,7 @@ export const createBuildingAudioSequence = (entries: readonly Entry[], random = 
     if (mode === "silent") return;
     if (mode === "single") {
       for (const { key, sound } of entries) {
-        sound.setLoop(key !== "bubbling");
+        syncSoundLoop(sound, key !== "bubbling");
         if (key === "bubbling") intermittent?.(activeKeys.includes(key), true, volume, now);
         else syncActionLoopAudio(sound, activeKeys.includes(key), true, volume);
       }
@@ -55,14 +56,14 @@ export const createBuildingAudioSequence = (entries: readonly Entry[], random = 
       if (!current) { played = new Set(); nextAt = now + between(3000, 5000); return; }
       played.add(current.key);
       startedAt = now; endsAt = now + between(5000, 8000);
-      current.sound.setLoop(true);
-      current.sound.setVolume(0);
+      syncSoundLoop(current.sound, true);
+      syncSoundVolume(current.sound, 0);
       // A blocked/failed clip is skipped until its next turn, not retried every frame.
       if (!current.sound.play()) { current = undefined; nextAt = now + between(1000, 2000); return; }
     }
     if (current) {
       const fade = Math.max(0, Math.min(1, (now - startedAt) / 700, (endsAt - now) / 700));
-      current.sound.setVolume(volume * fade);
+      syncSoundVolume(current.sound, volume * fade);
     }
   };
 };

@@ -1,3 +1,10 @@
+import { preloadShearing, prepareShearing, shearingTexture, woolCarryingTexture } from "../shearingAnimation";
+import { createLambFollowers, createPenAnimals } from "../livestockRendering";
+import { livestockPathPose } from "../../../../game-data/livestock";
+import { sheepPenAppearance } from "../sheepPen";
+import sheepPenUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/sheep/sheep-pen-empty-test.png";
+import sheepPenRearUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/sheep/sheep-pen-empty-rear-test.png";
+import { processionAudioStore } from "../../../stores/processionAudioStore";
 import { drawCookingSteam } from "../cookingSteam";
 import { HOME_TABLET_PLACEMENT, HOME_TABLET_SOURCES, prepareWallTabletTexture } from "../homeTablets";
 import { HOME_DECORATIONS, HOME_DECORATION_SOURCES, type HomeDecorationKey } from "../homeDecorations";
@@ -9,6 +16,7 @@ import { farmerSleepPose, farmerHomeEntryDuration, type FarmerSleepPlan } from "
 import { FARMER_REED_SOURCES, FARMER_REED_BOUNDS, farmerReedCarryTexture } from "../farmerReedCarry";
 import { materialGatheringPose } from "../materialGatheringPresentation";
 import { FARMER_CLAY_SOURCES, FARMER_CLAY_BOUNDS, farmerClayCarryTexture } from "../farmerClayCarry";
+import { preloadSheepPreview, prepareSheepTextures, createSheepAnimationPreview } from "../sheepAnimationPreview";
 import { preloadGazelles, createGazelleWildlife } from "../gazelleWildlife";
 import { randomId } from "../../../randomId";
 import { productionGains } from "../productionGains";
@@ -83,7 +91,7 @@ import marketUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/m
 import groundUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/ground-non-arable.png";
 import arableGroundUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/ground-arable.webp";
 import riverWaterUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/river-water-isometric.webp";
-import { riverRipples } from "../riverRipples";
+import { createRiverRippleLayer } from "../riverRippleLayer";
 import { FISHING_SOURCES, fishingTexture, FISHING_CAST_DURATION } from "../farmerFishing";
 import { CAST_DELAY_MS, CAST_COOLDOWN_MS } from "../../../../game-data/fishing";
 import { fishingReadiness } from "../fishingReadiness";
@@ -149,7 +157,7 @@ const scenery = { bush01, bush02, rocks01, rocks02 };
 const crops = { sown, growing, ripe, withering };
 const fallback = { oil: oilJarUrl, beer: FARM_SPRITES.beerJars, water: FARM_SPRITES.water, reeds: FARM_SPRITES.reeds, barley: FARM_SPRITES.harvestedBarley, reed: FARM_SPRITES.reedBundle, clay: FARM_SPRITES.brickPile,
   ...DATE_PALM_SOURCES, dateHarvestBaskets, shrineBreadTable: shrineBreadTableUrl, shrineBeerTable: shrineBeerTableUrl,
-  oilMill: oilMillIdleUrl, mill: FARM_SPRITES.mill, brewery: breweryUrl, breadOven: breadOvenUrl, warehouse: warehouseUrl, smallShrine: smallShrineUrl };
+  sheepPen: sheepPenUrl, sheepPenRear: sheepPenRearUrl, oilMill: oilMillIdleUrl, mill: FARM_SPRITES.mill, brewery: breweryUrl, breadOven: breadOvenUrl, warehouse: warehouseUrl, smallShrine: smallShrineUrl };
 
 /** Saved-world presentation and selection. Economic commands stay in React/server. */
 export class IsometricFarmScene extends Phaser.Scene {
@@ -185,10 +193,18 @@ export class IsometricFarmScene extends Phaser.Scene {
   private cloudState = initialClouds();
   private millDeliveryLeg: { path: readonly IsoCell[]; building: IsoCell; carrying: boolean; jars: boolean; bread: boolean; startedAt: number } | null = null;
   private baseZoom = 1;
+  private penAnimals = new Map<string, ReturnType<typeof createPenAnimals>>();
+  private lambFollowers?: ReturnType<typeof createLambFollowers>;
+  private sheepPreview?: ReturnType<typeof createSheepAnimationPreview>;
+  setSheepPreview(active: boolean) {
+    this.sheepPreview?.destroy(); this.sheepPreview = undefined;
+    if (active && this.ready) this.sheepPreview = createSheepAnimationPreview(this);
+  }
   private gazelleWildlife?: ReturnType<typeof createGazelleWildlife>;
   private drawnAt = 0;
   private renderedKey = "";
   private nextRenderCheck = 0;
+  private selectionRedrawPending = false;
   private graphicsLost = false;
   private ready = false;
   private palmProgress?: Phaser.GameObjects.Graphics;
@@ -264,7 +280,7 @@ export class IsometricFarmScene extends Phaser.Scene {
   private palmHarvestSeen: string | null = null;
   private palmHarvestBaskets?: Phaser.GameObjects.Image;
   private palmRest: { cell: IsoCell; visual: IsoCell } | null = null;
-  private riverWaves!: Phaser.GameObjects.Graphics;
+  private riverWaves!: ReturnType<typeof createRiverRippleLayer>;
   private riverElapsed = 0;
   private swimmingFish!: Phaser.GameObjects.Image;
   private readonly fishSeed = Math.floor(Math.random() * 4294967296);
@@ -485,6 +501,8 @@ export class IsometricFarmScene extends Phaser.Scene {
   }
   preload() {
     preloadGazelles(this);
+    preloadSheepPreview(this);
+    preloadShearing(this);
     this.load.image("source-building-renovation", renovationSprite);
     RENOVATION_BUILDER_SOURCES.forEach((url, index) => this.load.image(`source-builder-${index}`, url));
     this.load.image("source-merchant-boat", MERCHANT_BOAT_SOURCE);
@@ -532,6 +550,8 @@ export class IsometricFarmScene extends Phaser.Scene {
     for (const [key, url] of Object.entries({ ...scenery, ...crops, ...SESAME_SOURCES, ...fallback, ...DATE_HARVEST_PREVIEW_SOURCES, ...PALM_TENDING_SOURCES, ...FARMER_DATE_SOURCES, ...FARMER_SESAME_SOURCES })) this.load.image(`source-${key}`, url);
   }
   create() {
+    prepareSheepTextures(this);
+    prepareShearing(this);
     const texturesStarted = performance.now();
     const lost = () => { this.graphicsLost = true; renderDiagnostic("graphics-lost"); };
     const restored = () => {
@@ -753,7 +773,7 @@ export class IsometricFarmScene extends Phaser.Scene {
         : key in DATE_PALM_SOURCES ? DATE_PALM_BOUNDS : isCrop ? farmerPlantBounds(source.naturalWidth) : key in scenery ? { left: 0, top: 0, right: 511, bottom: 511 } : undefined;
       this.textures.addCanvas(key, key === "shrineBreadTable" || key === "shrineBeerTable" ? prepareFarmerTexture(source, undefined,
         { left: 0, top: 0, right: source.naturalWidth - 1, bottom: source.naturalHeight - 1 })
-        : key === "oilMill" || key === "breadOven" || key === "smallShrine" || key === "warehouse" ? prepareBuildingTexture(source)
+        : key === "sheepPen" || key === "sheepPenRear" || key === "oilMill" || key === "breadOven" || key === "smallShrine" || key === "warehouse" ? prepareBuildingTexture(source)
         : prepareFarmerTexture(source, isDatePalm ? DATE_PALM_SHARPEN_AMOUNT : isCrop ? 0.6 : 0.15, bounds,
           isDatePalm ? DATE_PALM_TEXTURE_SIZE : key in DATE_HARVEST_PREVIEW_SOURCES ? 256 : 128))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
@@ -852,7 +872,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       this.selectedMillBags = !this.selectedFarmer && objects.some(object => object.getData("millBags") === true);
       this.selectedBread = !this.selectedFarmer && objects.some(object => object.getData("breadBasket") === true);
       this.selectedBeer = !this.selectedFarmer && objects.some(object => object.getData("beerJars") === true);
-      this.selected = this.selectedFarmer ? this.farmerCell : insideWorld(cell) ? cell : null; this.draw();
+      this.selected = this.selectedFarmer ? this.farmerCell : insideWorld(cell) ? cell : null; this.requestSelectionRedraw();
       this.publishAnchor();
     });
     this.scale.on("resize", this.restoreZoomAfterResize, this);
@@ -866,7 +886,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     };
     window.addEventListener("keydown", fishingKey);
     this.events.once("shutdown", () => window.removeEventListener("keydown", fishingKey));
-    this.events.once("shutdown", () => { this.gazelleWildlife?.destroy(); this.gazelleWildlife = undefined; this.stopProcession(); this.harvestGainEffect.reset(); this.ready = false; this.scale.off("resize", this.restoreZoomAfterResize, this); });
+    this.events.once("shutdown", () => { this.setSheepPreview(false); this.gazelleWildlife?.destroy(); this.gazelleWildlife = undefined; this.stopProcession(); this.harvestGainEffect.reset(); this.ready = false; this.scale.off("resize", this.restoreZoomAfterResize, this); });
   }
   private placementBuilding: PlaceableBuilding = "granary";
   private millPreviewParts: Phaser.GameObjects.Image[] = [];
@@ -915,6 +935,13 @@ export class IsometricFarmScene extends Phaser.Scene {
     const p = shrine ? isoPoint(this.mockPlacement) : footprintFront(this.mockPlacement, size.columns, size.rows);
     const granary = this.placementBuilding === "granary";
     const displaySize = granary ? 240 : this.placementBuilding === "warehouse" ? 200 : 150;
+    if (this.placementBuilding === "sheepPen") {
+      const centre = isoPoint({ column: this.mockPlacement.column + .5, row: this.mockPlacement.row + .5 });
+      const appearance = sheepPenAppearance(this.mockPlacement, preview.loading);
+      this.mockBuilding = this.add.image(centre.x, centre.y, appearance.texture).setFlipX(appearance.flipX)
+        .setOrigin(.5, .565).setDisplaySize(196, 196).setDepth(10001).setTint(colour).setAlpha(.65);
+      return;
+    }
     if (this.placementBuilding === "mill" || this.placementBuilding === "oilMill") {
       const mill = renderMillAnimation(this, null, this.mockPlacement, null);
       if (this.placementBuilding === "oilMill") renderOilMillAnimation(this, mill, { ...this.mockPlacement, loadingTile: preview.loading }, null, true);
@@ -1050,7 +1077,7 @@ export class IsometricFarmScene extends Phaser.Scene {
       if (this.walkProgress >= 0.5 && this.walkPath[0]) this.farmerCell = this.walkPath[0];
       this.walkPath = []; this.walkProgress = 0;
     }
-    if (this.ready) this.draw();
+    this.requestSelectionRedraw();
   }
   private updateFieldSelectionCursor() {
     const canvas = this.game.canvas;
@@ -1162,7 +1189,7 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.palmConfirmationTarget = target;
     if (this.ready) this.draw();
   }
-  clearSelection() { this.farmerIdle?.cancel(); this.selected = null; this.selectedFarmer = false; this.selectedPorter = false; this.selectedMillBags = false; this.selectedBread = false; this.selectedBeer = false; this.reportedAnchor = ""; this.report(null); if (this.ready) this.draw(); }
+  clearSelection() { this.farmerIdle?.cancel(); this.selected = null; this.selectedFarmer = false; this.selectedPorter = false; this.selectedMillBags = false; this.selectedBread = false; this.selectedBeer = false; this.reportedAnchor = ""; this.report(null); this.requestSelectionRedraw(); }
   /** Cosmetic home visit; never creates a sleep session or changes server jobs. */
   beginHomeEntry(): number | null {
     if (!this.ready || this.homeEntry || this.marketTrip || this.commandPending) return null;
@@ -1227,10 +1254,16 @@ export class IsometricFarmScene extends Phaser.Scene {
         .setTint(0xffdc57).setTintMode(Phaser.TintModes.FILL).setDepth(sprite.depth - 0.1);
     }
   }
+  // Selection setters often run together (clear popup + start an action).
+  // Keep their state/reporting synchronous, but rebuild artwork only once.
+  private requestSelectionRedraw() { this.selectionRedrawPending = true; }
+  private flushSelectionRedraw() {
+    if (this.ready && !this.graphicsLost && this.selectionRedrawPending) this.draw();
+  }
   private reconcileRender() {
     if (this.graphicsLost) return;
     const key = farmRenderKey(this.snapshot, Date.now());
-    if (key !== this.renderedKey) this.draw();
+    if (this.selectionRedrawPending || key !== this.renderedKey) this.draw();
     else {
       this.renderFarmer(); this.updatePorter(); this.updateDonkey(0);
       this.renderStorageChips(); this.updateMerchantCaravan();
@@ -1238,11 +1271,14 @@ export class IsometricFarmScene extends Phaser.Scene {
   }
   private draw() {
     if (this.graphicsLost) return;
+    this.selectionRedrawPending = false;
     const renderStarted = performance.now();
     this.renovations.forEach(r => r.animation.destroy()); this.renovations = [];
     this.breweries.forEach(b => b.animation.destroy()); this.breweries = [];
     this.ovens.forEach(o => o.animation.destroy()); this.ovens = [];
     this.daylightShadows?.destroy();
+    this.penAnimals.forEach(herd => herd.destroy()); this.penAnimals.clear();
+    this.lambFollowers?.destroy(); this.lambFollowers = undefined;
     this.children.removeAll(true);
     this.sleepLetters = [];
     this.roadGhost = undefined; this.roadGhostFootprint = undefined; this.roadGhostKey = "";
@@ -1267,7 +1303,11 @@ export class IsometricFarmScene extends Phaser.Scene {
     const canals = presentCanals(snapshot, now);
     const ground = this.add.graphics().setDepth(-1000);
     const details = this.add.graphics().setDepth(-900);
-    this.riverWaves = this.add.graphics().setDepth(-940);
+    this.riverWaves = createRiverRippleLayer(this, ISOMETRIC_RIVER_ROWS.flatMap(row =>
+      Array.from({ length: config.worldBounds.maximumColumn - config.worldBounds.minimumColumn + 1 }, (_, index) => {
+        const column = config.worldBounds.minimumColumn + index;
+        return { column, ...isoPoint({ column, row }), timeOffset: (row - config.riverRow) * 1700 };
+      })));
     this.fishingOverlay = this.add.graphics().setDepth(9996);
     this.swimmingFish = this.add.image(0, 0, "river-fish")
       .setDisplaySize(RIVER_FISH_WIDTH, RIVER_FISH_HEIGHT).setDepth(-970).setAlpha(RIVER_FISH_ALPHA);
@@ -1402,7 +1442,15 @@ export class IsometricFarmScene extends Phaser.Scene {
       const displaySize = granary ? 240 : building.type === "warehouse" ? 200 : 150;
       // Inset the granary's rounded decorative base inside its diamond footprint.
       // Retain uniform scale and allow the towers to rise naturally above it.
-      if (building.type === "mill" || building.type === "oilMill") {
+      if (building.type === "sheepPen") {
+        const centre = isoPoint({ column: building.column + .5, row: building.row + .5 });
+        const appearance = sheepPenAppearance(building, building.loadingTile);
+        this.add.image(centre.x, centre.y - 1, "sheep-preview-grass").setDisplaySize(174, 174).setDepth(-805);
+        this.buildingImages.push(this.add.image(centre.x, centre.y, appearance.texture).setFlipX(appearance.flipX)
+          .setOrigin(.5, .565).setDisplaySize(196, 196).setDepth(p.y - 24)
+          .setAlpha(Date.parse(building.completesAt) > now ? .5 : 1)
+          .setData("tile", { column: building.column, row: building.row }).setInteractive({ pixelPerfect: true }));
+      } else if (building.type === "mill" || building.type === "oilMill") {
         const mill = renderMillAnimation(this, null, building, null);
         if (building.type === "oilMill") renderOilMillAnimation(this, mill, building, null, true);
         this.mills.push({ building, images: mill, progress: this.add.graphics().setDepth(p.y + 10) });
@@ -1610,9 +1658,11 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.lastCelebratedLevel = level;
     this.stopProcession();
     this.processionStartedAt = Date.now();
+    processionAudioStore.setState({ active: true });
     this.renderProcession();
   }
   private stopProcession() {
+    processionAudioStore.setState({ active: false });
     this.processionStartedAt = null;
     this.musicians.forEach(sprite => sprite.destroy());
     this.musicians = [];
@@ -1680,6 +1730,45 @@ export class IsometricFarmScene extends Phaser.Scene {
     this.walkingForAudio = false;
     this.renderMills();
     this.actor.setVisible(true).setAlpha(1); this.actorShadow.setVisible(true).setAlpha(1);
+    const shear = this.snapshot.farm.production.livestock?.shearing;
+    if (shear && Date.now() < shear.completesAt) {
+      const now = Date.now(), working = now >= shear.shearsAt && now < shear.shearedAt, carrying = now >= shear.shearedAt;
+      const pose = livestockPathPose(carrying ? shear.inbound : shear.outbound, now - (carrying ? shear.shearedAt : shear.startedAt), shear.stepMs);
+      const point = isoPoint(pose.position);
+      this.farmerCell = pose.position; this.walkingForAudio = pose.walking && !working;
+      const texture = working ? shearingTexture(now - shear.shearsAt, !!this.reducedMotion?.matches)
+        : carrying ? woolCarryingTexture(now - shear.shearedAt, pose.walking, !!this.reducedMotion?.matches) : farmerTravelTexture(pose.progress * 32, 0, pose.walking);
+      this.actor.setTexture(texture).setOrigin(working ? .26 : .5, working ? .7625 : carrying ? .93 : 120 / 128)
+        .setDisplaySize(working ? 88 : 64, working ? 88 : 64).setPosition(point.x, point.y).setDepth(point.y + 1).setFlipX(working ? false : pose.flipX);
+      this.actorShadow.setPosition(point.x, point.y).setDepth(point.y);
+      this.heldMaterial.setVisible(false); this.cargo.setVisible(false); this.cargoBackground.setVisible(false);
+      if (carrying) this.renderCargo(point.x, point.y - 62, shear.quantity, "wool");
+      return;
+    }
+    const feeding = this.snapshot.farm.production.livestock?.feeding;
+    if (feeding && Date.now() < feeding.completesAt) {
+      const now = Date.now(), elapsed = Math.max(0, now - feeding.startedAt);
+      const pose = livestockPathPose(feeding.path, elapsed, feeding.stepMs), point = isoPoint(pose.position);
+      const carrying = feeding.pickups.some(p => p.pickupAt <= now) && pose.walking;
+      const facing = pose.walking ? pose.flipX : livestockPathPose(feeding.path, Math.max(0, (feeding.path.length - 1) * feeding.stepMs - 1), feeding.stepMs).flipX;
+      this.farmerCell = pose.position; this.walkingForAudio = pose.walking;
+      this.actor.setOrigin(.5, 120 / 128).setPosition(point.x, point.y).setDepth(point.y + 1).setFlipX(facing)
+        .setTexture(farmerTravelTexture(pose.progress * 32, carrying ? 1 : 0, pose.walking)).setDisplaySize(64, 64);
+      this.actorShadow.setPosition(point.x, point.y).setDepth(point.y);
+      this.heldMaterial.setVisible(false); this.cargo.setVisible(false); this.cargoBackground.setVisible(false);
+      return;
+    }
+    const delivery = this.snapshot.farm.production.livestock?.delivery;
+    if (delivery && Date.now() < delivery.completesAt) {
+      const elapsed = Math.max(0, Date.now() - delivery.farmStartsAt);
+      const pose = livestockPathPose(delivery.farmPath, elapsed, delivery.stepMs), point = isoPoint(pose.position);
+      this.farmerCell = pose.position; this.walkingForAudio = Date.now() >= delivery.farmStartsAt && pose.walking;
+      this.actor.setOrigin(.5, 120 / 128).setPosition(point.x, point.y).setDepth(point.y + 1).setFlipX(pose.flipX)
+        .setTexture(farmerTravelTexture(pose.progress * 32, 0, this.walkingForAudio)).setDisplaySize(64, 64);
+      this.actorShadow.setPosition(point.x, point.y).setDepth(point.y);
+      this.heldMaterial.setVisible(false); this.cargo.setVisible(false); this.cargoBackground.setVisible(false);
+      return;
+    }
     if (this.renderHomeCooking()) return;
     if (this.renderSleepAnimation()) return;
     const cropJob = currentCropWork(this.snapshot.farm.production, Date.now());
@@ -2146,19 +2235,7 @@ export class IsometricFarmScene extends Phaser.Scene {
         overlay.fillStyle(0xffd45a).fillCircle(x, y, 3);
       } else overlay.lineStyle(1, 0xffd45a, 0.6).strokeCircle(hook.x, hook.y, 4);
     }
-    const graphics = this.riverWaves;
-    graphics.clear();
-    for (const row of ISOMETRIC_RIVER_ROWS) for (let column = config.worldBounds.minimumColumn; column <= config.worldBounds.maximumColumn; column++) {
-      const origin = isoPoint({ column, row });
-      for (const ripple of riverRipples(column, this.riverElapsed + (row - config.riverRow) * 1700, this.reducedMotion?.matches)) {
-        graphics.lineStyle(2, 0xffffff, ripple.alpha).beginPath();
-        ripple.points.forEach((point, index) => {
-          if (index === 0) graphics.moveTo(origin.x + point.x, origin.y + point.y);
-          else graphics.lineTo(origin.x + point.x, origin.y + point.y);
-        });
-        graphics.strokePath();
-      }
-    }
+    this.riverWaves.render(this.riverElapsed, this.reducedMotion?.matches);
   }
   private sweepEligible(now: number) {
     return !this.homeEntry && !this.homeCookingExit && !this.sleepAnimation && isometricIdleEligible(this.snapshot, now) && !this.walkPath.length && !this.marketTrip &&
@@ -2271,6 +2348,17 @@ export class IsometricFarmScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     if (!this.ready || this.graphicsLost) return;
+    const livestock = this.snapshot.farm.production.livestock;
+    if (livestock) {
+      this.lambFollowers ??= createLambFollowers(this);
+      this.lambFollowers.render(livestock.delivery, "farm", Date.now(), this.reducedMotion?.matches ?? false);
+      for (const pen of this.snapshot.buildings.filter(b => b.type === "sheepPen" && Date.parse(b.completesAt) <= Date.now())) {
+        if (!this.penAnimals.has(pen.id)) this.penAnimals.set(pen.id, createPenAnimals(this, pen));
+        this.penAnimals.get(pen.id)!.update(livestock.animals.filter(a => a.penId === pen.id && a.arrivesAt <= Date.now()), delta, this.reducedMotion?.matches ?? false, livestock);
+      }
+    }
+    this.sheepPreview?.update(delta, this.reducedMotion?.matches ?? false);
+    this.flushSelectionRedraw();
     this.syncSleep();
     this.harvestGainEffect.sample(this.snapshot, Date.now(), !document.hidden);
     this.updateFieldSelectionCursor();

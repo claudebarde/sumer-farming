@@ -1,7 +1,7 @@
 import { furnitureDefinition, type FurnitureKey, type FurniturePlacement } from "../../game-data/homeFurniture";
 import { containsPoint, type InteriorPoint } from "./interiorNavigation";
 
-export const isTabletopItem = (key: FurnitureKey) => key === "clay-bowl" || key === "clay-bowl-2";
+export const isTabletopItem = (key: FurnitureKey) => key === "clay-bowl" || key === "clay-bowl-2" || key === "golden-drinking-cup";
 // Top face in the table's normalized 190×138 display frame, before mirroring.
 export const TABLE_TOP = [{ x: 68, y: 3 }, { x: 188, y: 65 }, { x: 128, y: 100 }, { x: 2, y: 41 }] as const;
 const tableIn = (items: readonly FurniturePlacement[]) => items.find(item => item.key === "wooden-table" && !item.surface);
@@ -33,7 +33,7 @@ export const tabletopLayoutError = (items: readonly FurniturePlacement[]): strin
   const bowls = items.filter(item => item.surface);
   if (bowls.length && !tableIn(items)) return "Place the table first.";
   for (const bowl of bowls) {
-    if (!isTabletopItem(bowl.key)) return "Only clay bowls can go on the table.";
+    if (!isTabletopItem(bowl.key)) return "Only small tabletop items can go on the table.";
     const { rx, ry } = furnitureDefinition(bowl.key);
     for (let step = 0; step < 32; step++) {
       const angle = step * Math.PI * 2 / 32;

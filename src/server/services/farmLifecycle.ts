@@ -1,3 +1,8 @@
+import { setStoredQuantity } from "./physicalStorage";
+import { advanceLivestock } from "../../game-core/farm/livestock";
+import { settleAttendance } from "./attendance";
+import { settleAchievementTreasures } from "./achievementTreasures";
+import { recordSpecialtyProduction } from "../../game-core/farm/productionSpecialty";
 import { initializeLevel10Work } from "./level10History";
 import { MEALS, mealRationDeadline } from "../../game-data/kitchen";
 import { sleepIntervals } from "../../game-data/farmerSleep";
@@ -11,7 +16,7 @@ import { migrateFarmLand } from "./farmLandMigration";
 import { initializePhysicalStorage } from "./physicalStorage";
 
 import { BARLEY_CONSUMPTION_INTERVAL_MS } from "../../game-data/household";
-import { BEER_RECIPE, BREWERY_EMPTY_JAR_CAPACITY } from "../../game-data/brewing";
+import { BEER_RECIPE, breweryEmptyJarCapacity } from "../../game-data/brewing";
 import { FARM_BUILDING_DEFINITIONS } from "../../game-data/buildings";
 import { advancePorterLifecycle } from "./porterLifecycle";
 import { advanceHappiness } from "../../game-core/farm/wellbeing";
@@ -72,6 +77,19 @@ export const advanceFarmLifecycle = async (
   now: Date
 ): Promise<FarmRecord> => {
   farm = await initializeLevel10Work(transaction, farm);
+  if (farm.production.livestock) {
+    let livestock = advanceLivestock(farm.production.livestock, now.getTime());
+    const shear = livestock.shearing;
+    if (shear && !shear.settled && shear.completesAt <= now.getTime()) {
+      const [stock] = await transaction.select().from(farmInventory).where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "wool")));
+      await setStoredQuantity(transaction, farm.id, "wool", (stock?.quantity ?? 0) + shear.quantity, now, shear.warehouseId);
+      livestock = { ...livestock, shearing: { ...shear, settled: true } };
+    }
+    if (livestock !== farm.production.livestock) {
+      const [updated] = await transaction.update(farms).set({ production: { ...farm.production, livestock }, version: sql`${farms.version} + 1`, updatedAt: now }).where(eq(farms.id, farm.id)).returning();
+      farm = updated!;
+    }
+  }
   const cooking = farm.production.cooking;
   if (cooking && Date.parse(cooking.completesAt) <= now.getTime()) {
     const finishedAt = Date.parse(cooking.completesAt);
@@ -94,10 +112,10 @@ export const advanceFarmLifecycle = async (
   // Return legacy overstock to free inventory; preserve the estate's total jars.
   const jarStores = await transaction.select().from(farmBuildings)
     .where(and(eq(farmBuildings.farmId, farm.id), eq(farmBuildings.type, "brewery"))).for("update");
-  const excessJars = jarStores.reduce((total, b) => total + Math.max(0, b.emptyBeerJars - BREWERY_EMPTY_JAR_CAPACITY), 0);
+  const excessJars = jarStores.reduce((total, b) => total + Math.max(0, b.emptyBeerJars - breweryEmptyJarCapacity(farm.level)), 0);
   if (excessJars > 0) {
-    for (const building of jarStores.filter(b => b.emptyBeerJars > BREWERY_EMPTY_JAR_CAPACITY)) {
-      await transaction.update(farmBuildings).set({ emptyBeerJars: BREWERY_EMPTY_JAR_CAPACITY }).where(eq(farmBuildings.id, building.id));
+    for (const building of jarStores.filter(b => b.emptyBeerJars > breweryEmptyJarCapacity(farm.level))) {
+      await transaction.update(farmBuildings).set({ emptyBeerJars: breweryEmptyJarCapacity(farm.level) }).where(eq(farmBuildings.id, building.id));
     }
     await transaction.insert(farmInventory).values({ farmId: farm.id, itemKey: "emptyBeerJar", quantity: excessJars, updatedAt: now })
       .onConflictDoUpdate({ target: [farmInventory.farmId, farmInventory.itemKey],
@@ -239,7 +257,9 @@ export const advanceFarmLifecycle = async (
     for (const [id, job] of readyBakes) pending[id] = { itemKey: "bread", quantity: (pending[id]?.quantity ?? 0) + job.output };
     const [updated] = await transaction.update(farms).set({
       production: { ...farm.production, pending, brewing: Object.fromEntries(Object.entries(farm.production.brewing ?? {}).filter(([id]) => !readyBreweries.some(b => b.id === id))), baking: Object.fromEntries(Object.entries(farm.production.baking).filter(([, job]) => Date.parse(job.completesAt) > now.getTime())) },
-      progressionStats: { ...farm.progressionStats, beerProduced: farm.progressionStats.beerProduced + beerProduced,
+      progressionStats: { ...farm.progressionStats,
+        productionSpecialty: recordSpecialtyProduction(farm.progressionStats.productionSpecialty, { beer: beerProduced, bread: readyBakes.reduce((sum, [, job]) => sum + job.output, 0) }),
+        beerProduced: farm.progressionStats.beerProduced + beerProduced,
         breadProduced: (farm.progressionStats.breadProduced ?? 0) + readyBakes.reduce((sum, [, job]) => sum + job.output, 0) },
       version: sql`${farms.version} + 1`, updatedAt: now
     }).where(eq(farms.id, farm.id)).returning();
@@ -256,6 +276,7 @@ export const advanceFarmLifecycle = async (
       ...(job.recipe !== "oil" ? { millGoods: { ...farm.millGoods, pending: { ...farm.millGoods.pending,
         [job.buildingId]: { ...bags, [job.recipe]: bags[job.recipe] + job.output } } } } : {}),
       progressionStats: { ...farm.progressionStats,
+        ...(job.recipe === "oil" ? { productionSpecialty: recordSpecialtyProduction(farm.progressionStats.productionSpecialty, { oil: job.output }) } : {}),
         ...(farm.level === 10 && job.recipe === "oil" ? { level10Work: { sesameHarvests: farm.progressionStats.level10Work?.sesameHarvests ?? 0, oilProduced: (farm.progressionStats.level10Work?.oilProduced ?? 0) + job.output } } : {}),
         processedBarley: (farm.progressionStats.processedBarley ?? 0) + job.barley },
       version: sql`${farms.version} + 1`, updatedAt: now
@@ -389,7 +410,7 @@ export const advanceFarmLifecycle = async (
       farm.nextBarleyConsumptionAt?.getTime();
 
   if (!farmChanged) {
-    return farm;
+    return settleAttendance(transaction, await settleAchievementTreasures(transaction, farm), now);
   }
 
   const [updatedFarm] = await transaction
@@ -410,5 +431,5 @@ export const advanceFarmLifecycle = async (
     .where(eq(farms.id, farm.id))
     .returning();
 
-  return updatedFarm ?? farm;
+  return settleAttendance(transaction, await settleAchievementTreasures(transaction, updatedFarm ?? farm), now);
 };

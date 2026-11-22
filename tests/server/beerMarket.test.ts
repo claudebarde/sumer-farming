@@ -68,6 +68,7 @@ describe("beer markets", () => {
       { itemKey: "beer", quantity: 2 }, { itemKey: "barley", quantity: 5 }, { itemKey: "emptyBeerJar", quantity: 3 }
     ]));
     expect(retry.farm.progression?.stats.beerProduced).toBe(0);
+    expect(retry.farm.progression?.stats.productionSpecialty?.leader).toBeUndefined();
     const ledger = await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, input.playerId));
     expect(ledger).toHaveLength(1);
     expect(ledger[0]).toMatchObject({ type: "market_purchase", itemKey: "beer", delta: -16, itemQuantity: 2, source: "npc" });

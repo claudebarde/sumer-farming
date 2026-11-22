@@ -48,8 +48,8 @@ function TradeList({ trades }: { readonly trades: TradeHistory["trades"] }) {
       {trades.map(trade => (
         <li key={trade.id}>
           <div className={styles.summary}>
-            <strong>{trade.type === "crop_planting" ? "Planted a sapling" : trade.type === "building_upgrade" ? "Building upgrade" : trade.type === "porter_hire" ? "Hired porter · 24 hours" : trade.type === "request_reward" ? `Request delivered: ${trade.requestCustomer}` : <>{trade.type === "market_sale" ? "Sold" : "Bought"} {trade.quantity} {trade.itemKey === "beer" ? (trade.quantity === 1 ? "beer jar" : "beer jars") : trade.itemKey === "brewingVessels" || trade.itemKey === "emptyBeerJar" ? MARKET_ITEM_DEFINITIONS[trade.itemKey].label.toLowerCase() : trade.itemKey}</>}</strong>
-            <span>{trade.type === "market_purchase" || trade.type === "porter_hire" || trade.type === "building_upgrade" || trade.type === "crop_planting" ? "−" : "+"}{shekels(trade.total)}</span>
+            <strong>{trade.type === "livestock_purchase" ? `Bought ${trade.total / 24} lambs` : trade.type === "crop_planting" ? "Planted a sapling" : trade.type === "building_upgrade" ? "Building upgrade" : trade.type === "porter_hire" ? "Hired porter · 24 hours" : trade.type === "request_reward" ? `Request delivered: ${trade.requestCustomer}` : <>{trade.type === "market_sale" ? "Sold" : "Bought"} {trade.quantity} {trade.itemKey === "beer" ? (trade.quantity === 1 ? "beer jar" : "beer jars") : trade.itemKey === "brewingVessels" || trade.itemKey === "emptyBeerJar" ? MARKET_ITEM_DEFINITIONS[trade.itemKey].label.toLowerCase() : trade.itemKey}</>}</strong>
+            <span>{trade.type === "livestock_purchase" || trade.type === "market_purchase" || trade.type === "porter_hire" || trade.type === "building_upgrade" || trade.type === "crop_planting" ? "−" : "+"}{shekels(trade.total)}</span>
           </div>
           <div className={styles.details}>
             <span>{trade.type === "porter_hire" || trade.type === "building_upgrade" || trade.type === "crop_planting" ? "Estate service" : trade.source === "npc" ? "NPC market" : "Player market"}{trade.unitPrice !== null && <> · {shekels(trade.unitPrice)} each</>}</span>
@@ -66,7 +66,7 @@ function TradeList({ trades }: { readonly trades: TradeHistory["trades"] }) {
 function HistoryPage({ result, retry, scope }: { readonly result: HistoryResult | null; readonly retry: () => void; readonly scope: MarketScope }) {
   if (result === null) return <p role="status">Loading trades…</p>;
   if (result.type === "failed") return <div><p role="alert">{result.message}</p><button className={actionStyles.button} onClick={retry}><BuildingActionIcon kind="refresh" /><span>Retry</span></button></div>;
-  const trades = result.page.trades.filter(trade => trade.itemKey !== null && marketIncludesItem(scope, trade.itemKey, {
+  const trades = result.page.trades.filter(trade => (trade.type === "livestock_purchase" && scope === "supplies") || trade.itemKey !== null && marketIncludesItem(scope, trade.itemKey, {
     market: trade.source, action: trade.type === "market_purchase" ? "buy" : "sell"
   }));
   if (trades.length === 0) return <p>No {scope} trades on this page.</p>;

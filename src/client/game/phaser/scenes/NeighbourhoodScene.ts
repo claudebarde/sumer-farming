@@ -1,3 +1,4 @@
+import { SPECIALTY_TEXTURES, type SpecialtyHover } from "../neighbourhoodSpecialty";
 import { HOME_TABLET_PLACEMENT } from "../homeTablets";
 import { drawMapBase } from "../mapBase";
 import { createZigguratCelebration } from "../zigguratCelebration";
@@ -27,6 +28,7 @@ export class NeighbourhoodScene extends Phaser.Scene {
     this.celebration = createZigguratCelebration(this, this.ziggurat.building);
   }
   private stopCelebration = () => { this.celebration?.destroy(); this.celebration = undefined; };
+  onSpecialtyHover: (hover: SpecialtyHover) => void = () => {};
   onPlayerClick: (playerId: string) => void = () => {};
   onZigguratClick: () => void = () => {};
   private zigguratState: Ziggurat["state"] = { type: "interest" };
@@ -62,7 +64,8 @@ export class NeighbourhoodScene extends Phaser.Scene {
   }
   private baseZoom = 1;
   private ziggurat?: ReturnType<typeof createZigguratPlacementPreview>;
-  preload() { preloadZigguratStatusBadge(this); preloadZigguratPlacement(this); preloadZigguratDonkey(this); preloadZigguratFarmer(this); }
+  preload() {
+    preloadZigguratStatusBadge(this); preloadZigguratPlacement(this); preloadZigguratDonkey(this); preloadZigguratFarmer(this); }
   private shadows?: ReturnType<typeof createShadowLayer>;
   private clouds?: ReturnType<typeof createAmbientCloudLayer>;
   private members: Neighbourhood["members"] = [];
@@ -76,10 +79,11 @@ export class NeighbourhoodScene extends Phaser.Scene {
     this.drawMap();
     this.focusHome();
     this.events.on("sleep", this.stopCelebration);
+    this.events.on("sleep", () => this.onSpecialtyHover(null));
     this.events.on("wake", this.redraw, this);
     this.scale.on("resize", this.restoreZoomAfterResize, this);
     let last: { x: number; y: number } | null = null;
-    this.input.on("pointerdown", (p: Phaser.Input.Pointer) => { last = { x: p.x, y: p.y }; });
+    this.input.on("pointerdown", (p: Phaser.Input.Pointer) => { this.onSpecialtyHover(null); last = { x: p.x, y: p.y }; });
     this.input.on("pointermove", (p: Phaser.Input.Pointer) => {
       if (!p.isDown || !last) return;
       this.cameras.main.scrollX -= (p.x - last.x) / this.cameras.main.zoom;
@@ -159,6 +163,25 @@ export class NeighbourhoodScene extends Phaser.Scene {
             if (pointer.getDistance() < 8) this.onPlayerClick(plot.playerId!);
           });
         this.shadows.addBuilding(building);
+        if (plot.specialty) {
+          const product = plot.specialty;
+          const icon = this.add.image(front.x - 35, front.y + 20, SPECIALTY_TEXTURES[product])
+            .setOrigin(0.5, 1).setDepth(front.y + 21);
+          const scale = 38 / Math.max(icon.width, icon.height);
+          icon.setScale(scale).setInteractive({ useHandCursor: true });
+          icon.on("pointerover", (pointer: Phaser.Input.Pointer) => {
+            if (pointer.isDown) return;
+            const rect = this.game.canvas.getBoundingClientRect();
+            // Anchor to the icon's top centre, not the pointer's position within it.
+            const camera = this.cameras.main;
+            const viewX = camera.scrollX + (camera.width - camera.width / camera.zoom) / 2;
+            const viewY = camera.scrollY + (camera.height - camera.height / camera.zoom) / 2;
+            this.onSpecialtyHover({ product,
+              x: rect.left + (camera.x + (icon.x - viewX) * camera.zoom) * rect.width / this.scale.width,
+              y: rect.top + (camera.y + (icon.y - icon.displayHeight - viewY) * camera.zoom) * rect.height / this.scale.height });
+          });
+          icon.on("pointerout", () => this.onSpecialtyHover(null));
+        }
         if (plot.level! >= 9 && plot.wallTablet !== "none") {
           const tablet = this.add.image(front.x + HOME_TABLET_PLACEMENT.x, front.y + HOME_TABLET_PLACEMENT.y, plot.wallTablet)
             .setOrigin(0.5).setDepth(building.depth + HOME_TABLET_PLACEMENT.depth);

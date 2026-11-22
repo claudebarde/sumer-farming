@@ -47,7 +47,7 @@ export const fishingAction = (db: Database, input: Input) => Effect.gen(function
           update.carriedItemExpiresAt = null;
         } else update.fishing = { ...session, lastCastAt: now };
       } else {
-        if (farm.version !== input.expectedFarmVersion) return fail("The farm changed. Please try again.");
+        if (loaded.version !== input.expectedFarmVersion) return fail("The farm changed. Please try again.");
         const { worldBounds, riverRow, buildingBounds } = INITIAL_FARM_CONFIG;
         const atRiver = input.target.row === riverRow && input.target.column >= worldBounds.minimumColumn && input.target.column <= worldBounds.maximumColumn;
         if (input.action === "start") {

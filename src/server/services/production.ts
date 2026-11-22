@@ -26,8 +26,8 @@ export const productionAction = (database: Database, input: Extract<GameCommand,
       const fail = (message: string) => new ProductionRuleError({ message });
       const [farm] = await tx.select().from(farms).where(eq(farms.playerId, input.playerId)).for("update");
       if (!farm) return fail("The farm does not exist.");
+      if (farm.version !== input.expectedFarmVersion) return fail("The farm changed. Please try again.");
       const snapshot = await readFarmSnapshot(tx, farm, false);
-      if (snapshot.farm.version !== input.expectedFarmVersion) return fail("The farm changed. Please try again.");
       if ((snapshot.farm.progression?.level ?? 1) < 6) return fail("Unlock at level 6.");
       const now = Date.now();
       if (snapshot.farm.roads.some(r => (r.completesAt ?? 0) > now)) return fail("Finish building the road first.");

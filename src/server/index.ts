@@ -1,3 +1,10 @@
+import { shearFlock } from "./services/shearFlock";
+import { ShearFlockSchema } from "../game-data/livestock";
+import { feedFlock } from "./services/feedFlock";
+import { FeedFlockSchema } from "../game-data/livestock";
+import { buyLambs } from "./services/buyLambs";
+import { BuyLambsSchema } from "../game-data/livestock";
+import { recordAttendanceActivity } from "./services/attendance";
 import { PlayerHomeQuerySchema } from "../schemas/playerHome";
 import { HomeVisibilitySchema } from "../schemas/homeAppearance";
 import { readPlayerHome, saveHomeVisibility } from "./services/playerHome";
@@ -239,6 +246,54 @@ app.post("/api/farmer/profile", async c => {
     console.error("Farmer profile connection failed", error);
     return c.json({ error: { message: "Farmer customization is unavailable. Please retry." } }, 503);
   } finally { await client.end().catch(error => console.error("Closing profile connection failed", error)); }
+});
+
+app.post("/api/market/lambs", async c => {
+  const parsed = BuyLambsSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: { message: "Choose between one and three lambs." } }, 400);
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await Effect.runPromise(Effect.either(buyLambs(createDatabase(client), c.get("developmentPlayer").id, parsed.data)));
+    if (Either.isLeft(result)) {
+      if (result.left._tag === "LambPurchaseError") return c.json({ error: { message: result.left.message } }, 409);
+      console.error("Lamb purchase failed", result.left.cause);
+      return c.json({ error: { message: "The purchase could not be completed. Please retry." } }, 500);
+    }
+    return c.json(result.right);
+  } finally { await client.end(); }
+});
+
+app.post("/api/livestock/feed", async c => {
+  const parsed = FeedFlockSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: { message: "Invalid feeding request." } }, 400);
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await Effect.runPromise(Effect.either(feedFlock(createDatabase(client), c.get("developmentPlayer").id, parsed.data)));
+    if (Either.isLeft(result)) {
+      if (result.left._tag === "FeedFlockError") return c.json({ error: { message: result.left.message } }, 409);
+      console.error("Flock feeding failed", result.left.cause);
+      return c.json({ error: { message: "The flock could not be fed. Please retry." } }, 500);
+    }
+    return c.json(result.right);
+  } finally { await client.end(); }
+});
+
+app.post("/api/livestock/shear", async c => {
+  const parsed = ShearFlockSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: { message: "Invalid shearing request." } }, 400);
+  const client = new Client({ connectionString: c.env.HYPERDRIVE.connectionString });
+  try {
+    await client.connect();
+    const result = await Effect.runPromise(Effect.either(shearFlock(createDatabase(client), c.get("developmentPlayer").id, parsed.data)));
+    if (Either.isLeft(result)) {
+      if (result.left._tag === "ShearFlockError") return c.json({ error: { message: result.left.message } }, 409);
+      console.error("Flock shearing failed", result.left.cause);
+      return c.json({ error: { message: "The flock could not be sheared. Please retry." } }, 500);
+    }
+    return c.json(result.right);
+  } finally { await client.end(); }
 });
 
 app.post("/api/market/presence", async c => {
@@ -649,12 +704,17 @@ app.post("/api/game/action", async c => {
     // Requests and building upgrades do not use the farmer; their services
     // still validate stock, payment, ownership and building availability.
     if (progressFarm?.production.planting && command.type !== "advance_batch_planting" && command.type !== "deliver_npc_request" && command.type !== "upgrade_building") return c.json({ error: { type: "farmer_busy", message: "Finish or stop planting or harvesting the selected fields first." } }, 409);
+    if (progressFarm?.production.livestock?.feeding && Date.now() < progressFarm.production.livestock.feeding.completesAt)
+      return c.json({ error: { type: "farmer_busy", message: "The farmer is feeding the flock." } }, 409);
+    if (progressFarm?.production.livestock?.delivery && Date.now() < progressFarm.production.livestock.delivery.completesAt)
+      return c.json({ error: { type: "farmer_busy", message: "The farmer is bringing lambs home." } }, 409);
     const order = command.type === "buy_market_sell_order"
       ? (await database.select({ itemKey: marketOrders.itemKey }).from(marketOrders).where(eq(marketOrders.id, command.orderId)))[0]
       : undefined;
     const requiredLevel = commandUnlockLevel(command, order?.itemKey);
     // Levels only increase. The service still validates resources/version under its farm lock.
     if (progressFarm && progressFarm.level < requiredLevel) return c.json({ error: { type: "level_locked", message: `Reach farm level ${requiredLevel} to unlock this action.` } }, 422);
+    const attendanceInteractionStartedAt = new Date();
     const result = await Effect.runPromise(
       Effect.either(
         match(command)
@@ -687,9 +747,9 @@ app.post("/api/game/action", async c => {
           .with({ type: "upgrade_building" }, command => upgradeBuilding(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: "destroy_building" }, command => destroyBuilding(database, { ...command, playerId: c.get("developmentPlayer").id }))
           .with({ type: P.union("start_baking", "production_delivery", "shrine_offering") }, command => productionAction(database, { ...command, playerId: c.get("developmentPlayer").id }))
-          .with({ type: P.union("build_oil_mill", "build_granary", "build_brewery", "build_mill", "build_bread_oven", "build_small_shrine", "build_warehouse") }, command =>
+          .with({ type: P.union("build_sheep_pen", "build_oil_mill", "build_granary", "build_brewery", "build_mill", "build_bread_oven", "build_small_shrine", "build_warehouse") }, command =>
             buildFarmBuilding(database, {
-              building: command.type === "build_oil_mill" ? "oilMill" : command.type === "build_warehouse" ? "warehouse" : command.type === "build_small_shrine" ? "smallShrine" : command.type === "build_bread_oven" ? "breadOven" : command.type === "build_mill" ? "mill" : command.type === "build_brewery" ? "brewery" : "granary",
+              building: command.type === "build_sheep_pen" ? "sheepPen" : command.type === "build_oil_mill" ? "oilMill" : command.type === "build_warehouse" ? "warehouse" : command.type === "build_small_shrine" ? "smallShrine" : command.type === "build_bread_oven" ? "breadOven" : command.type === "build_mill" ? "mill" : command.type === "build_brewery" ? "brewery" : "granary",
               playerId: c.get("developmentPlayer").id,
               target: command.target,
               expectedFarmVersion: command.expectedFarmVersion
@@ -832,7 +892,8 @@ app.post("/api/game/action", async c => {
     );
 
     if (Either.isRight(result)) {
-      return c.json(result.right);
+      const attended = await recordAttendanceActivity(database, c.get("developmentPlayer").id, command.type, attendanceInteractionStartedAt);
+      return c.json(attended ?? result.right);
     }
 
     return match(result.left)
@@ -1021,6 +1082,8 @@ app.post("/api/game/action", async c => {
             { type: "road_access_required" },
             { type: "hands_not_empty" },
             { type: "missing_material" },
+            { type: "insufficient_shekels" },
+            { type: "level_required" },
             rule =>
               c.json(
                 {

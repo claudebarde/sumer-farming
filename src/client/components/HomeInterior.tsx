@@ -1,6 +1,9 @@
+import Header from "./Header";
+import { Cross2Icon } from "@radix-ui/react-icons";
 import { interiorSleepPhase } from "../game/home/interiorSleep";
 import type { InteriorPoint } from "../game/home/interiorNavigation";
 import KitchenDrawer from "./KitchenDrawer";
+import HomeFurnitureCatalogue from "./HomeFurnitureCatalogue";
 import CookingProgress from "./CookingProgress";
 import { executeGameCommand } from "../api/gameActions";
 import type { MealKey } from "../../game-data/kitchen";
@@ -17,7 +20,7 @@ import { useNavigationTooltip } from "./useNavigationTooltip";
 import bar from "../styles/IsometricTest.module.scss";
 import actions from "../styles/BuildingActionButton.module.scss";
 import type { FarmSnapshot } from "../../schemas/farm";
-import { HOME_FURNITURE, canRotateFurniture, furnitureDefinition, type FurnitureKey, type FurniturePlacement } from "../../game-data/homeFurniture";
+import { canRotateFurniture, furnitureDefinition, type FurnitureKey, type FurniturePlacement } from "../../game-data/homeFurniture";
 import { FURNITURE_ARTWORK } from "../game/home/furnitureArtwork";
 import type { FurniturePreview } from "../game/home/HomeInteriorScene";
 import { sendHomeFurniture } from "../api/homeAppearance";
@@ -147,6 +150,7 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved, visit 
         onOpenAutoFocus={event => { event.preventDefault(); interiorContent.current?.focus({ preventScroll: true }); }}
         onCloseAutoFocus={event => event.preventDefault()}
         onEscapeKeyDown={event => { if (wakeTarget) { event.preventDefault(); if (!waking) { setWakeTarget(null); setError(null); } return; } if (saving || placing || selected) { event.preventDefault(); if (!saving) { cancelPlacement(); setSelected(null); } } }}>
+        <Header />
         <Dialog.Title className={styles.accessibleTitle}>{visit ? `${visit.name}’s home` : "Your home"}</Dialog.Title>
         <GameTopBar snapshot={snapshot} clock={clock} zoomDisabled={loading}
           onZoomIn={() => scene.current?.zoomBy(1.2)} onZoomOut={() => scene.current?.zoomBy(1 / 1.2)} onFit={() => scene.current?.fit()}>
@@ -207,14 +211,12 @@ export default function HomeInterior({ onClose, snapshot, clock, onSaved, visit 
           <Dialog.Portal>
             <Dialog.Overlay className={`${drawerStyles["manage-dialog-overlay"]} ${styles.drawerOverlay}`} />
             <Dialog.Content className={`${drawerStyles["manage-dialog-content"]} ${kitchen.drawer} ${styles.furnitureDrawer}`} aria-describedby={undefined}>
-              <header className={kitchen.drawerHeader}><Dialog.Title>Furnish your home</Dialog.Title><Dialog.Close asChild><button aria-label="Close furniture">×</button></Dialog.Close></header>
-              <div className={`${kitchen.drawerBody} ${styles.items}`}>
-                {HOME_FURNITURE.filter(item => item.key !== "indoor-kitchen" || (snapshot.farm.progression?.level ?? 1) >= 11).map(item => {
-                  const placed = appearance.furniture?.some(i => i.key === item.key);
-                  const number = item.key.startsWith("woven-basket") || item.key.startsWith("clay-bowl") ? (item.key.endsWith("-2") ? " 2" : " 1") : "";
-                  return <button key={item.key} data-placed={placed ? "true" : undefined} aria-label={`${item.name}${number}${placed ? ", placed in your home" : ""}`} onClick={() => { setFurnishOpen(false); scene.current?.lockFurniture(false); if (placed) setSelected(item.key); else choose(item.key); }}><img src={FURNITURE_ARTWORK[item.key]} alt="" /><strong>{item.name}{number}</strong></button>;
-                })}
-              </div>
+              <header className={kitchen.drawerHeader}><Dialog.Title>Furnish your home</Dialog.Title><Dialog.Close asChild><button aria-label="Close furniture"><Cross2Icon aria-hidden="true" /></button></Dialog.Close></header>
+              <HomeFurnitureCatalogue attendance={snapshot.farm.progression?.stats.attendance} earned={snapshot.farm.progression?.stats.achievementTreasures ?? []} level={snapshot.farm.progression?.level ?? 1} furniture={appearance.furniture ?? []}
+                onSelect={(key, placed) => {
+                  setFurnishOpen(false); scene.current?.lockFurniture(false);
+                  if (placed) setSelected(key); else choose(key);
+                }} />
             </Dialog.Content>
           </Dialog.Portal>
         </Dialog.Root>

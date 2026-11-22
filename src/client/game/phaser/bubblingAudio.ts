@@ -1,3 +1,4 @@
+import { syncSoundVolume } from "./soundSettings";
 export const bubblingPause = (random: number) => 5000 + Math.max(0, Math.min(1, random)) * 7000;
 
 /** One full clip followed by silence; no catch-up or overlapping playback. */
@@ -10,7 +11,7 @@ export const createBubblingAudio = (sound: {
   let nextPlayAt: number | null = null;
   let playing = false;
   return (active: boolean, allowed: boolean, volume: number, now: number) => {
-    sound.setVolume(volume);
+    syncSoundVolume(sound, volume);
     if (!active || !allowed || volume <= 0) {
       if (sound.isPlaying) sound.stop();
       nextPlayAt = null; playing = false;

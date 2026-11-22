@@ -475,8 +475,12 @@ export class HomeInteriorScene extends Phaser.Scene {
   fit() { this.zoomFactor = 1; this.applyZoom(); }
   zoomBy(factor: number) { this.zoomFactor = Phaser.Math.Clamp(this.zoomFactor * factor, 1, 2.5); this.applyZoom(); }
   private applyZoom() {
-    // Frame the house with a small margin; decorative ground corners may crop.
-    this.cameras.main.setZoom(Math.min(this.scale.width / 1552, this.scale.height / 1040) * this.zoomFactor).centerOn(768, 512);
+    const fitZoom = Math.min(this.scale.width / 1552, this.scale.height / 1040);
+    // Tuck the upper walls beneath the toolbar. The upper-left window begins
+    // around artwork y=110; retain a small gap above it at the default/Fit zoom.
+    const visibleTop = 95;
+    const centerY = visibleTop + this.scale.height / (2 * fitZoom);
+    this.cameras.main.setZoom(fitZoom * this.zoomFactor).centerOn(768, centerY);
   }
   update(_time: number, delta: number) {
     if (!this.actor) return;

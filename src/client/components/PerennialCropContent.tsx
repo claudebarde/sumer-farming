@@ -1,3 +1,4 @@
+import { isFarmerBusyMessage, farmerBusyLabel } from "./farmerBusyMessage";
 import { useRef, useState } from "react";
 import { CROP_DEFINITIONS, type PerennialCropKey } from "../../game-data/crops";
 import { perennialActionReason } from "../../game-core/farm/perennialCrops";
@@ -47,11 +48,11 @@ export function PerennialCropAction({ snapshot, cropKey, target, now, action, is
     } catch (e) { setError(e instanceof Error ? e.message : "Could not tend the crop."); }
     finally { inFlight.current = false; setPending(false); }
   };
-  if (isometric && reason && !pending && !error) return null;
+  if (isometric && reason && !isFarmerBusyMessage(reason) && !pending && !error) return null;
   const button = <TileActionButton className={isometric ? actionStyles.button : undefined} disabled={pending || reason !== null} onClick={() => void submit()}>
       {isometric && (action !== "plant" ? <span className={actionStyles.icon} aria-hidden="true"><img src={action === "harvest" ? datesIcon : grownPalmIcon} alt="" draggable={false} /></span>
         : <img src={grownPalmIcon} alt="" width={36} height={36} style={{ objectFit: "contain" }} />)}
-      <span>{pending ? "Starting…" : (!isometric && reason) || (action === "plant" ? `Plant ${definition.label.toLowerCase()}${onRequestPlant ? "" : ` · ${definition.saplingCost} shekels`}` : action === "tend" ? "Tend palm" : "Harvest")}</span>
+      <span>{pending ? "Starting…" : (isFarmerBusyMessage(reason) ? farmerBusyLabel(reason) : !isometric && reason) || (action === "plant" ? `Plant ${definition.label.toLowerCase()}${onRequestPlant ? "" : ` · ${definition.saplingCost} shekels`}` : action === "tend" ? "Tend palm" : "Harvest")}</span>
     </TileActionButton>;
   return <>
     {error && <p role="alert">{error}</p>}
@@ -90,7 +91,7 @@ export default function PerennialCropContent({ snapshot, target, now, isometric 
           Tending halves the remaining growing time.
         </p>}
         {young && <InfoAlert>Tending becomes available after the first harvest.</InfoAlert>}
-        {(ready || !young) && (blocked ? <InfoAlert>{blocked}</InfoAlert> :
+        {(ready || !young) && (blocked && !isFarmerBusyMessage(blocked) ? <InfoAlert>{blocked}</InfoAlert> :
           <PerennialCropAction snapshot={snapshot} cropKey="datePalm" target={target} now={now} action={action}
             isometric getFarmerPosition={getFarmerPosition} onStarted={onStarted} />)}
       </>}

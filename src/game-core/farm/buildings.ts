@@ -16,6 +16,8 @@ export type BuildingCoordinate = {
 };
 
 export type BuildingPlacementRule =
+  | { readonly type: "insufficient_shekels"; readonly required: number }
+  | { readonly type: "level_required"; readonly level: number }
   | { readonly type: "building_limit"; readonly limit: number }
   | { readonly type: "valid" }
   | { readonly type: "outside_building_ground" }
@@ -110,6 +112,8 @@ export const describeBuildingPlacementRule = (
   rule: Exclude<BuildingPlacementRule, { readonly type: "valid" }>
 ): string =>
   match(rule)
+    .with({ type: "insufficient_shekels" }, ({ required }) => `Requires ${required} shekels.`)
+    .with({ type: "level_required" }, ({ level }) => `Unlocks at level ${level}.`)
     .with({ type: "building_limit" }, ({ limit }) => `Building limit reached (${limit}), including buildings under construction.`)
     .with({ type: "access_blocked" }, () => "Keep a clear path for the farmer and access to every building.")
     .with({ type: "road_access_required" }, () => "Build beside a completed connected road with an unobstructed access tile. Buildings can share road access.")

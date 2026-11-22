@@ -34,7 +34,7 @@ export default function FarmLevelDialog({ onLevelClaimed }: { onLevelClaimed?: (
   useEffect(() => {
     if (location !== "farm") levelUiStore.getState().setOpen(false);
   }, [location]);
-  if (farm.type !== "ready") return null;
+  if (!isOpen || farm.type !== "ready") return null;
   const progress = evaluateProgression(farm.snapshot, clock);
   const claim = async () => {
     if (claiming.current || !progress.canClaim) return;

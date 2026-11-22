@@ -14,6 +14,7 @@ export const buildingDemolitionReason = (snapshot: FarmSnapshot, buildingId: str
     return "Finish construction or upgrading first.";
   if (building.storedBarley > 0) return "Empty the building’s barley storage first.";
   const { farm } = snapshot;
+  if (farm.production.livestock?.animals.some(a => a.penId === buildingId)) return "The pen still contains animals.";
   if (building.type === "smallShrine" && farm.production.shrineBlessing?.buildingId === buildingId &&
     shrineBlessingActive(farm.production.shrineBlessing, now))
     return "Wait until the shrine blessing expires before destroying it.";

@@ -1,3 +1,4 @@
+import { processionAudioStore } from "../../../stores/processionAudioStore";
 import Phaser from "phaser";
 import { BACKGROUND_MUSIC_KEY, BACKGROUND_MUSIC_URL, backgroundMusicAction, backgroundMusicFade, tryMusicAutoplay } from "../backgroundMusic";
 import { musicSettingsStore } from "../../../stores/musicSettingsStore";
@@ -18,6 +19,7 @@ export class BackgroundMusicScene extends Phaser.Scene {
   constructor() { super({ key: "BackgroundMusic", active: true }); }
 
   preload() {
+    this.load.audio("level-up-procession", "/audio/procession-lyre.mp3");
     this.load.audio(BACKGROUND_MUSIC_KEY, BACKGROUND_MUSIC_URL);
     this.load.audio(WIND_GUST_KEY, WIND_GUST_URL);
     this.load.audio(HARVEST_AUDIO_KEY, HARVEST_AUDIO_URL);
@@ -35,6 +37,10 @@ export class BackgroundMusicScene extends Phaser.Scene {
     const previousPauseOnBlur = this.sound.pauseOnBlur;
     this.sound.pauseOnBlur = false;
     const music = this.sound.add(BACKGROUND_MUSIC_KEY, { loop: true, volume: 0 }) as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+    const procession = this.cache.audio.exists("level-up-procession")
+      ? this.sound.add("level-up-procession", { loop: false, volume: musicSettingsStore.getState().volume }) as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound
+      : undefined;
+    let processionStarted = false;
     let fade: Phaser.Tweens.Tween | undefined;
     let disposed = false;
     const context = "context" in this.sound ? this.sound.context : undefined;
@@ -95,6 +101,23 @@ export class BackgroundMusicScene extends Phaser.Scene {
       // The actual context state also covers autoplay allowed before Phaser's unlock event.
       const locked = context ? context.state !== "running" : this.sound.locked;
       const { enabled, volume } = musicSettingsStore.getState();
+      const processionActive = processionAudioStore.getState().active;
+      if (!processionActive) {
+        procession?.stop();
+        processionStarted = false;
+      }
+      if (processionActive && procession) {
+        fade?.stop();
+        if (music.isPlaying) music.pause();
+        procession.setVolume(volume);
+        if (document.hidden || !enabled) {
+          if (procession.isPlaying) procession.pause();
+        } else if (!locked) {
+          if (procession.isPaused) procession.resume();
+          else if (!processionStarted) processionStarted = procession.play();
+        }
+        return;
+      }
       const action = backgroundMusicAction(document.hidden, locked, music.isPlaying, music.isPaused, enabled);
       if (action === "wait") return;
       fade?.stop();
@@ -112,6 +135,7 @@ export class BackgroundMusicScene extends Phaser.Scene {
       if (next.volume !== previous.volume) { fade?.stop(); music.setVolume(next.volume); }
       attempt();
     });
+    const unsubscribeProcession = processionAudioStore.subscribe(() => attempt());
     document.addEventListener("visibilitychange", attempt);
     document.addEventListener("pointerup", attempt);
     document.addEventListener("keydown", attempt);
@@ -126,6 +150,8 @@ export class BackgroundMusicScene extends Phaser.Scene {
       braySound?.destroy();
       buildingSounds.forEach(({ sound }) => sound.destroy());
       unsubscribe();
+      unsubscribeProcession();
+      procession?.destroy();
       document.removeEventListener("visibilitychange", attempt);
       document.removeEventListener("pointerup", attempt);
       document.removeEventListener("keydown", attempt);

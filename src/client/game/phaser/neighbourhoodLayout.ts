@@ -27,6 +27,7 @@ export const neighbourhoodPlots = (members: Neighbourhood["members"]) =>
     const member = members.find(m => m.slot === slot + 1);
     const type = member ? member.isYou ? "self" : "neighbour" : "empty";
     return {
+      specialty: member?.specialty,
       slot, type, playerId: member?.playerId,
       column, row, x: point.x, y: point.y,
       name: member?.name ?? "Empty lot",

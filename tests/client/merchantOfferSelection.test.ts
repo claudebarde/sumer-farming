@@ -26,5 +26,10 @@ it("prefers different products on the next visit", () => {
 it.each(MERCHANT_OFFERS)("checks all $product stock before enabling delivery", offer => {
   const request = merchantOfferRequest(offer);
   expect(canDeliverRequest(request, { [offer.product]: offer.quantity - 1 })).toBe(false);
-  expect(canDeliverRequest(request, { [offer.product]: offer.quantity })).toBe(true);
+  expect(canDeliverRequest(request, { [offer.product]: offer.quantity + (offer.product === "barley" ? 1 : 0) })).toBe(true);
+});
+
+it("does not allow delivering the last barley", () => {
+  const request = merchantOfferRequest(MERCHANT_OFFERS.find(offer => offer.product === "barley")!);
+  expect(canDeliverRequest(request, { barley: request.barley })).toBe(false);
 });

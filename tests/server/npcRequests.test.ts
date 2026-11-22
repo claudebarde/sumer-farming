@@ -69,6 +69,7 @@ describe("NPC requests", () => {
     const result = await Effect.runPromise(deliverNpcRequest(db, command));
     expect(result.player.shekelBalance).toBe(5);
     expect(result.player.points).toBe(50);
+    expect(result.farm.progression.stats.beerRequestsFulfilled ?? 0).toBe(0);
     expect(result.inventory.find(i => i.itemKey === "barley")?.quantity).toBe(2);
     const retry = await Effect.runPromise(deliverNpcRequest(db, f.command()));
     expect(retry.player.shekelBalance).toBe(5);
@@ -86,12 +87,30 @@ describe("NPC requests", () => {
     expect(result.inventory.find(i => i.itemKey === "barley")?.quantity).toBe(1);
     expect(result.inventory.find(i => i.itemKey === "beer")).toBeUndefined();
     expect(result.buildings[0]?.brewingBarley).toBe(2);
+    expect(result.farm.progression.stats.beerRequestsFulfilled).toBe(1);
+    const retry = await Effect.runPromise(deliverNpcRequest(db, f.command(2)));
+    expect(retry.farm.progression.stats.beerRequestsFulfilled).toBe(1);
+    const [saved] = await db.select().from(farms).where(eq(farms.id, f.farmId));
+    expect(saved?.progressionStats.beerRequestsFulfilled).toBe(1);
+  });
+
+  it("accumulates beer requests and preserves unrelated progression", async () => {
+    const f = await fixture(true, 4);
+    const first = await Effect.runPromise(deliverNpcRequest(db, f.command(1)));
+    expect(first.farm.progression.stats.beerRequestsFulfilled).toBe(1);
+    const second = await Effect.runPromise(deliverNpcRequest(db, f.command(2)));
+    expect(second.farm.progression.stats).toEqual({ ...first.farm.progression.stats, beerRequestsFulfilled: 2 });
+    const other = await fixture();
+    const [saved] = await db.select().from(farms).where(eq(farms.id, other.farmId));
+    expect(saved?.progressionStats.beerRequestsFulfilled ?? 0).toBe(0);
   });
 
   it("does not partially deliver when beer is missing", async () => {
     const f = await fixture(true, 0);
     const error = await Effect.runPromise(Effect.flip(deliverNpcRequest(db, f.command(2))));
     expect(error).toMatchObject({ reason: "insufficient_goods" });
+    const [saved] = await db.select().from(farms).where(eq(farms.id, f.farmId));
+    expect(saved?.progressionStats.beerRequestsFulfilled ?? 0).toBe(0);
     expect((await Effect.runPromise(getNpcRequests(db, f.playerId))).stock.barley).toBe(5);
     expect(await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, f.playerId))).toHaveLength(0);
   });
@@ -103,10 +122,47 @@ describe("NPC requests", () => {
     expect(await Effect.runPromise(Effect.flip(deliverNpcRequest(db, f.command())))).toMatchObject({ reason: "insufficient_goods" });
     await db.insert(farmBuildings).values({ farmId: f.farmId, type: "granary", column: 2, row: 3,
       startedAt: new Date(0), completesAt: new Date(1000), storedBarley: 3 });
+    expect(await Effect.runPromise(Effect.flip(deliverNpcRequest(db, f.command())))).toMatchObject({ reason: "insufficient_goods" });
+    await db.update(farmBuildings).set({ storedBarley: 4 }).where(and(eq(farmBuildings.farmId, f.farmId), eq(farmBuildings.type, "granary")));
     const result = await Effect.runPromise(deliverNpcRequest(db, f.command()));
     expect(result.player.shekelBalance).toBe(5);
     expect(result.farm.carriedItem?.quantity).toBe(2);
-    expect(result.buildings.find(b => b.type === "granary")?.storedBarley).toBe(0);
+    expect(result.buildings.find(b => b.type === "granary")?.storedBarley).toBe(1);
+  });
+
+  it.each(["farm", "granary", "warehouse"] as const)("protects the last barley stored in the %s", async location => {
+    const f = await fixture(true);
+    await db.update(farmInventory).set({ quantity: location === "farm" ? 4 : 0 })
+      .where(and(eq(farmInventory.farmId, f.farmId), eq(farmInventory.itemKey, "barley")));
+    if (location !== "farm") await db.insert(farmBuildings).values({ farmId: f.farmId, type: location,
+      column: 2, row: 3, startedAt: new Date(0), completesAt: new Date(1000), storedBarley: 4 });
+    expect(await Effect.runPromise(Effect.flip(deliverNpcRequest(db, f.command(2)))))
+      .toMatchObject({ reason: "insufficient_goods" });
+    const board = await Effect.runPromise(getNpcRequests(db, f.playerId));
+    expect(board.stock).toMatchObject({ barley: 4, beer: 2 });
+    expect(board.requests[2]?.completed).toBe(false);
+    expect(await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, f.playerId))).toHaveLength(0);
+    // A reserve in the other storage location permits the same delivery.
+    if (location === "farm") await db.insert(farmBuildings).values({ farmId: f.farmId, type: "warehouse",
+      column: 2, row: 3, startedAt: new Date(0), completesAt: new Date(1000), storedBarley: 1 });
+    else await db.update(farmInventory).set({ quantity: 1 })
+      .where(and(eq(farmInventory.farmId, f.farmId), eq(farmInventory.itemKey, "barley")));
+    await Effect.runPromise(deliverNpcRequest(db, f.command(2)));
+    expect((await Effect.runPromise(getNpcRequests(db, f.playerId))).stock.barley).toBe(1);
+  });
+
+  it("preserves the barley reserve across simultaneous different requests", async () => {
+    const f = await fixture();
+    const second = new Client({ connectionString }); await second.connect();
+    try {
+      const outcomes = await Promise.all([
+        Effect.runPromise(Effect.either(deliverNpcRequest(db, f.command(0)))),
+        Effect.runPromise(Effect.either(deliverNpcRequest(createDatabase(second), f.command(1))))
+      ]);
+      expect(outcomes.filter(result => result._tag === "Right")).toHaveLength(1);
+      expect(outcomes.find(result => result._tag === "Left")).toMatchObject({ left: { reason: "insufficient_goods" } });
+      expect((await Effect.runPromise(getNpcRequests(db, f.playerId))).stock.barley).toBeGreaterThanOrEqual(1);
+    } finally { await second.end(); }
   });
 
   it("rejects expired windows and resets only at the next fixed opening", async () => {
@@ -140,17 +196,22 @@ describe("NPC requests", () => {
       startedAt: new Date(0), completesAt: new Date(1000) });
     expect((await Effect.runPromise(getNpcRequests(db, f.playerId))).requests.every(r => r.beer === 0)).toBe(true);
     await db.update(npcRequestBoards).set({ anchor: new Date(Date.now() - REQUEST_CYCLE_MS - 1000) }).where(eq(npcRequestBoards.farmId, f.farmId));
-    expect((await Effect.runPromise(getNpcRequests(db, f.playerId))).requests.some(request => request.beer === 2)).toBe(true);
+    const nextVisit = await Effect.runPromise(getNpcRequests(db, f.playerId));
+    expect(nextVisit.cycle).toBe(1);
+    expect(nextVisit.requests).toHaveLength(3);
+    // New visits rotate level-based offers; beer is eligible, not guaranteed.
+    expect(nextVisit.requests.every(request => !request.completed)).toBe(true);
   });
 
   it("isolates players and validates current stock instead of unrelated farm versions", async () => {
     const a = await fixture(); const b = await fixture();
+    await db.update(farmInventory).set({ quantity: 6 }).where(and(eq(farmInventory.farmId, a.farmId), eq(farmInventory.itemKey, "barley")));
     await Effect.runPromise(deliverNpcRequest(db, a.command()));
     expect((await Effect.runPromise(getNpcRequests(db, b.playerId))).requests[0]?.completed).toBe(false);
     expect((await Effect.runPromise(getTradeHistory(db, b.playerId, { limit: 5 }))).trades).toEqual([]);
     const delivered = await Effect.runPromise(deliverNpcRequest(db, a.command(1)));
     expect(delivered.player.shekelBalance).toBe(8);
-    expect(delivered.inventory.find(item => item.itemKey === "barley")?.quantity ?? 0).toBe(0);
+    expect(delivered.inventory.find(item => item.itemKey === "barley")?.quantity ?? 0).toBe(1);
   });
 
   it("delivers beer while a saved harvest job runs despite its newer farm version", async () => {
@@ -190,6 +251,8 @@ describe("NPC requests", () => {
         Effect.runPromise(Effect.either(deliverNpcRequest(createDatabase(second), f.command(2))))
       ]);
       expect(outcomes.filter(result => result._tag === "Right")).toHaveLength(1);
+      const [saved] = await db.select().from(farms).where(eq(farms.id, f.farmId));
+      expect(saved?.progressionStats.beerRequestsFulfilled).toBe(1);
       expect(outcomes.find(result => result._tag === "Left")).toMatchObject({ _tag: "Left", left: { reason: "insufficient_goods" } });
       expect(await db.select().from(shekelTransactions).where(eq(shekelTransactions.playerId, f.playerId))).toHaveLength(1);
     } finally { await second.end(); }
@@ -232,9 +295,10 @@ it.each(MERCHANT_OFFERS)("delivers $product for its approved reward exactly once
   await db.update(npcRequestBoards).set({ requests: [merchantOfferRequest(offer)] }).where(eq(npcRequestBoards.farmId, f.farmId));
   await db.delete(farmInventory).where(eq(farmInventory.farmId, f.farmId));
   expect(await Effect.runPromise(Effect.flip(deliverNpcRequest(db, f.command())))).toMatchObject({ reason: "insufficient_goods" });
-  await db.insert(farmInventory).values({ farmId: f.farmId, itemKey: offer.product, quantity: offer.quantity });
+  await db.insert(farmInventory).values({ farmId: f.farmId, itemKey: offer.product, quantity: offer.quantity + (offer.product === "barley" ? 1 : 0) });
   const delivered = await Effect.runPromise(deliverNpcRequest(db, f.command()));
   expect(delivered.player.shekelBalance).toBe(offer.reward);
-  expect(delivered.inventory.find(item => item.itemKey === offer.product)?.quantity ?? 0).toBe(0);
+  expect(delivered.farm.progression.stats.beerRequestsFulfilled ?? 0).toBe(offer.product === "beer" ? 1 : 0);
+  expect(delivered.inventory.find(item => item.itemKey === offer.product)?.quantity ?? 0).toBe(offer.product === "barley" ? 1 : 0);
   expect((await Effect.runPromise(deliverNpcRequest(db, f.command()))).player.shekelBalance).toBe(offer.reward);
 });

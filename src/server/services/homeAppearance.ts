@@ -1,3 +1,5 @@
+import { advanceFarmLifecycle } from "./farmLifecycle";
+import { ACHIEVEMENT_TREASURES } from "../../game-data/achievementTreasures";
 import { SaveFurnitureSchema } from "../../schemas/homeFurniture";
 import { furnitureLayoutError } from "../../game-core/home/furniture";
 import { eq, sql } from "drizzle-orm";
@@ -7,8 +9,9 @@ import { HomeAppearanceSchema, type HomeAppearance } from "../../schemas/homeApp
 import { readFarmSnapshot } from "./farmSnapshot";
 export const saveHomeAppearance = (db: Database, playerId: string, input: HomeAppearance) => db.transaction(async tx => {
   const appearance = HomeAppearanceSchema.parse(input);
-  const [farm] = await tx.select().from(farms).where(eq(farms.playerId, playerId)).for("update");
-  if (!farm) return { ok: false as const, message: "Farm not found." };
+  const [loaded] = await tx.select().from(farms).where(eq(farms.playerId, playerId)).for("update");
+  if (!loaded) return { ok: false as const, message: "Farm not found." };
+  const farm = await advanceFarmLifecycle(tx, loaded, new Date());
   const snapshot = await readFarmSnapshot(tx, farm, false);
   if ((snapshot.farm.progression?.level ?? 1) < 9) return { ok: false as const, message: "Home customization unlocks at level 9." };
   const [updated] = await tx.update(farms).set({ homeAppearance: { ...appearance, visibility: farm.homeAppearance.visibility, furniture: farm.homeAppearance.furniture, furnitureRevision: farm.homeAppearance.furnitureRevision }, version: sql`${farms.version}+1`, updatedAt: new Date() }).where(eq(farms.id, farm.id)).returning();
@@ -21,13 +24,21 @@ export const saveHomeFurniture = (db: Database, playerId: string, input: unknown
   const command = SaveFurnitureSchema.parse(input);
   const invalid = furnitureLayoutError(command.items);
   if (invalid) return { ok: false as const, message: invalid };
-  const [farm] = await tx.select().from(farms).where(eq(farms.playerId, playerId)).for("update");
-  if (!farm) return { ok: false as const, message: "Farm not found." };
+  const [loaded] = await tx.select().from(farms).where(eq(farms.playerId, playerId)).for("update");
+  if (!loaded) return { ok: false as const, message: "Farm not found." };
+  const farm = await advanceFarmLifecycle(tx, loaded, new Date());
   if (farm.production.cooking?.interior && Date.parse(farm.production.cooking.completesAt) > Date.now()) return { ok: false as const, message: "Finish cooking before moving furniture." };
   if (command.items.some(item => item.key === "indoor-kitchen")) {
     const snapshot = await readFarmSnapshot(tx, farm, false);
     if ((snapshot.farm.progression?.level ?? 1) < 11) return { ok: false as const, message: "The kitchen unlocks at level 11." };
   }
+  if (!farm.progressionStats.attendance?.unlocked && command.items.some(item => item.key === "potted-myrtle"))
+    return { ok: false as const, message: "Earn five consecutive active days to place the myrtle." };
+  const earned = farm.progressionStats.achievementTreasures ?? [];
+  if (command.items.some(item => ACHIEVEMENT_TREASURES.some(reward => reward.id === item.key && !earned.includes(reward.id))))
+    return { ok: false as const, message: "This achievement item is still locked." };
+  if (earned.includes("painted-large-jar") && command.items.some(item => item.key === "plain-jar"))
+    return { ok: false as const, message: "Your large jar has been upgraded to the painted jar. Reopen the furniture drawer." };
   if ((farm.homeAppearance.furnitureRevision ?? 0) !== command.revision) return { ok: false as const, message: "Your furniture changed in another tab. Reopen the house and try again." };
   const [updated] = await tx.update(farms).set({
     homeAppearance: { ...farm.homeAppearance, furniture: command.items, furnitureRevision: command.revision + 1 },

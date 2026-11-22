@@ -2,19 +2,19 @@ import type { FarmSnapshot } from "../../../schemas/farm";
 import { getBuildingFootprint, validateBuildingPlacement, type BuildingPlacementRule } from "../../../game-core/farm/buildings";
 import { preservesBuildingAccess } from "../../../game-core/farm/buildingAccess";
 import { findLoadingTile } from "../../../game-core/farm/roads";
-import { FARM_BUILDING_DEFINITIONS } from "../../../game-data/buildings";
+import { FARM_BUILDING_DEFINITIONS, buildingShekelCost } from "../../../game-data/buildings";
 import { farmOrigin, presentCanals } from "./isometricFarm";
 import type { IsoCell } from "./isometricProjection";
 import { granaryLimitForLevel } from "../../../game-data/progression";
 import { plantingBlocker } from "./isometricPlanting";
 import { isClearableScenery } from "../../../game-data/farmObjects";
 
-export type PlaceableBuilding = "oilMill" | "granary" | "mill" | "breadOven" | "brewery" | "smallShrine" | "warehouse";
-export const constructionNames = { oilMill: "oil mill", granary: "granary", mill: "mill", breadOven: "bread oven", brewery: "brewery", smallShrine: "small shrine", warehouse: "warehouse" } as const;
-export const constructionCommands = { oilMill: "build_oil_mill", granary: "build_granary", mill: "build_mill", breadOven: "build_bread_oven", brewery: "build_brewery", smallShrine: "build_small_shrine", warehouse: "build_warehouse" } as const;
+export type PlaceableBuilding = "sheepPen" | "oilMill" | "granary" | "mill" | "breadOven" | "brewery" | "smallShrine" | "warehouse";
+export const constructionNames = { sheepPen: "sheep pen", oilMill: "oil mill", granary: "granary", mill: "mill", breadOven: "bread oven", brewery: "brewery", smallShrine: "small shrine", warehouse: "warehouse" } as const;
+export const constructionCommands = { sheepPen: "build_sheep_pen", oilMill: "build_oil_mill", granary: "build_granary", mill: "build_mill", breadOven: "build_bread_oven", brewery: "build_brewery", smallShrine: "build_small_shrine", warehouse: "build_warehouse" } as const;
 export const constructionSummary = (type: PlaceableBuilding) => {
   const definition = FARM_BUILDING_DEFINITIONS[type];
-  return `Build ${constructionNames[type]} · ${Object.entries(definition.materials).map(([key, quantity]) => `${quantity} ${key === "bakingTools" ? "baking tools" : key === "brewingVessels" ? "brewing jars" : key}`).join(" · ")} · ${definition.constructionDurationMs / 60000} minutes`;
+  return `Build ${constructionNames[type]} · ${buildingShekelCost(type) ? `${buildingShekelCost(type)} shekels · ` : ""}${Object.entries(definition.materials).map(([key, quantity]) => `${quantity} ${key === "bakingTools" ? "baking tools" : key === "brewingVessels" ? "brewing jars" : key}`).join(" · ")} · ${definition.constructionDurationMs / 60000} minutes`;
 };
 const availableMaterials = (snapshot: FarmSnapshot) => ({
   reed: [...snapshot.inventory, ...snapshot.groundItems].filter(i => i.itemKey === "reed").reduce((sum, i) => sum + i.quantity, 0),
@@ -24,7 +24,7 @@ const availableMaterials = (snapshot: FarmSnapshot) => ({
 });
 /** Non-material status; material shortages are already shown by the requirement rows. */
 export const buildingAvailabilityBlocker = (snapshot: FarmSnapshot, now: number, type: PlaceableBuilding): string | null => {
-  const unlock = { oilMill: 10, granary: 2, mill: 5, breadOven: 6, brewery: 6, smallShrine: 8, warehouse: 8 }[type];
+  const unlock = { sheepPen: 12, oilMill: 10, granary: 2, mill: 5, breadOven: 6, brewery: 6, smallShrine: 8, warehouse: 8 }[type];
   if ((snapshot.farm.progression?.level ?? 1) < unlock) return `Unlock at level ${unlock}`;
   if (snapshot.buildings.filter(b => b.type === type).length >= (type === "granary" ? granaryLimitForLevel(snapshot.farm.progression?.level ?? 1) : 1)) return "Already built";
   if (snapshot.farm.carriedItem) return "Empty the farmer’s hands first.";
@@ -33,11 +33,12 @@ export const buildingAvailabilityBlocker = (snapshot: FarmSnapshot, now: number,
 export const buildingBuildBlocker = (snapshot: FarmSnapshot, now: number, type: PlaceableBuilding): string | null => {
   const availability = buildingAvailabilityBlocker(snapshot, now, type);
   if (availability) return availability;
+  if (snapshot.player.shekelBalance < buildingShekelCost(type)) return `Requires ${buildingShekelCost(type)} shekels.`;
   for (const [key, required] of Object.entries(FARM_BUILDING_DEFINITIONS[type].materials)) {
     const available = availableMaterials(snapshot)[key as keyof ReturnType<typeof availableMaterials>];
     if (available < required) return key === "bakingTools" ? `Buy ${required} baking tools at the baking market.`
       : key === "brewingVessels" ? `Buy ${required} brewing jars at the beer market.`
-      : `Gather ${FARM_BUILDING_DEFINITIONS[type].materials.reed} reed and ${FARM_BUILDING_DEFINITIONS[type].materials.clay} clay.`;
+      : type === "sheepPen" ? `Gather ${required} ${key}.` : `Gather ${"reed" in FARM_BUILDING_DEFINITIONS[type].materials ? FARM_BUILDING_DEFINITIONS[type].materials.reed : 0} reed and ${FARM_BUILDING_DEFINITIONS[type].materials.clay} clay.`;
   }
   return null;
 };

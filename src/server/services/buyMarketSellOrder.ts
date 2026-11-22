@@ -54,8 +54,8 @@ export const buyMarketSellOrder = (database: Database, input: PurchaseInput) =>
         if (order.itemKey === "dates" && buyerFarm.level < 9) return fail("order_unavailable", "Dates trading unlocks at level 9");
         if (order.remainingQuantity < input.quantity) return fail("insufficient_quantity", `Only ${order.remainingQuantity} remain in this listing`);
         if (order.unitPrice !== input.expectedUnitPrice) return fail("price_changed", "The price changed; review the listing again");
-        const currentBuyerFarm = await advanceFarmLifecycle(tx, buyerFarm, now);
-        if (currentBuyerFarm.version !== input.expectedFarmVersion) return fail("farm_version_conflict", "Your farm changed; review the refreshed balance and try again");
+        await advanceFarmLifecycle(tx, buyerFarm, now);
+        if (buyerFarm.version !== input.expectedFarmVersion) return fail("farm_version_conflict", "Your farm changed; review the refreshed balance and try again");
         const wallets = await tx.select().from(players).where(inArray(players.id, participantIds)).orderBy(asc(players.id)).for("update");
         const buyer = wallets.find(player => player.id === input.playerId);
         const seller = wallets.find(player => player.id === order.playerId);

@@ -1,3 +1,4 @@
+import LambMarketPurchase from "./LambMarketPurchase";
 import PlayerMarketSell from "./PlayerMarketSell";
 import RulesLink from "./RulesLink";
 import { randomId } from "../randomId";
@@ -5,7 +6,7 @@ import { cropWorkReserved } from "../../game-data/cropWork";
 import MarketItemIcon from "./MarketItemIcon";
 import actionStyles from "../styles/BuildingActionButton.module.scss";
 import BuildingActionIcon from "./BuildingActionIcon";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useStore } from "zustand";
 import { Dialog, Tabs } from "radix-ui";
 import { Cross2Icon } from "@radix-ui/react-icons";
@@ -44,7 +45,7 @@ type MarketQuoteState =
 const formatShekels = (quantity: number): string =>
   `${quantity} ${quantity === 1 ? "shekel" : "shekels"}`;
 
-export default function MarketDialog() {
+export default memo(function MarketDialog() {
   const [marketQuantities, setMarketQuantities] = useState<
     Record<string, number>
   >({});
@@ -810,6 +811,7 @@ export default function MarketDialog() {
                                     </section>
                                   );
                                 })}
+                              {marketScope === "supplies" && market === "npc" && action === "buy" && farmLevel >= 12 && <LambMarketPurchase snapshot={farmState.snapshot} now={storageClock} />}
                               {market === "player" && action === "sell" && <MarketListings
                                 key={`stand:${marketScope}`} compact itemKey="barley"
                                 itemKeys={marketQuoteState.quotes.items.filter(item => item.playerMarket.canCreateSellOrder && farmLevel >= marketUnlockLevel(item.itemKey) && marketIncludesItem(marketScope, item.itemKey, { market: "player", action: "sell" })).map(item => item.itemKey)}
@@ -861,4 +863,4 @@ export default function MarketDialog() {
         </Dialog.Portal>
       </Dialog.Root>
   );
-}
+});

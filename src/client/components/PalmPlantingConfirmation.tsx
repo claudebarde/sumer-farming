@@ -1,3 +1,4 @@
+import { isFarmerBusyMessage } from "./farmerBusyMessage";
 import actionStyles from "../styles/BuildingActionButton.module.scss";
 import BuildingActionIcon from "./BuildingActionIcon";
 import { useRef, useState } from "react";
@@ -35,9 +36,9 @@ export default function PalmPlantingConfirmation({ snapshot, target, now, getFar
       <img className={styles.barleyWorkIcon} src={palmIcon} alt="" width={48} height={48} />
       <p>Plant date palm · {CROP_DEFINITIONS.datePalm.saplingCost} shekels</p>
     </div>
-    {reason && <InfoAlert>{reason}</InfoAlert>}
+    {reason && !isFarmerBusyMessage(reason) && <InfoAlert>{reason}</InfoAlert>}
     {error && <p role="alert">{error}</p>}
-    <div><button className={actionStyles.button} disabled={pending || reason !== null} onClick={() => void confirm()}><BuildingActionIcon kind="confirm" /><span>{pending ? "Planting…" : "Confirm"}</span></button>
+    <div><button className={actionStyles.button} disabled={pending || reason !== null} onClick={() => void confirm()}><BuildingActionIcon kind="confirm" /><span>{pending ? "Planting…" : isFarmerBusyMessage(reason) ? "The farmer is busy" : "Confirm"}</span></button>
       <button className={actionStyles.button} disabled={pending} onClick={onCancel}><BuildingActionIcon kind="cancel" /><span>Cancel</span></button></div>
   </aside>;
 }

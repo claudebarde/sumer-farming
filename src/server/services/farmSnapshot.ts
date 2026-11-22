@@ -1,3 +1,4 @@
+import { readLevel11Work } from "./level11History";
 import { readPlayerPoints, readConstructionAwards } from "./playerPoints";
 import { settleZigguratRewards } from "./zigguratRewards";
 import { zigguratRewards } from "../db/schema";
@@ -132,11 +133,12 @@ export const readFarmSnapshot = async (
   // Re-arm immediately on every material-changing command's returned snapshot,
   // even if no browser observes the intermediate insufficient-material state.
   const ready = readyBuildings({ inventory, groundItems, buildings }, currentFarm.level);
-  const announced = currentFarm.progressionStats.buildingReadyAnnounced ?? [];
+  const workStats = await readLevel11Work(transaction, currentFarm);
+  const announced = workStats.buildingReadyAnnounced ?? [];
   const retained = announced.filter(building => ready.includes(building));
-  const progressionStats = retained.length === announced.length ? currentFarm.progressionStats
-    : { ...currentFarm.progressionStats, buildingReadyAnnounced: retained };
-  if (progressionStats !== currentFarm.progressionStats) {
+  const progressionStats = retained.length === announced.length ? workStats
+    : { ...workStats, buildingReadyAnnounced: retained };
+  if (progressionStats !== workStats) {
     await transaction.update(farms).set({ progressionStats }).where(eq(farms.id, currentFarm.id));
   }
   const [achievements] = await transaction.select({

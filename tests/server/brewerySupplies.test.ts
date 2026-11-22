@@ -550,3 +550,16 @@ describe("brewing deadlines", () => {
     expect(validateBrewing("collect_beer", building, now)).toBeNull();
   });
 });
+
+it.each([11, 12])("uses farm-level jar capacity and preserves it after reload at level %i", async level => {
+  const { farm, building, command } = await fixture();
+  await db.update(farms).set({ level }).where(eq(farms.id, farm.id));
+  await db.insert(farmInventory).values({ farmId: farm.id, itemKey: "emptyBeerJar", quantity: 6 });
+  const capacity = level >= 12 ? 4 : 2;
+  const result = await Effect.runPromise(supplyBrewery(db, command("stock_jars")));
+  expect(result.buildings.find(b => b.id === building.id)?.emptyBeerJars).toBe(capacity);
+  expect(result.inventory.find(i => i.itemKey === "emptyBeerJar")?.quantity).toBe(6 - capacity);
+  const reloaded = await refresh(farm.id);
+  expect(reloaded.buildings.find(b => b.id === building.id)?.emptyBeerJars).toBe(capacity);
+  await expect(Effect.runPromise(Effect.flip(supplyBrewery(db, command("stock_jars", reloaded.farm.version))))).resolves.toMatchObject({ type: "brewery_full" });
+});

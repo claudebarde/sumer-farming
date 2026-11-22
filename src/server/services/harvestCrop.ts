@@ -96,13 +96,13 @@ const executeHarvestAction = (
           );
           assertFarmerAvailable(farm);
 
-          if (farm.version !== action.input.expectedFarmVersion) {
+          if (loadedFarm.version !== action.input.expectedFarmVersion) {
             return {
               type: "rule_error",
               rule: {
                 type: "version_conflict",
                 expectedVersion: action.input.expectedFarmVersion,
-                actualVersion: farm.version
+                actualVersion: loadedFarm.version
               }
             };
           }

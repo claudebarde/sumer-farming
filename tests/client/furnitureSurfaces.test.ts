@@ -8,6 +8,12 @@ const table: FurniturePlacement = { key: "wooden-table", x: 850, y: 700 };
 const bowl: FurniturePlacement = { key: "clay-bowl", x: 70, y: 35, surface: "table" };
 const second: FurniturePlacement = { key: "clay-bowl-2", x: 119, y: 60, surface: "table" };
 const layout = [table, bowl, second];
+it("supports the earned cup on a table and returns it when the table is put away", () => {
+  const cup: FurniturePlacement = { ...bowl, key: "golden-drinking-cup" };
+  expect(furnitureLayoutError([table, cup])).toBeNull();
+  expect(FurnitureLayoutSchema.parse([table, cup])).toEqual([table, cup]);
+  expect(removeFurniture([table, cup], "wooden-table")).toEqual([]);
+});
 it("accepts two separate bowls on the tabletop and persists their attachment", () => {
   expect(furnitureLayoutError(layout)).toBeNull();
   expect(FurnitureLayoutSchema.parse(layout)).toEqual(layout);

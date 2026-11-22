@@ -347,8 +347,9 @@ a single celebratory procession: five evenly spaced lyre musicians cross the mai
 road from left to right in about 18 seconds. From the leader, positions 1, 3 and 5
 are male and positions 2 and 4 are female. They do not block tiles, intercept clicks
 or interrupt the farmer. Leaving the farm ends the procession; returning or
-reloading does not replay it. There is no music yet; future music will respect
-the game's sound settings.
+reloading does not replay it. A short lyre celebration plays once with the procession,
+respecting the game's sound toggle and volume. Background music pauses during the
+procession and resumes when it ends. Leaving the farm stops the celebration audio.
 
 ### How requirements are counted
 
@@ -370,7 +371,7 @@ the game's sound settings.
 
 ### Protecting your planting seed
 
-- NPC barley sales and new player-market barley listings must leave at least **1 barley in estate storage** (farm, completed granary or warehouse combined), at every level, even with planted fields or enough shekels to buy more. Carried, ground, planted and already-listed barley do not replace this reserve. Selecting all stored barley disables confirmation with **You must keep 1 barley in your farm**; the server also rejects the sale/listing. This restriction protects against selling the last planting seed; it does not reserve barley against other uses such as meals or production. Existing listings are not cancelled.
+- NPC barley sales, merchant boat deliveries and new player-market barley listings must leave at least **1 barley in estate storage** (farm, completed granary or warehouse combined), at every level, even with planted fields or enough shekels to buy more. Carried, ground, planted and already-listed barley do not replace this reserve. Selecting all stored barley disables confirmation with **You must keep 1 barley in your farm**; the server also rejects the sale, delivery or listing. This restriction protects against selling the last planting seed; it does not reserve barley against other uses such as meals or production. Existing listings are not cancelled.
 
 A barley offering is blocked if it would leave you with no usable barley **and** no already-planted barley field.
 
@@ -384,14 +385,14 @@ A barley offering is blocked if it would leave you with no usable barley **and**
 ### Level 10 feature direction and later levels
 
 See [Features and economy by estate level](game-progression.md) for the separate
-planning reference. Level 11 is available; the proposed level 12–20 features remain plans.
+planning reference. Level 12, pen construction and lamb purchases are playable; feeding and growth are playable; shearing and wool storage are playable; processing and the proposed later features remain plans.
 Sesame cultivation and oil milling are available at level 10. Sheep and wool production are
 planned with processing for level 12, and flax is retained as a later idea.
 Level 11 introduces kitchen meals using sesame oil. The four meal recipes and temporary benefits are defined in the Kitchen meals section below. NPC-market cedar resin and the scented-oil
 workshop are deferred to a later level, not yet assigned. Cedar growing/imports
 and furniture production also remain future ideas. These additions are not playable.
 
-Level 11 is currently the highest claimable level.
+Level 12 is currently the highest claimable level.
 
 - Level 10 is the intended milestone for access to most game systems, including the full core farm and social experience. Existing neighbourhood features remain available from level 7. Cooperative/social expansion remains planned. Barley withering applies to new planting jobs started at level 10; claiming level 10 does not activate unimplemented systems. Selected buildings, upgrades and additional features may unlock above level 10.
 - Reaching level 11 requires a completed oil mill,
@@ -532,7 +533,7 @@ Building levels are separate from estate levels. The Mill, Bread Oven and Brewer
 | Bread Oven | 9 | 11 |
 | Brewery | 9 | 11 |
 
-Estate progression currently reaches level 11. The level-3 mill upgrade unlocks at estate level 10; level-3 bread oven and brewery upgrades unlock at estate level 11. Previously purchased mill upgrades, including upgrades already in progress, are retained regardless of the new gates.
+Estate progression currently reaches level 12. The level-3 mill upgrade unlocks at estate level 10; level-3 bread oven and brewery upgrades unlock at estate level 11. Previously purchased mill upgrades, including upgrades already in progress, are retained regardless of the new gates.
 
 | Mill level | Upgrade price | Upgrade time | Farmer batch | Donkey batch |
 |---|---:|---:|---:|---:|
@@ -832,7 +833,7 @@ Brewing unlocks at level 6 and consumes Brewer's Groats rather than raw barley.
 - With an available, empty-handed farmer and all ingredients supplied, **Brew beer** sends him to the farm for groats, then to the brewery. He stirs for eight seconds, including short pauses, and becomes available while fermentation continues with foam and a progress bar.
 - Timers persist immediately and progress while the tab is hidden or closed. Returning does not restart preparation or consume ingredients again.
 - Finished jars appear with a quantity chip on B for the original shell or C for the opposite shell. Click them and choose **Store** to carry them to the farm (or warehouse when appropriate). Interrupted deliveries can be resumed from the farmer/farm popup. Goods enter usable inventory only upon delivery; full storage prevents pickup.
-- Each brewery can hold at most 2 water loads and 2 empty jars. Stocking transfers only enough jars to fill those two slots; extras stay at the farm. Resources shows the estate-wide total of unused empty jars, including jars stocked in breweries. Brewing consumes two from that total. Legacy brewery overstock is returned to free inventory without losing or duplicating jars.
+- Each brewery can hold at most 2 water loads and 2 empty jars before farm level 12. From farm level 12, empty-jar capacity automatically increases to 4, including existing breweries. Stocking transfers only enough jars to fill the available slots; extras stay at the farm. Resources shows the estate-wide total of unused empty jars, including jars stocked in breweries. Brewing consumes two from that total. Legacy brewery overstock is returned to free inventory without losing or duplicating jars.
 - Brewing jars and baking tools are permanent equipment: each estate can buy and own at most two of each, regardless of warehouses. Construction requires them but never consumes them. Neither can be sold to NPCs or listed on the player market. Existing breweries and ovens restore equipment consumed by older construction on the next farm refresh, without duplicating equipment already owned. Brewing jars are distinct from the empty packaging jars consumed for every batch.
 - NPC beer Buy cards start with **Brewing jars** (6 shekels, large brewery-vessel artwork), **Empty jars** (2 shekels, empty isometric jars), then **Beer** (8 shekels, full isometric jars). Brewer's Groats remain available after them. Brewing jars remain visible after brewery construction; purchases fill the current inventory up to two, with the card disabled when both are owned. Packaging jars are consumed by the recipe. Empty jars use the single open-jar artwork; beer uses the sealed jar with a long drinking straw. Brewery output displays one jar when one remains, or two individual jars for larger piles; its chip shows the exact quantity. Inventory keys and prices are unchanged. The same empty jars also package sesame oil.
 - Further brewing batches can start while beer waits outside, provided the whole next batch fits within the six-item cap and ingredients are supplied.
@@ -982,8 +983,7 @@ From **estate level 10**, the isometric market is a shared neighbourhood social 
 Hire the porter under **Manage estate → Build → Farm services**, below the building cards.
 The Farmer tab is reserved for farmer-focused actions and wellbeing.
 
-While hired, the porter also tops up each completed brewery to two empty beer
-jars, collecting available jars from the farm and carrying them along roads to
+While hired, the porter also tops up each completed brewery to two empty jars before farm level 12, or four from level 12, collecting available jars from the farm and carrying them along roads to
 the brewery. He can bring just one jar when that is all that is needed or
 available. Finished-goods storage jobs always take priority; restocking starts
 only when no storage trip can proceed (including when remaining goods cannot fit).
@@ -1101,6 +1101,7 @@ visiting. Level-10 neighbours visiting the market can see one another.
 - Each visit selects three different products unlocked at your farm level, regardless of your buildings, production or stock. Products absent from the previous visit are preferred where possible.
 - Offers and rewards stay fixed throughout the visit, including after reloading or levelling up. Visits already underway when this catalogue was introduced retain their original offers until the next visit.
 - Deliveries consume stored estate goods and grant the reward atomically, once per request. Carried, uncollected and reserved goods do not count. The farmer can continue unrelated work.
+- Completed requests containing beer also accumulate a permanent achievement counter: one per fulfilled request, regardless of beer quantity or other products included. Failed deliveries and retries do not increase it. Tracking starts from this feature's introduction, with no retrospective credit. Treasure rewards using this counter are planned, not yet available.
 - Fulfilled requests disappear. Once all three are delivered, the popup shows “All requests fulfilled.” Refreshing does not create extra requests.
 
 | Product | Available from farm level | Quantity requested | Total reward |
@@ -1238,6 +1239,73 @@ adjacent completed canal, with the farmer idle and empty-handed. Construction
 takes five seconds, shows a trench/progress bar, and continues while away. On
 completion the canal fills with water and eligible neighbouring fields can be planted.
 Canal removal is not yet available in the isometric interface.
+
+## Achievement treasures
+
+These decorative rewards unlock automatically from saved server history.
+Every condition in a row must be fulfilled. Earned items can be placed, moved,
+rotated where supported, and put away through the furniture drawer.
+
+The Furniture drawer's Achievements tab shows locked requirements until earned,
+then Available or Placed. Ownership is permanent and enforced by the server.
+The golden cup can sit on the existing wooden table like the small clay bowls.
+The pottery set includes its own small side table; it is one floor-standing item.
+The reed chest and pottery side table can be mirrored using Rotate.
+
+| Decorative reward | Requirements — all required | Availability |
+| --- | --- | --- |
+| Golden drinking cup | Produce 500 beer jars; fulfil 25 merchant requests containing beer | Achievement reward |
+| Patterned reed chest | Harvest 500 fields (barley and sesame combined); prepare 100 meals; fulfil 50 merchant requests | Achievement reward |
+| Fine household pottery set | Earn 25,000 lifetime points | Achievement reward |
+| Painted large jar (replaces the regular large jar) | Prepare 50 meals | Achievement reward |
+
+- Progress is cumulative across levels. Completed production quantities count,
+  not batches or purchased goods.
+- Each harvested barley or sesame field counts once, regardless of full or
+  reduced yield. Date palm harvests do not count as fields.
+- Meals count on cooking completion. Merchant requests count only on successful
+  fulfilment; a request containing beer counts once, including mixed requests,
+  regardless of the number of beer jars. Retries do not count again.
+- Existing reliable progress can be reused. Missing history will not be invented
+  or credited retrospectively. In particular, beer-containing request tracking
+  starts with the new counter, and older unrecorded oil production is not inferred.
+- Earned treasures are permanent decorations. Claiming them consumes no resources
+  or points, they give no production bonuses, and absence does not remove them.
+- At 50 completed meals, the regular large jar automatically and permanently
+  becomes the painted large jar. The player still owns one jar, not an additional
+  copy. If placed, it keeps its position, orientation, size and placement footprint;
+  if stored, its furniture drawer entry changes to the painted version. The plain
+  version is no longer selectable. Visitors and the small interior preview show
+  the upgraded jar. Existing reliably recorded completed meals count.
+- The Royal Game of Ur and bull-headed lyre are reserved for future **paid
+  decorations**, not free achievement rewards. Their artwork is retained for that
+  purpose; prices and release timing remain undecided. The former lyre requirement
+  of 100,000 points plus production totals is superseded: the pottery set requires
+  only 25,000 lifetime points.
+### Attendance reward: flowering myrtle
+
+- Complete meaningful work or an NPC/player-market purchase, NPC sale, or merchant
+  request on five consecutive UTC calendar days to unlock one decorative myrtle.
+  Completed work that earns points qualifies, except automatic ziggurat-stage rewards.
+- The server records at most one active day per player. Completed work from the current UTC day must be
+  observed within five minutes of an accepted gameplay action. Refreshes, presence
+  heartbeats and unattended polling never extend this activity window. Offline
+  catch-up cannot award a chain of missed days. Passive player-market sales do not count.
+- No earlier attendance is inferred. Tracking starts with this feature.
+- Before unlocking, missing a full day resets the five-day streak. After unlocking,
+  one full missed day is allowed; after two full missed UTC days the plant locks
+  and is removed from the house. Example: last active Monday, Tuesday may be missed;
+  return Wednesday to retain it. At Thursday 00:00 UTC it expires if still inactive.
+- Earn five consecutive active days again to recover it, then place it again.
+  This never removes or resets permanent achievement treasures.
+- The Achievements tab shows Locked with `0/5`–`4/5 active days`, or Available/Placed.
+  The attendance tooltip explains the rule. The server checks eligibility when
+  saving furniture, and visitors see expired plants removed too.
+
+The online Guide exposes the same requirements at
+`/rules#achievement-treasures`. Its extensible catalogue lives in
+`src/game-data/achievementTreasures.ts`; update this table and that catalogue
+together when adding rewards or changing requirements.
 
 ## Maintaining this reference
 
@@ -1424,6 +1492,8 @@ selectable. Use the eye button again to restore the normal appearance and sprite
 selection. This temporary view resets when leaving the farm or reloading.
 
 ### Supplies and equipment stand
+
+The stand artwork follows the player’s level: equipment only before level 7, a donkey from level 7, and a donkey plus a lamb from level 12. These display animals stay visible regardless of ownership or pen capacity.
 
 The market has a dedicated **Supplies and equipment** stand, accessible from
 level 6. It sells empty jars, baking tools, brewing vessels and the mill donkey.
@@ -1640,3 +1710,87 @@ From level 11, the Furniture drawer includes one indoor kitchen. Place, move, ro
 In your own home, click the kitchen to open the recipe drawer. Select a meal: its ingredients are reserved immediately from estate storage, the farmer walks to the table, then cooks for 30 seconds. The meal is consumed automatically and grants its usual benefit and 30 points. The existing circular countdown shows travel and cooking progress. You cannot cook in someone else’s home or rearrange furniture while cooking.
 
 Cooking continues on the server if you leave, reload or close the game; returning shows the saved progress without consuming ingredients again. You can also click **Cook meal** in the farm building popup when your indoor kitchen is placed. Choose a recipe without entering the interior view: the farmer walks through the farmhouse doorway, cooks inside, and exits when the meal is ready. Smoke rises from the doorway during cooking, and the usual meal icon, countdown and circular progress appear below the map. Both entry points use the same ingredients, travel-before-cooking schedule, 30-second cooking time and automatic benefit. The server saves the entire schedule when you select the meal; animations never postpone it.
+
+## Farm production specialties
+
+Each neighbourhood farmhouse shows its most-produced product among bread, beer
+and oil. The tooltip names the product. These lifetime specialty counters start
+at zero when this feature is introduced; older progression totals are not copied.
+Only quantities from completed production count, including offline completions.
+Purchases, gifts, sales and deliveries do not add production. Farmer and donkey
+batches count their actual output quantities. No icon appears before the first
+recorded production. A tie preserves the existing specialty; if the first
+completed products tie, the order is bread, beer, then oil.
+
+### Sheep pen — level 12
+
+Build one sheep pen per estate from Manage estate → Buildings at level 12.
+It costs **60 shekels and 6 clay**, takes **3 minutes**, and occupies **2 × 2 ordinary-ground tiles** beside a completed connected road. The gate automatically faces its saved road connection. The pen uses a building-silhouette shadow and decorative olive-green grass. Costs are deducted once when construction is accepted; construction continues while offline. The first completed pen awards the usual 50 building points.
+
+Buy lambs at the **Supplies and equipment** NPC market stand for **24 shekels each**.
+A completed pen is required. Choose one to three lambs per purchase, limited by your
+available shekels and the pen’s three spaces. All lambs and adult sheep count towards
+capacity, including animals already purchased and travelling home. The server charges
+once and reserves all purchased spaces immediately. The farmer leads the purchased
+lambs home together in one trip and cannot start other work during that delivery.
+Delivery follows a saved schedule and completes even while offline or after reloading.
+A pen containing animals cannot be demolished.
+
+Live-animal selling and adult-sheep purchases are unavailable. Decorative grazing provides no food.
+
+The pen popup shows each animal’s stage, growth and feeding countdown. **Feed flock**
+supplies all animals together at **2 barley per animal** and preserves at least one
+stored barley for planting. It becomes available when the shared feeding period ends.
+The farmer collects the barley, walks to the pen and pauses for 3 seconds. Barley is
+reserved once when accepted; visible storage quantities change at the saved pickup
+times. Feeding completes on the server’s saved schedule even if the browser closes.
+
+Lambs grow for **12 fed hours**, then need another feeding and **12 more fed hours**
+to become adults. Growth pauses when food is due. Adults also need food every 12 hours.
+A new lamb arriving during a feeding cycle waits until the next shared feeding; each
+animal retains its own age and growth. The first fleece is ready at adulthood when no flock regrowth cycle is running.
+An adult joining an existing regrowth cycle waits for its shared deadline.
+**Shear flock** collects every ready fleece present when the action starts. Feed the
+flock first if food is due. Shearing takes **1 minute per sheep** and yields
+**2 bundles of wool per sheep**. The farmer works at the connecting road tile,
+then makes one trip to the warehouse carrying the entire batch. The warehouse
+holds **12 wool bundles** from level 12, and must have room for the full batch.
+The server reserves the fleeces and destination space when accepting the job;
+refreshing or closing the game does not delay completion or duplicate wool.
+Wool enters storage at the saved delivery completion time.
+After the last sheep is sheared, the flock shares a **24-hour wool regrowth**
+cycle. Regrowth pauses while feeding is due; ready fleece stays ready and never
+accumulates multiple yields. Shorn adults use a distinct appearance until wool
+is ready again. Meat processing, wool trading and wool processing remain planned.
+
+Animals are lost **48 hours after feeding becomes due** if the flock is not fed.
+This applies offline too, frees the occupied spaces, and produces a loss notification
+on return. Existing lambs receive a fresh grace period when care first initializes;
+no past absence is penalized. Newly purchased lambs begin their grace period at arrival,
+or at the flock’s next feeding deadline if later.
+
+**Future selling prices (approved, not enabled):** NPCs would buy lambs for 12
+shekels and adults for 20 shekels. Player-to-player animal trading is not enabled.
+
+The adult and lamb walking/grazing artwork is approved. The temporary sheep preview
+control has been removed. Grazing does not replace barley feeding.
+
+### Reaching level 12
+
+- Place the kitchen inside your house.
+- Complete 5 meals during level 11.
+- Harvest 20 barley or sesame fields during level 11, combined.
+- Complete the level-3 upgrade of either the bread oven or the brewery.
+- Offer 5 oil jars and 4 date baskets, consumed once when claiming the level.
+
+Existing level-11 activity counts when completion receipts and the level-entry time
+can be verified. Without that history, tracking begins now. Purchases do not count
+as completed meals or harvests, but can supply the offering. Ziggurat participation
+is optional. The top-bar icon for level 12 shows the adult sheep's head.
+Level 12, pen construction and lamb purchases are playable; feeding and growth are playable; shearing and wool storage are playable; meat processing remains planned.
+
+### Farmer availability in popups
+
+When the farmer is unavailable, affected action buttons are disabled and may show
+“The farmer is busy”. Popups do not repeat carried-resource or unrelated activity
+messages. Relevant storage warnings and production progress remain visible.

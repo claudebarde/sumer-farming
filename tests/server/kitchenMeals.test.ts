@@ -50,6 +50,20 @@ it.each(MEAL_KEYS)("cooks %s once, consumes automatically offline and never stor
   const inventory = await db.select().from(farmInventory).where(eq(farmInventory.farmId, farm.id));
   for (const item of inventory) expect(item.quantity).toBe(4 - ((MEALS[meal].ingredients as Record<string, number>)[item.itemKey] ?? 0));
 });
+it("unlocks the painted jar on the fiftieth offline meal completion only once", async () => {
+  const { farm, command, advance } = await setup();
+  await db.insert(pointAwards).values(Array.from({ length: 49 }, (_, i) => ({
+    playerId: farm.playerId, source: `meal:previous:${i}`, action: "cookMeal", points: 30,
+    ruleVersion: 1, completedAt: new Date(),
+  })));
+  const started = await Effect.runPromise(cookMeal(db, command("barleyCakes")));
+  expect(started.farm.progression?.stats.achievementTreasures ?? []).not.toContain("painted-large-jar");
+  const end = Date.parse(started.farm.production.cooking!.completesAt);
+  const done = await advance(end + 1000);
+  expect(done.progressionStats.achievementTreasures).toContain("painted-large-jar");
+  const again = await advance(end + 2000);
+  expect(again.homeAppearance.furnitureRevision).toBe(done.homeAppearance.furnitureRevision);
+});
 it("rejects missing ingredients and level 10 without consuming anything", async () => {
   const { farm, command } = await setup(10);
   await expect(Effect.runPromise(cookMeal(db, command("barleyCakes")))).rejects.toThrow("level 11");
@@ -165,4 +179,20 @@ it("requires a placed kitchen for the farm shortcut too", async () => {
   const { farm, command } = await setup();
   await db.update(farms).set({ homeAppearance: { ...farm.homeAppearance, furniture: [] } }).where(eq(farms.id, farm.id));
   await expect(Effect.runPromise(cookMeal(db, { ...command("barleyCakes"), fromFarm: true }))).rejects.toThrow("Place a kitchen");
+});
+
+it("starts cooking after a porter delivery settles without rejecting its own version update", async () => {
+  const { farm, command } = await setup();
+  const now = Date.now();
+  await db.update(farms).set({ production: { ...farm.production, porter: {
+    hiredAt: now - 20000, expiresAt: now - 1000, checkedAt: now - 10000,
+    position: { column: 0, row: 5 },
+    job: { buildingId: farm.id, itemKey: "flour", quantity: 1, storageId: "farm",
+      startedAt: now - 10000, pickupAt: now - 9000, completesAt: now - 5000,
+      path: [{ column: 0, row: 5 }], pickupIndex: 0 }
+  } } }).where(eq(farms.id, farm.id));
+  const started = await Effect.runPromise(cookMeal(db, command("barleyCakes", farm.version)));
+  expect(started.farm.production.cooking?.meal).toBe("barleyCakes");
+  expect(started.inventory.find(i => i.itemKey === "flour")?.quantity).toBe(5 - (MEALS.barleyCakes.ingredients.flour ?? 0));
+  await expect(Effect.runPromise(cookMeal(db, command("barleyCakes", farm.version)))).rejects.toThrow("The farm changed");
 });

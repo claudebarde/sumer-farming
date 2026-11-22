@@ -63,6 +63,9 @@ export const claimFarmLevel = (database: Database, input: {
         }
       }
       const [updated] = await tx.update(farms).set({ level: farm.level + 1,
+        ...(farm.level === 10 ? { progressionStats: {
+          ...snapshot.farm.progression!.stats, level11StartedAt: new Date(now).toISOString(), level11Work: { meals: 0, harvests: 0 }
+        } } : {}),
         ...(farm.level === 8 ? { progressionStats: {
           ...snapshot.farm.progression!.stats,
           level9Baseline: {

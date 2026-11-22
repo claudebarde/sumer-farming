@@ -1,3 +1,5 @@
+import sheepPenImage from "../../assets/sprite_assets/pngs/v2/isometric-test/sheep/sheep-pen-empty-test.png";
+import sheepPenGrass from "../../assets/sprite_assets/pngs/v2/isometric-test/sheep/sheep-pen-grass.png";
 import type { FarmSnapshot } from "../../schemas/farm";
 import { Accordion } from "radix-ui";
 import { ChevronDownIcon } from "@radix-ui/react-icons";
@@ -19,6 +21,7 @@ import { buildingAvailabilityBlocker, buildingBuildBlocker, type PlaceableBuildi
 export default function IsometricBuildingCatalogue({ snapshot, now, onBuild }: { readonly snapshot: FarmSnapshot; readonly now: number; readonly onBuild?: (type: PlaceableBuilding) => void }) {
   const level = snapshot.farm.progression?.level ?? 1;
   const catalogue = [
+    { type: "sheepPen", name: "Sheep pen", image: sheepPenImage, unlockLevel: 12, button: "Build sheep pen", description: "Space for up to three sheep. One pen per estate." },
     { type: "oilMill", name: "Oil mill", image: oilMillImage, unlockLevel: 10, button: "Build oil mill", description: "Press sesame into oil with the farmer or donkey." },
     { type: "granary", name: "Granary", image: granaryImage, unlockLevel: 2, button: "Build granary",
       description: `Store and protect up to ${granaryCapacityForLevel(level)} additional barley.` },
@@ -59,7 +62,11 @@ export default function IsometricBuildingCatalogue({ snapshot, now, onBuild }: {
         const built = count > 0 && count >= limit;
         const blocker = buildingBuildBlocker(snapshot, now, type);
         const status = buildingAvailabilityBlocker(snapshot, now, type);
-        return <EstateBuildingCard key={type} name={name} image={image}>
+        return <EstateBuildingCard key={type} name={name} image={image} artwork={type === "sheepPen" ?
+          <span className={styles.sheepPenArtwork} aria-hidden="true">
+            <img className={styles.sheepPenGrass} src={sheepPenGrass} alt="" draggable={false} />
+            <img src={image} alt="" draggable={false} />
+          </span> : undefined}>
           <p>{description}</p>
           {section.id !== "built" && <>
           {section.id === "available" && <BuildingRequirements snapshot={snapshot} building={type} />}

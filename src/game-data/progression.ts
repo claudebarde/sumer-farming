@@ -7,6 +7,13 @@ export const INITIAL_PROGRESSION_STATS = {
   processedBarley: 0
 };
 export type ProgressionStats = typeof INITIAL_PROGRESSION_STATS & {
+  readonly attendance?: import("./attendance").Attendance;
+  readonly achievementTreasures?: readonly import("./achievementTreasures").AchievementKey[];
+  /** Successful requests containing beer, counted from tracker introduction; absent means zero. */
+  readonly beerRequestsFulfilled?: number;
+  readonly productionSpecialty?: import("./productionSpecialty").ProductionSpecialty;
+  readonly level11StartedAt?: string;
+  readonly level11Work?: { readonly meals: number; readonly harvests: number };
   readonly level10Work?: { readonly sesameHarvests: number; readonly oilProduced: number };
   readonly datesStored?: number;
   readonly level9Baseline?: { readonly produced: number; readonly datesStored: number };
@@ -21,7 +28,7 @@ export type ProgressionStats = typeof INITIAL_PROGRESSION_STATS & {
     readonly sold: number;
   };
 };
-export const MAX_PLAYABLE_LEVEL = 11;
+export const MAX_PLAYABLE_LEVEL = 12;
 export const LEVEL_10_REQUIRED_PALMS = 2;
 export const LEVEL_10_REQUIRED_DATES = 4;
 export const LEVEL_10_REQUIRED_PRODUCTION = 40;
@@ -50,7 +57,8 @@ export const LEVEL_NAMES = [
   "Growing estate",
   "Established producer",
   "Community member",
-  "Farm kitchen"
+  "Farm kitchen",
+  "Shepherd"
 ] as const;
 export const LEVEL_UNLOCK_ITEMS = [
   [],
@@ -75,7 +83,8 @@ export const LEVEL_UNLOCK_ITEMS = [
   ["Warehouse", "Small shrine", "Mill upgrade to building level 2"],
   ["Date palms", "Produce and provisions market", "Dates treats", "Bread oven and brewery upgrades to building level 2"],
   ["Mill upgrade to building level 3", "Barley withering after 24 hours ripe", "Meet neighbours at the market"],
-  ["Kitchen", "Cook meals with temporary benefits", "Bread oven and brewery upgrades to building level 3"]
+  ["Kitchen", "Cook meals with temporary benefits", "Bread oven and brewery upgrades to building level 3"],
+  ["Sheep pen and sheep care"]
 ] as const;
 // Notifications use the same unlock definitions in a compact sentence.
 export const LEVEL_UNLOCKS = LEVEL_UNLOCK_ITEMS.map(items => items.join(", "));

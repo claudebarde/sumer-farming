@@ -78,6 +78,14 @@ export const evaluateProgression = (snapshot: FarmSnapshot, now: number) => {
       requirement("Stored oil jars (offering)", snapshot.inventory.find(i => i.itemKey === "oil")?.quantity ?? 0, 5),
       requirement("Stored date baskets (offering)", snapshot.inventory.find(i => i.itemKey === "dates")?.quantity ?? 0, 4)
     ])
+    .with(11, () => [
+      requirement("Kitchen placed inside the house", snapshot.farm.homeAppearance.furniture?.some(item => item.key === "indoor-kitchen") ? 1 : 0, 1),
+      requirement("Meals prepared during level 11", stats.level11Work?.meals ?? 0, 5),
+      requirement("Barley or sesame fields harvested during level 11", stats.level11Work?.harvests ?? 0, 20),
+      requirement("Bread oven or brewery upgraded to level 3", completed.some(b => (b.type === "breadOven" || b.type === "brewery") && buildingLevel(snapshot.farm.production.buildingUpgrades, b.id, now) >= 3) ? 1 : 0, 1),
+      requirement("Stored oil jars (offering)", snapshot.inventory.find(i => i.itemKey === "oil")?.quantity ?? 0, 5),
+      requirement("Stored date baskets (offering)", snapshot.inventory.find(i => i.itemKey === "dates")?.quantity ?? 0, 4)
+    ])
     .otherwise(() => []);
   const offerings: readonly LevelOffering[] = match(level)
     .with(1, () => [{ source: "ground_barley" as const, quantity: 5 }])
@@ -89,7 +97,7 @@ export const evaluateProgression = (snapshot: FarmSnapshot, now: number) => {
     .with(7, () => [{ source: "granary_barley" as const, quantity: LEVEL_8_REQUIRED_GRANARY_BARLEY }])
     .with(8, () => [{ source: breadStock >= LEVEL_9_FOOD_OFFERING ? "bread" as const : "beer" as const, quantity: LEVEL_9_FOOD_OFFERING }])
     .with(9, () => [{ source: "dates" as const, quantity: LEVEL_10_DATE_OFFERING }, { source: "prepared_food" as const, quantity: LEVEL_10_FOOD_OFFERING }])
-    .with(10, () => [{ source: "oil" as const, quantity: 5 }, { source: "dates" as const, quantity: 4 }])
+    .with(10, 11, () => [{ source: "oil" as const, quantity: 5 }, { source: "dates" as const, quantity: 4 }])
     .otherwise(() => []);
   const barleyCost = offerings.reduce((sum, offering) => sum + (offering.source === "ground_barley" || offering.source === "granary_barley" ? offering.quantity : 0), 0);
   const seedSafe = level === 3 ? groundBarley > 0 || plantedBarley

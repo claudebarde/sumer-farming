@@ -1,7 +1,12 @@
+import { createLambFollowers } from "../livestockRendering";
+import { livestockPathPose, type LambDelivery } from "../../../../game-data/livestock";
 import { drawMapBase } from "../mapBase";
+import { marketUnlockLevel } from "../../../../game-data/progression";
+import suppliesEarlyUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/supplies-equipment-market-stand-no-donkey.png";
+import suppliesLambUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/supplies-equipment-market-stand-level12.png";
 import suppliesStandUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/supplies-equipment-market-stand-isometric.png";
 import { savedMapZoom, saveMapZoom } from "../zoomPreference";
-import produceStandUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/fruit-vegetable-market-stand-isometric.png";
+import produceStandUrl from "../../../../assets/sprite_assets/pngs/v2/isometric-test/produce-provisions-market-stand-isometric.png";
 import { createMarketPresenceSession } from "../../marketPresenceSession";
 import { createMarketVisitors } from "../marketVisitors";
 import { MARKET_PRESENCE_UNLOCK_LEVEL } from "../../../../schemas/marketPresence";
@@ -68,6 +73,8 @@ export class IsometricMarketScene extends Phaser.Scene {
   private approaching: typeof stands[number] | null = null;
   private actor!: Phaser.GameObjects.Image;
   private playerLabel!: Phaser.GameObjects.Text;
+  private lambDelivery: LambDelivery | null = null;
+  private lambFollowers?: ReturnType<typeof createLambFollowers>;
   private donkey?: Phaser.GameObjects.Image;
   private donkeyFollow: DonkeyFollow | null = null;
   private donkeyArrival: DonkeyArrival | null = null;
@@ -90,6 +97,8 @@ export class IsometricMarketScene extends Phaser.Scene {
     this.report = report; this.returned = returned; this.farmLevel = farmLevel;
   }
   preload() {
+    this.load.image("source-supplies-early", suppliesEarlyUrl);
+    this.load.image("source-supplies-lamb", suppliesLambUrl);
     stands.forEach(stand => this.load.image(`source-market-${stand.scope}`, stand.url));
     for (const [key, url] of Object.entries(merchantSources)) this.load.image(`source-${key}`, url);
   }
@@ -105,6 +114,17 @@ export class IsometricMarketScene extends Phaser.Scene {
     for (const stand of stands) if (!this.textures.exists(`market-${stand.scope}`)) {
       this.textures.addCanvas(`market-${stand.scope}`, prepareBuildingTexture(this.textures.get(`source-market-${stand.scope}`).getSourceImage() as HTMLImageElement))
         ?.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    }
+    // Register the variants on a common canvas so the canopy and feet stay anchored.
+    for (const variant of ["early", "donkey", "lamb"] as const) {
+      const key = `market-supplies-${variant}`;
+      if (this.textures.exists(key)) continue;
+      const source = this.textures.get(variant === "donkey" ? "source-market-supplies" : `source-supplies-${variant}`).getSourceImage() as HTMLImageElement;
+      const canvas = document.createElement("canvas"); canvas.width = 2560; canvas.height = 2048;
+      const ctx = canvas.getContext("2d")!;
+      if (variant === "lamb") ctx.drawImage(source, 230, 251, 2381, 1587);
+      else ctx.drawImage(source, 256, 0, 2048, 2048);
+      this.textures.addCanvas(key, prepareBuildingTexture(canvas, { maxSize: 320 }))?.setFilter(Phaser.Textures.FilterMode.LINEAR);
     }
     drawMapBase(this, { minimumColumn: config.worldBounds.minimumColumn, maximumColumn: marketLastColumn, minimumRow: 0, maximumRow: marketLastRow });
     for (let row = 0; row <= marketLastRow; row++) for (let column = config.worldBounds.minimumColumn; column <= marketLastColumn; column++) {
@@ -182,6 +202,7 @@ export class IsometricMarketScene extends Phaser.Scene {
     this.scale.on("resize", this.restoreZoomAfterResize, this);
     this.events.on("wake", () => {
       this.returnFarm.setTexture(farmAppearance(this.farmLevel()).texture).setDisplaySize(232, 232);
+      this.updateSuppliesArtwork();
       this.greeting = initialGreetingState(); this.speech?.setVisible(false);
       this.position = { column: 0, row: config.roadRow }; this.path = []; this.returning = false;
       this.donkeyFollow = null; this.donkeyArrival = null; this.donkey?.setVisible(false);
@@ -217,8 +238,17 @@ export class IsometricMarketScene extends Phaser.Scene {
     this.merchants.push({ sprite, cell: stand.merchant, facing: initialMerchantFacing() });
     const building = this.add.image(front.x, front.y, `market-${stand.scope}`).setOrigin(0.5, 0.9).setDisplaySize(size, size)
       .setDepth(depth).setName(`${stand.scope}-stand-preview`).setData("marketScope", stand.scope).setInteractive({ pixelPerfect: true, useHandCursor: true });
+    if (stand.scope === "supplies") building.setTexture(this.suppliesTexture()).setDisplaySize(290, 232);
     this.daylightShadows.addBuilding(building);
     this.standBuildings.push(building);
+
+  }
+  private suppliesTexture() {
+    return this.farmLevel() >= 12 ? "market-supplies-lamb" : this.farmLevel() >= marketUnlockLevel("donkey") ? "market-supplies-donkey" : "market-supplies-early";
+  }
+  private updateSuppliesArtwork() {
+    const stand = this.standBuildings.find(building => building.getData("marketScope") === "supplies");
+    if (stand && stand.texture.key !== this.suppliesTexture()) stand.setTexture(this.suppliesTexture()).setDisplaySize(290, 232);
   }
   clearSelection() { this.approaching = null; this.selected = null; this.reportedAnchor = ""; this.report(null); }
   private merchantEntrance(stand: typeof stands[number]): IsoCell {
@@ -236,6 +266,12 @@ export class IsometricMarketScene extends Phaser.Scene {
     this.path = next ? [next, ...marketRoadPath(next, target)] : marketRoadPath(this.position, target);
   }
   goBackToFarm() { this.clearSelection(); this.returning = true; this.walkTo(marketReturnEntrance); }
+  showPurchasedLambs(delivery: LambDelivery) {
+    if (!this.ready || this.lambDelivery?.id === delivery.id) return;
+    this.clearSelection(); this.path = []; this.approaching = null; this.returning = true;
+    this.lambDelivery = delivery;
+    this.lambFollowers ??= createLambFollowers(this);
+  }
   showPurchasedDonkey() {
     if (!this.ready) return false;
     const follow = startDonkeyFollow(this.position);
@@ -300,6 +336,18 @@ export class IsometricMarketScene extends Phaser.Scene {
   update(_time: number, delta: number) {
     if (!this.ready) return;
     if (document.hidden) return;
+    if (this.lambDelivery) {
+      const delivery = this.lambDelivery, now = Date.now();
+      const pose = livestockPathPose(delivery.marketPath, now - delivery.startedAt, delivery.stepMs);
+      this.position = pose.position; this.distance = pose.progress * 32; this.actor.setFlipX(pose.flipX);
+      this.renderFarmer(pose.walking); this.lambFollowers?.render(delivery, "market", now, this.reducedMotion);
+      this.syncPresence(); this.visitors?.update(delta, this.reducedMotion); this.daylightShadows.render(this.shadowPreset);
+      if (now >= delivery.farmStartsAt) {
+        this.lambFollowers?.render(null, "market", now, this.reducedMotion); this.lambDelivery = null;
+        this.returning = false; this.returned(null); this.scene.switch("isometric-farm");
+      }
+      return;
+    }
     this.syncPresence();
     this.visitors?.update(delta, this.reducedMotion);
     this.clouds?.update(delta);

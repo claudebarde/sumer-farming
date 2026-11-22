@@ -29,5 +29,8 @@ export const productionIngredientsAwaitingPickup = (farm: State, storageId: stri
       if (stop.storageId === storageId && now < stop.pickupAt) result[item] = (result[item] ?? 0) + stop.quantity;
     }
   }
+  for (const stop of farm.production?.livestock?.feeding?.pickups ?? []) {
+    if (stop.storageId === storageId && now < stop.pickupAt) result.barley = (result.barley ?? 0) + stop.quantity;
+  }
   return result;
 };

@@ -27,6 +27,14 @@ feature discussions reveal new needs.
 - **Acceptance:** Which normal and boundary scenarios should be tested? Which
   results require the player's visual approval?
 
+## Landing page artwork
+
+- Which gesture or landmark should visitors notice first? Which game sprites anchor the scene, and how much of a customizable character may appear?
+- What viewpoint, light and distance convey the intended mood while keeping the setting recognizable?
+- Where should the composition leave space for page text? Which elements must survive a mobile crop, and when does portrait need its own composition?
+- Which still needs visual approval before adapting it to another format or discussing motion?
+- Which overlapping elements need to move independently? Where are they anchored, which parts can pass in front of one another, and which motions should be reviewed alone before combining them?
+
 ## Player points and repeatable rewards
 
 - **Meaning:** Lifetime score, spendable currency, experience, or a periodic competition? Does it affect existing progression?
@@ -276,6 +284,20 @@ Use alongside the animation and common questions for hired-worker logistics.
   concise objective UI and whether optional social progress is excluded.
 
 ## Adding a feature type
+
+## Livestock and animal products
+
+- **Acquisition and housing:** Purchase or breeding, arrival presentation, pen footprint, ground type, road access and animal capacity. Is capacity reserved when purchasing?
+- **Bulk purchases:** Can several animals be bought together? Count adults and animals in transit against capacity; decide whether delivery is one group journey or separate trips, and how interrupted journeys resume.
+- **Mixed cohorts and migration:** Do animals share feeding deadlines while retaining individual ages? When do mid-cycle arrivals start growing, and when does neglect begin for pre-existing animals?
+- **Lifecycle:** Separate initial maturation, repeat product growth and terminal meat production; define eligibility, yields and whether collecting one product affects another.
+- **Care and absence:** Feed source and cost, care frequency, offline progress, and consequences of missed care. Can animals die or progress merely pause? Protect essential planting reserves.
+- **Worker and delivery:** Which care, collection and processing steps occupy the farmer? How are live animals moved versus products carried, and what requires new artwork?
+- **Product collection queues:** Select individual ready animals or collect all? Reserve destination capacity for whole yields, define partial queues and combined versus per-animal deliveries, and handle care/death deadlines during accepted work.
+- **Fleece renewal and artwork:** Does regrowth start at shearing or delivery, pause when hungry, or accumulate multiple yields? Does a shorn animal need distinct idle, walking and grazing sprites until its next fleece is ready?
+- **Irreversible choices:** Require an explicit decision before consuming an animal; define replacement cost, unfinished wool handling and prevention of simultaneous shearing/meat jobs.
+- **Economy and storage:** Product units, capacity, processing recipes, buyers and immediate uses; distinguish repeat wool income from the replacement cost of meat production.
+- **Expansion:** Is breeding, milk, sex differentiation or automated care in scope? Keep future livestock additions separate from the first playable loop.
 
 When a real discussion introduces an uncovered type, add a named section with
 the information categories needed for that type and its demonstrated edge cases.

@@ -27,9 +27,9 @@ it("permits an empty house and rejects invalid saves", () => {
   expect(SaveFurnitureSchema.safeParse({ revision: 0, items: [{ ...stool, x: Infinity }] }).success).toBe(false);
   expect(SaveFurnitureSchema.safeParse({ revision: 0, items: [{ ...stool, key: "paid-throne" }] }).success).toBe(false);
 });
-it("offers the approved starter set plus the indoor kitchen, with two distinct baskets", async () => {
+it("offers starter furniture, the indoor kitchen and achievement artwork, with two distinct baskets", async () => {
   const { HOME_FURNITURE } = await import("../../src/game-data/homeFurniture");
-  expect(HOME_FURNITURE).toHaveLength(9);
+  expect(HOME_FURNITURE).toHaveLength(14);
   expect(HOME_FURNITURE.filter(item => item.key.startsWith("woven-basket"))).toHaveLength(2);
   expect(SaveFurnitureSchema.safeParse({ revision: 0, items: [{ key: "reed-bed", x: 500, y: 350 }] }).success).toBe(false);
   expect(SaveFurnitureSchema.safeParse({ revision: 0, items: [{ key: "painted-jar", x: 850, y: 700 }] }).success).toBe(false);

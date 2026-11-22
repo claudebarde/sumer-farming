@@ -17,7 +17,7 @@ export const advancePorterLifecycle = async (tx: DatabaseTransaction, farm: type
   const inventory = Object.fromEntries(stock.map(s => [s.itemKey, s.quantity]));
   const reserved: Record<string, number> = { ...farm.millGoods.delivery?.bags };
   if (farm.production.delivery) reserved[farm.production.delivery.itemKey] = farm.production.delivery.quantity;
-  const result = advancePorter({ porter, stacks, inventory, reserved,
+  const result = advancePorter({ farmLevel: farm.level, porter, stacks, inventory, reserved,
     locations: Object.fromEntries(stock.map(s => [s.itemKey, storedLocations(s, buildings, now.getTime())])),
     buildings: buildings.map(b => ({ ...b, completesAt: b.completesAt.getTime() })), roads: farm.roads, now: now.getTime() });
   for (const [itemKey, quantity] of Object.entries(result.inventory)) {

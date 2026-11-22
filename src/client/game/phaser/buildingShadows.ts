@@ -44,16 +44,28 @@ export const createBuildingShadows = (scene: Phaser.Scene, bounds: ShadowBounds)
   const image = scene.add.image(left, top, key).setOrigin(0).setDepth(-811);
   image.once("destroy", () => scene.textures.remove(key));
   const buildings: Phaser.GameObjects.Image[] = [];
-  let previous = "";
+  let previousHour = NaN;
+  type State = readonly unknown[];
+  const previous: State[] = [];
   return {
     destroy() { image.destroy(); },
-    add(building: Phaser.GameObjects.Image) { buildings.push(building); previous = ""; },
+    add(building: Phaser.GameObjects.Image) { buildings.push(building); previousHour = NaN; },
     render(hour: number) {
       // Minute precision is visually continuous at this scale and avoids GPU uploads every frame.
       const sampledHour = Math.floor(hour * 60) / 60;
-      const signature = JSON.stringify([sampledHour, buildings.map(b => [b.texture.key, b.frame.name, b.x, b.y, b.displayWidth, b.displayHeight, b.originX, b.originY, b.visible, b.alpha])]);
-      if (signature === previous) return;
-      previous = signature;
+      let changed = sampledHour !== previousHour;
+      for (let i = 0; i < buildings.length; i++) {
+        const b = buildings[i]!;
+        const old = previous[i];
+        // Compare scalar values without serializing every building on every frame.
+        if (old && old[0] === b.frame && old[1] === b.x && old[2] === b.y &&
+          old[3] === b.displayWidth && old[4] === b.displayHeight &&
+          old[5] === b.originX && old[6] === b.originY && old[7] === b.visible && old[8] === b.alpha) continue;
+        previous[i] = [b.frame, b.x, b.y, b.displayWidth, b.displayHeight, b.originX, b.originY, b.visible, b.alpha];
+        changed = true;
+      }
+      if (!changed) return;
+      previousHour = sampledHour;
       const context = texture.getContext();
       context.clearRect(0, 0, width, height);
       context.save(); context.translate(-left, -top);

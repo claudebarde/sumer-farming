@@ -8,7 +8,7 @@ import { changeStorageLocations, physicalDeliveryStop, physicalStorageItem, stor
 import type { FarmRoad } from "../../game-data/roads";
 import { roadIsComplete } from "../../game-data/roads";
 import { roadsideOutputPlacement } from "./roadsideOutputPlacement";
-import { BREWERY_EMPTY_JAR_CAPACITY } from "../../game-data/brewing";
+import { breweryEmptyJarCapacity } from "../../game-data/brewing";
 
 type Position = { column: number; row: number };
 export type PorterBuilding = Position & { id: string; type: FarmBuildingType; completesAt: number; loadingTile: Position | null; emptyBeerJars?: number };
@@ -50,6 +50,7 @@ export const porterRoadPath = (buildings: readonly PorterBuilding[], roads: read
   porterPath(buildings, roads, from, to, now, [], true);
 
 export const advancePorter = (input: {
+  farmLevel?: number;
   porter: Porter; stacks: readonly PorterStack[]; inventory: Readonly<Record<string, number>>;
   reserved: Readonly<Record<string, number>>; buildings: readonly PorterBuilding[]; roads: readonly FarmRoad[]; now: number;
   locations?: Readonly<Record<string, StorageLocations>>;
@@ -78,7 +79,7 @@ export const advancePorter = (input: {
       if (porter.job.completesAt > input.now) break;
       const job = porter.job;
       if (job.itemKey === "emptyBeerJar") {
-        const room = job.buildingId in breweryJars ? Math.max(0, (input.buildings.find(b => b.id === job.buildingId)?.type === "oilMill" ? 3 : BREWERY_EMPTY_JAR_CAPACITY) - breweryJars[job.buildingId]!) : 0;
+        const room = job.buildingId in breweryJars ? Math.max(0, (input.buildings.find(b => b.id === job.buildingId)?.type === "oilMill" ? 3 : breweryEmptyJarCapacity(input.farmLevel ?? 1)) - breweryJars[job.buildingId]!) : 0;
         const delivered = Math.min(room, job.quantity);
         if (delivered > 0) breweryJars[job.buildingId] += delivered;
         // A manual delivery can fill the brewery while this trip is underway.
@@ -121,7 +122,7 @@ export const advancePorter = (input: {
       if (startedAt >= porter.expiresAt || startedAt > input.now) break;
       const supply = input.buildings.flatMap(building => {
         if ((building.type !== "brewery" && building.type !== "oilMill") || building.completesAt > startedAt || !building.loadingTile) return [];
-        const quantity = Math.min(Math.max(0, (building.type === "oilMill" ? 3 : BREWERY_EMPTY_JAR_CAPACITY) - breweryJars[building.id]!), inventory.emptyBeerJar ?? 0);
+        const quantity = Math.min(Math.max(0, (building.type === "oilMill" ? 3 : breweryEmptyJarCapacity(input.farmLevel ?? 1)) - breweryJars[building.id]!), inventory.emptyBeerJar ?? 0);
         if (quantity <= 0) return [];
         const outbound = porterRoadPath(input.buildings, input.roads, porter.position, INITIAL_FARM_CONFIG.farmerSpawn, startedAt);
         const inbound = porterRoadPath(input.buildings, input.roads, INITIAL_FARM_CONFIG.farmerSpawn, building.loadingTile, startedAt);

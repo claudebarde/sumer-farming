@@ -1,3 +1,4 @@
+import { advanceFarmLifecycle } from "./farmLifecycle";
 import { eq } from "drizzle-orm";
 import type { Database } from "../db/client";
 import { farms, neighbourhoodMembers, neighbourhoods, zigguratRewards } from "../db/schema";
@@ -18,7 +19,11 @@ export const readPlayerHome = async (db: Database, viewerId: string, ownerId: st
     .leftJoin(neighbourhoods, eq(neighbourhoods.id, neighbourhoodMembers.neighbourhoodId))
     .where(eq(farms.playerId, ownerId));
   if (!viewer || !owner?.profile) return { ok: false as const, message: "Farmer not found." };
-  const appearance = HomeAppearanceSchema.parse(owner.appearance);
+  const resolvedAppearance = includeInterior ? await db.transaction(async tx => {
+    const [farm] = await tx.select().from(farms).where(eq(farms.playerId, ownerId)).for("update");
+    return farm ? (await advanceFarmLifecycle(tx, farm, new Date())).homeAppearance : owner.appearance;
+  }) : owner.appearance;
+  const appearance = HomeAppearanceSchema.parse(resolvedAppearance);
   const unavailableReason = homeVisitUnavailable(viewer.level, owner.level, appearance.visibility, viewerId === ownerId);
   if (includeInterior && unavailableReason) return { ok: false as const, message: unavailableReason };
   const [reward] = await db.select({id: zigguratRewards.id}).from(zigguratRewards).where(eq(zigguratRewards.playerId, ownerId)).limit(1);

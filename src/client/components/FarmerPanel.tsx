@@ -209,7 +209,9 @@ export default function FarmerPanel({
             >
               {pending === item
                 ? "Giving treat…"
-                : busy
+                : quantity === 0
+                  ? "Not available"
+                  : busy
                   ? "Farmer is busy"
                   : remainingMinutes > 0 && !locked
                   ? `Wait ${minuteCountdownLabel(remainingMinutes)}`
@@ -221,11 +223,10 @@ export default function FarmerPanel({
             const name = item === "dates" ? "Dates" : item === "fish" ? "Fish" : item === "bread" ? "Bread" : "Beer";
             return <section key={item} className={treatStyles.card} data-locked={locked ? "true" : undefined} aria-label={`${name} treat`}>
               <div className={treatStyles.resource}>
-                <div className={treatStyles.artwork}>
+                <div className={treatStyles.artwork} data-unavailable={quantity === 0 ? "true" : undefined}>
                   <img src={item === "dates" ? datesIcon : item === "fish" ? FARM_SPRITES.fish : item === "bread" ? breadIcon : beerIcon} alt="" width={56} height={56} />
                 </div>
                 <strong>{name}</strong>
-                {quantity === 0 && <small className={treatStyles.unavailable}>No {item} available</small>}
               </div>
               <div className={treatStyles.benefit}>
                 <strong aria-label={`+${boost} happiness`}><span aria-hidden="true">♥ +{boost}</span></strong>
@@ -233,7 +234,7 @@ export default function FarmerPanel({
                 <small>Every {interval / 3600000}h</small>
               </div>
               <div className={treatStyles.action}>
-                {remainingMinutes > 0 && !locked && !busy && <small>Ready in</small>}
+                {remainingMinutes > 0 && quantity > 0 && !locked && !busy && <small>Ready in</small>}
                 {reason && (locked || remainingMinutes === 0) && (locked || !rule?.startsWith("no_")) && <small>{reason}</small>}
                 {button}
               </div>

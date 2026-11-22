@@ -1,3 +1,4 @@
+import { Cross2Icon } from "@radix-ui/react-icons";
 import RulesLink from "./RulesLink";
 import { useRef } from "react";
 import BuildingVisibilityButton from "./BuildingVisibilityButton";
@@ -31,7 +32,7 @@ export default function IsometricTravelPopup({ anchor, available, onClose, onTra
         <div className={styles.popupHeaderControls}>
           <RulesLink section={returning ? "farm" : "market"} />
           {onToggleTransparency && <BuildingVisibilityButton transparent={transparent} onToggle={onToggleTransparency} />}
-          <Popover.Close className={styles.popupIconButton} aria-label="Close tile popup"><span aria-hidden="true">×</span></Popover.Close>
+          <Popover.Close className={styles.popupIconButton} aria-label="Close tile popup"><Cross2Icon aria-hidden="true" /></Popover.Close>
         </div>
         <div className={styles.popupScrollableContent}>
         {stand && <p>{scope ? `Unlocks at level ${marketStandUnlockLevel(scope)}.` : "Trading coming soon."}</p>}

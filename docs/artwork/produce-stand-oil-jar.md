@@ -1,0 +1,7 @@
+# Produce and provisions stand: integrated oil jar
+
+Generated with the built-in image-generation tool. Source references: `fruit-vegetable-market-stand-isometric.png` (edit target) and `brewery/jar-oil-single.png` (insert reference). Output: `src/assets/sprite_assets/pngs/v2/isometric-test/produce-provisions-market-stand-isometric.png`.
+
+## Final prompt
+
+Use case: precise-object-edit. Edit target: first image, the existing isometric produce market stand sprite. Supporting insert reference: second image, the approved orange terracotta oil jar with cream decorative bands and oversized cork. Add exactly ONE scaled-down matching oil jar resting at ground level on the RIGHT front side of the stand, directly below the chickpea bowl, between the front and right wooden legs. It must look integrated into the stand artwork, immediately underneath the chickpeas, clearly visible with cork cap; jar height about the height from ground to counter, not huge. Preserve the entire existing stand exactly: canvas composition, footprint, scale, isometric angle, roof, posts, all fruit and vegetable baskets and colors. Do not move or replace the chickpeas. Change only the addition of the oil jar. Match existing crisp warm cartoon rendering, lighting and outlines. Full sprite isolated on transparent background, no ground tile, no people, no text, no border, no cropping. Keep original square composition and margins.

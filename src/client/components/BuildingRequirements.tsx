@@ -1,5 +1,6 @@
+import shekels from "../../assets/sprite_assets/pngs/shekels.webp";
 import type { FarmSnapshot } from "../../schemas/farm";
-import { FARM_BUILDING_DEFINITIONS, type FarmBuildingType } from "../../game-data/buildings";
+import { FARM_BUILDING_DEFINITIONS, buildingShekelCost, type FarmBuildingType } from "../../game-data/buildings";
 import reed from "../../assets/sprite_assets/pngs/reed-bundle.webp";
 import clay from "../../assets/sprite_assets/pngs/brick-pile.webp";
 import jars from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewery-left-bottom-jar.png";
@@ -24,11 +25,11 @@ export default function BuildingRequirements({ snapshot, building }: {
       <span>Size: {definition.footprint.columns}×{definition.footprint.rows}</span>
       <span>Building time: {definition.constructionDurationMs / 60000} minutes</span>
     </div>
-    <MaterialRequirements label="Construction materials" items={(Object.entries(definition.materials) as [keyof typeof materials, number][]).map(([key, required]) => {
+    <MaterialRequirements label="Construction materials" items={[...(buildingShekelCost(building) ? [{ name: "Shekels", image: shekels, quantity: snapshot.player.shekelBalance, required: buildingShekelCost(building) }] : []), ...(Object.entries(definition.materials) as [keyof typeof materials, number][]).map(([key, required]) => {
         const material = materials[key];
         const quantity = snapshot.inventory.filter(item => item.itemKey === key).reduce((sum, item) => sum + item.quantity, 0)
           + (key === "reed" || key === "clay" ? snapshot.groundItems.filter(item => item.itemKey === key).reduce((sum, item) => sum + item.quantity, 0) : 0);
         return { ...material, quantity, required };
-      })} />
+      })]} />
   </div>;
 }

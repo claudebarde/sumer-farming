@@ -92,3 +92,12 @@ it("keeps construction classification without an activity column", () => {
   expect(html).not.toContain(">Building<");
   expect(farmerActivity(s, 2000)).toMatchObject({ label: "Idle", item: "stool" });
 });
+
+it.each(["sheepPen", "warehouse", "mill", "breadOven", "brewery"] as const)("does not add carried-item status to the %s popup", type => {
+  const farm = snapshot();
+  farm.farm.carriedItem = { itemKey: "barley", quantity: 2, expiresAt: null };
+  farm.buildings.push({ id, type, column: 5, row: 3, storedBarley: 0, brewingBarley: 0,
+    brewingWater: 0, emptyBeerJars: 0, beerReadyAt: null, beerServed: 0,
+    startedAt: new Date(0).toISOString(), completesAt: new Date(1).toISOString(), loadingTile: { column: 5, row: 5 } });
+  expect(isometricTilePopup(farm, { column: 5, row: 3 }, 1000).details.join(" ")).not.toMatch(/carrying/i);
+});

@@ -1,3 +1,4 @@
+import woolIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/sheep/wool-bundle.png";
 import oilIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/jar-oil-single.png";
 import sesameIcon from "../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png";
 import { sharedStorageAllocation } from "../../game-core/farm/storageDisplay";
@@ -15,6 +16,7 @@ import beerImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery
 import groatsImage from "../../assets/sprite_assets/pngs/v2/isometric-test/brewery/brewers-groats-icon.webp";
 
 const storageImages: Record<string, string> = {
+  Wool: woolIcon,
   Oil: oilIcon,
   Bread: breadImage,
   Beer: beerImage,
@@ -41,6 +43,7 @@ type Props = {
   readonly showFish?: boolean;
   readonly showDates?: boolean;
   readonly showSesame?: boolean;
+  readonly showWool?: boolean;
   readonly visual?: boolean;
   readonly awaitingPickup?: Partial<Record<InventoryItemKey, number>>;
 };
@@ -54,6 +57,7 @@ export default function BuildingStorageTables({
   showFish = false,
   showDates = false,
   showSesame = false,
+  showWool = false,
   visual = false,
   awaitingPickup = {}
 }: Props) {
@@ -112,6 +116,7 @@ export default function BuildingStorageTables({
         ...(showSesame && location === "warehouse"
           ? [shared("sesame", "Sesame")]
           : []),
+        ...(showWool && location === "warehouse" ? [shared("wool", "Wool")] : []),
         shared("reed", "Reed"),
         shared("clay", "Clay")
       ]

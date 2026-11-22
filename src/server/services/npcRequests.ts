@@ -2,7 +2,7 @@ import { awardPoints } from "./playerPoints";
 import { and, eq, sql } from "drizzle-orm";
 import { Data, Effect } from "effect";
 import { MERCHANT_TRAVEL_MS, MERCHANT_PRODUCTS, NPC_REQUESTS } from "../../game-data/npcRequests";
-import { getRequestWindow, selectMerchantRequests } from "../../game-core/market/npcRequests";
+import { getRequestWindow, requiredMerchantStock, selectMerchantRequests } from "../../game-core/market/npcRequests";
 import type { NpcRequests } from "../../schemas/npcRequests";
 import type { FarmSnapshot } from "../../schemas/farm";
 import type { Database, DatabaseTransaction } from "../db/client";
@@ -93,7 +93,7 @@ export const deliverNpcRequest = (database: Database, input: DeliveryInput) => E
         const quantity = request[product] ?? 0;
         if (quantity === 0) continue;
         const storage = await loadMarketItemStorage(tx, farm.id, product, now);
-        if (storage.storedQuantity < quantity) return { reason: "insufficient_goods" };
+        if (storage.storedQuantity < requiredMerchantStock(product, quantity)) return { reason: "insufficient_goods" };
         deliveries.push({ storage, quantity });
       }
       const [player] = await tx.select().from(players).where(eq(players.id, input.playerId)).for("update");
@@ -106,7 +106,12 @@ export const deliverNpcRequest = (database: Database, input: DeliveryInput) => E
         type: "request_reward", requestCustomer: request.customer, delta: request.reward, balanceAfter: balance, createdAt: now });
       await tx.update(npcRequestBoards).set({ completed: [...board.completed, input.slot] }).where(eq(npcRequestBoards.farmId, farm.id));
       await awardPoints(tx, farm.playerId, { action: "merchantRequest", source: `request:${farm.id}:${input.cycle}:${input.slot}`, completedAt: now });
-      const [updated] = await tx.update(farms).set({ version: sql`${farms.version} + 1`, updatedAt: now }).where(eq(farms.id, farm.id)).returning();
+      // Count requests, not jars. The farm lock and completed-slot guard above
+      // make retries safe; this commits atomically with goods, payment and points.
+      const progressionStats = (request.beer ?? 0) > 0
+        ? { ...farm.progressionStats, beerRequestsFulfilled: (farm.progressionStats.beerRequestsFulfilled ?? 0) + 1 }
+        : farm.progressionStats;
+      const [updated] = await tx.update(farms).set({ progressionStats, version: sql`${farms.version} + 1`, updatedAt: now }).where(eq(farms.id, farm.id)).returning();
       return { snapshot: await readFarmSnapshot(tx, updated!, false) };
     }),
     catch: cause => new NpcRequestPersistenceError({ cause })

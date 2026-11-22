@@ -4,8 +4,14 @@ import { productionIsPreparing } from "../../game-data/productionPreparation";
 /** Persisted jobs own the farmer until the server completes them. */
 export const farmerProductionJob = (farm: {
   readonly milling?: { readonly buildingId: string; readonly worker?: "farmer" | "donkey"; readonly startedAt?: string } | null;
-  readonly production?: { readonly cooking?: ProductionState["cooking"]; readonly donkeyMilling?: { readonly buildingId: string; readonly startedAt: string } | null; readonly baking?: ProductionState["baking"]; readonly brewing?: ProductionState["brewing"] };
+  readonly production?: { readonly livestock?: ProductionState["livestock"]; readonly cooking?: ProductionState["cooking"]; readonly donkeyMilling?: { readonly buildingId: string; readonly startedAt: string } | null; readonly baking?: ProductionState["baking"]; readonly brewing?: ProductionState["brewing"] };
 }, now = Date.now()) => {
+  const shearing = farm.production?.livestock?.shearing;
+  if (shearing && !shearing.settled) return { type: "livestock" as const, buildingId: shearing.penId };
+  const feeding = farm.production?.livestock?.feeding;
+  if (feeding && now < feeding.completesAt) return { type: "livestock" as const, buildingId: feeding.penId };
+  const delivery = farm.production?.livestock?.delivery;
+  if (delivery && now < delivery.completesAt) return { type: "livestock" as const, buildingId: delivery.penId };
   if (farm.production?.cooking) return { type: "cooking" as const, buildingId: farm.production.cooking.buildingId };
   if (farm.milling && (farm.milling.worker !== "donkey" || productionIsPreparing(farm.milling, now))) return { type: "milling" as const, buildingId: farm.milling.buildingId };
   if (farm.production?.donkeyMilling && productionIsPreparing(farm.production.donkeyMilling, now)) return { type: "milling" as const, buildingId: farm.production.donkeyMilling.buildingId };

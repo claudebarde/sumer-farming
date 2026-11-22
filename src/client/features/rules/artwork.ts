@@ -1,7 +1,8 @@
+import sheepPen from '../../../assets/sprite_assets/pngs/v2/isometric-test/sheep/sheep-pen-empty-test.png';
 import barleyStand from '../../../assets/sprite_assets/pngs/v2/isometric-test/market-barley-isometric.webp';
 import bakingStand from '../../../assets/sprite_assets/pngs/v2/isometric-test/market-baking-isometric.webp';
 import beerStand from '../../../assets/sprite_assets/pngs/v2/isometric-test/market-beer-isometric.webp';
-import produceStand from '../../../assets/sprite_assets/pngs/v2/isometric-test/fruit-vegetable-market-stand-isometric.png';
+import produceStand from '../../../assets/sprite_assets/pngs/v2/isometric-test/produce-provisions-market-stand-isometric.png';
 import suppliesStand from '../../../assets/sprite_assets/pngs/v2/isometric-test/supplies-equipment-market-stand-isometric.png';
 import barley from '../../../assets/sprite_assets/pngs/wheat-sheaf.webp';
 import sesame from '../../../assets/sprite_assets/pngs/v2/isometric-test/sesame/sesame-basket-isometric.png';
@@ -38,6 +39,7 @@ export const RULE_ARTWORK: Readonly<Record<string, { src: string; alt: string }>
   'bread-oven': { src: oven, alt: 'Bread oven' },
   brewery: { src: brewery, alt: 'Brewery' },
   'small-shrine': { src: shrine, alt: 'Small shrine' },
+  'sheep-pen': { src: sheepPen, alt: 'Sheep pen' },
   warehouse: { src: warehouse, alt: 'Warehouse' },
   kitchen: { src: kitchen, alt: 'Kitchen' },
   market: { src: market, alt: 'Market' },

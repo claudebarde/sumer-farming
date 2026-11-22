@@ -20,8 +20,8 @@ export const cookMeal = (db: Database, input: Extract<GameCommand, { type: "cook
     const [record] = await tx.select().from(farms).where(eq(farms.playerId, input.playerId)).for("update");
     const fail = (message: string) => new ProductionRuleError({ message });
     if (!record) return fail("Farm not found.");
+    if (record.version !== input.expectedFarmVersion) return fail("The farm changed. Please try again.");
     const snapshot = await readFarmSnapshot(tx, record, false), now = Date.now();
-    if (snapshot.farm.version !== input.expectedFarmVersion) return fail("The farm changed. Please try again.");
     if (record.level < 11) return fail("Reach level 11 to cook meals.");
     const indoorKitchen = record.homeAppearance.furniture?.find(item => item.key === "indoor-kitchen");
     if ((!input.interiorPosition && !input.fromFarm) || !indoorKitchen || input.buildingId !== record.id) return fail("Place a kitchen inside your home first.");

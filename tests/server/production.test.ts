@@ -115,6 +115,8 @@ describe("baking and finished-goods delivery", () => {
     expect(first.farm.production.pending[f.oven.id]).toEqual({ itemKey: "bread", quantity: 2 });
     expect(first.farm.production.baking).toEqual({});
     expect(first.farm.progression?.stats.breadProduced).toBe(2);
+    expect(first.farm.progression?.stats.productionSpecialty).toEqual({ quantities: { bread: 2 }, leader: "bread" });
+    expect((await f.refresh()).farm.progression?.stats.productionSpecialty).toEqual(first.farm.progression?.stats.productionSpecialty);
     expect((await f.refresh()).farm.progression?.stats.breadProduced).toBe(2);
     expect((await f.refresh()).farm.production.pending).toEqual(first.farm.production.pending);
     await Effect.runPromise(productionAction(db, f.bake(first.farm.version)));
@@ -180,4 +182,37 @@ describe("baking and finished-goods delivery", () => {
       expect((await f.refresh()).inventory.find(i => i.itemKey === "bread")?.quantity).toBe(2);
     } finally { await other.end(); }
   });
+});
+
+it("counts completed beer once without importing old production totals", async () => {
+  const f = await fixture();
+  const snapshot = await f.refresh();
+  await db.update(farms).set({ progressionStats: { ...snapshot.farm.progression!.stats,
+    beerProduced: 500, breadProduced: 400 } }).where(eq(farms.id, snapshot.farm.id));
+  await db.insert(farmBuildings).values({ farmId: snapshot.farm.id, type: "brewery", column: 8, row: 3,
+    startedAt: new Date(0), completesAt: new Date(1), beerReadyAt: new Date(2), beerServed: 0 });
+  const completed = await f.refresh();
+  expect(completed.farm.progression!.stats.productionSpecialty).toEqual({ quantities: { beer: 2 }, leader: "beer" });
+  expect((await f.refresh()).farm.progression!.stats.productionSpecialty).toEqual(completed.farm.progression!.stats.productionSpecialty);
+});
+
+it("starts baking while an elapsed porter delivery settles and rejects replay", async () => {
+  const f = await fixture();
+  const before = await f.refresh();
+  const now = Date.now();
+  await db.update(farms).set({ production: { ...before.farm.production, porter: {
+    hiredAt: now - 20000, expiresAt: now - 1000, checkedAt: now - 10000,
+    position: { column: 0, row: 5 },
+    job: { buildingId: f.oven.id, itemKey: "flour", quantity: 1, storageId: "farm",
+      startedAt: now - 10000, pickupAt: now - 9000, completesAt: now - 5000,
+      path: [{ column: 0, row: 5 }], pickupIndex: 0 }
+  } } }).where(eq(farms.id, f.farm.id));
+  const started = await Effect.runPromise(productionAction(db, f.bake(before.farm.version)));
+  expect(started.inventory.find(i => i.itemKey === "flour")?.quantity).toBe(7 - BREAD_RECIPE.flour);
+  expect(started.farm.production.baking[f.oven.id]).toBeDefined();
+  await expect(Effect.runPromise(Effect.flip(productionAction(db, f.bake(before.farm.version)))))
+    .resolves.toMatchObject({ message: "The farm changed. Please try again." });
+  expect((await f.refresh()).inventory.find(i => i.itemKey === "flour")?.quantity).toBe(7 - BREAD_RECIPE.flour);
+  expect((await f.finish()).farm.production.pending[f.oven.id]?.quantity).toBe(BREAD_RECIPE.output);
+  expect((await f.refresh()).farm.production.pending[f.oven.id]?.quantity).toBe(BREAD_RECIPE.output);
 });

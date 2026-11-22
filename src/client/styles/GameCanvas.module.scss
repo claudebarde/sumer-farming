@@ -1,3 +1,4 @@
+@use "./closeButton" as close;
 @use "./variables" as *;
 
 
@@ -319,6 +320,7 @@
 }
 
 .manage-dialog-close {
+  @include close.close-button;
   position: absolute;
   top: 12px;
   right: 12px;
@@ -449,7 +451,7 @@
   column-gap: 16px;
   align-items: start;
 
-  > img {
+  > img, > .sheepPenArtwork {
     grid-column: 1;
     grid-row: 1 / span 3;
     width: 160px;
@@ -470,8 +472,27 @@
   @media (max-width: 420px) {
     grid-template-columns: 1fr;
 
-    > img { grid-row: auto; justify-self: center; }
+    > img, > .sheepPenArtwork { grid-row: auto; justify-self: center; }
     > h3, > p { grid-column: 1; }
+  }
+}
+
+.sheepPenArtwork {
+  position: relative;
+
+  > img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  // Match the map's 174px grass beneath the 196px pen, anchored at y=.565.
+  > img.sheepPenGrass {
+    inset: 11.602% auto auto 5.612%;
+    width: 88.776%;
+    height: 88.776%;
   }
 }
 
@@ -606,6 +627,7 @@
 }
 
 .market-dialog-close {
+  @include close.close-button;
   display: flex;
   flex-shrink: 0;
   align-items: center;

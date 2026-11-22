@@ -6,7 +6,7 @@ const samples = {};
 for (const match of definitions.matchAll(/key: "([^"]+)".*?width: (\d+), height: (\d+)/g)) {
   const [, key, width, height] = match;
   const w = Number(width), h = Number(height);
-  const asset = key.replace(/-2$/, "");
+  const asset = ({ "patterned-reed-chest": "patterned-reed-storage-chest", "fine-household-pottery-set": "fine-pottery-side-table", "painted-large-jar": "painted-jar" })[key] ?? key.replace(/-2$/, "");
   const path = key === "indoor-kitchen" ? "kitchen/kitchen-interior-matched.png" : `home-interior/furniture/${asset}.png`;
   const { data, info } = await sharp(new URL(`../src/assets/sprite_assets/pngs/v2/isometric-test/${path}`, import.meta.url).pathname).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   let left = info.width, top = info.height, right = -1, bottom = -1;

@@ -1,0 +1,14 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Shearing animation review</title><style>body{margin:0;background:#f4e5c6;color:#382318;font:18px Georgia;text-align:center}h1{font-size:26px;margin:18px}canvas{display:block;width:min(65vh,90vw);height:auto;margin:auto}button,select{font:inherit;padding:10px 18px;background:#d9b97d;color:#382318;border:2px solid #ac8245;border-radius:8px;margin:5px}p{margin:8px}</style><h1>Shearing animation review</h1><canvas width="1280" height="1280"></canvas><div><button id="toggle" disabled>Loading…</button><button id="step" disabled>Next frame</button><select id="size" aria-label="Preview size"><option value="large">Large</option><option value="small">Small</option></select></div><p id="label"></p><p>Visual preview only · no game resources used</p><script>
+const files=["shear-01.png", "shear-02.png", "shear-03.png", "shear-04.png", "shear-05.png", "shear-06.png", "shear-07.png", "shear-08.png", "head-01.png", "head-02.png", "head-03.png"];
+const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d'),toggle=document.querySelector('#toggle'),step=document.querySelector('#step'),label=document.querySelector('#label');
+const images=files.map(f=>{const i=new Image();i.src='../../src/assets/sprite_assets/pngs/v2/isometric-test/sheep/farmer-shearing-animations/'+f;return i});
+let running=false,index=0,last=0,elapsed=0;
+const stroke=[[0,320],[1,100],[2,90],[3,90],[4,150],[5,100],[6,100],[7,110]];
+const sequence=[...stroke,[0,480],...stroke,[0,650],[8,150],[9,180],[10,140],[9,180],[8,150],[0,600],...stroke,[0,900]];
+function draw(n){ctx.clearRect(0,0,1280,1280);ctx.drawImage(images[n],0,0,1280,1280);label.textContent=files[n]}
+Promise.all(images.map(i=>i.decode())).then(()=>{toggle.disabled=false;step.disabled=false;toggle.textContent='Start';draw(0)}).catch(()=>label.textContent='Unable to load preview frames.');
+toggle.onclick=()=>{running=!running;last=performance.now();toggle.textContent=running?'Stop':'Start'};
+step.onclick=()=>{running=false;toggle.textContent='Start';index=(index+1)%sequence.length;elapsed=0;draw(sequence[index][0])};
+document.querySelector('#size').onchange=e=>canvas.style.width=e.target.value==='small'?'180px':'min(65vh,90vw)';
+function tick(now){if(running){elapsed+=Math.min(now-last,100);while(elapsed>=sequence[index][1]){elapsed-=sequence[index][1];index=(index+1)%sequence.length}draw(sequence[index][0])}last=now;requestAnimationFrame(tick)}requestAnimationFrame(tick);
+</script></html>

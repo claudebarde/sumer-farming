@@ -1,4 +1,4 @@
-import { BREWERY_WATER_CAPACITY, BREWERY_EMPTY_JAR_CAPACITY } from "../../game-data/brewing";
+import { BREWERY_WATER_CAPACITY, breweryEmptyJarCapacity } from "../../game-data/brewing";
 import { INITIAL_FARM_CONFIG } from "../../game-data/initialFarm";
 import { getBuildingFootprint, type BuildingCoordinate } from "./buildings";
 import type { FarmBuildingType } from "../../game-data/buildings";
@@ -24,6 +24,7 @@ type Building = BuildingCoordinate & {
 };
 
 export const validateBrewerySupply = (context: {
+  readonly farmLevel?: number;
   readonly action: BrewerySupplyAction;
   readonly target: BuildingCoordinate;
   readonly now: number;
@@ -57,7 +58,7 @@ export const validateBrewerySupply = (context: {
   if (context.action === "start_brewing" || context.action === "collect_beer" || context.action === "give_beer") return null;
   if (context.action === "stock_jars") {
     if (carriedItem !== null) return "jar_transfer_hands_full";
-    if (brewery.emptyBeerJars >= (brewery.type === "oilMill" ? 3 : BREWERY_EMPTY_JAR_CAPACITY)) return "brewery_full";
+    if (brewery.emptyBeerJars >= (brewery.type === "oilMill" ? 3 : breweryEmptyJarCapacity(context.farmLevel ?? 1))) return "brewery_full";
     return (context.inventory?.find(item => item.itemKey === "emptyBeerJar")?.quantity ?? 0) > 0 ? null : "no_empty_jars";
   }
   if (carriedItem === null || carriedItem.itemKey !== "water") return "wrong_supply";

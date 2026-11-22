@@ -1,3 +1,4 @@
+import { recordSpecialtyProduction } from "../../game-core/farm/productionSpecialty";
 import { productionMealMultiplier } from "../../game-data/kitchen";
 import { farmerProductionJob } from "../../game-core/farm/farmerProduction";
 import { setStoredQuantity } from "./physicalStorage";
@@ -8,7 +9,7 @@ import { datesTreatErrors, validateDatesTreat, happinessAfterDates } from "../..
 import { and, eq, gt, isNotNull, sql } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { validateBrewerySupply, brewerySupplyErrors, type BrewerySupplyRule } from "../../game-core/farm/brewerySupplies";
-import { WATER_LOAD_QUANTITY, BREWERY_EMPTY_JAR_CAPACITY } from "../../game-data/brewing";
+import { WATER_LOAD_QUANTITY, breweryEmptyJarCapacity } from "../../game-data/brewing";
 import { BEER_RECIPE } from "../../game-data/brewing";
 import { activeBuildingUpgrade, buildingLevel, buildingProductionMultiplier } from "../../game-data/buildingUpgrades";
 import { brewingErrors, validateBrewing, readyBeerQuantity } from "../../game-core/farm/brewing";
@@ -41,7 +42,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
         // this action against the latest state under the farm lock instead; retain
         // version protection for all inventory-consuming/transferring commands.
         const collectingWater = input.type === "brewery_supply" && input.action === "collect_water";
-        if (!collectingWater && farm.version !== input.expectedFarmVersion) return new BrewerySupplyRuleError({ type: "farm_version_conflict", message: "The farm changed. Please try again." });
+        if (!collectingWater && loaded.version !== input.expectedFarmVersion) return new BrewerySupplyRuleError({ type: "farm_version_conflict", message: "The farm changed. Please try again." });
         const [workingCrop] = await transaction.select({ id: farmCrops.id }).from(farmCrops).where(and(
           eq(farmCrops.farmId, farm.id),
           sql`(${gt(farmCrops.plantedAt, now)} OR ${isNotNull(farmCrops.harvestStartedAt)})`
@@ -79,7 +80,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
           }).where(eq(farms.id, farm.id)).returning();
           return readFarmSnapshot(transaction, updated!, false);
         }
-        const rule = validateBrewerySupply({ ...snapshot, ...input, carriedItem: snapshot.farm.carriedItem, now: now.getTime() });
+        const rule = validateBrewerySupply({ farmLevel: farm.level, ...snapshot, ...input, carriedItem: snapshot.farm.carriedItem, now: now.getTime() });
         if (rule !== null) return new BrewerySupplyRuleError({ type: rule, message: brewerySupplyErrors[rule] });
         if (input.action === "collect_beer") return new BrewerySupplyRuleError({ type: "beer_not_ready", message: "Click the beer jars beside the brewery and choose Store to deliver them to the farm." });
         const brewingAction = input.action === "start_brewing" || input.action === "give_beer";
@@ -129,7 +130,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
         }
         if (input.action === "stock_jars") {
           const brewery = snapshot.buildings.find(building => (building.type === "brewery" || building.type === "oilMill") && building.column === input.target.column && building.row === input.target.row)!;
-          const quantity = Math.min((brewery.type === "oilMill" ? 3 : BREWERY_EMPTY_JAR_CAPACITY) - brewery.emptyBeerJars,
+          const quantity = Math.min((brewery.type === "oilMill" ? 3 : breweryEmptyJarCapacity(farm.level)) - brewery.emptyBeerJars,
             snapshot.inventory.find(item => item.itemKey === "emptyBeerJar")!.quantity);
           await transaction.update(farmInventory).set({ quantity: sql`${farmInventory.quantity} - ${quantity}`, updatedAt: now })
             .where(and(eq(farmInventory.farmId, farm.id), eq(farmInventory.itemKey, "emptyBeerJar")));
@@ -145,7 +146,7 @@ export const supplyBrewery = (database: Database, input: Extract<GameCommand, { 
         const collecting = input.action === "collect_water";
         const [updated] = await transaction.update(farms).set({
           production,
-          progressionStats: { ...farm.progressionStats, beerProduced: farm.progressionStats.beerProduced + beerProduced },
+          progressionStats: { ...farm.progressionStats, productionSpecialty: recordSpecialtyProduction(farm.progressionStats.productionSpecialty, { beer: beerProduced }), beerProduced: farm.progressionStats.beerProduced + beerProduced },
           happiness: input.action === "give_beer" ? happinessAfterBeer(farm.happiness) : farm.happiness,
           lastBeerAt: input.action === "give_beer" ? now : farm.lastBeerAt,
           happinessCheckedAt: input.action === "give_beer" ? now : farm.happinessCheckedAt,

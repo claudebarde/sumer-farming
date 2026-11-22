@@ -1,3 +1,4 @@
+import { LivestockSchema } from "./livestock";
 import { CookingSchema, MealBenefitSchema } from "./kitchen";
 import { MaterialGatheringSchema } from "./materialGathering";
 import { MillingJobSchema } from "./milling";
@@ -11,6 +12,7 @@ import { BuildingUpgradesSchema } from "./buildingUpgrades";
 export const BREAD_RECIPE = { flour: 2, output: 2, durationMs: 5 * 60_000 } as const;
 export const ProductionStackSchema = z.object({ itemKey: z.enum(["beer", "bread", "oil"]), quantity: z.int().positive() });
 export const ProductionStateSchema = z.object({
+  livestock: LivestockSchema.optional(),
   cooking: CookingSchema.nullable().optional(),
   mealBenefit: MealBenefitSchema.nullable().optional(),
   donkeyMilling: MillingJobSchema.nullable().optional(),

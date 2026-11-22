@@ -8,8 +8,11 @@ export const getRequestWindow = (anchor: number, now: number) => {
     open: now >= opensAt && now < closesAt };
 };
 
+export const requiredMerchantStock = (product: string, quantity: number) =>
+  quantity + (product === "barley" && quantity > 0 ? 1 : 0);
+
 export const canDeliverRequest = (request: NpcRequestDefinition, stock: MerchantStock) =>
-  MERCHANT_PRODUCTS.every(product => (stock[product] ?? 0) >= (request[product] ?? 0));
+  MERCHANT_PRODUCTS.every(product => (stock[product] ?? 0) >= requiredMerchantStock(product, request[product] ?? 0));
 
 // Stable per farm and visit, with previously requested products sorted last.
 const offerRank = (seed: string) => {

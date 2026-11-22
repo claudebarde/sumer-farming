@@ -126,13 +126,13 @@ export const plantCrop = (
           );
           assertFarmerAvailable(farm);
 
-          if (farm.version !== input.expectedFarmVersion) {
+          if (loadedFarm.version !== input.expectedFarmVersion) {
             return {
               type: "rule_error",
               rule: {
                 type: "version_conflict",
                 expectedVersion: input.expectedFarmVersion,
-                actualVersion: farm.version
+                actualVersion: loadedFarm.version
               }
             };
           }

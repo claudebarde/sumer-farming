@@ -1,0 +1,2 @@
+ALTER TYPE "public"."farm_building_type" ADD VALUE 'sheepPen' BEFORE 'granary';--> statement-breakpoint
+ALTER TYPE "public"."shekel_transaction_type" ADD VALUE 'building_construction' BEFORE 'crop_planting';
